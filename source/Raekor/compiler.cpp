@@ -20,7 +20,7 @@
 
 #include <winioctl.h>
 
-namespace Raekor {
+namespace RK {
 
 CompilerApp::CompilerApp(WindowFlags inFlags) : Application(inFlags | WindowFlag::RESIZE)
 {
@@ -43,7 +43,7 @@ CompilerApp::CompilerApp(WindowFlags inFlags) : Application(inFlags | WindowFlag
 
 	ImGui_ImplSDL2_InitForSDLRenderer(m_Window, m_Renderer);
 	ImGui_ImplSDLRenderer_Init(m_Renderer);
-	SDL_SetWindowTitle(m_Window, "Raekor Compiler App");
+	SDL_SetWindowTitle(m_Window, "RK Compiler App");
 
 	SDL_SysWMinfo wminfo;
 	SDL_VERSION(&wminfo.version);
@@ -58,7 +58,7 @@ CompilerApp::CompilerApp(WindowFlags inFlags) : Application(inFlags | WindowFlag
 	nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
 	nid.uCallbackMessage = WIN_TRAY_MESSAGE;
 	nid.hIcon = (HICON)GetClassLongPtr(wminfo.info.win.window, -14);
-	strcpy(nid.szTip, "Raekor Compiler App");
+	strcpy(nid.szTip, "RK Compiler App");
 
 	Shell_NotifyIcon(NIM_ADD, &nid);
 
@@ -69,24 +69,24 @@ CompilerApp::CompilerApp(WindowFlags inFlags) : Application(inFlags | WindowFlag
 	// ShowWindow(GetConsoleWindow(), SW_HIDE);
 #endif
 
-	SDL_SetWindowTitle(m_Window, "Raekor Asset Compiler");
+	SDL_SetWindowTitle(m_Window, "RK Asset Compiler");
 
-	for (const auto& file : fs::recursive_directory_iterator("assets"))
+	for (const fs::directory_entry& file : fs::recursive_directory_iterator("assets"))
 	{
 		if (!file.is_regular_file())
 			continue;
 
-		const auto path = file.path();
-		const auto extension = path.extension();
+		const Path path = file.path();
+		const Path extension = path.extension();
 
-		const auto new_extension = GetCacheFileExtension(file);
-		if (new_extension == ASSET_TYPE_NONE)
+		const AssetType asset_type = GetCacheFileExtension(file);
+		if (asset_type == ASSET_TYPE_NONE)
 			continue;
 
 		// if (m_Files.size() > 65)
 		//     return;
 
-		auto& file_entry = m_Files.emplace_back(file);
+		FileEntry& file_entry = m_Files.emplace_back(file);
 		file_entry.ReadMetadata();
 	}
 
@@ -94,14 +94,14 @@ CompilerApp::CompilerApp(WindowFlags inFlags) : Application(inFlags | WindowFlag
 
 	g_ThreadPool.QueueJob([this]() 
 	{
-		for (auto& file : m_Files)
+		for (FileEntry& file : m_Files)
 			file.UpdateFileHash();
 	});
 
 	stbi_set_flip_vertically_on_load(true);
 
-	const auto assets_folder = fs::absolute("assets").string();
-	auto change_notifs = FindFirstChangeNotificationA(assets_folder.c_str(), true, FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_SIZE | FILE_NOTIFY_CHANGE_LAST_WRITE);
+	String assets_folder = fs::absolute("assets").string();
+	HANDLE change_notifs = FindFirstChangeNotificationA(assets_folder.c_str(), true, FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_SIZE | FILE_NOTIFY_CHANGE_LAST_WRITE);
 	assert(change_notifs != INVALID_HANDLE_VALUE);
 
 	m_StartTicks = Timer::sGetCurrentTick();
@@ -155,10 +155,11 @@ void CompilerApp::OnUpdate(float inDeltaTime)
 	ImGui::SetNextWindowSize(ImGui::GetIO().DisplaySize);
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
 
-	const auto frame_padding = ImGui::GetStyle().FramePadding;
+	const ImVec2 frame_padding = ImGui::GetStyle().FramePadding;
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(frame_padding.x, frame_padding.y * 0.5));
 
-	auto window_flags = ImGuiWindowFlags_NoScrollWithMouse |
+	ImGuiWindowFlags window_flags = 
+		ImGuiWindowFlags_NoScrollWithMouse |
 		ImGuiWindowFlags_NoScrollbar |
 		ImGuiWindowFlags_NoTitleBar |
 		ImGuiWindowFlags_NoResize |
@@ -168,19 +169,19 @@ void CompilerApp::OnUpdate(float inDeltaTime)
 	bool open = true;
 	ImGui::Begin("##Compiler", &open, window_flags);
 
-	auto compile_scenes = m_CompileScenes.load();
+	bool compile_scenes = m_CompileScenes.load();
 	if (ImGui::Checkbox("Convert Models", &compile_scenes))
 		m_CompileScenes.store(compile_scenes);
 
 	ImGui::SameLine();
 
-	auto compile_textures = m_CompileTextures.load();
+	bool compile_textures = m_CompileTextures.load();
 	if (ImGui::Checkbox("Convert Textures", &compile_textures))
 		m_CompileTextures.store(compile_textures);
 
 	ImGui::SameLine();
 
-	auto compile_scripts = m_CompileScripts.load();
+	bool compile_scripts = m_CompileScripts.load();
 	if (ImGui::Checkbox("Convert Scripts", &compile_scripts))
 		m_CompileScripts.store(compile_scripts);
 
@@ -196,11 +197,11 @@ void CompilerApp::OnUpdate(float inDeltaTime)
 		ImGui::Text("Compilation took %.2f seconds.", Timer::sGetTicksToSeconds(m_FinishedTicks - m_StartTicks));
 	}
 
-	auto flags = ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_Sortable;
+	ImGuiTableFlags table_flags = ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_Sortable;
 	ImGui::PushStyleColor(ImGuiCol_TableRowBg, ImVec4(0.15, 0.15, 0.15, 1.0));
 	ImGui::PushStyleColor(ImGuiCol_TableRowBgAlt, ImVec4(0.20, 0.20, 0.20, 1.0));
 
-	if (ImGui::BeginTable("Assets", 4, flags))
+	if (ImGui::BeginTable("Assets", 4, table_flags))
 	{
 		ImGui::TableSetupScrollFreeze(0, 1); // Make top row always visible
 		ImGui::TableSetupColumn("Asset File Path");
@@ -225,33 +226,33 @@ void CompilerApp::OnUpdate(float inDeltaTime)
 							case 0:
 							{
 								if (sort_spec->SortDirection == ImGuiSortDirection_Ascending)
-									std::sort(m_Files.begin(), m_Files.end(), [](const auto& lhs, const auto& rhs) { return lhs.mAssetPath < rhs.mAssetPath; });
+									std::sort(m_Files.begin(), m_Files.end(), [](const FileEntry& lhs, const FileEntry& rhs) { return lhs.mAssetPath < rhs.mAssetPath; });
 								else
-									std::sort(m_Files.begin(), m_Files.end(), [](const auto& lhs, const auto& rhs) { return lhs.mAssetPath > rhs.mAssetPath; });
+									std::sort(m_Files.begin(), m_Files.end(), [](const FileEntry& lhs, const FileEntry& rhs) { return lhs.mAssetPath > rhs.mAssetPath; });
 								break;
 							};
 							case 1:
 							{
 								if (sort_spec->SortDirection == ImGuiSortDirection_Ascending)
-									std::sort(m_Files.begin(), m_Files.end(), [](const auto& lhs, const auto& rhs) { return lhs.mCachePath < rhs.mCachePath; });
+									std::sort(m_Files.begin(), m_Files.end(), [](const FileEntry& lhs, const FileEntry& rhs) { return lhs.mCachePath < rhs.mCachePath; });
 								else
-									std::sort(m_Files.begin(), m_Files.end(), [](const auto& lhs, const auto& rhs) { return lhs.mCachePath > rhs.mCachePath; });
+									std::sort(m_Files.begin(), m_Files.end(), [](const FileEntry& lhs, const FileEntry& rhs) { return lhs.mCachePath > rhs.mCachePath; });
 								break;
 							};
 							case 2:
 							{
 								if (sort_spec->SortDirection == ImGuiSortDirection_Ascending)
-									std::sort(m_Files.begin(), m_Files.end(), [](const auto& lhs, const auto& rhs) { return lhs.mFileHash > rhs.mFileHash; });
+									std::sort(m_Files.begin(), m_Files.end(), [](const FileEntry& lhs, const FileEntry& rhs) { return lhs.mFileHash > rhs.mFileHash; });
 								else
-									std::sort(m_Files.begin(), m_Files.end(), [](const auto& lhs, const auto& rhs) { return lhs.mFileHash < rhs.mFileHash; });
+									std::sort(m_Files.begin(), m_Files.end(), [](const FileEntry& lhs, const FileEntry& rhs) { return lhs.mFileHash < rhs.mFileHash; });
 								break;
 							};
 							case 3:
 							{
 								if (sort_spec->SortDirection == ImGuiSortDirection_Ascending)
-									std::sort(m_Files.begin(), m_Files.end(), [](const auto& lhs, const auto& rhs) { return lhs.mWriteTime < rhs.mWriteTime; });
+									std::sort(m_Files.begin(), m_Files.end(), [](const FileEntry& lhs, const FileEntry& rhs) { return lhs.mWriteTime < rhs.mWriteTime; });
 								else
-									std::sort(m_Files.begin(), m_Files.end(), [](const auto& lhs, const auto& rhs) { return lhs.mWriteTime > rhs.mWriteTime; });
+									std::sort(m_Files.begin(), m_Files.end(), [](const FileEntry& lhs, const FileEntry& rhs) { return lhs.mWriteTime > rhs.mWriteTime; });
 								break;
 							};
 							default: assert(false);
@@ -289,17 +290,17 @@ void CompilerApp::OnUpdate(float inDeltaTime)
 
 				if (ImGui::MenuItem("Delete", "DELETE"))
 				{
-					const auto& file = m_Files[m_SelectedIndex];
+					const FileEntry& file = m_Files[m_SelectedIndex];
 
-					auto error_code = std::error_code();
+					std::error_code error_code;
 					if (fs::exists(file.mCachePath, error_code))
 						fs::remove(file.mCachePath);
 				}
 
 				if (ImGui::MenuItem("Open Containing Folder.."))
 				{
-					auto& filepath = fs::exists(file.mCachePath) ? file.mCachePath : file.mAssetPath;
-					auto folder = Path(filepath).parent_path().string();
+					String filepath = fs::exists(file.mCachePath) ? file.mCachePath : file.mAssetPath;
+					String folder = Path(filepath).parent_path().string();
 					ShellExecute(NULL, "open", folder.c_str(), NULL, NULL, SW_RESTORE);
 				}
 
@@ -427,9 +428,9 @@ void CompilerApp::OnUpdate(float inDeltaTime)
 			{
 				fs::create_directories(Path(file.mCachePath).parent_path());
 
-				const auto clang_exe = "dependencies\\clang\\clang.exe";
-				const auto includes = "-I source\\Raekor\\ -I dependencies\\BinaryRelations -I dependencies\\cgltf -I dependencies\\glm\\glm -I dependencies\\JoltPhysics -I build\\vcpkg_installed\\x64-windows-static\\include";
-				const auto command = std::format("{} -gcodeview {} {} -shared -std=c++20 -o {}", clang_exe, includes, file.mAssetPath, file.mCachePath);
+				const String clang_exe = "dependencies\\clang\\clang.exe";
+				const String includes = "-I source\\RK\\ -I dependencies\\BinaryRelations -I dependencies\\cgltf -I dependencies\\glm\\glm -I dependencies\\JoltPhysics -I build\\vcpkg_installed\\x64-windows-static\\include";
+				const String command = std::format("{} -gcodeview {} {} -shared -std=c++20 -o {}", clang_exe, includes, file.mAssetPath, file.mCachePath);
 
 				OS::sCreateProcess(command.c_str());
 
@@ -446,19 +447,19 @@ void CompilerApp::OnUpdate(float inDeltaTime)
 
 			g_ThreadPool.QueueJob([this, index, &file]()
 			{
-				auto assets = Assets();
-				auto scene = Scene(nullptr); // nullptr, dont need a renderer
+				Assets assets;
+				Scene scene(nullptr); // nullptr, dont need a renderer
 
-				const auto extension = Path(file.mAssetPath).extension();
+				const Path extension = Path(file.mAssetPath).extension();
 
 				if (extension == ".fbx")
 				{
-					auto importer = FBXImporter(scene, nullptr);
+					FBXImporter importer(scene, nullptr);
 					importer.LoadFromFile(file.mAssetPath, nullptr);
 				}
 				else if (extension == ".gltf")
 				{
-					auto importer = GltfImporter(scene, nullptr);
+					GltfImporter importer(scene, nullptr);
 					importer.LoadFromFile(file.mAssetPath, nullptr);
 				}
 #ifndef DEPRECATE_ASSIMP
@@ -557,9 +558,9 @@ void CompilerApp::OnEvent(const SDL_Event& inEvent)
 			{
 				if (m_SelectedIndex > 0 && m_SelectedIndex < m_Files.size())
 				{
-					const auto& file = m_Files[m_SelectedIndex];
+					const FileEntry& file = m_Files[m_SelectedIndex];
 
-					auto error_code = std::error_code();
+					std::error_code error_code;
 					if (fs::exists(file.mCachePath, error_code))
 						fs::remove(file.mCachePath);
 				}
@@ -584,8 +585,8 @@ void CompilerApp::LogMessage(const std::string& inMessage)
 	cds.lpData = (PVOID)inMessage.c_str();
 	cds.cbData = inMessage.size() + 1;
 
-	auto hwnd = wminfo.info.win.window;
-	auto parent = GetAncestor(hwnd, GA_PARENT);
+	HWND hwnd = wminfo.info.win.window;
+	HWND parent = GetAncestor(hwnd, GA_PARENT);
 	SendMessage(parent, WM_COPYDATA, (WPARAM)(HWND)hwnd, (LPARAM)(LPVOID)&cds);
 }
 

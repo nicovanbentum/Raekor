@@ -4,7 +4,7 @@
 #include "VKDevice.h"
 #include "VKUtil.h"
 
-namespace Raekor::VK {
+namespace RK::VK {
 
 FrameBuffer::Desc& FrameBuffer::Desc::ColorAttachment(uint32_t index, Texture& texture)
 {

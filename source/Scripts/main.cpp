@@ -1,6 +1,6 @@
 #define RAEKOR_SCRIPT
 #include "Raekor/raekor.h"
-using namespace Raekor;
+using namespace RK;
 
 // For DllMain
 #include <Windows.h>

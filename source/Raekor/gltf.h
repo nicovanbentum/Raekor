@@ -2,7 +2,7 @@
 
 #include "scene.h"
 
-namespace Raekor {
+namespace RK {
 
 class Async;
 class Assets;

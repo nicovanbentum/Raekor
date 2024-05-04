@@ -22,7 +22,7 @@
 
 extern float samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d_1spp(int pixel_i, int pixel_j, int sampleIndex, int sampleDimension);
 
-namespace Raekor::DX12 {
+namespace RK::DX12 {
 
 class DXProfiler : public Profiler {};
 
@@ -43,7 +43,7 @@ DXApp::DXApp() :
 
     Timer timer;
 
-    auto read_archive = JSON::ReadArchive("assets\\system\\shaders\\DirectX\\shaders.json");
+    JSON::ReadArchive read_archive("assets\\system\\shaders\\DirectX\\shaders.json");
     read_archive >> g_SystemShaders;
 
     // compile shaders
@@ -226,7 +226,7 @@ DescriptorID DXApp::UploadTextureDirectStorage(const TextureAsset::Ptr& inAsset,
     const DDS_HEADER* header_ptr = inAsset->GetHeader();
 
     // I think DirectStorage doesnt do proper texture data alignment for its upload buffers as we get garbage past the 4th mip
-    // const auto mipmap_levels = header->dwMipMapCount;
+    // const uint32_t mipmap_levels = header->dwMipMapCount;
     const uint32_t mipmap_levels = std::min(header_ptr->dwMipMapCount, 4ul);
 
     const String debug_name = inAsset->GetPath().string();

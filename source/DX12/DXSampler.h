@@ -1,6 +1,6 @@
 #pragma once
 
-namespace Raekor::DX12 {
+namespace RK::DX12 {
 
 enum ESamplerIndex
 {

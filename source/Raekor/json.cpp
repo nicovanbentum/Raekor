@@ -2,7 +2,7 @@
 #include "json.h"
 #include "iter.h"
 
-namespace Raekor::JSON {
+namespace RK::JSON {
 
 JSONData::JSONData(const Path& inPath, bool inTokenizeOnly)
 {

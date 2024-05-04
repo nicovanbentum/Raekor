@@ -4,7 +4,7 @@
 #include "VKDevice.h"
 #include "VKUtil.h"
 
-namespace Raekor::VK {
+namespace RK::VK {
 
 void SwapChain::Create(const Device& device, glm::uvec2 resolution, VkPresentModeKHR mode)
 {

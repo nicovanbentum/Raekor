@@ -4,7 +4,7 @@
 #include "json.h"
 #include "gui.h"
 
-namespace Raekor {
+namespace RK {
 
 template<typename Class, typename T>
 class ClassMember : public Member

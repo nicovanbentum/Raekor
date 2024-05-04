@@ -3,7 +3,7 @@
 #include "member.h"
 #include "timer.h"
 
-namespace Raekor {
+namespace RK {
 
 RTTI_DEFINE_TYPE(Vec3Key)
 {
@@ -62,9 +62,9 @@ void KeyFrames::LoadFromGltf(const cgltf_animation_channel* channel)
 		{
 			for (uint32_t index = 0; index < channel->sampler->input->count; index++)
 			{
-				auto& key = m_PositionKeys.emplace_back();
+				Vec3Key& key = m_PositionKeys.emplace_back();
 
-				const auto num_components = cgltf_num_components(channel->sampler->input->type);
+				const cgltf_size num_components = cgltf_num_components(channel->sampler->input->type);
 				assert(num_components == 1);
 
 				cgltf_accessor_read_float(channel->sampler->input, index, buffer, num_components);
@@ -74,9 +74,9 @@ void KeyFrames::LoadFromGltf(const cgltf_animation_channel* channel)
 			for (uint32_t index = 0; index < channel->sampler->output->count; index++)
 			{
 				assert(index < m_PositionKeys.size());
-				auto& key = m_PositionKeys[index];
+				Vec3Key& key = m_PositionKeys[index];
 
-				const auto num_components = cgltf_num_components(channel->sampler->output->type);
+				const cgltf_size num_components = cgltf_num_components(channel->sampler->output->type);
 				assert(num_components == 3);
 
 				cgltf_accessor_read_float(channel->sampler->output, index, buffer, num_components);
@@ -89,9 +89,9 @@ void KeyFrames::LoadFromGltf(const cgltf_animation_channel* channel)
 		{
 			for (uint32_t index = 0; index < channel->sampler->input->count; index++)
 			{
-				auto& key = m_RotationKeys.emplace_back();
+				QuatKey& key = m_RotationKeys.emplace_back();
 
-				const auto num_components = cgltf_num_components(channel->sampler->input->type);
+				const int num_components = cgltf_num_components(channel->sampler->input->type);
 				assert(num_components == 1);
 
 				cgltf_accessor_read_float(channel->sampler->input, index, buffer, num_components);
@@ -101,9 +101,9 @@ void KeyFrames::LoadFromGltf(const cgltf_animation_channel* channel)
 			for (uint32_t index = 0; index < channel->sampler->output->count; index++)
 			{
 				assert(index < m_RotationKeys.size());
-				auto& key = m_RotationKeys[index];
+				QuatKey& key = m_RotationKeys[index];
 
-				const auto num_components = cgltf_num_components(channel->sampler->output->type);
+				const int num_components = cgltf_num_components(channel->sampler->output->type);
 				assert(num_components == 4);
 
 				cgltf_accessor_read_float(channel->sampler->output, index, buffer, num_components);
@@ -116,9 +116,9 @@ void KeyFrames::LoadFromGltf(const cgltf_animation_channel* channel)
 		{
 			for (uint32_t index = 0; index < channel->sampler->input->count; index++)
 			{
-				auto& key = m_ScaleKeys.emplace_back();
+				Vec3Key& key = m_ScaleKeys.emplace_back();
 
-				const auto num_components = cgltf_num_components(channel->sampler->input->type);
+				const int num_components = cgltf_num_components(channel->sampler->input->type);
 				assert(num_components == 1);
 
 				cgltf_accessor_read_float(channel->sampler->input, index, buffer, num_components);
@@ -128,9 +128,9 @@ void KeyFrames::LoadFromGltf(const cgltf_animation_channel* channel)
 			for (uint32_t index = 0; index < channel->sampler->output->count; index++)
 			{
 				assert(index < m_ScaleKeys.size());
-				auto& key = m_ScaleKeys[index];
+				Vec3Key& key = m_ScaleKeys[index];
 
-				const auto num_components = cgltf_num_components(channel->sampler->output->type);
+				const int num_components = cgltf_num_components(channel->sampler->output->type);
 				assert(num_components == 3);
 
 				cgltf_accessor_read_float(channel->sampler->output, index, buffer, num_components);
@@ -148,8 +148,8 @@ Vec3 KeyFrames::GetInterpolatedPosition(float animationTime) const
 	if (m_PositionKeys.size() == 1)
 		return m_PositionKeys[0].mValue;
 
-	auto pos_index = 0u;
-	for (auto i = 0u; i < m_PositionKeys.size() - 1; i++)
+	int pos_index = 0;
+	for (int i = 0; i < m_PositionKeys.size() - 1; i++)
 	{
 		if (animationTime < (float)m_PositionKeys[i + 1].mTime)
 		{
@@ -158,17 +158,17 @@ Vec3 KeyFrames::GetInterpolatedPosition(float animationTime) const
 		}
 	}
 
-	auto NextPositionIndex = ( pos_index + 1 );
-	auto delta_time = (float)( m_PositionKeys[NextPositionIndex].mTime - m_PositionKeys[pos_index].mTime );
+	int NextPositionIndex = ( pos_index + 1 );
+	float delta_time = m_PositionKeys[NextPositionIndex].mTime - m_PositionKeys[pos_index].mTime;
 
-	auto factor = ( animationTime - (float)m_PositionKeys[pos_index].mTime ) / delta_time;
+	float factor = ( animationTime - (float)m_PositionKeys[pos_index].mTime ) / delta_time;
 	if (factor < 0.0f)
 		factor = 0.0f;
 
-	const auto& start = m_PositionKeys[pos_index].mValue;
-	const auto& end = m_PositionKeys[NextPositionIndex].mValue;
-	auto delta = end - start;
-	auto ai_vec = start + factor * delta;
+	const Vec3& start = m_PositionKeys[pos_index].mValue;
+	const Vec3& end = m_PositionKeys[NextPositionIndex].mValue;
+	Vec3 delta = end - start;
+	Vec3 ai_vec = start + factor * delta;
 
 	return { ai_vec.x, ai_vec.y, ai_vec.z };
 }
@@ -179,8 +179,8 @@ Quat KeyFrames::GetInterpolatedRotation(float animationTime) const
 	if (m_RotationKeys.size() == 1)
 		return m_RotationKeys[0].mValue;
 
-	auto rotation_index = 0u;
-	for (auto i = 0u; i < m_RotationKeys.size() - 1; i++)
+	int rotation_index = 0;
+	for (int i = 0; i < m_RotationKeys.size() - 1; i++)
 	{
 		if (animationTime < (float)m_RotationKeys[i + 1].mTime)
 		{
@@ -189,16 +189,15 @@ Quat KeyFrames::GetInterpolatedRotation(float animationTime) const
 		}
 	}
 
-	auto next_rotation_index = ( rotation_index + 1 );
+	int next_rotation_index = ( rotation_index + 1 );
 
-	auto delta_time = (float)( m_RotationKeys[next_rotation_index].mTime - m_RotationKeys[rotation_index].mTime );
-	auto factor = ( animationTime - (float)m_RotationKeys[rotation_index].mTime ) / delta_time;
+	float delta_time = (float)( m_RotationKeys[next_rotation_index].mTime - m_RotationKeys[rotation_index].mTime );
+	float factor = ( animationTime - (float)m_RotationKeys[rotation_index].mTime ) / delta_time;
 	if (factor < 0.0f)
 		factor = 0.0f;
 
-	const auto& start_rotation_quat = m_RotationKeys[rotation_index].mValue;
-	const auto& end_rotation_quat = m_RotationKeys[next_rotation_index].mValue;
-
+	const Quat& start_rotation_quat = m_RotationKeys[rotation_index].mValue;
+	const Quat& end_rotation_quat = m_RotationKeys[next_rotation_index].mValue;
 
 	return glm::normalize(glm::slerp(start_rotation_quat, end_rotation_quat, factor));
 }
@@ -209,8 +208,8 @@ Vec3 KeyFrames::GetInterpolatedScale(float animationTime) const
 	if (m_ScaleKeys.size() == 1)
 		return m_ScaleKeys[0].mValue;
 
-	auto index = 0u;
-	for (auto i = 0u; i < m_ScaleKeys.size() - 1; i++)
+	int index = 0;
+	for (int i = 0; i < m_ScaleKeys.size() - 1; i++)
 	{
 		if (animationTime < (float)m_ScaleKeys[i + 1].mTime)
 		{
@@ -219,17 +218,17 @@ Vec3 KeyFrames::GetInterpolatedScale(float animationTime) const
 		}
 	}
 
-	auto next_index = ( index + 1 );
-	auto delta_time = (float)( m_ScaleKeys[next_index].mTime - m_ScaleKeys[index].mTime );
+	int next_index = ( index + 1 );
+	float delta_time = (float)( m_ScaleKeys[next_index].mTime - m_ScaleKeys[index].mTime );
 
-	auto factor = ( animationTime - (float)m_ScaleKeys[index].mTime ) / delta_time;
+	float factor = ( animationTime - (float)m_ScaleKeys[index].mTime ) / delta_time;
 	if (factor < 0.0f)
 		factor = 0.0f;
 
-	const auto& start = m_ScaleKeys[index].mValue;
-	const auto& end = m_ScaleKeys[next_index].mValue;
-	auto delta = end - start;
-	auto aiVec = start + factor * delta;
+	const Vec3& start = m_ScaleKeys[index].mValue;
+	const Vec3& end = m_ScaleKeys[next_index].mValue;
+	Vec3 delta = end - start;
+	Vec3 aiVec = start + factor * delta;
 
 	return { aiVec.x, aiVec.y, aiVec.z };
 }
@@ -245,13 +244,12 @@ Animation::Animation(const aiAnimation* inAnimation)
 
 #endif
 
-Animation::Animation(const cgltf_animation* inAnimation)
+Animation::Animation(const cgltf_animation* inAnimation) : m_Name(inAnimation->name ? inAnimation->name : "Animation")
 {
-	m_Name = inAnimation->name ? inAnimation->name : "Animation";
-	m_RunningTime = 0;
-	m_TotalDuration = 0;
-	for (const auto& channel : Slice(inAnimation->channels, inAnimation->channels_count))
+	for (const cgltf_animation_channel& channel : Slice(inAnimation->channels, inAnimation->channels_count))
+	{
 		m_TotalDuration = glm::max(m_TotalDuration, Timer::sToMilliseconds(channel.sampler->input->max[0]));
+	}
 }
 
 #ifndef DEPRECATE_ASSIMP

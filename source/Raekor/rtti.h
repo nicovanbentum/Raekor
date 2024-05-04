@@ -3,7 +3,7 @@
 #include "hash.h"
 #include "serial.h"
 
-namespace Raekor::JSON 
+namespace RK::JSON 
 {
 	class JSONData;
 	class JSONWriter;
@@ -12,7 +12,7 @@ namespace Raekor::JSON
 template<typename T>
 concept HasRTTI = requires ( T t ) { t.GetRTTI(); };
 
-namespace Raekor {
+namespace RK {
 
 class Member;
 
@@ -45,6 +45,7 @@ public:
 	bool operator==(const RTTI& rhs) const { return mHash == rhs.mHash; }
 	bool operator!=(const RTTI& rhs) const { return mHash != rhs.mHash; }
 
+	inline uint32_t GetHash() const { return mHash; }
 	inline const char* GetTypeName() const { return m_Name.c_str(); }
 
 	inline const auto end() const { return m_Members.end(); }
@@ -108,8 +109,8 @@ public:
 
 	void* Construct(const char* inType);
 
-	inline auto begin() const { return m_RegisteredTypes.begin(); }
-	inline auto end() const { return m_RegisteredTypes.end(); }
+	inline auto begin() const { return std::views::values(m_RegisteredTypes).begin(); }
+	inline auto end() const { return std::views::values(m_RegisteredTypes).end(); }
 
 private:
 	std::unordered_map<uint32_t, RTTI*> m_RegisteredTypes;
@@ -121,9 +122,9 @@ extern RTTIFactory g_RTTIFactory;
 
 
 namespace std {
-template <> struct hash<Raekor::RTTI>
+template <> struct hash<RK::RTTI>
 {
-	inline size_t operator()(const Raekor::RTTI& rtti) const
+	inline size_t operator()(const RK::RTTI& rtti) const
 	{
 		return rtti.mHash;
 	}
@@ -151,13 +152,13 @@ namespace type##Namespace { void sImplRTTI(RTTI& inRTTI); };    \
 
 #define RTTI_ENUM_STRING_CONVERSIONS(enum_type)                              \
     inline enum_type gFromString(const char* inString) {                     \
-        auto& rtti = RTTI_OF(enum_type);                                     \
-        const auto index = rtti.GetMemberIndex(inString);                    \
+        RTTI& rtti = RTTI_OF(enum_type);                                     \
+        const int32_t index = rtti.GetMemberIndex(inString);                    \
         return index != -1 ? (enum_type)index : (enum_type)0;                \
     }                                                                        \
                                                                              \
 inline const char* gToString(enum_type inType) {                             \
-    auto& rtti = RTTI_OF(enum_type);                                         \
+    RTTI& rtti = RTTI_OF(enum_type);                                         \
     return rtti.GetMember((uint32_t)inType)->GetName();                      \
 }                                                                            \
 
@@ -176,7 +177,7 @@ public:                                                                         
 
 #define __RTTI_DEFINE_TYPE(type, factory_type, inline_qualifier)                                                        \
     inline_qualifier RTTI& sGetRTTI(const type* inType) {                                                               \
-        static auto rtti = RTTI(#type, &type::sImplRTTI, []() -> void* { return factory_type; });                       \
+        static RTTI rtti = RTTI(#type, &type::sImplRTTI, []() -> void* { return factory_type; });                       \
         return rtti;                                                                                                    \
     }                                                                                                                   \
                                                                                                                         \
@@ -204,7 +205,7 @@ public:                                                                         
 
 #define RTTI_DEFINE_TYPE_PRIMITIVE(type)	\
 	RTTI& sGetRTTI(const type* inType) {	\
-		static auto rtti = RTTI(#type);		\
+		static RTTI rtti = RTTI(#type);		\
 			return rtti;					\
 	}
 
@@ -213,13 +214,13 @@ public:                                                                         
 #define RTTI_OF(name) sGetRTTI((name*)nullptr)
 
 template<typename T>
-Raekor::RTTI& gGetRTTI() { return sGetRTTI(( std::remove_cv_t<T>* )nullptr); }
+RK::RTTI& gGetRTTI() { return sGetRTTI(( std::remove_cv_t<T>* )nullptr); }
 
 template<typename T>
 uint32_t gGetTypeHash() { return gGetRTTI<T>().mHash; }
 
 
-namespace Raekor
+namespace RK
 {
 	RTTI_DECLARE_TYPE_PRIMITIVE(int);
 	RTTI_DECLARE_TYPE_PRIMITIVE(bool);

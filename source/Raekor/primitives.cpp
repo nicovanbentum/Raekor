@@ -2,7 +2,7 @@
 #include "primitives.h"
 #include "components.h"
 
-namespace Raekor {
+namespace RK {
 
 void gGenerateSphere(Mesh& ioMesh, float inRadius, uint32_t inSectorCount, uint32_t inStackCount)
 {

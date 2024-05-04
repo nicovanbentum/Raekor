@@ -4,7 +4,7 @@
 #include "rmath.h"
 #include "serial.h"
 
-namespace Raekor::JSON {
+namespace RK::JSON {
 
 class JSONData
 {
@@ -162,20 +162,20 @@ private:
 template<typename T> requires HasRTTI<T>
 inline uint32_t JSONData::GetTokenToValue(uint32_t inTokenIdx, T& inValue)
 {
-	const auto& object_token = m_Tokens[inTokenIdx]; // index to object
+	const jsmntok_t& object_token = m_Tokens[inTokenIdx]; // index to object
 	// T& can only deal with JSMN_OBJECT
 	if (object_token.type != JSMN_OBJECT)
 		return SkipToken(inTokenIdx);
 
-	auto& rtti = gGetRTTI<T>();
+	RTTI& rtti = gGetRTTI<T>();
 	inTokenIdx++; // increment index to first key (name of the first class member)
 
-	for (auto key_index = 0; key_index < object_token.size; key_index++)
+	for (int key_index = 0; key_index < object_token.size; key_index++)
 	{
-		const auto& key_string = GetString(inTokenIdx); // member name
+		const String& key_string = GetString(inTokenIdx); // member name
 
 		inTokenIdx++; // increment index to value
-		if (const auto member = gGetRTTI<T>().GetMember(key_string.c_str()))
+		if (Member* member = rtti.GetMember(key_string.c_str()))
 		{
 			// parse the current value, increment the token index by how many we have parsed
 			inTokenIdx = member->FromJSON(*this, inTokenIdx, &inValue);
@@ -232,7 +232,7 @@ inline uint32_t JSONData::GetTokenToValue(uint32_t inTokenIndex, glm::mat<C, R, 
 template<typename T>
 inline uint32_t JSONData::GetTokenToValue(uint32_t inTokenIndex, std::vector<T>& inVector)
 {
-	const auto& object_token = m_Tokens[inTokenIndex]; // index to object
+	const jsmntok_t& object_token = m_Tokens[inTokenIndex]; // index to object
 	// T& can only deal with JSMN_ARRAY
 	if (object_token.type != JSMN_ARRAY)
 		return SkipToken(inTokenIndex);
@@ -241,7 +241,7 @@ inline uint32_t JSONData::GetTokenToValue(uint32_t inTokenIndex, std::vector<T>&
 	inVector.resize(object_token.size);
 
 	inTokenIndex++; // increment index to vector[0]
-	for (auto key_index = 0; key_index < object_token.size; key_index++)
+	for (int key_index = 0; key_index < object_token.size; key_index++)
 		inTokenIndex = GetTokenToValue(inTokenIndex, inVector[key_index]);
 
 	return inTokenIndex;
@@ -250,13 +250,13 @@ inline uint32_t JSONData::GetTokenToValue(uint32_t inTokenIndex, std::vector<T>&
 template<typename T, uint32_t N>
 inline uint32_t JSONData::GetTokenToValue(uint32_t inTokenIndex, std::array<T, N>& inArray)
 {
-	const auto& object_token = m_Tokens[inTokenIndex]; // index to object
+	const jsmntok_t& object_token = m_Tokens[inTokenIndex]; // index to object
 	// T& can only deal with JSMN_ARRAY
 	if (object_token.type != JSMN_ARRAY || object_token.size != N)
 		return SkipToken(inTokenIndex);
 
 	inTokenIndex++; // increment index to array[0]
-	for (auto key_index = 0; key_index < object_token.size; key_index++)
+	for (int key_index = 0; key_index < object_token.size; key_index++)
 		inTokenIndex = GetTokenToValue(inTokenIndex, inArray[key_index]);
 
 	return inTokenIndex;
@@ -265,7 +265,7 @@ inline uint32_t JSONData::GetTokenToValue(uint32_t inTokenIndex, std::array<T, N
 template<typename T1, typename T2>
 uint32_t JSONData::GetTokenToValue(uint32_t inTokenIndex, std::pair<T1, T2>& inPair)
 {
-	const auto& object_token = m_Tokens[inTokenIndex]; // index to object
+	const jsmntok_t& object_token = m_Tokens[inTokenIndex]; // index to object
 	// T& can only deal with JSMN_ARRAY
 	if (object_token.type != JSMN_ARRAY || object_token.size != 2)
 		return SkipToken(inTokenIndex);
@@ -281,13 +281,13 @@ uint32_t JSONData::GetTokenToValue(uint32_t inTokenIndex, std::pair<T1, T2>& inP
 template<typename K, typename V>
 uint32_t JSONData::GetTokenToValue(uint32_t inTokenIndex, std::unordered_map<K, V>& inValue)
 {
-	const auto& object_token = m_Tokens[inTokenIndex]; // index to object
+	const jsmntok_t& object_token = m_Tokens[inTokenIndex]; // index to object
 	// T& can only deal with JSMN_OBJECT
 	if (object_token.type != JSMN_OBJECT)
 		return SkipToken(inTokenIndex);
 
 	inTokenIndex++; // increment index to first key
-	for (auto key_index = 0; key_index < object_token.size; key_index++)
+	for (int key_index = 0; key_index < object_token.size; key_index++)
 	{
 		K key;
 		inTokenIndex = GetTokenToValue(inTokenIndex, key);
@@ -304,8 +304,8 @@ uint32_t JSONData::GetTokenToValue(uint32_t inTokenIndex, std::unordered_map<K, 
 
 inline uint32_t JSONData::GetTokenToValue(uint32_t inTokenIndex, Path& inPath)
 {
-	std::string value;
-	const auto result = GetTokenToValue(inTokenIndex, value);
+	String value;
+	const uint32_t result = GetTokenToValue(inTokenIndex, value);
 	inPath = Path(value);
 	return result;
 }
@@ -322,7 +322,7 @@ inline void JSONWriter::GetValueToJSON(const T& inMember)
 {
 	Write("\n").IndentAndWrite("{\n").PushIndent();
 
-	auto& rtti = gGetRTTI<T>();
+	RTTI& rtti = gGetRTTI<T>();
 	for (uint32_t i = 0; i < rtti.GetMemberCount(); i++)
 	{
 		// potentially skip
@@ -388,7 +388,7 @@ inline void JSONWriter::GetValueToJSON(const std::vector<T>& inVector)
 {
 	Write("\n").IndentAndWrite("[\n").PushIndent();
 
-	const auto count = inVector.size();
+	const size_t count = inVector.size();
 
 	for (uint64_t index = 0; index < count; index++)
 	{
@@ -407,10 +407,10 @@ inline void JSONWriter::GetValueToJSON(const std::vector<T>& inVector)
 {
 	Write("\n").IndentAndWrite("[\n").PushIndent();
 
-	const auto count = inVector.size();
-	auto same_line = 9;
+	int count = inVector.size();
+	int same_line = 9;
 
-	for (uint64_t index = 0; index < count; index++)
+	for (int index = 0; index < count; index++)
 	{
 		if (same_line == 9)
 			WriteIndent();
@@ -450,7 +450,7 @@ inline void JSONWriter::GetValueToJSON(const std::array<T, N>& inArray)
 {
 	Write("\n").IndentAndWrite("[\n").PushIndent();
 
-	for (uint32_t i = 0; i < N; i++)
+	for (int i = 0; i < N; i++)
 	{
 		WriteIndent();
 		GetValueToJSON(inArray[i]);
@@ -467,8 +467,8 @@ void JSONWriter::GetValueToJSON(const std::unordered_map<K, V>& inValue)
 {
 	Write("\n").IndentAndWrite("{\n").PushIndent();
 
-	auto index = 0u;
-	const auto count = inValue.size();
+	int index = 0;
+	int count = inValue.size();
 
 	for (const auto& [key, value] : inValue)
 	{

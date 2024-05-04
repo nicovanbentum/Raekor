@@ -3,7 +3,7 @@
 #include "profile.h"
 #include "application.h"
 
-namespace Raekor {
+namespace RK {
 
 class Application;
 

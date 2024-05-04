@@ -4,7 +4,7 @@
 #include "slice.h"
 #include "archive.h"
 
-namespace Raekor {
+namespace RK {
 
 enum Entity : uint32_t { Null = UINT32_MAX };
 using AtomicEntity = std::atomic<Entity>;
@@ -152,7 +152,7 @@ public:
 	{
 		if (Contains(entity))
 		{
-			auto& existing_t = Get(entity);
+			T& existing_t = Get(entity);
 			existing_t = t;
 			return existing_t;
 		}
@@ -191,7 +191,7 @@ public:
 
 	void Copy(Entity inFrom, Entity inTo) override final
 	{
-		auto component = Get(inFrom);
+		T component = Get(inFrom);
 		Insert(inTo, component);
 	}
 
@@ -235,11 +235,11 @@ public:
 		ReadFileBinary(ioArchive.GetFile(), m_Entities);
 		ReadFileBinary(ioArchive.GetFile(), m_Sparse);
 
-		auto storage_size = 0ull;
+		size_t storage_size = 0ull;
 		ReadFileBinary(ioArchive.GetFile(), storage_size);
 		m_Components.resize(storage_size);
 
-		for (auto& component : m_Components)
+		for (T& component : m_Components)
 			ioArchive >> component;
 	}
 	void Read(JSON::ReadArchive& ioArchive) override final {}
@@ -251,7 +251,7 @@ public:
 
 		WriteFileBinary(ioArchive.GetFile(), m_Components.size());
 
-		for (const auto& component : m_Components)
+		for (const T& component : m_Components)
 			ioArchive << component;
 	}
 
@@ -426,7 +426,7 @@ public:
 		if (inEntity == Entity::Null)
 			return false;
 
-		for (auto entity : m_Entities)
+		for (Entity entity : m_Entities)
 			if (entity == inEntity)
 				return true;
 

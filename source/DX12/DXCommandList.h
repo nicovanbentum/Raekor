@@ -3,7 +3,7 @@
 #include "pch.h"
 #include "DXResource.h"
 
-namespace Raekor::DX12 {
+namespace RK::DX12 {
 
 class Device;
 

@@ -8,7 +8,7 @@
 #include "VKSwapchain.h"
 #include "VKPipeline.h"
 
-namespace Raekor::VK {
+namespace RK::VK {
 
 void ImGuiPass::Init(Device& device, const SwapChain& swapchain, PathTracePass& pathTracePass, BindlessDescriptorSet& textures)
 {

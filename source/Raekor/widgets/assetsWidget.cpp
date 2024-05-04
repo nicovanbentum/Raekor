@@ -7,7 +7,7 @@
 #include "application.h"
 #include "IconsFontAwesome5.h"
 
-namespace Raekor {
+namespace RK {
 
 RTTI_DEFINE_TYPE_NO_FACTORY(ComponentsWidget) {}
 
@@ -18,7 +18,7 @@ void ComponentsWidget::Draw(Widgets* inWidgets, float dt)
 	ImGui::Begin(m_Title.c_str(), &m_Open, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 	m_Visible = ImGui::IsWindowAppearing();
 
-	auto& scene = GetScene();
+	Scene& scene = GetScene();
 
 	constexpr std::array component_type_names = { "Material", "Animation" };
 
@@ -106,7 +106,7 @@ void ComponentsWidget::Draw(Widgets* inWidgets, float dt)
 
 bool ComponentsWidget::DrawClickableComponent(Entity inEntity, const Material& inMaterial)
 {
-	auto clicked = false;
+	bool clicked = false;
 
 	if (inMaterial.gpuAlbedoMap && !inMaterial.albedoFile.empty())
 	{

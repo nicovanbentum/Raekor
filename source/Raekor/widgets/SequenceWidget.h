@@ -3,7 +3,7 @@
 #include "widget.h"
 #include "camera.h"
 
-namespace Raekor {
+namespace RK {
 
 enum SequenceState
 {
@@ -17,9 +17,9 @@ class SequenceWidget : public IWidget
 public:
     RTTI_DECLARE_VIRTUAL_TYPE(SequenceWidget);
     
-    static constexpr auto cIncrSequence = 1.0f;
-    static constexpr auto cMinSequenceLength = 1.0f;
-    static constexpr auto cMaxSequenceLength = 60.0f;
+    static constexpr float cIncrSequence = 1.0f;
+    static constexpr float cMinSequenceLength = 1.0f;
+    static constexpr float cMaxSequenceLength = 60.0f;
 
     SequenceWidget(Application* inApp);
 
@@ -38,7 +38,7 @@ private:
 private:
     float m_Time = 0.0f;
     float m_Speed = 1.0f;
-    std::string m_OpenFile = "";
+    String m_OpenFile = "";
     int m_SelectedKeyframe = -1;
     bool m_LockedToCamera = false;
     bool m_IsDraggingKeyframe = false;

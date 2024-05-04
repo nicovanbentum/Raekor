@@ -3,7 +3,7 @@
 #include "VKDevice.h"
 #include "VKUtil.h"
 
-namespace Raekor::VK {
+namespace RK::VK {
 
 bool Shader::sCompileGLSL(const char* vulkanSDK, const fs::directory_entry& file)
 {

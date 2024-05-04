@@ -6,7 +6,7 @@
 #include "Raekor/primitives.h"
 #include "Raekor/components.h"
 
-namespace Raekor::VK {
+namespace RK::VK {
 
 GBuffer::GBuffer(Device& device, const Viewport& viewport)
 {

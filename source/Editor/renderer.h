@@ -3,13 +3,13 @@
 #include "renderpass.h"
 #include "application.h"
 
-namespace Raekor {
+namespace RK {
 class Scene;
 class Async;
 class Viewport;
 }
 
-namespace Raekor::GL {
+namespace RK::GL {
 
 
 class Renderer : public IRenderInterface

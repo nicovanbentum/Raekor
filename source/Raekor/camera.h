@@ -2,7 +2,7 @@
 
 #include "cvars.h"
 
-namespace Raekor {
+namespace RK {
 
 struct Frustum;
 

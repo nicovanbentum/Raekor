@@ -1,6 +1,6 @@
 #define RAEKOR_SCRIPT
 #include "Raekor/raekor.h"
-using namespace Raekor;
+using namespace RK;
 
 class LightsScript : public INativeScript
 {
@@ -17,26 +17,26 @@ public:
         for (const auto& [entity, transform, mesh] : m_Scene->Each<Transform, Mesh>())
             scene_bounds.Combine(BBox3D(mesh.aabb[0], mesh.aabb[1]).Transform(transform.worldTransform));
 
-        constexpr auto cPointLightRadius = 2.5f;
-        constexpr auto cPointLightIntensity = 6.0f;
+        constexpr float cPointLightRadius = 2.5f;
+        constexpr float cPointLightIntensity = 6.0f;
 
-        auto point_light_count = 0u;
+        int point_light_count = 0;
 
-        for (auto x = scene_bounds.GetMin().x; x < scene_bounds.GetMax().x; x += cPointLightRadius)
+        for (float x = scene_bounds.GetMin().x; x < scene_bounds.GetMax().x; x += cPointLightRadius)
         {
-            for (auto y = scene_bounds.GetMin().y; y < scene_bounds.GetMax().y; y += cPointLightRadius)
+            for (float y = scene_bounds.GetMin().y; y < scene_bounds.GetMax().y; y += cPointLightRadius)
             {
-                for (auto z = scene_bounds.GetMin().z; z < scene_bounds.GetMax().z; z += cPointLightRadius)
+                for (float z = scene_bounds.GetMin().z; z < scene_bounds.GetMax().z; z += cPointLightRadius)
                 {
-                    const auto entity = m_Scene->CreateSpatialEntity(std::format("PointLight {}", point_light_count));
+                    const Entity entity = m_Scene->CreateSpatialEntity(std::format("PointLight {}", point_light_count));
 
                     GetScene()->ParentTo(entity, m_Entity);
 
-                    auto& transform = m_Scene->Get<Transform>(entity);
+                    Transform& transform = m_Scene->Get<Transform>(entity);
                     transform.position = Vec3(x, y, z) + Vec3(cPointLightRadius) * 0.5f;
                     transform.Compose();
 
-                    auto& light = m_Scene->Add<Light>(entity);
+                    Light& light = m_Scene->Add<Light>(entity);
                     light.type = LIGHT_TYPE_POINT;
                     light.attributes.x = cPointLightRadius;
 

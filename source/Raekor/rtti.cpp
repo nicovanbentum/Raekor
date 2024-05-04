@@ -3,7 +3,7 @@
 #include "iter.h"
 #include "hash.h"
 
-namespace Raekor {
+namespace RK {
 
 RTTIFactory	g_RTTIFactory;
 
@@ -35,7 +35,7 @@ Member* RTTI::GetMember(uint32_t inIndex) const
 
 Member* RTTI::GetMember(const char* inName) const
 {
-	const auto name_hash = gHash32Bit(inName);
+	const uint32_t name_hash = gHash32Bit(inName);
 	for (const auto& member : m_Members)
 		if (name_hash == member->GetNameHash() || name_hash == member->GetCustomNameHash())
 			return member.get();
@@ -46,7 +46,7 @@ Member* RTTI::GetMember(const char* inName) const
 
 int32_t RTTI::GetMemberIndex(const char* inName) const
 {
-	const auto name_hash = gHash32Bit(inName);
+	const uint32_t name_hash = gHash32Bit(inName);
 	for (const auto& [index, member] : gEnumerate(m_Members))
 		if (name_hash == member->GetNameHash() || name_hash == member->GetCustomNameHash())
 			return index;
@@ -84,7 +84,7 @@ bool RTTI::IsDerivedFrom(RTTI* inRTTI) const
 	if (this == inRTTI)
 		return true;
 
-	for (auto base_class : m_BaseClasses)
+	for (RTTI* base_class : m_BaseClasses)
 		if (base_class->IsDerivedFrom(inRTTI))
 			return true;
 
@@ -95,12 +95,10 @@ bool RTTI::IsDerivedFrom(RTTI* inRTTI) const
 
 RTTI* RTTIFactory::GetRTTI(uint32_t inHash)
 {
-	auto rtti = m_RegisteredTypes.find(inHash);
-
-	if (rtti != m_RegisteredTypes.end())
-		return rtti->second;
-
-	return nullptr;
+	if (m_RegisteredTypes.contains(inHash))
+		return m_RegisteredTypes.at(inHash);
+	else
+		return nullptr;
 }
 
 
@@ -111,11 +109,10 @@ RTTI* RTTIFactory::GetRTTI(const char* inType)
 
 void* RTTIFactory::Construct(const char* inType)
 {
-	auto rtti = GetRTTI(inType);
-	if (!rtti)
+	if (RTTI* rtti = GetRTTI(inType))
+		return rtti->m_Constructor();
+	else
 		return nullptr;
-
-	return rtti->m_Constructor();
 }
 
 

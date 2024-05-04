@@ -2,7 +2,7 @@
 #include "DXResource.h"
 #include "DXDevice.h"
 
-namespace Raekor::DX12 {
+namespace RK::DX12 {
 
 D3D12_RESOURCE_STATES gGetResourceStates(Buffer::Usage inUsage)
 {
@@ -178,7 +178,7 @@ D3D12_SHADER_RESOURCE_VIEW_DESC Buffer::Desc::ToSRVDesc() const
     // Typed buffer
     else if (format != DXGI_FORMAT_UNKNOWN)
     {
-        const auto format_size = gBitsPerPixel(srv_desc.Format);
+        const size_t format_size = gBitsPerPixel(srv_desc.Format);
         assert(size && format_size && format_size%8 == 0);
         srv_desc.Buffer.NumElements = size / ( format_size / 8 );
     }
@@ -214,7 +214,7 @@ D3D12_UNORDERED_ACCESS_VIEW_DESC Buffer::Desc::ToUAVDesc() const
     // Typed buffer
     else if (format != DXGI_FORMAT_UNKNOWN)
     {
-        const auto format_size = gBitsPerPixel(format);
+        const size_t format_size = gBitsPerPixel(format);
         assert(size && format_size && format_size%8 == 0);
         uav_desc.Buffer.NumElements = size / ( format_size / 8 );
     }
@@ -344,7 +344,7 @@ void DescriptorHeap::Allocate(Device& inDevice, D3D12_DESCRIPTOR_HEAP_TYPE inTyp
 {
     Reserve(inCount);
 
-    constexpr auto heap_type_debug_names = std::array
+    constexpr std::array heap_type_debug_names =
     {
         L"CBV_SRV_UAV_HEAP",
         L"SAMPLER_HEAP",
@@ -352,7 +352,7 @@ void DescriptorHeap::Allocate(Device& inDevice, D3D12_DESCRIPTOR_HEAP_TYPE inTyp
         L"DSV_HEAP"
     };
 
-    const auto desc = D3D12_DESCRIPTOR_HEAP_DESC
+    const D3D12_DESCRIPTOR_HEAP_DESC desc =
     {
         .Type = inType,
         .NumDescriptors = inCount,

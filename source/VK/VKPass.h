@@ -7,7 +7,7 @@
 
 #include "Raekor/camera.h"
 
-namespace Raekor::VK {
+namespace RK::VK {
 
 class SwapChain;
 struct BVH;

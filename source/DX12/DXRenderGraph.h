@@ -4,12 +4,12 @@
 #include "DXCommandList.h"
 #include "Raekor/profile.h"
 
-namespace Raekor {
+namespace RK {
 class Scene;
 class Viewport;
 }
 
-namespace Raekor::DX12 {
+namespace RK::DX12 {
 
 // Index into RenderGraphBuilder::m_ResourceDescriptions
 enum RenderGraphResourceID : uint32_t {};

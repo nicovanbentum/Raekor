@@ -16,7 +16,7 @@
 #include "IconsFontAwesome5.h"
 
 
-namespace Raekor {
+namespace RK {
 
 RTTI_DEFINE_TYPE_NO_FACTORY(MenubarWidget) {}
 
@@ -61,7 +61,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 				if (!filepath.empty())
 				{
 					Timer timer;
-					SDL_SetWindowTitle(m_Editor->GetWindow(), std::string("Raekor Editor - " + filepath).c_str());
+					SDL_SetWindowTitle(m_Editor->GetWindow(), std::string("RK Editor - " + filepath).c_str());
 
 					scene.OpenFromFile(filepath, IWidget::GetAssets(), m_Editor);
 
@@ -136,7 +136,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 								m_Editor->AddRecentScene(scene_str);
 
-								SDL_SetWindowTitle(m_Editor->GetWindow(), String("Raekor Editor - " + scene_str).c_str());
+								SDL_SetWindowTitle(m_Editor->GetWindow(), String("RK Editor - " + scene_str).c_str());
 							}
 						}
 					}

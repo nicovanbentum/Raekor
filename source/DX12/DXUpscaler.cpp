@@ -4,7 +4,7 @@
 
 #include "Raekor/camera.h"
 
-namespace Raekor::DX12 {
+namespace RK::DX12 {
 
 RTTI_DEFINE_TYPE(FSR2Data) {}
 RTTI_DEFINE_TYPE(XeSSData) {}
@@ -14,7 +14,7 @@ RTTI_DEFINE_TYPE(DLSSData) {}
 
 UVec2 Upscaler::sGetRenderResolution(UVec2 inDisplayResolution, EUpscalerQuality inQuality)
 {
-    auto display_res = Vec2(inDisplayResolution);
+    Vec2 display_res = Vec2(inDisplayResolution);
 
     switch (inQuality)
     {
@@ -65,7 +65,7 @@ xess_quality_settings_t Upscaler::sGetQualityXeSS(EUpscalerQuality inQuality)
 
 bool Upscaler::InitFSR(Device& inDevice, const Viewport& inViewport)
 {
-    auto fsr2_desc = FfxFsr2ContextDescription
+    FfxFsr2ContextDescription fsr2_desc =
     {
         .flags = FfxFsr2InitializationFlagBits::FFX_FSR2_ENABLE_HIGH_DYNAMIC_RANGE,
         .maxRenderSize = { inViewport.GetDisplaySize().x, inViewport.GetDisplaySize().y },
@@ -74,7 +74,7 @@ bool Upscaler::InitFSR(Device& inDevice, const Viewport& inViewport)
     };
 
     m_FsrScratchMemory.resize(ffxFsr2GetScratchMemorySizeDX12());
-    auto ffx_error = ffxFsr2GetInterfaceDX12(&fsr2_desc.callbacks, *inDevice, m_FsrScratchMemory.data(), m_FsrScratchMemory.size());
+    FfxErrorCode ffx_error = ffxFsr2GetInterfaceDX12(&fsr2_desc.callbacks, *inDevice, m_FsrScratchMemory.data(), m_FsrScratchMemory.size());
     if (ffx_error != FFX_OK)
         return false;
 
@@ -110,9 +110,9 @@ bool Upscaler::InitDLSS(Device& inDevice, const Viewport& inViewport, CommandLis
     uint32_t pOutRenderMinHeight;
     float pOutSharpnes;
 
-    const auto upscaler_quality = Upscaler::sGetQualityDLSS(EUpscalerQuality(m_Settings.mUpscaleQuality));
+    const NVSDK_NGX_PerfQuality_Value upscaler_quality = Upscaler::sGetQualityDLSS(EUpscalerQuality(m_Settings.mUpscaleQuality));
 
-    auto result = NGX_DLSS_GET_OPTIMAL_SETTINGS(m_DLSSParams, inViewport.GetDisplaySize().x, inViewport.GetDisplaySize().y,
+    NVSDK_NGX_Result result = NGX_DLSS_GET_OPTIMAL_SETTINGS(m_DLSSParams, inViewport.GetDisplaySize().x, inViewport.GetDisplaySize().y,
         upscaler_quality, &pOutRenderOptimalWidth, &pOutRenderOptimalHeight, &pOutRenderMaxWidth, &pOutRenderMaxHeight, &pOutRenderMinWidth, &pOutRenderMinHeight, &pOutSharpnes);
 
     if (result != NVSDK_NGX_Result_Success)
@@ -155,7 +155,7 @@ bool Upscaler::DestroyDLSS(Device& inDevice)
 
 bool Upscaler::InitXeSS(Device& inDevice, const Viewport& inViewport)
 {
-    auto status = xessD3D12CreateContext(*inDevice, &m_XeSSContext);
+    xess_result_t status = xessD3D12CreateContext(*inDevice, &m_XeSSContext);
     if (status != XESS_RESULT_SUCCESS)
         return false;
 
@@ -167,7 +167,7 @@ bool Upscaler::InitXeSS(Device& inDevice, const Viewport& inViewport)
         return false;
     }
 
-    const auto display_res = xess_2d_t { inViewport.size.x, inViewport.size.y };
+    const xess_2d_t display_res = { inViewport.size.x, inViewport.size.y };
     xess_properties_t props;
     status = xessGetProperties(m_XeSSContext, &display_res, &props);
     if (status != XESS_RESULT_SUCCESS)
@@ -178,7 +178,7 @@ bool Upscaler::InitXeSS(Device& inDevice, const Viewport& inViewport)
     if (status != XESS_RESULT_SUCCESS)
         return false;
 
-    const auto uav_desc_size = inDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    const UINT uav_desc_size = inDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
     xess_d3d12_init_params_t params = {
         /* Output width and height. */
@@ -196,7 +196,7 @@ bool Upscaler::InitXeSS(Device& inDevice, const Viewport& inViewport)
         return false;
 
     // Get optimal input resolution
-    auto render_res = xess_2d_t {};
+    xess_2d_t render_res = xess_2d_t {};
     status = xessGetInputResolution(m_XeSSContext, &display_res, XESS_QUALITY_SETTING_ULTRA_QUALITY, &render_res);
     if (status != XESS_RESULT_SUCCESS)
         return false;
@@ -239,33 +239,33 @@ const FSR2Data& AddFsrPass(RenderGraph& inRenderGraph, Device& inDevice, Upscale
 
     [&inRenderGraph, &inDevice, &inUpscaler](FSR2Data& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
-        auto context = inUpscaler.GetFsr2Context();
-        auto& viewport = inRenderGraph.GetViewport();
+        FfxFsr2Context* context = inUpscaler.GetFsr2Context();
+        const Viewport& viewport = inRenderGraph.GetViewport();
 
-        const auto color_texture_ptr = inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mColorTextureSRV));
-        const auto depth_texture_ptr = inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mDepthTextureSRV));
-        const auto movec_texture_ptr = inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mMotionVectorTextureSRV));
-        const auto output_texture_ptr = inDevice.GetD3D12Resource(inResources.GetTexture(inData.mOutputTexture));
+        ID3D12Resource* color_texture_ptr = inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mColorTextureSRV));
+        ID3D12Resource* depth_texture_ptr = inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mDepthTextureSRV));
+        ID3D12Resource* movec_texture_ptr = inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mMotionVectorTextureSRV));
+        ID3D12Resource* output_texture_ptr = inDevice.GetD3D12Resource(inResources.GetTexture(inData.mOutputTexture));
 
-        auto fsr2_dispatch_desc                     = FfxFsr2DispatchDescription {};
-        fsr2_dispatch_desc.commandList              = ffxGetCommandListDX12(inCmdList);
-        fsr2_dispatch_desc.color                    = ffxGetResourceDX12(context, color_texture_ptr, nullptr, FFX_RESOURCE_STATE_COMPUTE_READ);
-        fsr2_dispatch_desc.depth                    = ffxGetResourceDX12(context, depth_texture_ptr, nullptr, FFX_RESOURCE_STATE_COMPUTE_READ);
-        fsr2_dispatch_desc.motionVectors            = ffxGetResourceDX12(context, movec_texture_ptr, nullptr, FFX_RESOURCE_STATE_COMPUTE_READ);
-        fsr2_dispatch_desc.exposure                 = ffxGetResourceDX12(context, nullptr);
-        fsr2_dispatch_desc.output                   = ffxGetResourceDX12(context, output_texture_ptr, nullptr, FFX_RESOURCE_STATE_UNORDERED_ACCESS);
-        fsr2_dispatch_desc.motionVectorScale.x      = -float(viewport.GetRenderSize().x);
-        fsr2_dispatch_desc.motionVectorScale.y      = -float(viewport.GetRenderSize().y);
-        fsr2_dispatch_desc.renderSize.width         = viewport.GetRenderSize().x;
-        fsr2_dispatch_desc.renderSize.height        = viewport.GetRenderSize().y;
-        fsr2_dispatch_desc.enableSharpening         = false;
-        fsr2_dispatch_desc.sharpness                = 0.0f;
-        fsr2_dispatch_desc.frameTimeDelta           = inData.mDeltaTime * 1000.0f;
-        fsr2_dispatch_desc.preExposure              = 1.0f;
-        fsr2_dispatch_desc.reset                    = false;
-        fsr2_dispatch_desc.cameraNear               = viewport.GetCamera().GetNear();
-        fsr2_dispatch_desc.cameraFar                = viewport.GetCamera().GetFar();
-        fsr2_dispatch_desc.cameraFovAngleVertical   = glm::radians(viewport.GetFieldOfView());
+        FfxFsr2DispatchDescription fsr2_dispatch_desc = FfxFsr2DispatchDescription {};
+        fsr2_dispatch_desc.commandList                = ffxGetCommandListDX12(inCmdList);
+        fsr2_dispatch_desc.color                      = ffxGetResourceDX12(context, color_texture_ptr, nullptr, FFX_RESOURCE_STATE_COMPUTE_READ);
+        fsr2_dispatch_desc.depth                      = ffxGetResourceDX12(context, depth_texture_ptr, nullptr, FFX_RESOURCE_STATE_COMPUTE_READ);
+        fsr2_dispatch_desc.motionVectors              = ffxGetResourceDX12(context, movec_texture_ptr, nullptr, FFX_RESOURCE_STATE_COMPUTE_READ);
+        fsr2_dispatch_desc.exposure                   = ffxGetResourceDX12(context, nullptr);
+        fsr2_dispatch_desc.output                     = ffxGetResourceDX12(context, output_texture_ptr, nullptr, FFX_RESOURCE_STATE_UNORDERED_ACCESS);
+        fsr2_dispatch_desc.motionVectorScale.x        = -float(viewport.GetRenderSize().x);
+        fsr2_dispatch_desc.motionVectorScale.y        = -float(viewport.GetRenderSize().y);
+        fsr2_dispatch_desc.renderSize.width           = viewport.GetRenderSize().x;
+        fsr2_dispatch_desc.renderSize.height          = viewport.GetRenderSize().y;
+        fsr2_dispatch_desc.enableSharpening           = false;
+        fsr2_dispatch_desc.sharpness                  = 0.0f;
+        fsr2_dispatch_desc.frameTimeDelta             = inData.mDeltaTime * 1000.0f;
+        fsr2_dispatch_desc.preExposure                = 1.0f;
+        fsr2_dispatch_desc.reset                      = false;
+        fsr2_dispatch_desc.cameraNear                 = viewport.GetCamera().GetNear();
+        fsr2_dispatch_desc.cameraFar                  = viewport.GetCamera().GetFar();
+        fsr2_dispatch_desc.cameraFovAngleVertical     = glm::radians(viewport.GetFieldOfView());
 
         const int32_t jitter_phase_count = ffxFsr2GetJitterPhaseCount(viewport.GetRenderSize().x, viewport.GetDisplaySize().x);
         ffxFsr2GetJitterOffset(&fsr2_dispatch_desc.jitterOffset.x, &fsr2_dispatch_desc.jitterOffset.y, inData.mFrameCounter, jitter_phase_count);
@@ -370,7 +370,7 @@ const XeSSData& AddXeSSPass(RenderGraph& inRenderGraph, Device& inDevice, Upscal
         exec_params.inputWidth       = viewport.GetRenderSize().x;
         exec_params.inputHeight      = viewport.GetRenderSize().y;
 
-        const auto jitter_phase_count = ffxFsr2GetJitterPhaseCount(viewport.GetRenderSize().x, viewport.GetDisplaySize().x);
+        const int32_t jitter_phase_count = ffxFsr2GetJitterPhaseCount(viewport.GetRenderSize().x, viewport.GetDisplaySize().x);
         ffxFsr2GetJitterOffset(&exec_params.jitterOffsetX, &exec_params.jitterOffsetY, inData.mFrameCounter, jitter_phase_count);
         inData.mFrameCounter = ( inData.mFrameCounter + 1 ) % jitter_phase_count;
 

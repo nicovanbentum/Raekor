@@ -3,7 +3,7 @@
 #include "VKTexture.h"
 #include "VKShader.h"
 
-namespace Raekor::VK {
+namespace RK::VK {
 
 class BindlessDescriptorSet
 {

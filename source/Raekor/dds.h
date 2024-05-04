@@ -1,6 +1,6 @@
 #pragma once
 
-namespace Raekor {
+namespace RK {
 
 //
 // Function by Yann Collet @ https://github.com/Cyan4973/RygsDXTc

@@ -3,7 +3,7 @@
 
 #include "VKDevice.h"
 
-namespace Raekor::VK {
+namespace RK::VK {
 
 GraphicsPipeline::State::State()
 {

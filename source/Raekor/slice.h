@@ -1,6 +1,6 @@
 #pragma once
 
-namespace Raekor {
+namespace RK {
 
 template<typename T>
 class Slice
@@ -40,15 +40,15 @@ public:
 
     const T& operator[](size_t index) const 
     {
-        const auto ptr = start + index;
+        const T* ptr = start + index;
         assert(ptr != nullptr && ptr < start + length);
         return *ptr;
     }
 
-    auto begin() { return start; }
-    auto end() { return ( start + length ); }
-    const auto begin() const { return start; }
-    const auto end() const { return ( start + length ); }
+    const T* begin() { return start; }
+    const T* end() { return ( start + length ); }
+    const T* begin() const { return start; }
+    const T* end() const { return ( start + length ); }
 
     bool IsEmpty() const { return start == nullptr || length == 0; }
     uint64_t Length() const { return length; }
@@ -108,10 +108,10 @@ public:
         return *ptr;
     }
 
-    auto begin() { return start; }
-    auto end() { return ( start + length ); }
-    const auto begin() const { return start; }
-    const auto end() const { return ( start + length ); }
+    const T* begin() { return start; }
+    const T* end() { return ( start + length ); }
+    const T* begin() const { return start; }
+    const T* end() const { return ( start + length ); }
 
     bool IsEmpty() const { return start == nullptr || length == 0; }
     uint64_t Length() const { return length; }

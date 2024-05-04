@@ -3,7 +3,7 @@
 #include "pch.h"
 #include "rtti.h"
 
-namespace Raekor {
+namespace RK {
 
 enum EConVarType
 {

@@ -2,7 +2,7 @@
 
 #include "widget.h"
 
-namespace Raekor {
+namespace RK {
 
 class ConsoleWidget : public IWidget
 {

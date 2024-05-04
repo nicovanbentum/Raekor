@@ -5,7 +5,7 @@
 #include "VKFrameBuffer.h"
 #include "VKPipeline.h"
 
-namespace Raekor::VK {
+namespace RK::VK {
 
  class Shader;
 

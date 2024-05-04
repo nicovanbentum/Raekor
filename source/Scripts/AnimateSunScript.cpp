@@ -1,6 +1,6 @@
 #define RAEKOR_SCRIPT
 #include "Raekor/raekor.h"
-using namespace Raekor;
+using namespace RK;
 
 
 class AnimateSunScript : public INativeScript
@@ -11,7 +11,7 @@ public:
     void OnUpdate(float inDeltaTime) override
     {
         Transform& transform = GetComponent<Transform>();
-        auto degrees = glm::degrees(glm::eulerAngles(transform.rotation));
+        Vec3 degrees = glm::degrees(glm::eulerAngles(transform.rotation));
 
         degrees.x += sin(m_Speed * inDeltaTime);
 

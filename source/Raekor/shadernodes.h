@@ -3,7 +3,7 @@
 #include "rtti.h"
 #include "shader.h"
 
-namespace Raekor {
+namespace RK {
 
 void gRegisterShaderNodeTypes();
 

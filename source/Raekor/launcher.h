@@ -2,7 +2,7 @@
 
 #include "application.h"
 
-namespace Raekor {
+namespace RK {
 
 
 class SDL_Image

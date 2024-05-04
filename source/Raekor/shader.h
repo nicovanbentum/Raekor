@@ -4,7 +4,7 @@
 #include "slice.h"
 #include "archive.h"
 
-namespace Raekor {
+namespace RK {
 
 class ShaderNode;
 class ShaderNodePin;

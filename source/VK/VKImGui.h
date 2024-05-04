@@ -6,7 +6,7 @@
 #include "VKPipeline.h"
 #include "VKFrameBuffer.h"
 
-namespace Raekor::VK {
+namespace RK::VK {
 
 class Device;
 class SwapChain;

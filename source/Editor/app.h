@@ -9,7 +9,7 @@
 #include "renderer.h"
 #include "widget.h"
 
-namespace Raekor::GL {
+namespace RK::GL {
 
 class GLApp : public IEditor
 {

@@ -5,7 +5,7 @@
 #include "scene.h"
 #include "input.h"
 
-namespace Raekor {
+namespace RK {
 
 RTTI_DEFINE_TYPE_NO_FACTORY(HierarchyWidget) {}
 
@@ -62,13 +62,15 @@ bool HierarchyWidget::DrawFamilyNode(Scene& inScene, Entity inEntity)
 	const Name& name = inScene.Get<Name>(inEntity);
 	const Entity active = m_Editor->GetActiveEntity();
 
-	const auto  selected = active == inEntity ? ImGuiTreeNodeFlags_Selected : 0;
-	const auto  tree_flags = selected | ImGuiTreeNodeFlags_OpenOnArrow;
+	const ImGuiTreeNodeFlags selected = active == inEntity ? ImGuiTreeNodeFlags_Selected : 0;
+	const ImGuiTreeNodeFlags tree_flags = selected | ImGuiTreeNodeFlags_OpenOnArrow;
 
 	const float font_size = ImGui::GetFontSize();
+
 	if (ImGui::Selectable((const char*)ICON_FA_CUBE "   ", active == inEntity, ImGuiSelectableFlags_None, ImVec2(font_size, font_size))) {}
 
 	ImGui::SameLine();
+
 	const bool opened = ImGui::TreeNodeEx(name.name.c_str(), tree_flags);
 
 	if (ImGui::BeginPopupContextItem())
@@ -83,7 +85,6 @@ bool HierarchyWidget::DrawFamilyNode(Scene& inScene, Entity inEntity)
 
 		if (ImGui::MenuItem("Select Children"))
 		{
-
 		}
 
 		ImGui::EndPopup();
@@ -100,15 +101,16 @@ bool HierarchyWidget::DrawFamilyNode(Scene& inScene, Entity inEntity)
 
 void HierarchyWidget::DrawChildlessNode(Scene& inScene, Entity inEntity)
 {
-	auto& name = inScene.Get<Name>(inEntity);
 	ImGui::PushID(uint32_t(inEntity));
 
 	Entity active_entity = m_Editor->GetActiveEntity();
+	const float font_size = ImGui::GetFontSize();
 
-	const auto font_size = ImGui::GetFontSize();
 	if (ImGui::Selectable((const char*)ICON_FA_CUBE "   ", active_entity == inEntity, ImGuiSelectableFlags_None, ImVec2(font_size, font_size))) {}
 
 	ImGui::SameLine();
+
+	Name& name = inScene.Get<Name>(inEntity);
 
 	if (ImGui::Selectable(name.name.c_str(), inEntity == active_entity))
 		m_Editor->SetActiveEntity(active_entity == inEntity ? Entity::Null : inEntity);

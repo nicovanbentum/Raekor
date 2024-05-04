@@ -7,7 +7,7 @@
 #include "archive.h"
 #include "application.h"
 
-namespace Raekor {
+namespace RK {
 
 RTTI_DEFINE_TYPE_NO_FACTORY(SequenceWidget) {}
 
@@ -60,7 +60,7 @@ void SequenceWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
     if (ImGui::Button((const char*)ICON_FA_SAVE))
     {
-        const auto file_path = OS::sSaveFileDialog("JSON File (*.json)\0", "json");
+        const String file_path = OS::sSaveFileDialog("JSON File (*.json)\0", "json");
 
         if (!file_path.empty())
         {
@@ -73,7 +73,7 @@ void SequenceWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
     if (ImGui::Button((const char*)ICON_FA_FOLDER_OPEN))
     {
-        const auto file_path = OS::sOpenFileDialog("JSON File (*.json)\0");
+        const String file_path = OS::sOpenFileDialog("JSON File (*.json)\0");
 
         if (!file_path.empty())
         {
@@ -107,15 +107,15 @@ void SequenceWidget::Draw(Widgets* inWidgets, float inDeltaTime)
         ImGui::SameLine();
     }
 
-    const auto text_width = ImGui::CalcTextSize("Duration: 60.000 seconds").x;
+    const float text_width = ImGui::CalcTextSize("Duration: 60.000 seconds").x;
     ImGui::SetNextItemWidth(text_width);
 
-    auto cursor_pos_x = ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - text_width;
+    float cursor_pos_x = ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - text_width;
 
     ImGui::SetCursorPosX(cursor_pos_x);
 
-    auto duration_value = m_Sequence.GetDuration();
-    auto duration_text = duration_value > 1 ? "Duration: %.1f seconds" : "Duration: %.1f second";
+    float duration_value = m_Sequence.GetDuration();
+    const char* duration_text = duration_value > 1 ? "Duration: %.1f seconds" : "Duration: %.1f second";
 
     if (m_State == SEQUENCE_PLAYING)
     {
@@ -129,7 +129,7 @@ void SequenceWidget::Draw(Widgets* inWidgets, float inDeltaTime)
             m_Sequence.SetDuration(duration_value);
     }
 
-    const auto avail = ImGui::GetContentRegionAvail();
+    const ImVec2 avail = ImGui::GetContentRegionAvail();
 
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 2));
 
@@ -140,7 +140,7 @@ void SequenceWidget::Draw(Widgets* inWidgets, float inDeltaTime)
     ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x);
 
     // don't pass m_Time directly as DrawTimeline's return value indicates if we should update the value or not
-    auto time = m_Time;
+    float time = m_Time;
     
     if (DrawTimeline("Timeline", time, 0.0f, glm::min(m_Sequence.GetDuration(), cMaxSequenceLength)))
         m_Time = time;
@@ -153,29 +153,29 @@ void SequenceWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 bool SequenceWidget::DrawTimeline(const char* inLabel, float& inTime, const float inMinTime, const float inMaxTime)
 {
-    auto window = ImGui::GetCurrentWindow();
+    ImGuiWindow* window = ImGui::GetCurrentWindow();
     if (window->SkipItems)
         return false;
 
-    auto& imgui = *GImGui;
-    const auto& style = imgui.Style;
-    const auto id = window->GetID(inLabel);
+    ImGuiContext& imgui = *GImGui;
+    const ImGuiStyle& style = imgui.Style;
+    const ImGuiID id = window->GetID(inLabel);
 
-    auto frame_bb = ImRect(window->DC.CursorPos, window->DC.CursorPos + ImGui::GetContentRegionAvail());
+    ImRect frame_bb = ImRect(window->DC.CursorPos, window->DC.CursorPos + ImGui::GetContentRegionAvail());
 
-    const auto label_size = ImGui::CalcTextSize(inLabel, NULL, true);
-    const auto total_bb   = ImRect(frame_bb.Min, frame_bb.Max + ImVec2(label_size.x > 0.0f ? style.ItemInnerSpacing.x + label_size.x : 0.0f, 0.0f));
+    const ImVec2 label_size = ImGui::CalcTextSize(inLabel, NULL, true);
+    const ImRect total_bb   = ImRect(frame_bb.Min, frame_bb.Max + ImVec2(label_size.x > 0.0f ? style.ItemInnerSpacing.x + label_size.x : 0.0f, 0.0f));
 
-    const auto flags = 0u;
-    const auto temp_input_allowed = (flags & ImGuiSliderFlags_NoInput) == 0;
+    const uint32_t flags = 0u;
+    const bool temp_input_allowed = (flags & ImGuiSliderFlags_NoInput) == 0;
 
     ImGui::ItemSize(total_bb, style.FramePadding.y);
     if (!ImGui::ItemAdd(total_bb, id, &frame_bb, temp_input_allowed ? ImGuiItemFlags_Inputable : 0))
         return false;
 
-    const auto is_hovered  = ImGui::ItemHoverable(frame_bb, id);
-    const auto is_clicked  = is_hovered && ImGui::IsMouseClicked(0, id);
-    const auto make_active = (is_clicked || imgui.NavActivateId == id);
+    const bool is_hovered  = ImGui::ItemHoverable(frame_bb, id);
+    const bool is_clicked  = is_hovered && ImGui::IsMouseClicked(0, id);
+    const bool make_active = (is_clicked || imgui.NavActivateId == id);
 
     if (make_active)
     {
@@ -186,28 +186,28 @@ bool SequenceWidget::DrawTimeline(const char* inLabel, float& inTime, const floa
     }
 
     // Draw frame
-    const auto frame_col = ImGui::GetColorU32(imgui.ActiveId == id ? ImGuiCol_FrameBgActive : ImGuiCol_FrameBg);
+    const ImU32 frame_col = ImGui::GetColorU32(imgui.ActiveId == id ? ImGuiCol_FrameBgActive : ImGuiCol_FrameBg);
     ImGui::RenderFrame(frame_bb.Min, frame_bb.Max, frame_col, true, imgui.Style.FrameRounding);
 
     ImGui::PushClipRect(frame_bb.Min, frame_bb.Max, false);
 
-    auto line_nr = 0u;
+    uint32_t line_nr = 0u;
 
     for (float f = 0.0f; f < m_Sequence.GetDuration(); f += cIncrSequence)
     {
-        const auto x = frame_bb.Min.x + frame_bb.GetWidth() * (f / m_Sequence.GetDuration());
+        const float x = frame_bb.Min.x + frame_bb.GetWidth() * (f / m_Sequence.GetDuration());
 
-        const auto odd_color  = ImVec4(0.2f, 0.2f, 0.2f, 0.5f);
-        const auto even_color = ImVec4(0.2f, 0.2f, 0.2f, 1.0f);
+        const ImVec4 odd_color  = ImVec4(0.2f, 0.2f, 0.2f, 0.5f);
+        const ImVec4 even_color = ImVec4(0.2f, 0.2f, 0.2f, 1.0f);
         
-        auto line_color = line_nr % 2 != 0 ? odd_color : even_color;
+        ImVec4 line_color = line_nr % 2 != 0 ? odd_color : even_color;
 
         window->DrawList->AddLine(ImVec2(x, frame_bb.Min.y), ImVec2(x, frame_bb.Max.y), ImGui::GetColorU32(line_color), 2.0f);
 
         ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
 
         char value_buf[64];
-        const auto value_buf_end = value_buf + ImGui::DataTypeFormatString(value_buf, IM_ARRAYSIZE(value_buf), ImGuiDataType_Float, &f, "%.1f");
+        const char* value_buf_end = value_buf + ImGui::DataTypeFormatString(value_buf, IM_ARRAYSIZE(value_buf), ImGuiDataType_Float, &f, "%.1f");
 
         ImGui::RenderText(ImVec2(x + 3.0f, frame_bb.Min.y), value_buf, value_buf_end);
 
@@ -216,27 +216,27 @@ bool SequenceWidget::DrawTimeline(const char* inLabel, float& inTime, const floa
         line_nr++;
     }
 
-    auto was_left_clicked = false;
-    auto was_right_clicked = false;
-    auto hovering_any_keyframe = false;
+    bool was_left_clicked = false;
+    bool was_right_clicked = false;
+    bool hovering_any_keyframe = false;
 
-    for (auto keyframe_index = 0u; keyframe_index < m_Sequence.GetKeyFrameCount(); keyframe_index++)
+    for (int keyframe_index = 0; keyframe_index < m_Sequence.GetKeyFrameCount(); keyframe_index++)
     {
-        auto& keyframe = m_Sequence.GetKeyFrame(keyframe_index);
+        CameraSequence::KeyFrame& keyframe = m_Sequence.GetKeyFrame(keyframe_index);
 
-        const auto radius = 8.0f;
-        const auto segments = 4;
+        const float radius = 8.0f;
+        const float segments = 4;
 
-        auto padded_bb = frame_bb;
+        ImRect padded_bb = frame_bb;
         padded_bb.Min += style.FramePadding;
         padded_bb.Max -= style.FramePadding;
 
-        auto ngon_center_x = padded_bb.Min.x + padded_bb.GetWidth() * (keyframe.mTime / m_Sequence.GetDuration());
-        auto ngon_center_y = padded_bb.Min.y + 0.5f * padded_bb.GetHeight();
+        float ngon_center_x = padded_bb.Min.x + padded_bb.GetWidth() * (keyframe.mTime / m_Sequence.GetDuration());
+        float ngon_center_y = padded_bb.Min.y + 0.5f * padded_bb.GetHeight();
 
-        const auto ngon_bb_min = ImVec2(ngon_center_x - radius, ngon_center_y - radius);
-        const auto ngon_bb_max = ImVec2(ngon_center_x + radius, ngon_center_y + radius);
-        const auto is_hovering_keyframe = ImGui::IsMouseHoveringRect(ngon_bb_min, ngon_bb_max);
+        const ImVec2 ngon_bb_min = ImVec2(ngon_center_x - radius, ngon_center_y - radius);
+        const ImVec2 ngon_bb_max = ImVec2(ngon_center_x + radius, ngon_center_y + radius);
+        const bool is_hovering_keyframe = ImGui::IsMouseHoveringRect(ngon_bb_min, ngon_bb_max);
         
         if (m_SelectedKeyframe == keyframe_index && ImGui::IsMouseDragging(0) && m_IsDraggingKeyframe)
         {
@@ -246,7 +246,7 @@ bool SequenceWidget::DrawTimeline(const char* inLabel, float& inTime, const floa
 
             if (m_SelectedKeyframe - 1 >= 0)
             {
-                auto& prev_keyframe = m_Sequence.GetKeyFrame(m_SelectedKeyframe - 1);
+                CameraSequence::KeyFrame& prev_keyframe = m_Sequence.GetKeyFrame(m_SelectedKeyframe - 1);
                 // if we moved backwards in time past a previous keyframe, swap
                 if (keyframe.mTime < prev_keyframe.mTime)
                 {
@@ -257,7 +257,7 @@ bool SequenceWidget::DrawTimeline(const char* inLabel, float& inTime, const floa
 
             if (m_SelectedKeyframe + 1 < m_Sequence.GetKeyFrameCount())
             {
-                auto& next_keyframe = m_Sequence.GetKeyFrame(m_SelectedKeyframe + 1);
+                CameraSequence::KeyFrame& next_keyframe = m_Sequence.GetKeyFrame(m_SelectedKeyframe + 1);
                 // if we moved forwards in time past the next keyframe, swap
                 if (keyframe.mTime > next_keyframe.mTime)
                 {
@@ -269,12 +269,12 @@ bool SequenceWidget::DrawTimeline(const char* inLabel, float& inTime, const floa
 
         if (keyframe_index == m_SelectedKeyframe)
         {
-            const auto color = ImGui::GetColorU32(ImVec4(1, 0.9, 0, 1));
+            const ImU32 color = ImGui::GetColorU32(ImVec4(1, 0.9, 0, 1));
             window->DrawList->AddNgonFilled(ImVec2(ngon_center_x, ngon_center_y), radius + 2.0f, color, segments);
         }
         
-        const auto regular_color  = ImGui::GetColorU32(ImVec4(1.0f, 0.647, 0.0f, 1.0f));
-        const auto selected_color = ImGui::GetColorU32(ImVec4(1.0f, 0.2f, 0.0f, 1.0f));
+        const ImU32 regular_color  = ImGui::GetColorU32(ImVec4(1.0f, 0.647, 0.0f, 1.0f));
+        const ImU32 selected_color = ImGui::GetColorU32(ImVec4(1.0f, 0.2f, 0.0f, 1.0f));
         window->DrawList->AddNgonFilled(ImVec2(ngon_center_x, ngon_center_y), radius, keyframe_index == m_SelectedKeyframe ? selected_color : regular_color, segments);
 
         // handle keyframe click interactions
@@ -312,7 +312,7 @@ bool SequenceWidget::DrawTimeline(const char* inLabel, float& inTime, const floa
 
         if (ImGui::MenuItem("Duplicate"))
         {
-            auto key_frame = m_Sequence.GetKeyFrame(m_SelectedKeyframe);
+            CameraSequence::KeyFrame key_frame = m_Sequence.GetKeyFrame(m_SelectedKeyframe);
             // slightly offset the time so we can actually see the duplicate and it doesn't perfectly overlap
             m_Sequence.AddKeyFrame(m_Editor->GetViewport().GetCamera(), key_frame.mTime + 0.05f, key_frame.mPosition, key_frame.mAngle);
         }
@@ -324,7 +324,7 @@ bool SequenceWidget::DrawTimeline(const char* inLabel, float& inTime, const floa
     {
         if (ImGui::MenuItem("Clear"))
         {
-            const auto duration = m_Sequence.GetDuration();
+            const float duration = m_Sequence.GetDuration();
             m_Sequence = {};
             m_Sequence.SetDuration(duration);
         }
@@ -336,7 +336,7 @@ bool SequenceWidget::DrawTimeline(const char* inLabel, float& inTime, const floa
         ImGui::OpenPopup("##keyframerightclicked");
 
     // clicked somewhere inside the timeline, but not on any keyframes or popups
-    const auto can_click_timeline = frame_bb.Contains(ImGui::GetMousePos()) && 
+    const bool can_click_timeline = frame_bb.Contains(ImGui::GetMousePos()) && 
                                     !was_right_clicked && !was_left_clicked && 
                                     !ImGui::IsPopupOpen("##keyframerightclicked");
 
@@ -351,39 +351,39 @@ bool SequenceWidget::DrawTimeline(const char* inLabel, float& inTime, const floa
     // Slider behavior
     ImGui::PushStyleVar(ImGuiStyleVar_GrabMinSize, 4.0f);
 
-    const auto v_min = inMinTime;
-    const auto v_max = inMaxTime;
+    const float v_min = inMinTime;
+    const float v_max = inMaxTime;
 
-    const auto axis = ImGuiAxis_X;
-    const auto is_floating_point = true;
-    const auto v_range_f = (float)(v_min < v_max ? v_max - v_min : v_min - v_max); // We don't need high precision for what we do with it.
+    const ImGuiAxis axis = ImGuiAxis_X;
+    const bool is_floating_point = true;
+    const float v_range_f = (float)(v_min < v_max ? v_max - v_min : v_min - v_max); // We don't need high precision for what we do with it.
 
     // Calculate bounds
-    const auto bb = frame_bb;
-    const auto grab_padding = 2.0f; // FIXME: Should be part of style.
-    const auto slider_sz = (bb.Max[axis] - bb.Min[axis]) - grab_padding * 2.0f;
+    const ImRect bb = frame_bb;
+    const float grab_padding = 2.0f; // FIXME: Should be part of style.
+    const float slider_sz = (bb.Max[axis] - bb.Min[axis]) - grab_padding * 2.0f;
 
-    auto grab_sz = style.GrabMinSize;
+    float grab_sz = style.GrabMinSize;
     if (!is_floating_point && v_range_f >= 0.0f)                         // v_range_f < 0 may happen on integer overflows
         grab_sz = ImMax(slider_sz / (v_range_f + 1), style.GrabMinSize); // For integer sliders: if possible have the grab size represent 1 unit
 
     grab_sz = ImMin(grab_sz, slider_sz);
-    const auto slider_usable_sz = slider_sz - grab_sz;
-    const auto slider_usable_pos_min = bb.Min[axis] + grab_padding + grab_sz * 0.5f;
-    const auto slider_usable_pos_max = bb.Max[axis] - grab_padding - grab_sz * 0.5f;
+    const float slider_usable_sz = slider_sz - grab_sz;
+    const float slider_usable_pos_min = bb.Min[axis] + grab_padding + grab_sz * 0.5f;
+    const float slider_usable_pos_max = bb.Max[axis] - grab_padding - grab_sz * 0.5f;
 
-    const auto is_logarithmic = false;
-    auto logarithmic_zero_epsilon = 0.0f; // Only valid when is_logarithmic is true
-    auto zero_deadzone_halfsize = 0.0f; // Only valid when is_logarithmic is true
+    const bool is_logarithmic = false;
+    float logarithmic_zero_epsilon = 0.0f; // Only valid when is_logarithmic is true
+    float zero_deadzone_halfsize = 0.0f; // Only valid when is_logarithmic is true
 
     // Process interacting with the slider
-    auto value_changed = false;
-    const auto allow_slider_input = !was_right_clicked && !was_left_clicked && !m_IsDraggingKeyframe;
+    bool value_changed = false;
+    const bool allow_slider_input = !was_right_clicked && !was_left_clicked && !m_IsDraggingKeyframe;
 
     if (imgui.ActiveId == id && allow_slider_input)
     {
-        auto clicked_t = 0.0f;
-        auto set_new_value = false;
+        float clicked_t = 0.0f;
+        bool set_new_value = false;
 
         if (imgui.ActiveIdSource == ImGuiInputSource_Mouse)
         {
@@ -397,10 +397,10 @@ bool SequenceWidget::DrawTimeline(const char* inLabel, float& inTime, const floa
 
                 if (imgui.ActiveIdIsJustActivated)
                 {
-                    auto grab_t = ImGui::ScaleRatioFromValueT<float, float, float>(ImGuiDataType_Float, inTime, v_min, v_max, is_logarithmic, logarithmic_zero_epsilon, zero_deadzone_halfsize);
+                    float grab_t = ImGui::ScaleRatioFromValueT<float, float, float>(ImGuiDataType_Float, inTime, v_min, v_max, is_logarithmic, logarithmic_zero_epsilon, zero_deadzone_halfsize);
 
-                    const auto grab_pos = ImLerp(slider_usable_pos_min, slider_usable_pos_max, grab_t);
-                    const auto clicked_around_grab = (mouse_abs_pos >= grab_pos - grab_sz * 0.5f - 1.0f) && (mouse_abs_pos <= grab_pos + grab_sz * 0.5f + 1.0f); // No harm being extra generous here.
+                    const float grab_pos = ImLerp(slider_usable_pos_min, slider_usable_pos_max, grab_t);
+                    const bool clicked_around_grab = (mouse_abs_pos >= grab_pos - grab_sz * 0.5f - 1.0f) && (mouse_abs_pos <= grab_pos + grab_sz * 0.5f + 1.0f); // No harm being extra generous here.
                     imgui.SliderGrabClickOffset = (clicked_around_grab && is_floating_point) ? mouse_abs_pos - grab_pos : 0.0f;
                 }
 
@@ -413,7 +413,7 @@ bool SequenceWidget::DrawTimeline(const char* inLabel, float& inTime, const floa
 
         if (set_new_value)
         {
-            auto v_new = ImGui::ScaleValueFromRatioT<float, float, float>(ImGuiDataType_Float, clicked_t, v_min, v_max, is_logarithmic, logarithmic_zero_epsilon, zero_deadzone_halfsize);
+            float v_new = ImGui::ScaleValueFromRatioT<float, float, float>(ImGuiDataType_Float, clicked_t, v_min, v_max, is_logarithmic, logarithmic_zero_epsilon, zero_deadzone_halfsize);
 
             // Round to user desired precision based on format string
             if (is_floating_point && !(flags & ImGuiSliderFlags_NoRoundToFormat))
@@ -428,16 +428,16 @@ bool SequenceWidget::DrawTimeline(const char* inLabel, float& inTime, const floa
         }
     }
 
-    auto grab_bb = ImRect(ImVec2(FLT_MAX, FLT_MAX), ImVec2(FLT_MIN, FLT_MIN));
+    ImRect grab_bb = ImRect(ImVec2(FLT_MAX, FLT_MAX), ImVec2(FLT_MIN, FLT_MIN));
 
     if (slider_sz < 1.0f)
         grab_bb = ImRect(bb.Min, bb.Min);
     else
     {
         // Output grab position so it can be displayed by the caller
-        auto grab_t = ImGui::ScaleRatioFromValueT<float, float, float>(ImGuiDataType_Float, inTime, v_min, v_max, is_logarithmic, logarithmic_zero_epsilon, zero_deadzone_halfsize);
+        float grab_t = ImGui::ScaleRatioFromValueT<float, float, float>(ImGuiDataType_Float, inTime, v_min, v_max, is_logarithmic, logarithmic_zero_epsilon, zero_deadzone_halfsize);
 
-        const auto grab_pos = ImLerp(slider_usable_pos_min, slider_usable_pos_max, grab_t);
+        const float grab_pos = ImLerp(slider_usable_pos_min, slider_usable_pos_max, grab_t);
 
         grab_bb = ImRect(grab_pos - grab_sz * 0.5f, bb.Min.y + grab_padding, grab_pos + grab_sz * 0.5f, bb.Max.y - grab_padding);
     }
@@ -460,7 +460,7 @@ bool SequenceWidget::DrawTimeline(const char* inLabel, float& inTime, const floa
         grab_bb.Min.y -= style.FrameRounding * 0.30f;
         grab_bb.Max.y += style.FrameRounding * 0.30f;
 
-        auto color = (imgui.ActiveId == id && allow_slider_input) ? ImGuiCol_SliderGrabActive : ImGuiCol_SliderGrab;
+        ImGuiCol color = (imgui.ActiveId == id && allow_slider_input) ? ImGuiCol_SliderGrabActive : ImGuiCol_SliderGrab;
 
         if (m_State == SEQUENCE_PLAYING)
             color = ImGuiCol_SliderGrabActive;
@@ -506,8 +506,8 @@ void SequenceWidget::ApplyToCamera(Camera& ioCamera, float inDeltaTime)
             m_Time = 0.0f;
     }
 
-    const auto angle = m_Sequence.GetAngle(ioCamera, m_Time);
-    const auto position = m_Sequence.GetPosition(ioCamera, m_Time);
+    const Vec2 angle = m_Sequence.GetAngle(ioCamera, m_Time);
+    const Vec3 position = m_Sequence.GetPosition(ioCamera, m_Time);
 
     ioCamera.SetAngle(angle);
     ioCamera.SetPosition(position);

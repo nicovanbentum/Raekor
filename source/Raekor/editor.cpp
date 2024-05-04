@@ -21,7 +21,7 @@
 #include "widgets/hierarchyWidget.h"
 #include "widgets/NodeGraphWidget.h"
 
-namespace Raekor {
+namespace RK {
 
 IEditor::IEditor(WindowFlags inWindowFlags, IRenderInterface* inRenderInterface) :
 	Application(inWindowFlags /* | WindowFlag::BORDERLESS */),

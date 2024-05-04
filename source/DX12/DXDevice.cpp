@@ -13,19 +13,19 @@
 #include <locale>
 #include <codecvt>
 
-namespace Raekor::DX12 {
+namespace RK::DX12 {
 
 Device::Device(SDL_Window* window, uint32_t inFrameCount) : m_NumFrames(inFrameCount)
 {
     uint32_t device_creation_flags = 0u;
 
 #ifndef NDEBUG
-    auto debug_interface = ComPtr<ID3D12Debug1> {};
+    ComPtr<ID3D12Debug1> debug_interface = nullptr;
 
     if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debug_interface))))
     {
-        static auto debug_layer_enabled = OS::sCheckCommandLineOption("-debug_layer");
-        static auto gpu_validation_enabled = OS::sCheckCommandLineOption("-gpu_validation");
+        static bool debug_layer_enabled = OS::sCheckCommandLineOption("-debug_layer");
+        static bool gpu_validation_enabled = OS::sCheckCommandLineOption("-gpu_validation");
 
         if (debug_layer_enabled)
             debug_interface->EnableDebugLayer();
@@ -56,7 +56,7 @@ Device::Device(SDL_Window* window, uint32_t inFrameCount) : m_NumFrames(inFrameC
     const static bool enable_dlss = OS::sCheckCommandLineOption("-enable_dlss");
     if (enable_dlss)
     {
-        std::wstring temp_path = fs::temp_directory_path().wstring();
+        WString temp_path = fs::temp_directory_path().wstring();
 
         NVSDK_NGX_Application_Identifier ngx_app_id = {};
         ngx_app_id.IdentifierType = NVSDK_NGX_Application_Identifier_Type_Application_Id;
@@ -90,7 +90,7 @@ Device::Device(SDL_Window* window, uint32_t inFrameCount) : m_NumFrames(inFrameC
         gThrowIfFailed(NVSDK_NGX_D3D12_Init(0xdeadbeef, temp_path.c_str(), m_Device.Get()));
     }
 
-    const D3D12MA::ALLOCATOR_DESC allocator_desc = D3D12MA::ALLOCATOR_DESC { .pDevice = m_Device.Get(), .pAdapter = m_Adapter.Get() };
+    const D3D12MA::ALLOCATOR_DESC allocator_desc = { .pDevice = m_Device.Get(), .pAdapter = m_Adapter.Get() };
     gThrowIfFailed(D3D12MA::CreateAllocator(&allocator_desc, &m_Allocator));
 
     constexpr D3D12_COMMAND_QUEUE_DESC copy_queue_desc = D3D12_COMMAND_QUEUE_DESC { .Type = D3D12_COMMAND_LIST_TYPE_COPY };
@@ -178,12 +178,18 @@ Device::Device(SDL_Window* window, uint32_t inFrameCount) : m_NumFrames(inFrameC
 
     for (uint32_t cmd_sig = 0; cmd_sig < COMMAND_SIGNATURE_COUNT; cmd_sig++)
     {
-        constexpr auto sizes = std::array { uint32_t(sizeof(D3D12_DRAW_ARGUMENTS)), uint32_t(sizeof(D3D12_DRAW_INDEXED_ARGUMENTS)), uint32_t(sizeof(D3D12_DISPATCH_ARGUMENTS)) };
+        constexpr std::array sizes = 
+        { 
+            uint32_t(sizeof(D3D12_DRAW_ARGUMENTS)), 
+            uint32_t(sizeof(D3D12_DRAW_INDEXED_ARGUMENTS)), 
+            uint32_t(sizeof(D3D12_DISPATCH_ARGUMENTS)) 
+        };
+
         static_assert( sizes.size() == COMMAND_SIGNATURE_COUNT );
 
-        auto indirect_args = D3D12_INDIRECT_ARGUMENT_DESC { .Type = (D3D12_INDIRECT_ARGUMENT_TYPE)cmd_sig };
+        D3D12_INDIRECT_ARGUMENT_DESC indirect_args = { .Type = (D3D12_INDIRECT_ARGUMENT_TYPE)cmd_sig };
 
-        const auto cmdsig_desc = D3D12_COMMAND_SIGNATURE_DESC
+        const D3D12_COMMAND_SIGNATURE_DESC cmdsig_desc =
         {
             .ByteStride = sizes[cmd_sig], .NumArgumentDescs = 1, .pArgumentDescs = &indirect_args
         };
@@ -197,7 +203,8 @@ void Device::BindDrawDefaults(CommandList& inCmdList)
 {
     inCmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-    const auto heaps = std::array {
+    const std::array heaps = 
+    {
         *GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER),
         *GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV)
     };
@@ -388,7 +395,7 @@ D3D12_GRAPHICS_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* 
 {
     assert(inRenderPass->IsGraphics() && "Cannot create a Graphics PSO description for a Compute RenderPass");
 
-    static constexpr auto vertex_layout = std::array
+    static constexpr std::array vertex_layout =
     {
         D3D12_INPUT_ELEMENT_DESC { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
         D3D12_INPUT_ELEMENT_DESC { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
@@ -396,7 +403,7 @@ D3D12_GRAPHICS_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* 
         D3D12_INPUT_ELEMENT_DESC { "TANGENT",  0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 32, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
     };
 
-    auto pso_state = D3D12_GRAPHICS_PIPELINE_STATE_DESC
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state =
     {
         .pRootSignature = GetGlobalRootSignature(),
         .VS = inVertexShader,
@@ -449,7 +456,7 @@ void Device::CreateDescriptor(BufferID inID, const Buffer::Desc& inDesc)
         case Buffer::READBACK: break;
         case Buffer::SHADER_READ_WRITE:
         {
-            const auto uav_desc = inDesc.ToUAVDesc();
+            const D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = inDesc.ToUAVDesc();
             buffer.m_Descriptor = CreateUnorderedAccessView(buffer.m_Resource, &uav_desc);
         } break;
 
@@ -461,14 +468,14 @@ void Device::CreateDescriptor(BufferID inID, const Buffer::Desc& inDesc)
         case Buffer::INDIRECT_ARGUMENTS:
         case Buffer::ACCELERATION_STRUCTURE:
         {
-            auto srv_desc = inDesc.ToSRVDesc();
-            auto resource = buffer.GetD3D12Resource();
+            D3D12ResourceRef resource = buffer.GetD3D12Resource();
+            D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = inDesc.ToSRVDesc();
 
             if (inDesc.usage == Buffer::ACCELERATION_STRUCTURE)
             {
-                resource = nullptr; // resource must be NULL, since the resource location comes from a GPUVA in desc 
                 srv_desc.RaytracingAccelerationStructure.Location = buffer->GetGPUVirtualAddress();
-                buffer.m_Descriptor = CreateShaderResourceView(resource, &srv_desc);
+                // resource must be NULL, since the resource location comes from a GPUVA in desc 
+                buffer.m_Descriptor = CreateShaderResourceView(nullptr, &srv_desc);
             }
             else if (inDesc.format != DXGI_FORMAT_UNKNOWN || inDesc.stride > 0)
             {
@@ -486,32 +493,32 @@ void Device::CreateDescriptor(BufferID inID, const Buffer::Desc& inDesc)
 
 void Device::CreateDescriptor(TextureID inID, const Texture::Desc& inDesc)
 {
-    auto& texture = GetTexture(inID);
+    Texture& texture = GetTexture(inID);
     texture.m_Desc.usage = inDesc.usage;
 
     switch (inDesc.usage)
     {
         case Texture::DEPTH_STENCIL_TARGET:
         {
-            const auto dsv_desc = inDesc.ToDSVDesc();
+            const D3D12_DEPTH_STENCIL_VIEW_DESC dsv_desc = inDesc.ToDSVDesc();
             texture.m_Descriptor = CreateDepthStencilView(texture.m_Resource, &dsv_desc);
         } break;
 
         case Texture::RENDER_TARGET:
         {
-            const auto rtv_desc = inDesc.ToRTVDesc();
+            const D3D12_RENDER_TARGET_VIEW_DESC rtv_desc = inDesc.ToRTVDesc();
             texture.m_Descriptor = CreateRenderTargetView(texture.m_Resource, &rtv_desc);
         } break;
 
         case Texture::SHADER_READ_ONLY:
         {
-            const auto srv_desc = inDesc.ToSRVDesc();
+            const D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = inDesc.ToSRVDesc();
             texture.m_Descriptor = CreateShaderResourceView(texture.m_Resource, &srv_desc);
         } break;
 
         case Texture::SHADER_READ_WRITE:
         {
-            const auto uav_desc = inDesc.ToUAVDesc();
+            const D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = inDesc.ToUAVDesc();
             texture.m_Descriptor = CreateUnorderedAccessView(texture.m_Resource, &uav_desc);
         } break;
 
@@ -747,18 +754,18 @@ void StagingHeap::StageTexture(CommandList& inCmdList, const Texture& inTexture,
     uint64_t row_size = 0ull, total_size = 0ull;
     D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint = {};
 
-    auto desc = inTexture.GetD3D12Resource()->GetDesc();
+    D3D12_RESOURCE_DESC desc = inTexture.GetD3D12Resource()->GetDesc();
     m_Device->GetCopyableFootprints(&desc, inSubResource, 1, 0, &footprint, &nr_of_rows, &row_size, &total_size);
 
-    /*for (auto& buffer : m_Buffers) 
+    /*for (StagingBuffer& buffer : m_Buffers) 
     {
         if (buffer.mRetired && inSize <= buffer.mCapacity - buffer.mSize) 
         {
             memcpy(buffer.mPtr + buffer.mSize, inData, aligned_size);
 
-            const auto buffer_resource = m_Device.GetBuffer(buffer.mBufferID).GetD3D12Resource();
-            const auto dest   = CD3DX12_TEXTURE_COPY_LOCATION(inResource.Get(), inSubResource);
-            const auto source = CD3DX12_TEXTURE_COPY_LOCATION(buffer_resource.Get(), font_texture_footprint);
+            const ID3D12Resource* buffer_resource = m_Device.GetBuffer(buffer.mBufferID).GetD3D12Resource();
+            const CD3DX12_TEXTURE_COPY_LOCATION dest = CD3DX12_TEXTURE_COPY_LOCATION(inResource.Get(), inSubResource);
+            const CD3DX12_TEXTURE_COPY_LOCATION source = CD3DX12_TEXTURE_COPY_LOCATION(buffer_resource.Get(), font_texture_footprint);
 
             inCmdList->CopyTextureRegion(&dest, 0, 0, 0, &source, nullptr);
 
@@ -769,28 +776,27 @@ void StagingHeap::StageTexture(CommandList& inCmdList, const Texture& inTexture,
         }
     }*/
 
-    auto buffer_id = m_Device.CreateBuffer(Buffer::Describe(total_size, Buffer::Usage::UPLOAD));
-    
-    auto& buffer = m_Device.GetBuffer(buffer_id);
+    BufferID buffer_id = m_Device.CreateBuffer(Buffer::Describe(total_size, Buffer::Usage::UPLOAD));
+    Buffer& buffer = m_Device.GetBuffer(buffer_id);
 
-    auto mapped_ptr = static_cast<uint8_t*>( nullptr );
-    const auto range = CD3DX12_RANGE(0, 0);
+    uint8_t* mapped_ptr = nullptr;
+    CD3DX12_RANGE range = CD3DX12_RANGE(0, 0);
     gThrowIfFailed(buffer->Map(0, &range, reinterpret_cast<void**>( &mapped_ptr )));
 
     mapped_ptr += footprint.Offset;
-    auto data_ptr = static_cast<const uint8_t*>( inData );
+    uint8_t* data_ptr = (uint8_t*)inData;
 
     for (uint32_t row = 0u; row < nr_of_rows; row++)
     {
-        const auto copy_src = data_ptr + row * row_size;
-        const auto copy_dst = mapped_ptr + row * footprint.Footprint.RowPitch;
+        uint8_t* copy_src = data_ptr + row * row_size;
+        uint8_t* copy_dst = mapped_ptr + row * footprint.Footprint.RowPitch;
         memcpy(copy_dst, copy_src, row_size);
     }
 
-    const auto dest = CD3DX12_TEXTURE_COPY_LOCATION(inTexture.GetD3D12Resource().Get(), inSubResource);
-    const auto source = CD3DX12_TEXTURE_COPY_LOCATION(buffer.GetD3D12Resource().Get(), footprint);
+    CD3DX12_TEXTURE_COPY_LOCATION src(buffer.GetD3D12Resource().Get(), footprint);
+    CD3DX12_TEXTURE_COPY_LOCATION dst(inTexture.GetD3D12Resource().Get(), inSubResource);
 
-    inCmdList->CopyTextureRegion(&dest, 0, 0, 0, &source, nullptr);
+    inCmdList->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
 
     m_Buffers.emplace_back(StagingBuffer
     {
@@ -810,7 +816,7 @@ void StagingHeap::StageTexture(CommandList& inCmdList, const Texture& inTexture,
 
 void StagingHeap::RetireBuffers(CommandList& inCmdList)
 {
-    for (auto& buffer : m_Buffers)
+    for (StagingBuffer& buffer : m_Buffers)
     {
         if (buffer.mFrameIndex == inCmdList.GetFrameIndex())
         {
@@ -828,7 +834,7 @@ void RingAllocator::CreateBuffer(Device& inDevice, uint32_t inCapacity)
 
     m_Buffer = inDevice.CreateBuffer(Buffer::Desc {.size = inCapacity, .usage = Buffer::Usage::UPLOAD, .debugName = "RingAllocatorBuffer" });
 
-    auto buffer_range = CD3DX12_RANGE(0, 0);
+    CD3DX12_RANGE buffer_range = CD3DX12_RANGE(0, 0);
     gThrowIfFailed(inDevice.GetBuffer(m_Buffer)->Map(0, &buffer_range, reinterpret_cast<void**>( &m_DataPtr )));
 }
 
@@ -854,7 +860,7 @@ void GlobalConstantsAllocator::CreateBuffer(Device& inDevice)
 {
     m_Buffer = inDevice.CreateBuffer(Buffer::Desc { .size = sizeof(GlobalConstants), .usage = Buffer::Usage::UPLOAD});
 
-    auto buffer_range = CD3DX12_RANGE(0, 0);
+    CD3DX12_RANGE buffer_range = CD3DX12_RANGE(0, 0);
     gThrowIfFailed(inDevice.GetBuffer(m_Buffer)->Map(0, &buffer_range, reinterpret_cast<void**>( &m_DataPtr )));
 }
 

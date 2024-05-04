@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "async.h"
 
-namespace Raekor {
+namespace RK {
 
 ThreadPool g_ThreadPool;
 
@@ -18,7 +18,7 @@ ThreadPool::ThreadPool(uint32_t inThreadCount) : m_ActiveThreadCount(inThreadCou
 		// Do Windows-specific thread setup:
 		HANDLE handle = (HANDLE)m_Threads[i].native_handle();
 
-		const auto thread_name = L"JobThread " + std::to_wstring(i);
+		const WString thread_name = L"JobThread " + std::to_wstring(i);
 		SetThreadDescription(handle, thread_name.c_str());
 
 		// Put each thread on to dedicated core:
@@ -41,10 +41,10 @@ ThreadPool::~ThreadPool()
 
 Job::Ptr ThreadPool::QueueJob(const Job::Function& inFunction)
 {
-	auto job = std::make_shared<Job>(inFunction);
+	Job::Ptr job = std::make_shared<Job>(inFunction);
 
 	{
-		auto lock = std::scoped_lock<std::mutex>(m_Mutex);
+		std::scoped_lock lock(m_Mutex);
 		m_JobQueue.push(job);
 	}
 
@@ -66,7 +66,7 @@ void ThreadPool::Shutdown()
 {
 	// let every thread know they can exit their while loops
 	{
-		auto lock = std::scoped_lock<std::mutex>(m_Mutex);
+		std::scoped_lock lock(m_Mutex);
 		m_Quit = true;
 	}
 
@@ -75,7 +75,7 @@ void ThreadPool::Shutdown()
 	m_ConditionVariable.notify_all();
 
 	// wait for all to finish up
-	for (auto& thread : m_Threads)
+	for (std::thread& thread : m_Threads)
 		if (thread.joinable())
 			thread.join();
 }
@@ -84,9 +84,9 @@ void ThreadPool::Shutdown()
 void ThreadPool::ThreadLoop(uint32_t inThreadIndex)
 {
 	// take control of the mutex
-	auto lock = std::unique_lock<std::mutex>(m_Mutex);
+	std::unique_lock lock(m_Mutex);
 
-	auto thread_index = inThreadIndex;
+	uint32_t thread_index = inThreadIndex;
 
 	do {
 		// wait releases the mutex and re-acquires when there's work available
@@ -97,7 +97,8 @@ void ThreadPool::ThreadLoop(uint32_t inThreadIndex)
 
 		if (m_JobQueue.size() && !m_Quit)
 		{
-			auto job = std::move(m_JobQueue.front());
+			JobPtr job = std::move(m_JobQueue.front());
+
 			m_JobQueue.pop();
 
 			lock.unlock();

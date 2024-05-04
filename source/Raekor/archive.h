@@ -4,7 +4,7 @@
 #include "json.h"
 #include "rtti.h"
 
-namespace Raekor {
+namespace RK {
 
 class BinaryReadArchive
 {
@@ -17,7 +17,7 @@ public:
 		std::string type;
 		ReadFileBinary(m_File, type);
 
-		if (auto rtti = g_RTTIFactory.GetRTTI(type.c_str()))
+		if (RTTI* rtti = g_RTTIFactory.GetRTTI(type.c_str()))
 			for (const auto& member : *rtti)
 			{
 				if (member->GetSerializeType() & SERIALIZE_BINARY)
@@ -54,8 +54,8 @@ public:
 	template<typename T> requires HasRTTI<T>
 	BinaryWriteArchive& operator<< (const T& ioRHS)
 	{
-		auto& rtti = gGetRTTI<T>();
-		auto type = std::string(rtti.GetTypeName());
+		RTTI& rtti = gGetRTTI<T>();
+		String type = String(rtti.GetTypeName());
 
 		WriteFileBinary(m_File, type);
 
@@ -78,7 +78,7 @@ private:
 
 } // namespace raekor
 
-namespace Raekor::JSON {
+namespace RK::JSON {
 
 class ReadArchive
 {
@@ -148,9 +148,9 @@ ReadArchive& ReadArchive::operator>> (T& ioRHS)
 
 	// token index is on the type key
 	assert(m_JSON.GetToken(m_TokenIndex).type == JSMN_STRING);
-	const std::string& type_name = m_JSON.GetString(m_TokenIndex);
+	const String& type_name = m_JSON.GetString(m_TokenIndex);
 
-	const auto& rtti = gGetRTTI<T>();
+	const RTTI& rtti = gGetRTTI<T>();
 
 	// We only get here if we found a matching type
 	assert(m_JSON.GetToken(m_TokenIndex).type == JSMN_STRING);  // token index is on the type key
@@ -167,9 +167,9 @@ ReadArchive& ReadArchive::operator>> (T& ioRHS)
 template<typename T> requires HasRTTI<T>
 WriteArchive& WriteArchive::operator<< (T& inRHS)
 {
-	const auto& rtti = gGetRTTI<T>();
+	const RTTI& rtti = gGetRTTI<T>();
 
-	for (const auto& type_name : m_Types)
+	for (const char* type_name : m_Types)
 	{
 		if (type_name == rtti.GetTypeName()) // ptr compare
 			return *this;
@@ -197,4 +197,4 @@ WriteArchive& WriteArchive::operator<< (T& inRHS)
 
 } // Raekor::JSON
 
-namespace Raekor { void RunArchiveTests(); }
+namespace RK { void RunArchiveTests(); }

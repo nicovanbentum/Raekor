@@ -2,7 +2,7 @@
 #include "launcher.h"
 #include "gui.h"
 
-namespace Raekor {
+namespace RK {
 
 SDL_Image::~SDL_Image()
 {

@@ -3,7 +3,7 @@
 #include "iter.h"
 #include "member.h"
 
-namespace Raekor {
+namespace RK {
 
 RTTI_DEFINE_TYPE(ShaderNode) {}
 

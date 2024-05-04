@@ -8,7 +8,7 @@
 #include "Raekor/assets.h"
 #include "Raekor/primitives.h"
 
-namespace Raekor::VK {
+namespace RK::VK {
 
 Renderer::Renderer(SDL_Window* window) :
 	m_Device(window)

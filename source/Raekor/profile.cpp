@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "profile.h"
 
-namespace Raekor {
+namespace RK {
 
 Profiler* g_Profiler = new Profiler();
 

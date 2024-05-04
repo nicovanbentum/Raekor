@@ -7,7 +7,7 @@
 #include "components.h"
 #include "application.h"
 
-namespace Raekor {
+namespace RK {
 
 static void TraceImpl(const char* inFMT, ...)
 {

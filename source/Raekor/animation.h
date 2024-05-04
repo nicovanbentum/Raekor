@@ -2,7 +2,7 @@
 
 #include "rtti.h"
 
-namespace Raekor {
+namespace RK {
 
 template<typename T>
 struct Key

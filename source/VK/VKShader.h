@@ -1,6 +1,6 @@
 #pragma once
 
-namespace Raekor::VK {
+namespace RK::VK {
 
 class Device;
 

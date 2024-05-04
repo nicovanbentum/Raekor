@@ -3,7 +3,7 @@
 #include "DXScene.h"
 #include "DXRenderGraph.h"
 
-namespace Raekor::DX12 {
+namespace RK::DX12 {
 
 enum EDebugTexture
 {

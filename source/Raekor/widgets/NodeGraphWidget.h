@@ -8,7 +8,7 @@
 #include "defines.h"
 #include "components.h"
 
-namespace Raekor {
+namespace RK {
 
 class ShaderGraphWidget : public IWidget
 {

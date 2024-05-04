@@ -11,7 +11,7 @@
 #include "DXRenderer.h"
 #include "DXCommandList.h"
 
-namespace Raekor::DX12 {
+namespace RK::DX12 {
 
 class DXApp : public IEditor
 {

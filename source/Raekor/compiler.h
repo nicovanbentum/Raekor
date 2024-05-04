@@ -4,19 +4,19 @@
 #include "timer.h"
 #include "hash.h"
 
-constexpr auto sImageFileExtensions = std::array {
+constexpr std::array sImageFileExtensions = {
 	".jpg", ".jpeg", ".tga", ".png", ".dds"
 };
 
-constexpr auto sModelFileExtensions = std::array {
+constexpr std::array sModelFileExtensions = {
 	".obj", ".gltf", ".fbx"
 };
 
-constexpr auto sEmbededFileExtensions = std::array {
+constexpr std::array sEmbededFileExtensions = {
 	".ttf"
 };
 
-constexpr auto sCppFileExtensions = std::array {
+constexpr std::array sCppFileExtensions = {
 	".cpp"
 };
 
@@ -29,28 +29,28 @@ enum AssetType
 	ASSET_TYPE_NONE
 };
 
-constexpr auto sAssetTypeExtensions = std::array {
+constexpr std::array sAssetTypeExtensions = {
 	".scene", ".dds", ".bin", ".dll"
 };
 
-namespace Raekor {
+namespace RK {
 
 inline AssetType GetCacheFileExtension(const Path& inPath)
 {
-	const auto extension = inPath.extension();
-	for (const auto& ext : sModelFileExtensions)
+	const Path extension = inPath.extension();
+	for (const char* ext : sModelFileExtensions)
 		if (extension == ext)
 			return ASSET_TYPE_SCENE;
 
-	for (const auto& ext : sImageFileExtensions)
+	for (const char* ext : sImageFileExtensions)
 		if (extension == ext)
 			return ASSET_TYPE_IMAGE;
 
-	for (const auto& ext : sEmbededFileExtensions)
+	for (const char* ext : sEmbededFileExtensions)
 		if (extension == ext)
 			return ASSET_TYPE_EMBEDDED;
 
-	for (const auto& ext : sCppFileExtensions)
+	for (const char* ext : sCppFileExtensions)
 		if (extension == ext)
 			return ASSET_TYPE_CPP_SCRIPT;
 
@@ -80,7 +80,7 @@ struct FileEntry
 
 	void UpdateWriteTime()
 	{
-		auto& write_path = mIsCached ? mCachePath : mAssetPath;
+		String& write_path = mIsCached ? mCachePath : mAssetPath;
 		mWriteTime = std::chrono::system_clock::to_time_t(std::chrono::clock_cast<std::chrono::system_clock>( fs::last_write_time(write_path) ));
 	}
 
@@ -101,7 +101,7 @@ struct FileEntry
 
 }
 
-namespace Raekor {
+namespace RK {
 
 class CompilerApp : public Application
 {

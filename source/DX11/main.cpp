@@ -11,7 +11,7 @@
 #include "DXRenderer.h"
 #include "DXResourceBuffer.h"
 
-namespace Raekor {
+namespace RK {
 
 struct DXMesh
 {
@@ -66,9 +66,9 @@ class DX11App : public Application
 public:
     bool UploadMesh(Mesh& inMesh, DXMesh& ioMesh)
     {
-        const auto& vertices = inMesh.GetInterleavedVertices();
-        const auto  vertices_size = vertices.size() * sizeof(vertices[0]);
-        const auto  indices_size = inMesh.indices.size() * sizeof(inMesh.indices[0]);
+        const Array<float>& vertices = inMesh.GetInterleavedVertices();
+        const uint64_t vertices_size = vertices.size() * sizeof(vertices[0]);
+        const uint64_t indices_size = inMesh.indices.size() * sizeof(inMesh.indices[0]);
 
         if (!vertices_size || !indices_size)
             return false;
@@ -113,7 +113,7 @@ public:
 
     ComPtr<ID3D11Texture2D> UploadTexture(const TextureAsset::Ptr& inTexture, DXGI_FORMAT informat)
     {
-        const auto header_ptr = inTexture->GetHeader();
+        const DDS_HEADER* header_ptr = inTexture->GetHeader();
 
         D3D11_TEXTURE2D_DESC desc = {};
         desc.Width = header_ptr->dwWidth;
@@ -126,14 +126,14 @@ public:
         desc.Format = informat;
         desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
 
-        auto data_ptr = inTexture->GetData();
-        auto subresources = Array<D3D11_SUBRESOURCE_DATA>(desc.MipLevels);
+        const char* data_ptr = inTexture->GetData();
+        Array<D3D11_SUBRESOURCE_DATA> subresources(desc.MipLevels);
 
         for (uint32_t mip = 0; mip < desc.MipLevels; mip++)
         {
-            const auto dimensions = glm::ivec2(std::max(header_ptr->dwWidth >> mip, 1ul), std::max(header_ptr->dwHeight >> mip, 1ul));
+            const IVec2 dimensions = IVec2(std::max(header_ptr->dwWidth >> mip, 1ul), std::max(header_ptr->dwHeight >> mip, 1ul));
 
-            auto& subresource = subresources[mip];
+            D3D11_SUBRESOURCE_DATA& subresource = subresources[mip];
             subresource.pSysMem = data_ptr;
             subresource.SysMemPitch = std::max(1, ( ( dimensions.x + 3 ) / 4 )) * 16;
 
@@ -143,7 +143,7 @@ public:
         ComPtr<ID3D11Texture2D> texture = nullptr;
         D3D.device->CreateTexture2D(&desc, subresources.data(), texture.GetAddressOf());
 
-        const auto debug_name = inTexture->GetPath().string();
+        const String debug_name = inTexture->GetPath().string();
         texture->SetPrivateData(WKPDID_D3DDebugObjectName, uint32_t(debug_name.size()), debug_name.data());
 
         return texture;
@@ -151,7 +151,7 @@ public:
 
     bool UploadMaterial(Assets& inAssets, const Material& inMaterial, DXMaterial& ioMaterial)
     {
-        if (const auto asset = inAssets.GetAsset<TextureAsset>(inMaterial.albedoFile))
+        if (const TextureAsset::Ptr asset = inAssets.GetAsset<TextureAsset>(inMaterial.albedoFile))
         {
             ioMaterial.mAlbedoTexture = UploadTexture(asset, DXGI_FORMAT_BC3_UNORM_SRGB);
             gThrowIfFailed(D3D.device->CreateShaderResourceView(ioMaterial.mAlbedoTexture.Get(), nullptr, ioMaterial.mAlbedoSRV.GetAddressOf()));
@@ -162,7 +162,7 @@ public:
             ioMaterial.mAlbedoSRV = m_DefaultWhiteTextureSRV;
         }
 
-        if (const auto asset = inAssets.GetAsset<TextureAsset>(inMaterial.normalFile))
+        if (const TextureAsset::Ptr asset = inAssets.GetAsset<TextureAsset>(inMaterial.normalFile))
         {
             ioMaterial.mNormalTexture = UploadTexture(asset, DXGI_FORMAT_BC3_UNORM);
             gThrowIfFailed(D3D.device->CreateShaderResourceView(ioMaterial.mNormalTexture.Get(), nullptr, ioMaterial.mNormalSRV.GetAddressOf()));
@@ -173,7 +173,7 @@ public:
             ioMaterial.mNormalSRV = m_DefaultNormalTextureSRV;
         }
 
-        if (const auto asset = inAssets.GetAsset<TextureAsset>(inMaterial.metallicFile))
+        if (const TextureAsset::Ptr asset = inAssets.GetAsset<TextureAsset>(inMaterial.metallicFile))
         {
             ioMaterial.mMetalRoughTexture = UploadTexture(asset, DXGI_FORMAT_BC3_UNORM);
             gThrowIfFailed(D3D.device->CreateShaderResourceView(ioMaterial.mMetalRoughTexture.Get(), nullptr, ioMaterial.mMetalRoughSRV.GetAddressOf()));
@@ -195,12 +195,15 @@ public:
         while (!fs::exists(m_Settings.mSceneFile))
             m_Settings.mSceneFile = fs::relative(OS::sOpenFileDialog("Scene Files (*.scene)\0*.scene\0")).string();
 
-        SDL_SetWindowTitle(m_Window, std::string(m_Settings.mSceneFile.string() + " - Raekor Renderer").c_str());
+        SDL_SetWindowTitle(m_Window, std::string(m_Settings.mSceneFile.string() + " - RK Renderer").c_str());
         m_Scene.OpenFromFile(m_Settings.mSceneFile.string(), m_Assets);
 
         Timer timer;
+
         for (const auto& [entity, material] : m_Scene.Each<Material>())
+        {
             m_Scene.Add<DXMaterial>(entity);
+        }
 
         for (const auto& [entity, mesh] : m_Scene.Each<Mesh>())
         {
@@ -213,9 +216,9 @@ public:
 
         g_ThreadPool.QueueJob([this]()
         {
-            const auto black_texture_file = TextureAsset::sConvert("assets/system/black4x4.png");
-            const auto white_texture_file = TextureAsset::sConvert("assets/system/white4x4.png");
-            const auto normal_texture_file = TextureAsset::sConvert("assets/system/normal4x4.png");
+            const String black_texture_file = TextureAsset::sConvert("assets/system/black4x4.png");
+            const String white_texture_file = TextureAsset::sConvert("assets/system/white4x4.png");
+            const String normal_texture_file = TextureAsset::sConvert("assets/system/normal4x4.png");
             m_DefaultBlackTexture = UploadTexture(m_Assets.GetAsset<TextureAsset>(black_texture_file), DXGI_FORMAT_BC3_UNORM);
             D3D.device->CreateShaderResourceView(m_DefaultBlackTexture.Get(), nullptr, m_DefaultBlackTextureSRV.GetAddressOf());
             m_DefaultWhiteTexture = UploadTexture(m_Assets.GetAsset<TextureAsset>(white_texture_file), DXGI_FORMAT_BC3_UNORM);
@@ -230,6 +233,7 @@ public:
                 if (m_Scene.Exists(mesh.material))
                 {
                     const auto& [material, dx_material] = m_Scene.Get<Material, DXMaterial>(mesh.material);
+
                     if (!dx_material.IsReady())
                         UploadMaterial(m_Assets, material, dx_material);
                 }
@@ -241,16 +245,18 @@ public:
 
         std::cout << std::format("Scene Upload took {:.2f} ms\n", Timer::sToMilliseconds(timer.GetElapsedTime()));
 
-        const auto gbuffer_stages = std::array {
+        const std::array gbuffer_stages =  
+        {
             DXShader::Stage {.type = DXShader::Type::VERTEX, .mTextFile = "assets/system/shaders/DirectX/old/simple_vertex.hlsl" },
-                DXShader::Stage {.type = DXShader::Type::FRAG, .mTextFile = "assets/system/shaders/DirectX/old/simple_fp.hlsl" },
+            DXShader::Stage {.type = DXShader::Type::FRAG, .mTextFile = "assets/system/shaders/DirectX/old/simple_fp.hlsl" },
         };
 
         m_GbufferShader = DXShader(gbuffer_stages.data(), gbuffer_stages.size());
 
-        const auto gbuffer_depth_stages = std::array {
+        const std::array gbuffer_depth_stages = 
+        {
             DXShader::Stage {.type = DXShader::Type::VERTEX, .mTextFile = "assets/system/shaders/DirectX/old/simple_vertex.hlsl" },
-                DXShader::Stage {.type = DXShader::Type::FRAG, .mTextFile = "assets/system/shaders/DirectX/old/depth_fp.hlsl" },
+            DXShader::Stage {.type = DXShader::Type::FRAG, .mTextFile = "assets/system/shaders/DirectX/old/depth_fp.hlsl" },
         };
 
         m_GbufferDepthShader = DXShader(gbuffer_depth_stages.data(), gbuffer_depth_stages.size());
@@ -301,10 +307,10 @@ public:
         ImGui::Begin("DX11 Settings");
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 
-        const auto meshes_streamed = m_StreamingJobsFinished.load();
+        const uint32_t meshes_streamed = m_StreamingJobsFinished.load();
         if (meshes_streamed != m_StreamingJobsPending)
         {
-            const auto progress_string = std::format("({}/{}) Streaming Jobs..", meshes_streamed, m_StreamingJobsPending);
+            const String progress_string = std::format("({}/{}) Streaming Jobs..", meshes_streamed, m_StreamingJobsPending);
             ImGui::ProgressBar((float)meshes_streamed / (float)m_StreamingJobsPending, ImVec2(-FLT_MIN, 0), progress_string.c_str());
         }
         else
@@ -334,9 +340,9 @@ public:
 
             for (const auto& [entity, sb_transform, sb_mesh, sb_collider] : m_Scene.Each<Transform, Mesh, RigidBody>())
             {
-                auto& mesh = sb_mesh;
-                auto& transform = sb_transform;
-                auto& collider = sb_collider;
+                Mesh& mesh = sb_mesh;
+                Transform& transform = sb_transform;
+                RigidBody& collider = sb_collider;
 
                 g_ThreadPool.QueueJob([&]()
                 {
@@ -344,9 +350,9 @@ public:
 
                     for (int i = 0; i < mesh.indices.size(); i += 3)
                     {
-                        auto v0 = mesh.positions[mesh.indices[i]];
-                        auto v1 = mesh.positions[mesh.indices[i + 1]];
-                        auto v2 = mesh.positions[mesh.indices[i + 2]];
+                        Vec3 v0 = mesh.positions[mesh.indices[i]];
+                        Vec3 v1 = mesh.positions[mesh.indices[i + 1]];
+                        Vec3 v2 = mesh.positions[mesh.indices[i + 2]];
 
                         v0 *= transform.scale;
                         v1 *= transform.scale;
@@ -358,7 +364,8 @@ public:
                     collider.motionType = JPH::EMotionType::Static;
                     JPH::Ref<JPH::ShapeSettings> settings = new JPH::MeshShapeSettings(triangles);
 
-                    auto body_settings = JPH::BodyCreationSettings(
+                    JPH::BodyCreationSettings body_settings = JPH::BodyCreationSettings
+                    (
                         settings,
                         JPH::Vec3(transform.position.x, transform.position.y, transform.position.z),
                         JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w),
@@ -366,7 +373,7 @@ public:
                         EPhysicsObjectLayers::MOVING
                     );
 
-                    auto& body_interface = m_Physics.GetSystem()->GetBodyInterface();
+                    JPH::BodyInterface& body_interface = m_Physics.GetSystem()->GetBodyInterface();
                     collider.bodyID = body_interface.CreateAndAddBody(body_settings, JPH::EActivation::Activate);
 
                     m_StreamingJobsFinished.fetch_add(1);
@@ -376,35 +383,37 @@ public:
 
         if (g_ThreadPool.GetActiveJobCount() == 0 && ImGui::Button("Spawn/Reset Balls"))
         {
-            const auto material_entity = m_Scene.Create();
+            const Entity material_entity = m_Scene.Create();
 
-            auto& material_name = m_Scene.Add<Name>(material_entity);
+            Name& material_name = m_Scene.Add<Name>(material_entity);
             material_name = "Ball Material";
 
-            auto& ball_material = m_Scene.Add<Material>(material_entity);
+            Material& ball_material = m_Scene.Add<Material>(material_entity);
             ball_material.albedo = glm::vec4(1.0f, 0.25f, 0.38f, 1.0f);
 
             UploadMaterial(m_Assets, ball_material, m_Scene.Add<DXMaterial>(material_entity));
 
             for (uint32_t i = 0; i < 64; i++)
             {
-                auto entity = m_Scene.CreateSpatialEntity("ball");
-                auto& transform = m_Scene.Get<Transform>(entity);
-                auto& mesh = m_Scene.Add<Mesh>(entity);
+                Entity entity = m_Scene.CreateSpatialEntity("ball");
+
+                Mesh& mesh = m_Scene.Add<Mesh>(entity);
+                Transform& transform = m_Scene.Get<Transform>(entity);
 
                 mesh.material = material_entity;
-                constexpr auto radius = 2.5f;
+                constexpr float radius = 2.5f;
                 gGenerateSphere(mesh, radius, 16, 16);
                 UploadMesh(mesh, m_Scene.Add<DXMesh>(entity));
 
                 transform.position = Vec3(-65.0f, 85.0f + i * ( radius * 2.0f ), 0.0f);
                 transform.Compose();
 
-                auto& collider = m_Scene.Add<RigidBody>(entity);
+                RigidBody& collider = m_Scene.Add<RigidBody>(entity);
                 collider.motionType = JPH::EMotionType::Dynamic;
                 JPH::Ref<JPH::ShapeSettings> settings = new JPH::SphereShapeSettings(radius);
 
-                auto body_settings = JPH::BodyCreationSettings(
+                JPH::BodyCreationSettings body_settings = JPH::BodyCreationSettings
+                (
                     settings,
                     JPH::Vec3(transform.position.x, transform.position.y, transform.position.z),
                     JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w),
@@ -415,14 +424,14 @@ public:
                 body_settings.mFriction = 0.1f;
                 body_settings.mRestitution = 0.35f;
 
-                auto& body_interface = m_Physics.GetSystem()->GetBodyInterface();
+                JPH::BodyInterface& body_interface = m_Physics.GetSystem()->GetBodyInterface();
                 collider.bodyID = body_interface.CreateAndAddBody(body_settings, JPH::EActivation::Activate);
 
                 //body_interface.AddImpulse(collider.bodyID, JPH::Vec3Arg(50.0f, -2.0f, 50.0f));
             }
         }
 
-        const auto physics_state = m_Physics.GetState();
+        const Physics::EState physics_state = m_Physics.GetState();
         if (ImGui::SmallButton(physics_state == Physics::Stepping ? "pause" : "start"))
         {
             switch (physics_state)
@@ -472,7 +481,8 @@ public:
             light_transform.position = m_GBufferConstants.mLightPosition;
             light_transform.Compose();
 
-            const auto manipulated = ImGuizmo::Manipulate(
+            const bool manipulated = ImGuizmo::Manipulate
+            (
                 glm::value_ptr(m_Viewport.GetCamera().GetView()),
                 glm::value_ptr(m_Viewport.GetCamera().GetProjection()),
                 ImGuizmo::OPERATION::TRANSLATE, ImGuizmo::MODE::WORLD,
@@ -499,7 +509,7 @@ public:
             if (!geometry.IsReady())
                 continue;
 
-            auto dx_material = m_Scene.GetPtr<DXMaterial>(mesh.material);
+            DXMaterial* dx_material = m_Scene.GetPtr<DXMaterial>(mesh.material);
             if (dx_material && !dx_material->IsReady())
                 continue;
 
@@ -512,11 +522,11 @@ public:
 
             m_GBufferConstantBuffer.Update(&m_GBufferConstants, sizeof(GBufferConstants));
 
-            const auto cbs = std::array { m_GBufferConstantBuffer.GetBuffer() };
+            const std::array cbs = { m_GBufferConstantBuffer.GetBuffer() };
             D3D.context->VSSetConstantBuffers(0, uint32_t(cbs.size()), cbs.data());
             D3D.context->PSSetConstantBuffers(0, uint32_t(cbs.size()), cbs.data());
 
-            const auto srvs = std::array { geometry.mVertexSRV.Get() };
+            const std::array srvs = { geometry.mVertexSRV.Get() };
             D3D.context->VSSetShaderResources(0, uint32_t(srvs.size()), srvs.data());
 
             D3D.context->RSSetState(D3D.rasterize_state.Get());
@@ -532,7 +542,7 @@ public:
         D3D.context->RSSetState(D3D.rasterize_state.Get());
         D3D.context->OMSetRenderTargets(1, D3D.back_buffer.GetAddressOf(), D3D.depth_stencil_view.Get());
 
-        const auto samplers = std::array { m_SamplerAnisoWrap.Get() };
+        const std::array samplers = { m_SamplerAnisoWrap.Get() };
         D3D.context->PSSetSamplers(0, uint32_t(samplers.size()), samplers.data());
 
         for (const auto& [entity, transform, mesh, geometry] : m_Scene.Each<Transform, Mesh, DXMesh>())
@@ -540,7 +550,7 @@ public:
             if (!geometry.IsReady())
                 continue;
 
-            auto dx_material = m_Scene.GetPtr<DXMaterial>(mesh.material);
+            DXMaterial* dx_material = m_Scene.GetPtr<DXMaterial>(mesh.material);
             if (dx_material && !dx_material->IsReady())
                 continue;
 
@@ -549,7 +559,7 @@ public:
             else
                 m_Renderer.BindPipeline(D3D11_COMPARISON_EQUAL);
 
-            auto& material = m_Scene.Get<Material>(mesh.material);
+            Material& material = m_Scene.Get<Material>(mesh.material);
 
             m_GBufferConstants.mAlbedo = material.albedo;
             m_GBufferConstants.mLODFade = mesh.mLODFade;
@@ -557,22 +567,22 @@ public:
 
             m_GBufferConstantBuffer.Update(&m_GBufferConstants, sizeof(GBufferConstants));
 
-            const auto cbs = std::array { m_GBufferConstantBuffer.GetBuffer() };
+            const std::array cbs = { m_GBufferConstantBuffer.GetBuffer() };
             D3D.context->VSSetConstantBuffers(0, uint32_t(cbs.size()), cbs.data());
             D3D.context->PSSetConstantBuffers(0, uint32_t(cbs.size()), cbs.data());
 
-            const auto srvs = std::array { geometry.mVertexSRV.Get() };
+            const std::array srvs = { geometry.mVertexSRV.Get() };
             D3D.context->VSSetShaderResources(0, uint32_t(srvs.size()), srvs.data());
 
 
             if (dx_material != nullptr)
             {
-                auto textures = std::array { dx_material->mAlbedoSRV.Get(), dx_material->mNormalSRV.Get(), dx_material->mMetalRoughSRV.Get() };
+                std::array textures = { dx_material->mAlbedoSRV.Get(), dx_material->mNormalSRV.Get(), dx_material->mMetalRoughSRV.Get() };
                 D3D.context->PSSetShaderResources(0, uint32_t(textures.size()), textures.data());
             }
             else
             {
-                auto textures = std::array { m_DefaultWhiteTextureSRV.Get(), m_DefaultNormalTextureSRV.Get(), m_DefaultWhiteTextureSRV.Get() };
+                std::array textures = { m_DefaultWhiteTextureSRV.Get(), m_DefaultNormalTextureSRV.Get(), m_DefaultWhiteTextureSRV.Get() };
                 D3D.context->PSSetShaderResources(0, uint32_t(textures.size()), textures.data());
             }
 
@@ -638,7 +648,7 @@ private:
 
 }
 
-using namespace Raekor;
+using namespace RK;
 
 int main(int argc, char** argv)
 {
@@ -646,7 +656,7 @@ int main(int argc, char** argv)
 
     g_CVars.ParseCommandLine(argc, argv);
 
-    auto should_launch = true;
+    bool should_launch = true;
 
     if (g_CVars.Create("enable_launcher", 0))
     {
@@ -659,7 +669,7 @@ int main(int argc, char** argv)
     if (!should_launch)
         return 0;
 
-    Raekor::Application* app = new Raekor::DX11App();
+    RK::Application* app = new RK::DX11App();
 
     app->Run();
 

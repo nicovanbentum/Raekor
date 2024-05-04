@@ -2,7 +2,7 @@
 
 #include "pch.h"
 
-namespace Raekor {
+namespace RK {
 
 class DXFrameBuffer
 {

@@ -2,7 +2,7 @@
 #include "rmath.h"
 #include "camera.h"
 
-namespace Raekor {
+namespace RK {
 
 static std::default_random_engine sDefaultRandomEngine;
 static std::uniform_real_distribution<float> sUniformDistributionZO(0.0, 1.0);
@@ -37,18 +37,18 @@ BBox3D& BBox3D::Transform(const Mat4x4& inTransform)
 
 Ray::Ray(const Viewport& inViewport, Vec2 inCoords)
 {
-	auto ndc_to_clip = Vec3 {
+	Vec3 ndc_to_clip = Vec3 {
 	   ( inCoords.x / inViewport.GetRenderSize().x ) * 2.0f - 1.0f,
 	   ( inCoords.y / inViewport.GetRenderSize().y ) * 2.0f - 1.0f,
 		1.0f
 	};
 
-	auto clip_ray = Vec4 { ndc_to_clip.x, ndc_to_clip.y, -1.0f, 1.0f };
+	Vec4 clip_ray = Vec4 { ndc_to_clip.x, ndc_to_clip.y, -1.0f, 1.0f };
 
-	auto view_ray = glm::inverse(inViewport.GetCamera().GetProjection()) * clip_ray;
+	Vec4 view_ray = glm::inverse(inViewport.GetCamera().GetProjection()) * clip_ray;
 	view_ray.z = -1.0f, view_ray.w = 0.0f;
 
-	auto world_ray = glm::inverse(inViewport.GetCamera().GetView()) * view_ray;
+	Vec4 world_ray = glm::inverse(inViewport.GetCamera().GetView()) * view_ray;
 	world_ray = glm::normalize(world_ray);
 
 	m_Direction = world_ray;
@@ -69,18 +69,18 @@ std::optional<float> Ray::HitsOBB(const BBox3D& inOBB, const Mat4x4& inTransform
 	float t_min = 0.0f;
 	float t_max = 100000.0f;
 
-	const auto obb_pos_ws = glm::vec3(inTransform[3]);
-	const auto delta = obb_pos_ws - m_Origin;
+	const Vec3 obb_pos_ws = Vec3(inTransform[3]);
+	const Vec3 delta = obb_pos_ws - m_Origin;
 
 	{
-		const auto xaxis = glm::vec3(inTransform[0]);
-		const auto e = glm::dot(xaxis, delta);
-		const auto f = glm::dot(m_Direction, xaxis);
+		const Vec3 xaxis = Vec3(inTransform[0]);
+		const float e = glm::dot(xaxis, delta);
+		const float f = glm::dot(m_Direction, xaxis);
 
 		if (fabs(f) > 0.001f)
 		{
-			auto t1 = ( e + inOBB.mMin.x ) / f;
-			auto t2 = ( e + inOBB.mMax.x ) / f;
+			float t1 = ( e + inOBB.mMin.x ) / f;
+			float t2 = ( e + inOBB.mMax.x ) / f;
 
 			if (t1 > t2) std::swap(t1, t2);
 
@@ -97,7 +97,7 @@ std::optional<float> Ray::HitsOBB(const BBox3D& inOBB, const Mat4x4& inTransform
 
 
 	{
-		glm::vec3 yaxis(inTransform[1]);
+		Vec3 yaxis(inTransform[1]);
 		float e = glm::dot(yaxis, delta);
 		float f = glm::dot(m_Direction, yaxis);
 
@@ -122,7 +122,7 @@ std::optional<float> Ray::HitsOBB(const BBox3D& inOBB, const Mat4x4& inTransform
 
 
 	{
-		glm::vec3 zaxis(inTransform[2]);
+		Vec3 zaxis(inTransform[2]);
 		float e = glm::dot(zaxis, delta);
 		float f = glm::dot(m_Direction, zaxis);
 
@@ -151,11 +151,11 @@ std::optional<float> Ray::HitsOBB(const BBox3D& inOBB, const Mat4x4& inTransform
 
 std::optional<float> Ray::HitsAABB(const BBox3D& inAABB) const
 {
-	auto t1 = ( inAABB.mMin.x - m_Origin.x ) * m_RcpDirection.x;
-	auto t2 = ( inAABB.mMax.x - m_Origin.x ) * m_RcpDirection.x;
+	float t1 = ( inAABB.mMin.x - m_Origin.x ) * m_RcpDirection.x;
+	float t2 = ( inAABB.mMax.x - m_Origin.x ) * m_RcpDirection.x;
 
-	auto tmin = glm::min(t1, t2);
-	auto tmax = glm::max(t1, t2);
+	float tmin = glm::min(t1, t2);
+	float tmax = glm::max(t1, t2);
 
 	for (int i = 1; i < 3; i++)
 	{
@@ -247,7 +247,7 @@ Mat3x3 gRandomRotationMatrix()
 	/* Construct the rotation matrix  ( V Transpose(V) - I ) R, which   */
 	/* is equivalent to V S - R.                                        */
 
-	auto matrix = Mat3x3(1.0f);
+	Mat3x3 matrix = Mat3x3(1.0f);
 
 	matrix[0][0] = Vx * Sx - ct;
 	matrix[0][1] = Vx * Sy - st;
@@ -303,9 +303,9 @@ Frustum::Frustum(const glm::mat4& inViewProjMatrix, bool inShouldNormalize)
 
 	if (inShouldNormalize)
 	{
-		for (auto& plane : m_Planes)
+		for (Vec4& plane : m_Planes)
 		{
-			const auto mag = sqrt(plane.x * plane.x + plane.y * plane.y + plane.z * plane.z);
+			const float mag = sqrt(plane.x * plane.x + plane.y * plane.y + plane.z * plane.z);
 			plane.x = plane.x / mag;
 			plane.y = plane.y / mag;
 			plane.z = plane.z / mag;
@@ -318,7 +318,7 @@ Frustum::Frustum(const glm::mat4& inViewProjMatrix, bool inShouldNormalize)
 
 bool Frustum::Contains(const Vec3& inPoint) const
 {
-	for (const auto& plane : m_Planes)
+	for (const Vec4& plane : m_Planes)
 	{
 		if (glm::dot(plane, glm::vec4(inPoint, 1.0f)) < 0.0)
 			return false;
@@ -331,7 +331,7 @@ bool Frustum::Contains(const Vec3& inPoint) const
 
 bool Frustum::ContainsAABB(const BBox3D& inAABB) const
 {
-	for (const auto& plane : m_Planes)
+	for (const Vec4& plane : m_Planes)
 	{
 		int out = 0;
 		out += ( ( glm::dot(plane, glm::vec4(inAABB.mMin.x, inAABB.mMin.y, inAABB.mMin.z, 1.0f)) < 0.0 ) ? 1 : 0 );

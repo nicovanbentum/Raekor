@@ -2,7 +2,7 @@
 
 #include "DXUtil.h"
 
-namespace Raekor::DX12 {
+namespace RK::DX12 {
 
 class Device;
 
@@ -399,7 +399,7 @@ public:
 
 
 
-    inline D3D12_CPU_DESCRIPTOR_HANDLE  GetCPUDescriptorHandle(TypedID inResourceID) const
+    inline D3D12_CPU_DESCRIPTOR_HANDLE GetCPUDescriptorHandle(TypedID inResourceID) const
     {
         return CD3DX12_CPU_DESCRIPTOR_HANDLE(m_HeapPtr, inResourceID.GetIndex(), m_HeapIncrement);
     }
@@ -430,17 +430,17 @@ enum ECommandSignature
 } // namespace::Raekor
 
 template<>
-struct std::hash<Raekor::DX12::ResourceID>
+struct std::hash<RK::DX12::ResourceID>
 {
-    std::size_t operator()(const Raekor::DX12::ResourceID& inID) const noexcept
+    std::size_t operator()(const RK::DX12::ResourceID& inID) const noexcept
     {
         return size_t(inID.GetValue());
     }
 };
 
-template<typename T> struct std::hash<Raekor::DX12::TypedResourceID<T>>
+template<typename T> struct std::hash<RK::DX12::TypedResourceID<T>>
 {
-    std::size_t operator()(const Raekor::DX12::TypedResourceID<T>& inID) const noexcept
+    std::size_t operator()(const RK::DX12::TypedResourceID<T>& inID) const noexcept
     {
         return size_t(inID.GetValue());
     }

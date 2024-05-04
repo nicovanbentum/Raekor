@@ -3,7 +3,7 @@
 #include "ecs.h"
 #include "rtti.h"
 
-namespace Raekor {
+namespace RK {
 
 class Editor;
 class Scene;

@@ -5,13 +5,13 @@
 #include "Raekor/launcher.h"
 #include "Raekor/compiler.h"
 
-using namespace Raekor;
+using namespace RK;
 
 int main(int argc, char** argv)
 {
     g_CVars.ParseCommandLine(argc, argv);
 
-    auto should_launch = true;
+    bool should_launch = true;
 
     if (g_CVars.Create("enable_launcher", 0) && !OS::sCheckCommandLineOption("-asset_compiler"))
     {

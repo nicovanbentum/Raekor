@@ -2,7 +2,7 @@
 
 #include "slice.h"
 
-namespace Raekor {
+namespace RK {
 
 class Timer
 {

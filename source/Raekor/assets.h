@@ -4,7 +4,7 @@
 #include "rtti.h"
 #include "slice.h"
 
-namespace Raekor {
+namespace RK {
 
 class Asset
 {
@@ -132,13 +132,13 @@ private:
 } // namespace raekor
 
 
-namespace Raekor {
+namespace RK {
 
 template<typename T>
 std::shared_ptr<T> Assets::GetAsset(const std::string& inPath)
 {
 	{
-		auto lock = std::scoped_lock(m_Mutex);
+		std::scoped_lock lock(m_Mutex);
 
 		// if it already has an asset pointer it means some other thread added it,
 		// so just return whats there, the thread that added it is responsible for loading.

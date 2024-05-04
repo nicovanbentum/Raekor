@@ -6,7 +6,7 @@
 #include "Raekor/input.h"
 #include "Raekor/timer.h"
 
-namespace Raekor::VK {
+namespace RK::VK {
 
 PathTracer::PathTracer() :
 	Application(WindowFlag::VULKAN | WindowFlag::RESIZE),
@@ -25,7 +25,7 @@ PathTracer::PathTracer() :
 
 	if (fs::exists(m_Settings.mSceneFile))
 	{
-		SDL_SetWindowTitle(m_Window, std::string(m_Settings.mSceneFile.string() + " - Raekor Renderer").c_str());
+		SDL_SetWindowTitle(m_Window, std::string(m_Settings.mSceneFile.string() + " - RK Renderer").c_str());
 		m_Scene.OpenFromFile(m_Settings.mSceneFile.string(), m_Assets);
 	}
 	else
@@ -37,7 +37,7 @@ PathTracer::PathTracer() :
 			filepath = OS::sOpenFileDialog("Scene Files (*.scene)\0*.scene\0");
 			if (!filepath.empty())
 			{
-				SDL_SetWindowTitle(m_Window, std::string(filepath + " - Raekor Renderer").c_str());
+				SDL_SetWindowTitle(m_Window, std::string(filepath + " - RK Renderer").c_str());
 				m_Scene.OpenFromFile(filepath, m_Assets);
 				break;
 			}

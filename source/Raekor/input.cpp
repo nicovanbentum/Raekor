@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "input.h"
 
-namespace Raekor {
+namespace RK {
 
 Input* g_Input = new Input();
 

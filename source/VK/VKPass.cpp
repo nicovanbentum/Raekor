@@ -9,7 +9,7 @@
 #include "Raekor/async.h"
 #include "Raekor/camera.h"
 
-namespace Raekor::VK {
+namespace RK::VK {
 
 void PathTracePass::Init(Device& device, const SwapChain& swapchain, const AccelStruct& accelStruct, const Buffer& instanceBuffer, const Buffer& materialBuffer, const BindlessDescriptorSet& bindlessTextures)
 {

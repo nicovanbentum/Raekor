@@ -4,7 +4,7 @@
 #include "rmath.h"
 #include "member.h"
 
-namespace Raekor {
+namespace RK {
 
 RTTI_DEFINE_TYPE(Camera)
 {
@@ -39,7 +39,7 @@ void Camera::OnUpdate()
 	m_PrevView = m_View;
 	m_PrevProjection = m_Projection;
 
-	auto dir = GetForwardVector();
+	Vec3 dir = GetForwardVector();
 	m_View = glm::lookAtRH(m_Position, m_Position + dir, { 0, 1, 0 });
 }
 
@@ -47,7 +47,7 @@ void Camera::OnUpdate()
 
 void Camera::Zoom(float amount)
 {
-	auto dir = GetForwardVector();
+	Vec3 dir = GetForwardVector();
 	m_Position += dir * ( amount * mZoomSpeed );
 }
 
@@ -63,7 +63,7 @@ void Camera::Look(Vec2 amount)
 
 void Camera::Move(Vec2 amount)
 {
-	auto dir = GetForwardVector();
+	Vec3 dir = GetForwardVector();
 	// sideways
 	m_Position += glm::normalize(glm::cross(dir, { 0.0f, 1.0f, 0.0f })) * ( amount.x * -mMoveSpeed );
 	// up and down
@@ -294,7 +294,7 @@ void CameraSequence::RemoveKeyFrame(uint32_t inIndex)
 
 Vec2 CameraSequence::GetAngle(const Camera& inCamera, float inTime) const
 {
-    const auto nr_of_key_frames = m_KeyFrames.size();
+    const size_t nr_of_key_frames = m_KeyFrames.size();
     if (nr_of_key_frames == 0)
     {
         return inCamera.GetAngle();
@@ -305,7 +305,7 @@ Vec2 CameraSequence::GetAngle(const Camera& inCamera, float inTime) const
     }
     else
     {
-        auto start_index = 0u;
+        int start_index = 0;
         
         for (; start_index < nr_of_key_frames - 1; start_index++)
         {
@@ -314,19 +314,19 @@ Vec2 CameraSequence::GetAngle(const Camera& inCamera, float inTime) const
         }
 
         assert(start_index < nr_of_key_frames);
-        auto final_index = start_index + 1;
+		int final_index = start_index + 1;
 
         if (final_index == nr_of_key_frames)
             return m_KeyFrames[start_index].mAngle;
 
-        auto start_time = m_KeyFrames[start_index].mTime;
-        auto final_time = m_KeyFrames[final_index].mTime;
+        float start_time = m_KeyFrames[start_index].mTime;
+        float final_time = m_KeyFrames[final_index].mTime;
         
-        auto delta_time = m_KeyFrames[final_index].mTime - m_KeyFrames[start_index].mTime;
-        auto factor = glm::max((inTime - start_time) / delta_time, 0.0f);
+		float delta_time = m_KeyFrames[final_index].mTime - m_KeyFrames[start_index].mTime;
+		float factor = glm::max((inTime - start_time) / delta_time, 0.0f);
 
-        const auto& start_angle = m_KeyFrames[start_index].mAngle;
-        const auto& final_angle = m_KeyFrames[final_index].mAngle;
+        const Vec2& start_angle = m_KeyFrames[start_index].mAngle;
+        const Vec2& final_angle = m_KeyFrames[final_index].mAngle;
 
         return start_angle + factor * (final_angle - start_angle);
     }

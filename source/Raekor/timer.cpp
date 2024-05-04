@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "timer.h"
 
-namespace Raekor {
+namespace RK {
 
 Timer::Timer()
 {

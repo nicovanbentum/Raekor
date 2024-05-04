@@ -18,7 +18,7 @@
 #include "Raekor/primitives.h"
 #include "Raekor/application.h"
 
-namespace Raekor::DX12 {
+namespace RK::DX12 {
 
 Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inWindow) :
     m_Window(inWindow),
@@ -66,10 +66,10 @@ Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inW
         backbuffer_data.mBackBuffer = inDevice.CreateTextureView(rtv_resource, Texture::Desc{.usage = Texture::Usage::RENDER_TARGET });
 
         backbuffer_data.mDirectCmdList = CommandList(inDevice, D3D12_COMMAND_LIST_TYPE_DIRECT, index);
-        backbuffer_data.mDirectCmdList->SetName(L"Raekor::DX12::CommandList(DIRECT)");
+        backbuffer_data.mDirectCmdList->SetName(L"RK::DX12::CommandList(DIRECT)");
 
         backbuffer_data.mCopyCmdList = CommandList(inDevice, D3D12_COMMAND_LIST_TYPE_DIRECT, index);
-        backbuffer_data.mCopyCmdList->SetName(L"Raekor::DX12::CommandList(COPY)");
+        backbuffer_data.mCopyCmdList->SetName(L"RK::DX12::CommandList(COPY)");
 
         rtv_resource->SetName(L"BACKBUFFER");
     }
@@ -767,7 +767,7 @@ void RenderInterface::UploadSkeletonBuffers(Entity inEntity, Skeleton& inSkeleto
         .debugName = "BONE_TRANSFORMS_BUFFER"
     }).GetIndex();
 
-    const auto& mesh_vertices = inMesh.GetInterleavedVertices();
+    const Array<float>& mesh_vertices = inMesh.GetInterleavedVertices();
 
     inSkeleton.skinnedVertexBuffer = m_Device.CreateBuffer(Buffer::Desc {
         .size   = uint32_t(sizeof(mesh_vertices[0]) * mesh_vertices.size()),
@@ -854,7 +854,7 @@ void RenderInterface::OnResize(const Viewport& inViewport)
 
 CommandList& Renderer::StartSingleSubmit()
 {
-    auto& cmd_list = GetBackBufferData().mDirectCmdList;
+    CommandList& cmd_list = GetBackBufferData().mDirectCmdList;
     cmd_list.Begin();
     return cmd_list;
 }
@@ -865,10 +865,10 @@ void Renderer::FlushSingleSubmit(Device& inDevice, CommandList& inCmdList)
 {
     inCmdList.Close();
 
-    const auto cmd_lists = std::array { (ID3D12CommandList*)inCmdList };
+    const std::array cmd_lists = { (ID3D12CommandList*)inCmdList };
     inDevice.GetGraphicsQueue()->ExecuteCommandLists(cmd_lists.size(), cmd_lists.data());
 
-    auto& backbuffer_data = GetBackBufferData();
+    BackBufferData& backbuffer_data = GetBackBufferData();
     backbuffer_data.mFenceValue++;
     gThrowIfFailed(inDevice.GetGraphicsQueue()->Signal(m_Fence.Get(), backbuffer_data.mFenceValue));
     gThrowIfFailed(m_Fence->SetEventOnCompletion(backbuffer_data.mFenceValue, m_FenceEvent));
@@ -911,16 +911,16 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
 
         if (m_Renderer.GetSettings().mEnableTAA)
         {
-            constexpr auto text = "...TAA is enabled";
+            constexpr const char* text = "...TAA is enabled";
             ImGui::SetCursorPosX(( ImGui::GetWindowWidth() - ImGui::CalcTextSize(text).x ) / 2.f);
             ImGui::TextDisabled(text);
         }
         else
         {
-            constexpr auto upscaler_items = std::array { "No Upscaler", "AMD FSR2", "Nvidia DLSS", "Intel XeSS" };
-            constexpr auto upscaler_quality_items = std::array { "Native", "Quality", "Balanced", "Performance" };
+            constexpr std::array upscaler_items = { "No Upscaler", "AMD FSR2", "Nvidia DLSS", "Intel XeSS" };
+            constexpr std::array upscaler_quality_items = { "Native", "Quality", "Balanced", "Performance" };
 
-            auto& upscaler = m_Renderer.GetUpscaler();
+            Upscaler& upscaler = m_Renderer.GetUpscaler();
 
             if (ImGui::BeginCombo("##Upscaler", upscaler_items[upscaler.GetActiveUpscaler()], ImGuiComboFlags_None))
             {
@@ -989,7 +989,7 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
         {
             for (const auto& [entity, mesh] : inScene.Each<Mesh>())
             {
-                for (auto& uv : mesh.uvs)
+                for (Vec2& uv : mesh.uvs)
                     uv.y = 1.0 - uv.y;
 
                 UploadMeshBuffers(entity, mesh);
@@ -1000,7 +1000,7 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
         {
             for (const auto& [entity, material] : inScene.Each<Material>())
             {
-                if (auto texture = inApp->GetAssets()->GetAsset<TextureAsset>(material.albedoFile))
+                if (TextureAsset::Ptr texture = inApp->GetAssets()->GetAsset<TextureAsset>(material.albedoFile))
                 {
                     if (texture->IsExtendedDX10())
                     {
@@ -1049,13 +1049,13 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
                 mesh.meshletIndices.resize(meshlet_count * max_vertices);
                 mesh.meshletTriangles.resize(meshlet_count * max_triangles);
 
-                for (const auto& meshlet : meshlets)
+                for (const meshopt_Meshlet& opt_meshlet : meshlets)
                 {
-                    auto& m = mesh.meshlets.emplace_back();
-                    m.mTriangleCount = meshlet.triangle_count;
-                    m.mTriangleOffset = meshlet.triangle_offset;
-                    m.mVertexCount = meshlet.vertex_count;
-                    m.mVertexOffset = meshlet.vertex_offset;
+                    Meshlet& meshlet = mesh.meshlets.emplace_back();
+                    meshlet.mTriangleCount = opt_meshlet.triangle_count;
+                    meshlet.mTriangleOffset = opt_meshlet.triangle_offset;
+                    meshlet.mVertexCount = opt_meshlet.vertex_count;
+                    meshlet.mVertexOffset = opt_meshlet.vertex_offset;
                 }
 
                 assert(mesh.meshletIndices.size() == meshlet_vertices.size());
@@ -1074,11 +1074,11 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
 
         if (ImGui::Button("Save As GraphViz.."))
         {
-            const auto file_path = OS::sSaveFileDialog("DOT File (*.dot)\0", "dot");
+            const String file_path = OS::sSaveFileDialog("DOT File (*.dot)\0", "dot");
 
             if (!file_path.empty())
             {
-                auto ofs = std::ofstream(file_path);
+                std::ofstream ofs = std::ofstream(file_path);
                 ofs << m_Renderer.GetRenderGraph().ToGraphVizText(m_Device, TextureID());
             }
         }
@@ -1312,8 +1312,8 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
         {
             ImGui::SeparatorText("Settings");
 
-            const auto far_plane = inViewport.GetCamera().GetFar();
-            const auto near_plane = inViewport.GetCamera().GetNear();
+            const float far_plane = inViewport.GetCamera().GetFar();
+            const float near_plane = inViewport.GetCamera().GetNear();
 
             ImGui::DragFloat("Focus Scale", &DepthOfFieldData::mFocusScale, 0.01f, 0.0f, 4.0f, "%.2f");
             ImGui::DragFloat("Focus Point", &DepthOfFieldData::mFocusPoint, 0.01f, near_plane, far_plane, "%.2f");
@@ -1360,9 +1360,9 @@ uint32_t RenderInterface::GetSelectedEntity(const Scene& inScene, uint32_t inScr
     D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint = {};
     footprint.Footprint = CD3DX12_SUBRESOURCE_FOOTPRINT(m_Device.GetTexture(entity_texture_id).GetDesc().format, 1, 1, 1, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
 
-    const auto box = CD3DX12_BOX(inScreenPosX, inScreenPosY, inScreenPosX + 1, inScreenPosY + 1);
-    const auto src = CD3DX12_TEXTURE_COPY_LOCATION(m_Device.GetD3D12Resource(entity_texture_id), 0);
-    const auto dest = CD3DX12_TEXTURE_COPY_LOCATION(m_Device.GetD3D12Resource(readback_buffer_id), footprint);
+    const CD3DX12_BOX box = CD3DX12_BOX(inScreenPosX, inScreenPosY, inScreenPosX + 1, inScreenPosY + 1);
+    const CD3DX12_TEXTURE_COPY_LOCATION src = CD3DX12_TEXTURE_COPY_LOCATION(m_Device.GetD3D12Resource(entity_texture_id), 0);
+    const CD3DX12_TEXTURE_COPY_LOCATION dest = CD3DX12_TEXTURE_COPY_LOCATION(m_Device.GetD3D12Resource(readback_buffer_id), footprint);
 
     cmd_list->CopyTextureRegion(&dest, 0, 0, 0, &src, &box);
 
@@ -1394,11 +1394,11 @@ uint32_t RenderInterface::GetSelectedEntity(const Scene& inScene, uint32_t inScr
 
 TextureID InitImGui(Device& inDevice, DXGI_FORMAT inRtvFormat, uint32_t inFrameCount)
 {
-    auto width = 0, height = 0;
-    auto pixels = static_cast<unsigned char*>( nullptr );
+    int width = 0, height = 0;
+    unsigned char* pixels = nullptr;
     ImGui::GetIO().Fonts->GetTexDataAsAlpha8(&pixels, &width, &height);
 
-    auto font_texture_id = inDevice.CreateTexture(Texture::Desc
+    TextureID font_texture_id = inDevice.CreateTexture(Texture::Desc
     {
         .format = DXGI_FORMAT_R8_UNORM,
         .width  = uint32_t(width),
@@ -1407,8 +1407,8 @@ TextureID InitImGui(Device& inDevice, DXGI_FORMAT inRtvFormat, uint32_t inFrameC
         .debugName = "IMGUI_FONT_TEXTURE"
     });
 
-    auto font_texture_view = inDevice.GetTexture(font_texture_id).GetView();
-    auto& descriptor_heap = inDevice.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    DescriptorID font_texture_view = inDevice.GetTexture(font_texture_id).GetView();
+    DescriptorHeap& descriptor_heap = inDevice.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
     ImGui_ImplDX12_Init(
         *inDevice,
@@ -1441,14 +1441,14 @@ void RenderImGui(RenderGraph& inRenderGraph, Device& inDevice, CommandList& inCm
         inCmdList->ResourceBarrier(1, &backbuffer_barrier);
     }
 
-    const auto bb_viewport = CD3DX12_VIEWPORT(inDevice.GetTexture(inBackBuffer).GetD3D12Resource().Get());
-    const auto bb_scissor = CD3DX12_RECT(bb_viewport.TopLeftX, bb_viewport.TopLeftY, bb_viewport.Width, bb_viewport.Height);
+    const D3D12_VIEWPORT bb_viewport = CD3DX12_VIEWPORT(inDevice.GetTexture(inBackBuffer).GetD3D12Resource().Get());
+    const D3D12_RECT bb_scissor = CD3DX12_RECT(bb_viewport.TopLeftX, bb_viewport.TopLeftY, bb_viewport.Width, bb_viewport.Height);
 
     inCmdList->RSSetViewports(1, &bb_viewport);
     inCmdList->RSSetScissorRects(1, &bb_scissor);
 
-    const auto& rtv_heap = inDevice.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-    const auto rtv = std::array { rtv_heap.GetCPUDescriptorHandle(inDevice.GetTexture(inBackBuffer).GetView()) };
+    const DescriptorHeap& rtv_heap = inDevice.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+    const std::array rtv = { rtv_heap.GetCPUDescriptorHandle(inDevice.GetTexture(inBackBuffer).GetView()) };
 
     inCmdList->OMSetRenderTargets(rtv.size(), rtv.data(), FALSE, nullptr);
 

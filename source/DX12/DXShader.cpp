@@ -7,7 +7,7 @@
 #include "Raekor/timer.h"
 #include "Raekor/member.h"
 
-namespace Raekor::DX12 {
+namespace RK::DX12 {
 
 ShaderCompiler g_ShaderCompiler;
 SystemShadersDX12 g_SystemShaders;
@@ -114,7 +114,7 @@ bool ShaderProgram::CompilePSO(Device& inDevice, const char* inDebugName)
 
         Timer timer;
 
-        const auto pso_desc = inDevice.CreatePipelineStateDesc(nullptr, CD3DX12_SHADER_BYTECODE(mComputeShader.data(), mComputeShader.size()));
+        D3D12_COMPUTE_PIPELINE_STATE_DESC pso_desc = inDevice.CreatePipelineStateDesc(nullptr, CD3DX12_SHADER_BYTECODE(mComputeShader.data(), mComputeShader.size()));
         gThrowIfFailed(inDevice->CreateComputePipelineState(&pso_desc, IID_PPV_ARGS(&m_ComputePipeline)));
 
         std::cout << std::format("[DX12] Compute PSO {} compilation took {:.2f} ms \n", inDebugName, Timer::sToMilliseconds(timer.GetElapsedTime()));
@@ -209,8 +209,8 @@ bool ShaderProgram::IsCompiled() const
 
 ComPtr<IDxcBlob> ShaderCompiler::CompileShader(const Path& inPath, EShaderType inShaderType, const String& inDefines, uint64_t& outHash)
 {
-    auto ifs = std::ifstream(inPath);
-    auto buffer = std::stringstream();
+    std::ifstream ifs(inPath);
+    std::stringstream buffer;
     buffer << inDefines << '\n';
     buffer << ifs.rdbuf();
     
@@ -285,7 +285,7 @@ ComPtr<IDxcBlob> ShaderCompiler::CompileShader(const Path& inPath, const String&
     if (m_EnableShaderCache)
     {
         {
-            auto lock = std::scoped_lock(m_ShaderCompilationMutex);
+            std::scoped_lock lock = std::scoped_lock(m_ShaderCompilationMutex);
             if (m_ShaderCache.contains(outHash))
                 return m_ShaderCache.at(outHash);
         }
@@ -308,7 +308,7 @@ ComPtr<IDxcBlob> ShaderCompiler::CompileShader(const Path& inPath, const String&
 
     if (errors && errors->GetStringLength() > 0)
     {
-        auto lock = std::scoped_lock(m_ShaderCompilationMutex);
+        std::scoped_lock lock = std::scoped_lock(m_ShaderCompilationMutex);
 
         char* error_c_str = (char*)errors->GetBufferPointer();
         std::cout << error_c_str << '\n';
@@ -353,12 +353,12 @@ ComPtr<IDxcBlob> ShaderCompiler::CompileShader(const Path& inPath, const String&
         return nullptr;
     }
 
-    auto pdb_file = std::ofstream(inPath.parent_path() / inPath.filename().replace_extension(".pdb"));
+    std::ofstream pdb_file = std::ofstream(inPath.parent_path() / inPath.filename().replace_extension(".pdb"));
     pdb_file.write((char*)pdb->GetBufferPointer(), pdb->GetBufferSize());
 
     if (m_EnableShaderCache)
     {
-        auto lock = std::scoped_lock(m_ShaderCompilationMutex);
+        std::scoped_lock lock = std::scoped_lock(m_ShaderCompilationMutex);
         m_ShaderCache.insert({ outHash, shader });
     }
 
@@ -416,7 +416,7 @@ bool SystemShadersDX12::HotLoad(Device& inDevice)
         auto GetFileTimeStamp = [](const Path& inPath)
         {
             std::error_code error_code;
-            auto timestamp = fs::last_write_time(inPath, error_code);
+            fs::file_time_type timestamp = fs::last_write_time(inPath, error_code);
 
             while (error_code)
                 timestamp = fs::last_write_time(inPath, error_code);

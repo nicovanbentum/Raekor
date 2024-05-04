@@ -5,7 +5,7 @@
 #include "profile.h"
 #include "application.h"
 
-namespace Raekor {
+namespace RK {
 
 RTTI_DEFINE_TYPE_NO_FACTORY(ProfileWidget) {}
 

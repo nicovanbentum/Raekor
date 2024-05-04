@@ -2,7 +2,7 @@
 
 #include "rtti.h"
 
-namespace Raekor::VK {
+namespace RK::VK {
 
 struct Buffer
 {

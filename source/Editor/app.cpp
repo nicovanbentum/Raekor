@@ -3,20 +3,20 @@
 #include "OS.h"
 #include "archive.h"
 
-namespace Raekor::GL {
+namespace RK::GL {
 
 GLApp::GLApp() :
     IEditor(WindowFlag::OPENGL | WindowFlag::RESIZE, &m_Renderer),
     m_Renderer(m_Window, m_Viewport)
 {
-    auto scene_file = OS::sGetCommandLineValue("-scene_file");
+    String scene_file = OS::sGetCommandLineValue("-scene_file");
 
     if (!fs::exists(m_Settings.mSceneFile) || !(Path(m_Settings.mSceneFile).extension() == ".scene"))
         scene_file = m_Settings.mSceneFile.string();
 
     if (fs::exists(scene_file) && Path(scene_file).extension() == ".scene")
     {
-        SDL_SetWindowTitle(m_Window, std::string(m_Settings.mSceneFile.string() + " - Raekor Editor").c_str());
+        SDL_SetWindowTitle(m_Window, std::string(m_Settings.mSceneFile.string() + " - RK Editor").c_str());
         m_Scene.OpenFromFile(m_Settings.mSceneFile.string(), m_Assets);
         LogMessage("[Editor] Loaded scene from file: " + m_Settings.mSceneFile.string());
     }

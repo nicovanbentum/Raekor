@@ -14,7 +14,7 @@
 #include "application.h"
 #include "menubarWidget.h"
 
-namespace Raekor {
+namespace RK {
 
 RTTI_DEFINE_TYPE_NO_FACTORY(ViewportWidget) {}
 
@@ -26,30 +26,31 @@ ViewportWidget::ViewportWidget(Application* inApp) :
 
 void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 {
-	auto& scene = IWidget::GetScene();
-	auto& physics = IWidget::GetPhysics();
-	auto& viewport = m_Editor->GetViewport();
+	Scene& scene = IWidget::GetScene();
+	Physics& physics = IWidget::GetPhysics();
+	Viewport& viewport = m_Editor->GetViewport();
 
-	static auto& show_debug_text = g_CVars.Create("r_show_debug_text", 1, IF_DEBUG_ELSE(true, false));
-	static auto& show_debug_icons = g_CVars.Create("r_show_debug_icons", 1, IF_DEBUG_ELSE(true, false));
+	static int& show_debug_text = g_CVars.Create("r_show_debug_text", 1, IF_DEBUG_ELSE(true, false));
+	static int& show_debug_icons = g_CVars.Create("r_show_debug_icons", 1, IF_DEBUG_ELSE(true, false));
 
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(2, 2));
-	const auto flags = ImGuiWindowFlags_AlwaysAutoResize |
-		ImGuiWindowFlags_NoScrollWithMouse |
-		ImGuiWindowFlags_NoScrollbar;
+
+	const ImGuiWindowFlags flags = ImGuiWindowFlags_AlwaysAutoResize |
+								   ImGuiWindowFlags_NoScrollWithMouse |
+								   ImGuiWindowFlags_NoScrollbar;
 
 	ImGui::SetNextWindowSize(ImVec2(160, 90), ImGuiCond_FirstUseEver);
 	m_Visible = ImGui::Begin(m_Title.c_str(), &m_Open, flags);
 	m_Editor->GetRenderInterface()->GetSettings().paused = !m_Visible;
 
-	auto pre_scene_cursor_pos = ImGui::GetCursorPos();
+	ImVec2 pre_scene_cursor_pos = ImGui::GetCursorPos();
 
 	// figure out if we need to resize the viewport
-	auto size = ImGui::GetContentRegionAvail();
+	ImVec2 size = ImGui::GetContentRegionAvail();
 	size.x = glm::max(size.x, 160.0f);
 	size.y = glm::max(size.y, 90.0f);
 
-	auto resized = false;
+	bool resized = false;
 	if (viewport.GetDisplaySize().x != size.x || viewport.GetDisplaySize().y != size.y)
 	{
 		viewport.SetRenderSize({ size.x, size.y });
@@ -65,23 +66,23 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	m_DisplayTexture = m_Editor->GetRenderInterface()->GetDisplayTexture();
 
 	// calculate display UVs
-	auto uv0 = ImVec2(0, 0);
-	auto uv1 = ImVec2(1, 1);
+	ImVec2 uv0 = ImVec2(0, 0);
+	ImVec2 uv1 = ImVec2(1, 1);
 
 	// Flip the Y uv for OpenGL and Vulkan
 	if (( m_Editor->GetRenderInterface()->GetGraphicsAPI() & GraphicsAPI::DirectX ) == 0)
 		std::swap(uv0.y, uv1.y);
 
 	// Render the display image
-	static const auto border_state_colors = std::array 
+	static const std::array border_state_colors =
 	{
 		ImGui::GetStyleColorVec4(ImGuiCol_CheckMark),
 		ImVec4(0.35f, 0.78f, 1.0f, 1.0f),
 		ImVec4(0.0f, 1.0f, 0.0f, 1.0f),
 	};
 
-	const auto image_size = ImVec2(size.x, size.y);
-	const auto border_color = GetPhysics().GetState() != Physics::Idle ? border_state_colors[GetPhysics().GetState()] : ImVec4(0, 0, 0, 1);
+	const ImVec2 image_size = ImVec2(size.x, size.y);
+	const ImVec4 border_color = GetPhysics().GetState() != Physics::Idle ? border_state_colors[GetPhysics().GetState()] : ImVec4(0, 0, 0, 1);
 	ImGui::Image((void*)( (intptr_t)m_DisplayTexture ), size, uv0, uv1, ImVec4(1, 1, 1, 1), border_color);
 
 	mouseInViewport = ImGui::IsItemHovered();
@@ -91,9 +92,9 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	// the viewport image is a drag and drop target for dropping materials onto meshes
 	if (ImGui::BeginDragDropTarget())
 	{
-		const auto mouse_pos = GUI::GetMousePosWindow(viewport, ImGui::GetWindowPos() + ( ImGui::GetWindowSize() - size ));
-		const auto pixel = m_Editor->GetRenderInterface()->GetSelectedEntity(GetScene(), mouse_pos.x, mouse_pos.y);
-		const auto picked = Entity(pixel);
+		const IVec2 mouse_pos = GUI::GetMousePosWindow(viewport, ImGui::GetWindowPos() + ( ImGui::GetWindowSize() - size ));
+		const uint32_t pixel = m_Editor->GetRenderInterface()->GetSelectedEntity(GetScene(), mouse_pos.x, mouse_pos.y);
+		const Entity picked = Entity(pixel);
 
 		Mesh* mesh = nullptr;
 		Skeleton* skeleton = nullptr;
@@ -120,7 +121,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			ImGui::EndTooltip();
 		}
 
-		const auto payload = ImGui::AcceptDragDropPayload("drag_drop_entity");
+		const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("drag_drop_entity");
 
 		if (payload && mesh)
 		{
@@ -152,14 +153,14 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 		}
 	}
 
-	auto pos = ImGui::GetWindowPos();
+	ImVec2 pos = ImGui::GetWindowPos();
 	viewport.offset = { pos.x, pos.y };
 
 	if (ImGui::GetIO().MouseClicked[0] && mouseInViewport && !( GetActiveEntity() != Entity::Null && ImGuizmo::IsOver(operation) ) && !ImGui::IsAnyItemHovered())
 	{
-		const auto mouse_pos = GUI::GetMousePosWindow(viewport, ImGui::GetWindowPos() + ( ImGui::GetWindowSize() - size ));
+		const IVec2 mouse_pos = GUI::GetMousePosWindow(viewport, ImGui::GetWindowPos() + ( ImGui::GetWindowSize() - size ));
 
-		const auto pixel = m_Editor->GetRenderInterface()->GetSelectedEntity(GetScene(), mouse_pos.x, mouse_pos.y);
+		const uint32_t pixel = m_Editor->GetRenderInterface()->GetSelectedEntity(GetScene(), mouse_pos.x, mouse_pos.y);
 
 		float hit_dist = FLT_MAX;
 		Entity hit_entity = Entity::Null;
@@ -171,7 +172,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			for (int i = 0; i < 2; i++)
 			{
 				Vec2 barycentrics;
-				const auto hit_result = ray.HitsTriangle(quad.mVertices[0], quad.mVertices[1 + i], quad.mVertices[2 + i], barycentrics);
+				const Optional<float> hit_result = ray.HitsTriangle(quad.mVertices[0], quad.mVertices[1 + i], quad.mVertices[2 + i], barycentrics);
 
 				if (hit_result.has_value() && hit_result.value() < hit_dist)
 				{
@@ -181,29 +182,29 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			}
 		}
 
-		auto picked = hit_entity == Entity::Null ? Entity(pixel) : hit_entity;
+		Entity picked = hit_entity == Entity::Null ? Entity(pixel) : hit_entity;
 
 		if (GetActiveEntity() == picked)
 		{
-			if (auto soft_body = scene.GetPtr<SoftBody>(GetActiveEntity()))
+			if (SoftBody* soft_body = scene.GetPtr<SoftBody>(GetActiveEntity()))
 			{
-				if (auto body = GetPhysics().GetSystem()->GetBodyLockInterface().TryGetBody(soft_body->mBodyID))
+				if (JPH::Body* body = GetPhysics().GetSystem()->GetBodyLockInterface().TryGetBody(soft_body->mBodyID))
 				{
-					const auto ray = Ray(viewport, mouse_pos);
-					const auto& mesh = scene.Get<Mesh>(GetActiveEntity());
-					const auto& transform = scene.Get<Transform>(GetActiveEntity());
+					const Ray ray = Ray(viewport, mouse_pos);
+					const Mesh& mesh = scene.Get<Mesh>(GetActiveEntity());
+					const Transform& transform = scene.Get<Transform>(GetActiveEntity());
 
-					auto hit_dist = FLT_MAX;
-					auto triangle_index = -1;
+					float hit_dist = FLT_MAX;
+					int triangle_index = -1;
 
-					for (auto i = 0u; i < mesh.indices.size(); i += 3)
+					for (int i = 0; i < mesh.indices.size(); i += 3)
 					{
-						const auto v0 = Vec3(transform.worldTransform * Vec4(mesh.positions[mesh.indices[i]], 1.0));
-						const auto v1 = Vec3(transform.worldTransform * Vec4(mesh.positions[mesh.indices[i + 1]], 1.0));
-						const auto v2 = Vec3(transform.worldTransform * Vec4(mesh.positions[mesh.indices[i + 2]], 1.0));
+						const Vec3 v0 = Vec3(transform.worldTransform * Vec4(mesh.positions[mesh.indices[i]], 1.0));
+						const Vec3 v1 = Vec3(transform.worldTransform * Vec4(mesh.positions[mesh.indices[i + 1]], 1.0));
+						const Vec3 v2 = Vec3(transform.worldTransform * Vec4(mesh.positions[mesh.indices[i + 2]], 1.0));
 
 						Vec2 barycentrics;
-						const auto hit_result = ray.HitsTriangle(v0, v1, v2, barycentrics);
+						const Optional<float> hit_result = ray.HitsTriangle(v0, v1, v2, barycentrics);
 
 						if (hit_result.has_value() && hit_result.value() < hit_dist)
 						{
@@ -214,7 +215,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 					if (triangle_index > -1)
 					{
-						auto props = (JPH::SoftBodyMotionProperties*)body->GetMotionProperties();
+						JPH::SoftBodyMotionProperties* props = (JPH::SoftBodyMotionProperties*)body->GetMotionProperties();
 						props->GetVertex(mesh.indices[triangle_index]).mInvMass = 0.0f;
 						props->GetVertex(mesh.indices[triangle_index + 1]).mInvMass = 0.0f;
 						props->GetVertex(mesh.indices[triangle_index + 2]).mInvMass = 0.0f;
@@ -238,29 +239,31 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 		ImGuizmo::SetRect(viewportMin.x, viewportMin.y, viewportMax.x - viewportMin.x, viewportMax.y - viewportMin.y);
 
 		// temporarily transform to mesh space for gizmo use
-		auto& transform = scene.Get<Transform>(GetActiveEntity());
-		const auto mesh = scene.GetPtr<Mesh>(GetActiveEntity());
+		Transform& transform = scene.Get<Transform>(GetActiveEntity());
+		const Mesh* mesh = scene.GetPtr<Mesh>(GetActiveEntity());
 
 		if (mesh)
 		{
-			const auto bounds = BBox3D(mesh->aabb[0], mesh->aabb[1]).Scale(transform.GetScaleWorldSpace());
+			const BBox3D bounds = BBox3D(mesh->aabb[0], mesh->aabb[1]).Scale(transform.GetScaleWorldSpace());
 			transform.localTransform = glm::translate(transform.localTransform, bounds.GetCenter());
 		}
 
 		// prevent the gizmo from going outside of the viewport
 		ImGui::GetWindowDrawList()->PushClipRect(viewportMin, viewportMax);
 
-		const auto manipulated = ImGuizmo::Manipulate(
+		const bool manipulated = ImGuizmo::Manipulate
+		(
 			glm::value_ptr(viewport.GetCamera().GetView()),
 			glm::value_ptr(viewport.GetCamera().GetProjection()),
-			operation, ImGuizmo::MODE::WORLD,
+			operation, 
+			ImGuizmo::MODE::WORLD,
 			glm::value_ptr(transform.localTransform)
 		);
 
 		// transform back to world space
 		if (mesh)
 		{
-			const auto bounds = BBox3D(mesh->aabb[0], mesh->aabb[1]).Scale(transform.GetScaleWorldSpace());
+			const BBox3D bounds = BBox3D(mesh->aabb[0], mesh->aabb[1]).Scale(transform.GetScaleWorldSpace());
 			transform.localTransform = glm::translate(transform.localTransform, -bounds.GetCenter());
 		}
 
@@ -273,9 +276,9 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 		}
 	}
 
-	auto metricsPosition = ImGui::GetWindowPos();
+	ImVec2 metricsPosition = ImGui::GetWindowPos();
 
-	if (auto dock_node = ImGui::GetCurrentWindow()->DockNode)
+	if (ImGuiDockNode* dock_node = ImGui::GetCurrentWindow()->DockNode)
 		if (!dock_node->IsHiddenTabBar())
 			metricsPosition.y += 25.0f;
 
@@ -285,7 +288,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 	auto DrawGizmoButton = [&](const char* inLabel, ImGuizmo::OPERATION inOperation)
 	{
-		const auto is_selected = ( operation == inOperation ) && gizmoEnabled;
+		const bool is_selected = ( operation == inOperation ) && gizmoEnabled;
 
 		if (is_selected)
 			ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetColorU32(ImGuiCol_ButtonHovered));
@@ -314,7 +317,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	ImGui::SameLine();
 	DrawGizmoButton((const char*)ICON_FA_EXPAND_ARROWS_ALT, ImGuizmo::OPERATION::SCALE);
 
-	auto menubar_widget = inWidgets->GetWidget<MenubarWidget>();
+	MenubarWidget* menubar_widget = inWidgets->GetWidget<MenubarWidget>();
 
 	if (menubar_widget && !menubar_widget->IsOpen())
 	{
@@ -324,7 +327,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			menubar_widget->Show();
 	}
 
-	const auto cursor_pos = ImGui::GetCursorPos();
+	const ImVec2 cursor_pos = ImGui::GetCursorPos();
 	
 	ImGui::SameLine();
 	ImGui::Button((const char*)ICON_FA_COG);
@@ -342,14 +345,14 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 		ImGui::Checkbox("Show Debug Icons", (bool*)&show_debug_icons);
 
-		auto& current_debug_texture = m_Editor->GetRenderInterface()->GetSettings().mDebugTexture;
-		const auto debug_texture_count = m_Editor->GetRenderInterface()->GetDebugTextureCount();
+		int& current_debug_texture = m_Editor->GetRenderInterface()->GetSettings().mDebugTexture;
+		const uint32_t debug_texture_count = m_Editor->GetRenderInterface()->GetDebugTextureCount();
 
 		ImGui::AlignTextToFramePadding();
 
 		if (ImGui::BeginMenu("Debug Render Output"))
 		{
-			for (auto texture_idx = 0u; texture_idx < debug_texture_count; texture_idx++)
+			for (int texture_idx = 0; texture_idx < debug_texture_count; texture_idx++)
 			{
 				if (ImGui::RadioButton(m_Editor->GetRenderInterface()->GetDebugTextureName(texture_idx), current_debug_texture == texture_idx))
 				{
@@ -366,7 +369,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 		ImGui::SeparatorText("Physics Settings");
 
-		auto debug_physics = GetPhysics().GetDebugRendering();
+		bool debug_physics = GetPhysics().GetDebugRendering();
 		if (ImGui::Checkbox("Debug Visualize Physics", &debug_physics))
 			GetPhysics().SetDebugRendering(debug_physics);
 
@@ -389,24 +392,25 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 		if (ImGui::Button("Spawn/Reset Balls"))
 		{
-			const auto material_entity = scene.Create();
-			auto& material_name = scene.Add<Name>(material_entity);
+			const Entity material_entity = scene.Create();
+			Name& material_name = scene.Add<Name>(material_entity);
 			material_name = "Ball Material";
-			auto& ball_material = scene.Add<Material>(material_entity);
+			Material& ball_material = scene.Add<Material>(material_entity);
 			ball_material.albedo = glm::vec4(1.0f, 0.25f, 0.38f, 1.0f);
 
-			if (auto renderer = m_Editor->GetRenderInterface())
-				renderer->UploadMaterialTextures(material_entity, ball_material, GetAssets());
+			if (IRenderInterface* render_interface = m_Editor->GetRenderInterface())
+				render_interface->UploadMaterialTextures(material_entity, ball_material, GetAssets());
 
 			for (uint32_t i = 0; i < 64; i++)
 			{
-				auto entity = scene.CreateSpatialEntity("ball");
-				auto& transform = scene.Get<Transform>(entity);
-				auto& mesh = scene.Add<Mesh>(entity);
+				Entity entity = scene.CreateSpatialEntity("ball");
+				
+				Mesh& mesh = scene.Add<Mesh>(entity);
+				Transform& transform = scene.Get<Transform>(entity);
 
 				mesh.material = material_entity;
 
-				constexpr auto radius = 4.5f;
+				constexpr float radius = 4.5f;
 				gGenerateSphere(mesh, radius, 32, 32);
 				GetRenderInterface().UploadMeshBuffers(entity, mesh);
 				GetRenderInterface().UploadMaterialTextures(material_entity, ball_material, GetAssets());
@@ -414,11 +418,12 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 				transform.position = Vec3(-65.0f, 85.0f + i * ( radius * 2.0f ), 0.0f);
 				transform.Compose();
 
-				auto& collider = scene.Add<RigidBody>(entity);
+				RigidBody& collider = scene.Add<RigidBody>(entity);
 				collider.motionType = JPH::EMotionType::Dynamic;
 				JPH::ShapeSettings* settings = new JPH::SphereShapeSettings(radius);
 
-				auto body_settings = JPH::BodyCreationSettings(
+				JPH::BodyCreationSettings body_settings = JPH::BodyCreationSettings
+				(
 					settings,
 					JPH::Vec3(transform.position.x, transform.position.y, transform.position.z),
 					JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w),
@@ -429,7 +434,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 				body_settings.mFriction = 0.1;
 				body_settings.mRestitution = 0.35;
 
-				auto& body_interface = GetPhysics().GetSystem()->GetBodyInterface();
+				JPH::BodyInterface& body_interface = GetPhysics().GetSystem()->GetBodyInterface();
 				collider.bodyID = body_interface.CreateAndAddBody(body_settings, JPH::EActivation::Activate);
 
 				//body_interface.AddImpulse(collider.bodyID, JPH::Vec3Arg(50.0f, -2.0f, 50.0f));
@@ -438,15 +443,15 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 		ImGui::SeparatorText("Camera Settings");
 
-		auto position = viewport.GetCamera().GetPosition();
+		Vec3 position = viewport.GetCamera().GetPosition();
 		if (ImGui::DragFloat3("Position", glm::value_ptr(position), 0.001f, -FLT_MAX, FLT_MAX))
 			viewport.GetCamera().SetPosition(position);
 
-		auto orientation = viewport.GetCamera().GetAngle();
+		Vec2 orientation = viewport.GetCamera().GetAngle();
 		if (ImGui::DragFloat2("Orientation", glm::value_ptr(orientation), 0.001f, -FLT_MAX, FLT_MAX))
 			viewport.GetCamera().SetAngle(orientation);
 
-		auto field_of_view = viewport.GetFieldOfView();
+		float field_of_view = viewport.GetFieldOfView();
 		if (ImGui::DragFloat("Field of View", &field_of_view, 0.1f)) 
 			viewport.SetFieldOfView(field_of_view);
 
@@ -466,8 +471,9 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 	ImGui::SameLine();
 
-	const auto physics_state = GetPhysics().GetState();
+	const Physics::EState physics_state = GetPhysics().GetState();
 	ImGui::PushStyleColor(ImGuiCol_Text, border_state_colors[GetPhysics().GetState()]);
+
 	if (ImGui::Button(physics_state == Physics::Stepping ? (const char*)ICON_FA_PAUSE : (const char*)ICON_FA_PLAY))
 	{
 		switch (physics_state)
@@ -512,7 +518,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	ImGui::PopStyleColor();
 	ImGui::SameLine();
 
-	const auto current_physics_state = physics_state;
+	const Physics::EState current_physics_state = physics_state;
 	if (current_physics_state != Physics::Idle)
 		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.0f, 1.0f));
 
@@ -558,19 +564,19 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 		ImGui::SetNextWindowPos(metricsPosition + ImVec2(size.x - 260.0f, 0.0f));
 		ImGui::SetNextWindowBgAlpha(0.0f);
 
-		const auto metric_window_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize;
+		const ImGuiWindowFlags metric_window_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize;
 		ImGui::Begin("GPU Metrics Shadow", (bool*)0, metric_window_flags);
 		// ImGui::Text("Culled meshes: %i", renderer.m_GBuffer->culled);
-		const auto& gpu_info = m_Editor->GetRenderInterface()->GetGPUInfo();
+		const GPUInfo& gpu_info = m_Editor->GetRenderInterface()->GetGPUInfo();
 
-		const auto col_white = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
-		const auto col_pink  = ImVec4(1.0f, 0.078f, 0.576f, 1.0f);
+		const ImVec4 col_white = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+		const ImVec4 col_pink  = ImVec4(1.0f, 0.078f, 0.576f, 1.0f);
 
 #ifndef NDEBUG
 		if (GetRenderInterface().GetGraphicsAPI() == GraphicsAPI::DirectX12 || GetRenderInterface().GetGraphicsAPI() == GraphicsAPI::Vulkan)
 		{
-			static auto debug_layer_enabled = OS::sCheckCommandLineOption("-debug_layer");
-			static auto gpu_validation_enabled = OS::sCheckCommandLineOption("-gpu_validation");
+			static bool debug_layer_enabled = OS::sCheckCommandLineOption("-debug_layer");
+			static bool gpu_validation_enabled = OS::sCheckCommandLineOption("-gpu_validation");
 
 			if (debug_layer_enabled)
 				ImGui::TextColored(col_pink, "DEBUG DEVICE ENABLED");
@@ -580,7 +586,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 		}
 #endif
 		uint64_t triangle_count = 0;
-		for (const auto& mesh : GetScene().GetStorage<Mesh>())
+		for (const Mesh& mesh : GetScene().GetStorage<Mesh>())
 			triangle_count += mesh.indices.size();
 		triangle_count /= 3;
 
@@ -647,25 +653,25 @@ void ViewportWidget::OnEvent(Widgets* inWidgets, const SDL_Event& inEvent)
 
 void ViewportWidget::AddClickableQuad(const Viewport& inViewport, Entity inEntity, ImTextureID inTexture, Vec3 inPos, float inSize)
 {
-	auto model = Mat4x4(1.0f);
+	Mat4x4 model = Mat4x4(1.0f);
 	model = glm::translate(model, inPos);
 
-	auto view_vector = Vec3(0.0f);
+	Vec3 view_vector = Vec3(0.0f);
 	view_vector.x = inViewport.GetCamera().GetPosition().x - inPos.x;
 	view_vector.z = inViewport.GetCamera().GetPosition().z - inPos.z;
 
-	const auto look_at_vector = Vec3(0.0f, 0.0f, 1.0f);
-	const auto view_vector_normalized = glm::normalize(view_vector);
+	const Vec3 look_at_vector = Vec3(0.0f, 0.0f, 1.0f);
+	const Vec3 view_vector_normalized = glm::normalize(view_vector);
 
-	const auto up = glm::cross(look_at_vector, view_vector_normalized);
-	const auto angle = glm::dot(look_at_vector, view_vector_normalized);
+	const Vec3 up = glm::cross(look_at_vector, view_vector_normalized);
+	const float angle = glm::dot(look_at_vector, view_vector_normalized);
 
 	model = glm::rotate(model, acos(angle), up);
 	model = glm::scale(model, Vec3(glm::length(view_vector) * inSize));
 
-	auto vp = inViewport.GetCamera().GetProjection() * inViewport.GetCamera().GetView();
+	Mat4x4 vp = inViewport.GetCamera().GetProjection() * inViewport.GetCamera().GetView();
 
-	auto vertices = std::array
+	std::array vertices =
 	{
 		Vec4(-0.5f, -0.5f, 0.0f, 1.0f),
 		Vec4(-0.5f,  0.5f, 0.0f, 1.0f),
@@ -673,16 +679,16 @@ void ViewportWidget::AddClickableQuad(const Viewport& inViewport, Entity inEntit
 		Vec4( 0.5f, -0.5f, 0.0f, 1.0f)
 	};
 
-	for (auto& vertex : vertices)
+	for (Vec4& vertex : vertices)
 		vertex = model * vertex;
 
-	const auto ws_quad = ClickableQuad { inEntity, vertices };
+	const ClickableQuad ws_quad = ClickableQuad { inEntity, vertices };
 
-	const auto frustum = inViewport.GetCamera().GetFrustum();
+	const Frustum frustum = inViewport.GetCamera().GetFrustum();
 
 	int visible_vertices = vertices.size();
 
-	for (const auto& vertex : vertices)
+	for (const Vec4& vertex : vertices)
 	{
 		if (!frustum.Contains(vertex))
 			visible_vertices--;

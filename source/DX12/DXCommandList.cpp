@@ -5,7 +5,7 @@
 #include "DXDevice.h"
 #include "DXShader.h"
 
-namespace Raekor::DX12 {
+namespace RK::DX12 {
 
 CommandList::CommandList(Device& inDevice, D3D12_COMMAND_LIST_TYPE inType) : CommandList(inDevice, inType, 0) {}
 
@@ -45,12 +45,12 @@ void CommandList::ClearBuffer(Device& inDevice, BufferID inBuffer, Vec4 inValue)
 {
     auto& cmd_list = m_CommandLists.back();
 
-    const auto resource_ptr = inDevice.GetD3D12Resource(inBuffer);
-    const auto cpu_buffer_handle = inDevice.GetCPUDescriptorHandle(inBuffer);
-    const auto gpu_buffer_handle = inDevice.GetGPUDescriptorHandle(inBuffer);
+    ID3D12Resource* resource_ptr = inDevice.GetD3D12Resource(inBuffer);
+    D3D12_CPU_DESCRIPTOR_HANDLE cpu_buffer_handle = inDevice.GetCPUDescriptorHandle(inBuffer);
+    D3D12_GPU_DESCRIPTOR_HANDLE gpu_buffer_handle = inDevice.GetGPUDescriptorHandle(inBuffer);
 
-    const auto temp_descriptor = inDevice.GetClearHeap().Add(inDevice.GetBuffer(inBuffer).GetD3D12Resource());
-    const auto cpu_temp_descriptor_handle = inDevice.GetClearHeap().GetCPUDescriptorHandle(temp_descriptor);
+    DescriptorID temp_descriptor = inDevice.GetClearHeap().Add(inDevice.GetBuffer(inBuffer).GetD3D12Resource());
+    D3D12_CPU_DESCRIPTOR_HANDLE cpu_temp_descriptor_handle = inDevice.GetClearHeap().GetCPUDescriptorHandle(temp_descriptor);
 
     inDevice->CopyDescriptorsSimple(1, cpu_temp_descriptor_handle, cpu_buffer_handle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     
@@ -62,13 +62,13 @@ void CommandList::ClearTexture(Device& inDevice, TextureID inTexture, Vec4 inVal
 {
     auto& cmd_list = m_CommandLists.back();
 
-    const auto resource_ptr = inDevice.GetD3D12Resource(inTexture);
-    const auto cpu_buffer_handle = inDevice.GetCPUDescriptorHandle(inTexture);
-    const auto gpu_buffer_handle = inDevice.GetGPUDescriptorHandle(inTexture);
+    ID3D12Resource* resource_ptr = inDevice.GetD3D12Resource(inTexture);
+    D3D12_CPU_DESCRIPTOR_HANDLE cpu_buffer_handle = inDevice.GetCPUDescriptorHandle(inTexture);
+    D3D12_GPU_DESCRIPTOR_HANDLE gpu_buffer_handle = inDevice.GetGPUDescriptorHandle(inTexture);
 
-    auto& clear_heap = inDevice.GetClearHeap();
-    const auto temp_descriptor = clear_heap.Add(inDevice.GetTexture(inTexture).GetD3D12Resource());
-    const auto cpu_temp_descriptor_handle = clear_heap.GetCPUDescriptorHandle(temp_descriptor);
+    DescriptorHeap& clear_heap = inDevice.GetClearHeap();
+    DescriptorID temp_descriptor = clear_heap.Add(inDevice.GetTexture(inTexture).GetD3D12Resource());
+    D3D12_CPU_DESCRIPTOR_HANDLE cpu_temp_descriptor_handle = clear_heap.GetCPUDescriptorHandle(temp_descriptor);
 
     inDevice->CopyDescriptorsSimple(1, cpu_temp_descriptor_handle, cpu_buffer_handle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     
@@ -98,17 +98,17 @@ void CommandList::BindToSlot(Buffer& inBuffer, EBindSlot inSlot, uint32_t inOffs
 
 void CommandList::BindVertexAndIndexBuffers(Device& inDevice, const Mesh& inMesh)
 {
-    const auto& index_buffer = inDevice.GetBuffer(BufferID(inMesh.indexBuffer));
-    const auto& vertex_buffer = inDevice.GetBuffer(BufferID(inMesh.vertexBuffer));
+    const Buffer& index_buffer = inDevice.GetBuffer(BufferID(inMesh.indexBuffer));
+    const Buffer& vertex_buffer = inDevice.GetBuffer(BufferID(inMesh.vertexBuffer));
 
-    const auto index_view = D3D12_INDEX_BUFFER_VIEW
+    const D3D12_INDEX_BUFFER_VIEW index_view =
     {
         .BufferLocation = index_buffer->GetGPUVirtualAddress(),
         .SizeInBytes = uint32_t(inMesh.indices.size() * sizeof(inMesh.indices[0])),
         .Format = DXGI_FORMAT_R32_UINT,
     };
 
-    const auto vertex_view = D3D12_VERTEX_BUFFER_VIEW
+    const D3D12_VERTEX_BUFFER_VIEW vertex_view =
     {
         .BufferLocation = vertex_buffer->GetGPUVirtualAddress(),
         .SizeInBytes = uint32_t(vertex_buffer->GetDesc().Width),
@@ -123,8 +123,8 @@ void CommandList::BindVertexAndIndexBuffers(Device& inDevice, const Mesh& inMesh
 
 void CommandList::SetViewportAndScissor(const Viewport& inViewport)
 {
-    const auto scissor = CD3DX12_RECT(0, 0, inViewport.GetRenderSize().x, inViewport.GetRenderSize().y);
-    const auto viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, float(inViewport.GetRenderSize().x), float(inViewport.GetRenderSize().y));
+    const CD3DX12_RECT scissor = CD3DX12_RECT(0, 0, inViewport.GetRenderSize().x, inViewport.GetRenderSize().y);
+    const CD3DX12_VIEWPORT viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, float(inViewport.GetRenderSize().x), float(inViewport.GetRenderSize().y));
 
     m_CommandLists[m_CurrentCmdListIndex]->RSSetViewports(1, &viewport);
     m_CommandLists[m_CurrentCmdListIndex]->RSSetScissorRects(1, &scissor);
@@ -136,7 +136,7 @@ void CommandList::Submit(Device& inDevice, ID3D12CommandQueue* inQueue)
     auto& command_list = m_CommandLists[m_CurrentCmdListIndex];
     assert(command_list->GetType() == inQueue->GetDesc().Type);
 
-    const auto cmd_lists = std::array { static_cast<ID3D12CommandList*>( command_list.Get() )};
+    const std::array cmd_lists = { static_cast<ID3D12CommandList*>( command_list.Get() )};
     inQueue->ExecuteCommandLists(cmd_lists.size(), cmd_lists.data());
 
     m_SubmitFenceValue++;

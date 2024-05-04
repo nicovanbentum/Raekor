@@ -6,7 +6,7 @@
 #include "Raekor/assets.h"
 #include "VKRenderer.h"
 
-namespace Raekor::VK {
+namespace RK::VK {
 
 class PathTracer : public Application
 {

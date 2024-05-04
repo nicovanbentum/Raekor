@@ -8,7 +8,12 @@
 #include "physics.h"
 #include "primitives.h"
 
-namespace Raekor {
+namespace RK {
+
+RTTI_DEFINE_TYPE(Component)
+{
+
+}
 
 RTTI_DEFINE_TYPE(Name)
 {

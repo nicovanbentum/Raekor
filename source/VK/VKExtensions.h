@@ -4,7 +4,7 @@
 #define VK_LOAD_FN(device, x) PFN_##x(vkGetDeviceProcAddr(device, #x))
 #endif
 
-namespace Raekor {
+namespace RK {
 
 class EXT
 {

@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "dds.h"
 
-namespace Raekor {
+namespace RK {
 
 void CompressDXT(unsigned char* dst, unsigned char* src, int w, int h, int isDxt5)
 {

@@ -5,7 +5,7 @@
 #include "rtti.h"
 #include "member.h"
 
-namespace Raekor {
+namespace RK {
 
 void* JSON::ReadArchive::ReadNextObject(RTTI** rtti)
 {
@@ -31,16 +31,16 @@ void* JSON::ReadArchive::ReadNextObject(RTTI** rtti)
     void* object = g_RTTIFactory.Construct(type_name.c_str());
 
     // increment from type key to object, get the token
-    const auto& object_token = m_JSON.GetToken(++m_TokenIndex);
+    const jsmntok_t& object_token = m_JSON.GetToken(++m_TokenIndex);
 
     m_TokenIndex++; // increment index to first key (name of the first class member)
 
-    for (auto key_index = 0; key_index < object_token.size; key_index++)
+    for (int key_index = 0; key_index < object_token.size; key_index++)
     {
-        const auto& key_string = m_JSON.GetString(m_TokenIndex); // member name
+        const String& key_string = m_JSON.GetString(m_TokenIndex); // member name
 
         m_TokenIndex++; // increment index to value
-        if (const auto member = (*rtti)->GetMember(key_string.c_str()))
+        if (Member* member = (*rtti)->GetMember(key_string.c_str()))
         {
             // parse the current value, increment the token index by how many we have parsed
             m_TokenIndex = member->FromJSON(m_JSON, m_TokenIndex, object);

@@ -8,7 +8,7 @@
 #define SCRIPT_EXPORTED_FUNCTION_STR "gGetTypes"
 #define SCRIPT_EXPORTED_FUNCTION_NAME gGetTypes
 
-namespace Raekor {
+namespace RK {
 
 class Input;
 class Scene;
@@ -62,12 +62,12 @@ public:
 	void Log(const std::string& inText);
 
 protected:
-	Raekor::Entity m_Entity;
-	Raekor::Input* m_Input = nullptr;
-	Raekor::Scene* m_Scene = nullptr;
-	Raekor::Camera* m_Camera = nullptr;
-	Raekor::Application* m_App = nullptr;
-	Raekor::DebugRenderer* m_DebugRenderer = nullptr;
+	RK::Entity m_Entity;
+	RK::Input* m_Input = nullptr;
+	RK::Scene* m_Scene = nullptr;
+	RK::Camera* m_Camera = nullptr;
+	RK::Application* m_App = nullptr;
+	RK::DebugRenderer* m_DebugRenderer = nullptr;
 };
 
 

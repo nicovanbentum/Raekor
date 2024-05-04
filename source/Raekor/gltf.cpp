@@ -9,9 +9,10 @@
 #include "components.h"
 #include "application.h"
 
-namespace Raekor {
+namespace RK {
 
-constexpr std::array cgltf_result_strings = {
+constexpr std::array cgltf_result_strings = 
+{
 	"cgltf_result_success",
 	"cgltf_result_data_too_short",
 	"cgltf_result_unknown_format",
@@ -67,12 +68,12 @@ bool GltfImporter::LoadFromFile(const std::string& inFile, Assets* inAssets)
 	/*
 	* PARSE MATERIALS
 	*/
-	for (unsigned int index = 0; index < m_GltfData->materials_count; index++)
+	for (int index = 0; index < m_GltfData->materials_count; index++)
 	{
-		auto& gltf_material = m_GltfData->materials[index];
+		cgltf_material& gltf_material = m_GltfData->materials[index];
 
-		auto entity = m_Scene.Create();
-		auto& nameComponent = m_Scene.Add<Name>(entity);
+		Entity entity = m_Scene.Create();
+		Name& nameComponent = m_Scene.Add<Name>(entity);
 
 		if (gltf_material.name && strcmp(gltf_material.name, "") != 0)
 			nameComponent.name = gltf_material.name;
@@ -85,16 +86,16 @@ bool GltfImporter::LoadFromFile(const std::string& inFile, Assets* inAssets)
 	}
 
 	/**/
-	for (const auto& gltf_animation : Slice(m_GltfData->animations, m_GltfData->animations_count))
+	for (const cgltf_animation& gltf_animation : Slice(m_GltfData->animations, m_GltfData->animations_count))
 	{
 		Entity animation_entity = m_Scene.Create();
 
-		auto& name = m_Scene.Add<Name>(animation_entity);
-		auto& animation = m_Scene.Add<Animation>(animation_entity, Animation(&gltf_animation));
+		Name& name = m_Scene.Add<Name>(animation_entity);
+		Animation& animation = m_Scene.Add<Animation>(animation_entity, Animation(&gltf_animation));
 
-		for (const auto& channel : Slice(gltf_animation.channels, gltf_animation.channels_count))
+		for (const cgltf_animation_channel& channel : Slice(gltf_animation.channels, gltf_animation.channels_count))
 		{
-			const auto node_name = std::string(channel.target_node->name);
+			const String node_name = String(channel.target_node->name);
 
 			animation.LoadKeyframes(node_name, &channel);
 
@@ -104,15 +105,15 @@ bool GltfImporter::LoadFromFile(const std::string& inFile, Assets* inAssets)
 		m_Animations.push_back(animation_entity);
 	}
 
-	for (auto entity : m_Animations)
+	for (Entity entity : m_Animations)
 	{
-		auto& animation = m_Scene.Get<Animation>(entity);
+		Animation& animation = m_Scene.Get<Animation>(entity);
 
-		for (const auto& bone_name : animation.GetBoneNames())
+		for (const String& bone_name : animation.GetBoneNames())
 		{
-			auto& keyframes = animation.GetKeyFrames(bone_name);
+			KeyFrames& keyframes = animation.GetKeyFrames(bone_name);
 
-			const auto max = glm::max(glm::max(keyframes.m_PositionKeys.size(), keyframes.m_RotationKeys.size()), keyframes.m_ScaleKeys.size());
+			const size_t max = glm::max(glm::max(keyframes.m_PositionKeys.size(), keyframes.m_RotationKeys.size()), keyframes.m_ScaleKeys.size());
 
 			// if at least 1 of the 3 key channels has key data, the other 2 channels need at least 1 key
 			if (max > 0)
@@ -132,8 +133,8 @@ bool GltfImporter::LoadFromFile(const std::string& inFile, Assets* inAssets)
 	/*
 	* PARSE NODES & MESHES
 	*/
-	for (const auto& scene : Slice(m_GltfData->scenes, m_GltfData->scenes_count))
-		for (const auto& node : Slice(scene.nodes, scene.nodes_count))
+	for (const cgltf_scene& scene : Slice(m_GltfData->scenes, m_GltfData->scenes_count))
+		for (const cgltf_node* node : Slice(scene.nodes, scene.nodes_count))
 			if (!node->parent)
 				ParseNode(*node, m_Scene.GetRootEntity(), glm::mat4(1.0f));
 
@@ -157,7 +158,7 @@ bool GltfImporter::LoadFromFile(const std::string& inFile, Assets* inAssets)
 
 void GltfImporter::ParseNode(const cgltf_node& inNode, Entity inParent, glm::mat4 inTransform)
 {
-	auto local_transform = glm::mat4(1.0f);
+	Mat4x4 local_transform(1.0f);
 
 	if (inNode.has_matrix)
 	{
@@ -181,7 +182,7 @@ void GltfImporter::ParseNode(const cgltf_node& inNode, Entity inParent, glm::mat
 
 	if (inNode.mesh)
 	{
-		auto entity = m_CreatedNodeEntities.emplace_back(m_Scene.CreateSpatialEntity());
+		Entity entity = m_CreatedNodeEntities.emplace_back(m_Scene.CreateSpatialEntity());
 
 		// name it after the node or its mesh
 		if (inNode.name)
@@ -191,7 +192,7 @@ void GltfImporter::ParseNode(const cgltf_node& inNode, Entity inParent, glm::mat
 		else
 			m_Scene.Get<Name>(entity).name = "Mesh " + std::to_string(uint32_t(entity));
 
-		auto& mesh_transform = m_Scene.Get<Transform>(entity);
+		Transform& mesh_transform = m_Scene.Get<Transform>(entity);
 		mesh_transform.localTransform = inTransform;
 		mesh_transform.Decompose();
 
@@ -207,10 +208,10 @@ void GltfImporter::ParseNode(const cgltf_node& inNode, Entity inParent, glm::mat
 		{
 			for (const auto& [index, primitive] : gEnumerate(Slice(inNode.mesh->primitives, inNode.mesh->primitives_count)))
 			{
-				auto clone = m_CreatedNodeEntities.emplace_back(m_Scene.Clone(entity));
+				Entity clone = m_CreatedNodeEntities.emplace_back(m_Scene.Clone(entity));
 				ConvertMesh(clone, primitive);
 
-				auto& name = m_Scene.Get<Name>(clone);
+				Name& name = m_Scene.Get<Name>(clone);
 				name.name += "-" + std::to_string(index);
 
 				// multiple mesh entities of the same node all get parented to that node's transform, so their local transform can just be identity
@@ -230,14 +231,14 @@ void GltfImporter::ParseNode(const cgltf_node& inNode, Entity inParent, glm::mat
 	{
 		const auto entity = m_CreatedNodeEntities.emplace_back(m_Scene.CreateSpatialEntity());
 
-		auto& transform = m_Scene.Get<Transform>(entity);
+		Transform& transform = m_Scene.Get<Transform>(entity);
 		transform.localTransform = inTransform;
 		transform.Decompose();
 
 		ConvertLight(entity, *inNode.light);
 	}
 
-	for (const auto& child : Slice(inNode.children, inNode.children_count))
+	for (cgltf_node* child : Slice(inNode.children, inNode.children_count))
 		ParseNode(*child, inParent, inTransform);
 }
 
@@ -247,7 +248,7 @@ bool GltfImporter::ConvertMesh(Entity inEntity, const cgltf_primitive& inMesh)
 	if (!inMesh.indices || inMesh.type != cgltf_primitive_type_triangles)
 		return false;
 	
-	auto& mesh = m_Scene.Add<Mesh>(inEntity);
+	Mesh& mesh = m_Scene.Add<Mesh>(inEntity);
 
 	for (int i = 0; i < m_GltfData->materials_count; i++)
 	{
@@ -260,12 +261,12 @@ bool GltfImporter::ConvertMesh(Entity inEntity, const cgltf_primitive& inMesh)
 
 	for (const auto& attribute : Slice(inMesh.attributes, inMesh.attributes_count))
 	{
-		const auto float_count = cgltf_accessor_unpack_floats(attribute.data, NULL, 0);
-		auto accessor_data = std::vector<float>(float_count); // TODO: allocate this once?
+		const cgltf_size float_count = cgltf_accessor_unpack_floats(attribute.data, NULL, 0);
+		Array<float> accessor_data(float_count); // TODO: allocate this once?
 
-		auto data = accessor_data.data();
+		cgltf_float* data = accessor_data.data();
 		cgltf_accessor_unpack_floats(attribute.data, data, float_count);
-		const auto num_components = cgltf_num_components(attribute.data->type);
+		const cgltf_size num_components = cgltf_num_components(attribute.data->type);
 
 		// Skip any additional uv sets, we only support one set at the moment
 		if (attribute.type == cgltf_attribute_type_texcoord && seen_uv0)
@@ -328,7 +329,7 @@ void GltfImporter::ConvertLight(Entity inEntity, const cgltf_light& inLight)
 
 	if (inLight.type == cgltf_light_type_point)
 	{
-		auto& light = m_Scene.Add<Light>(inEntity);
+		Light& light = m_Scene.Add<Light>(inEntity);
 
 		light.type = LIGHT_TYPE_POINT;
 		light.colour = Vec4(inLight.color[0], inLight.color[1], inLight.color[2], inLight.intensity);
@@ -337,7 +338,7 @@ void GltfImporter::ConvertLight(Entity inEntity, const cgltf_light& inLight)
 	
 	if (inLight.type == cgltf_light_type_spot)
 	{
-		auto& light = m_Scene.Add<Light>(inEntity);
+		Light& light = m_Scene.Add<Light>(inEntity);
 
 		light.type = LIGHT_TYPE_SPOT;
 		light.colour = Vec4(inLight.color[0], inLight.color[1], inLight.color[2], inLight.intensity);
@@ -350,7 +351,7 @@ void GltfImporter::ConvertLight(Entity inEntity, const cgltf_light& inLight)
 
 Mat4x4 GltfImporter::GetLocalTransform(const cgltf_node& inNode)
 {
-	auto local_transform = glm::mat4(1.0f);
+	Mat4x4 local_transform = Mat4x4(1.0f);
 
 	if (inNode.has_matrix)
 	{
@@ -382,8 +383,8 @@ void GltfImporter::ConvertBones(Entity inEntity, const cgltf_node& inNode)
 	if (!inNode.mesh || !inNode.skin)
 		return;
 
-	auto& mesh = m_Scene.Get<Mesh>(inEntity);
-	auto& skeleton = m_Scene.Add<Skeleton>(inEntity);
+	Mesh& mesh = m_Scene.Get<Mesh>(inEntity);
+	Skeleton& skeleton = m_Scene.Add<Skeleton>(inEntity);
 
 	for (const auto& [index, primitive] : gEnumerate(Slice(inNode.mesh->primitives, inNode.mesh->primitives_count)))
 	{
@@ -393,12 +394,12 @@ void GltfImporter::ConvertBones(Entity inEntity, const cgltf_node& inNode)
 		{
 			if (attribute.type == cgltf_attribute_type_weights)
 			{
-				const auto float_count = cgltf_accessor_unpack_floats(attribute.data, NULL, 0);
-				auto accessor_data = std::vector<float>(float_count);
+				const cgltf_size float_count = cgltf_accessor_unpack_floats(attribute.data, NULL, 0);
+				Array<float> accessor_data(float_count);
 
-				auto data = accessor_data.data();
+				cgltf_float* data = accessor_data.data();
 				cgltf_accessor_unpack_floats(attribute.data, data, float_count);
-				const auto num_components = cgltf_num_components(attribute.data->type);
+				const cgltf_size num_components = cgltf_num_components(attribute.data->type);
 
 				for (uint32_t element_index = 0; element_index < attribute.data->count; element_index++)
 				{
@@ -409,13 +410,13 @@ void GltfImporter::ConvertBones(Entity inEntity, const cgltf_node& inNode)
 
 			else if (attribute.type == cgltf_attribute_type_joints)
 			{
-				const auto num_components = cgltf_num_components(attribute.data->type);
+				const cgltf_size num_components = cgltf_num_components(attribute.data->type);
 				uint32_t buffer[4]; // lets assume for now that its typically a vec4 of uint's
 
 				// TODO: change bone indices from 'ivec4' to 'uvec4' as it makes more sense and we can pass it to read_uint directly
 				for (uint32_t i = 0; i < attribute.data->count; i++)
 				{
-					auto& indices = skeleton.boneIndices.emplace_back();
+					IVec4& indices = skeleton.boneIndices.emplace_back();
 					cgltf_accessor_read_uint(attribute.data, i, buffer, num_components);
 
 					for (uint32_t j = 0; j < num_components; j++)
@@ -425,16 +426,19 @@ void GltfImporter::ConvertBones(Entity inEntity, const cgltf_node& inNode)
 		}
 	}
 
-	auto accessor = inNode.skin->inverse_bind_matrices;
-	const auto float_count = cgltf_accessor_unpack_floats(accessor, NULL, 0);
-	auto bind_matrix_data = std::vector<float>(float_count);
-	auto data_ptr = bind_matrix_data.data();
+	cgltf_accessor* accessor = inNode.skin->inverse_bind_matrices;
+	cgltf_size float_count = cgltf_accessor_unpack_floats(accessor, NULL, 0);
+
+
+	Array<float> bind_matrix_data(float_count);
+	cgltf_float* data_ptr = bind_matrix_data.data();
 	cgltf_accessor_unpack_floats(accessor, data_ptr, float_count);
-	const auto num_components = cgltf_num_components(accessor->type);
+	
+	const cgltf_size num_components = cgltf_num_components(accessor->type);
 
 	for (uint32_t n = 0; n < accessor->count; n++)
 	{
-		auto& matrix = skeleton.boneOffsetMatrices.emplace_back(1.0f);
+		Mat4x4& matrix = skeleton.boneOffsetMatrices.emplace_back(1.0f);
 		memcpy(glm::value_ptr(matrix), data_ptr + n * num_components, num_components * sizeof(float));
 	}
 
@@ -444,7 +448,7 @@ void GltfImporter::ConvertBones(Entity inEntity, const cgltf_node& inNode)
 	if (m_Renderer)
 		m_Renderer->UploadSkeletonBuffers(inEntity, skeleton, mesh);
 
-	if (auto root_bone = inNode.skin->skeleton)
+	if (cgltf_node* root_bone = inNode.skin->skeleton)
 	{
 		skeleton.rootBone.name = root_bone->name;
 		skeleton.rootBone.index = GetJointIndex(&inNode, root_bone);
@@ -452,17 +456,17 @@ void GltfImporter::ConvertBones(Entity inEntity, const cgltf_node& inNode)
 		// recursive lambda to loop over the node hierarchy, dear lord help us all
 		auto copyHierarchy = [&](auto&& copyHierarchy, cgltf_node* inCurrentNode, Skeleton::Bone& boneNode) -> void
 		{
-			for (auto node : Slice(inCurrentNode->children, inCurrentNode->children_count))
+			for (cgltf_node* node : Slice(inCurrentNode->children, inCurrentNode->children_count))
 			{
-				const auto index = GetJointIndex(&inNode, node);
+				const int index = GetJointIndex(&inNode, node);
 
 				if (index != -1)
 				{
-					auto& child = boneNode.children.emplace_back();
-					child.name = node->name;
-					child.index = index;
+					Skeleton::Bone& child_bone = boneNode.children.emplace_back();
+					child_bone.name = node->name;
+					child_bone.index = index;
 
-					copyHierarchy(copyHierarchy, node, child);
+					copyHierarchy(copyHierarchy, node, child_bone);
 				}
 			}
 		};
@@ -486,7 +490,7 @@ int GltfImporter::GetJointIndex(const cgltf_node* inSkinNode, const cgltf_node* 
 
 void GltfImporter::ConvertMaterial(Entity inEntity, const cgltf_material& gltfMaterial)
 {
-	auto& material = m_Scene.Add<Material>(inEntity);
+	Material& material = m_Scene.Add<Material>(inEntity);
 	material.isTransparent = gltfMaterial.alpha_mode != cgltf_alpha_mode_opaque;
 
 	if (gltfMaterial.has_pbr_metallic_roughness)
@@ -495,21 +499,21 @@ void GltfImporter::ConvertMaterial(Entity inEntity, const cgltf_material& gltfMa
 		material.roughness = gltfMaterial.pbr_metallic_roughness.roughness_factor;
 		memcpy(glm::value_ptr(material.albedo), gltfMaterial.pbr_metallic_roughness.base_color_factor, sizeof(material.albedo));
 
-		if (auto texture = gltfMaterial.pbr_metallic_roughness.base_color_texture.texture)
+		if (cgltf_texture* texture = gltfMaterial.pbr_metallic_roughness.base_color_texture.texture)
 			material.albedoFile = TextureAsset::sAssetsToCachedPath(m_Directory.string() + texture->image->uri);
 
-		if (auto texture = gltfMaterial.pbr_metallic_roughness.metallic_roughness_texture.texture)
+		if (cgltf_texture* texture = gltfMaterial.pbr_metallic_roughness.metallic_roughness_texture.texture)
 		{
-			auto cached_texture_path = TextureAsset::sAssetsToCachedPath(m_Directory.string() + texture->image->uri);
+			String cached_texture_path = TextureAsset::sAssetsToCachedPath(m_Directory.string() + texture->image->uri);
 			material.metallicFile = cached_texture_path;
 			material.roughnessFile = cached_texture_path;
 		}
 	}
 
-	if (auto normal_texture = gltfMaterial.normal_texture.texture)
+	if (cgltf_texture* normal_texture = gltfMaterial.normal_texture.texture)
 		material.normalFile = TextureAsset::sAssetsToCachedPath(m_Directory.string() + normal_texture->image->uri);
 
-	if (auto emissive_texture = gltfMaterial.emissive_texture.texture)
+	if (cgltf_texture* emissive_texture = gltfMaterial.emissive_texture.texture)
 		material.emissiveFile = TextureAsset::sAssetsToCachedPath(m_Directory.string() + emissive_texture->image->uri);
 
 	memcpy(glm::value_ptr(material.emissive), gltfMaterial.emissive_factor, sizeof(material.emissive));

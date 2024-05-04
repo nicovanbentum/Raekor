@@ -4,7 +4,7 @@
 #include "VKUtil.h"
 #include "VKExtensions.h"
 
-namespace Raekor::VK {
+namespace RK::VK {
 
 Device::Device(SDL_Window* window) :
 	m_Instance(window),

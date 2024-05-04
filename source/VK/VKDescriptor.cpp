@@ -3,7 +3,7 @@
 #include "VKUtil.h"
 #include "VKDevice.h"
 
-namespace Raekor::VK {
+namespace RK::VK {
 
 void BindlessDescriptorSet::Create(const Device& device, VkDescriptorType type)
 {

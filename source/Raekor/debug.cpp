@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "debug.h"
 
-namespace Raekor {
+namespace RK {
 
 DebugRenderer g_DebugRenderer;
 

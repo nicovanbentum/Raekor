@@ -2,7 +2,7 @@
 #include "DXFrameBuffer.h"
 #include "DXRenderer.h"
 
-namespace Raekor {
+namespace RK {
 
 DXFrameBuffer::DXFrameBuffer(DXFrameBuffer::ConstructInfo* info)
 {
@@ -33,7 +33,7 @@ DXFrameBuffer::DXFrameBuffer(DXFrameBuffer::ConstructInfo* info)
     texture_desc.CPUAccessFlags = 0;
     texture_desc.MiscFlags = 0;
 
-    auto hr = D3D.device->CreateTexture2D(&texture_desc, NULL, texture.GetAddressOf());
+    HRESULT hr = D3D.device->CreateTexture2D(&texture_desc, NULL, texture.GetAddressOf());
     assert(SUCCEEDED(hr) && "failed to create 2d texture");
 
     target_desc.Format = texture_desc.Format;

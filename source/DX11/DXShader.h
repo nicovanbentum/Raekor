@@ -1,6 +1,6 @@
 #pragma once
 
-namespace Raekor {
+namespace RK {
 
 class DXShader
 {
@@ -10,7 +10,8 @@ public:
         VERTEX, FRAG, GEO, COMPUTE
     };
 
-    inline static auto sTypeTargets = std::array {
+    inline static std::array sTypeTargets = 
+    {
         "vs_5_0", "ps_5_0", "gs_5_0", "cs_5_0"
     };
 

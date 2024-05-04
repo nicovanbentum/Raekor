@@ -5,13 +5,13 @@
 #include "Raekor/rmath.h"
 #include "Raekor/camera.h"
 
-namespace Raekor::GL {
+namespace RK::GL {
 
 
 GLTimer::GLTimer()
 {
     glGenQueries(GLsizei(queries.size()), queries.data());
-    for (auto query : queries)
+    for (GLuint query : queries)
     {
         glBeginQuery(GL_TIME_ELAPSED, query);
         glEndQuery(GL_TIME_ELAPSED);
@@ -129,7 +129,8 @@ void ShadowMap::updatePerspectiveConstants(const Viewport& viewport)
     {
         float splitDist = dists[i];
 
-        std::array frustumCorners = {
+        std::array frustumCorners = 
+        {
             glm::vec3(-1.0f,  1.0f, -1.0f),
             glm::vec3(1.0f,  1.0f, -1.0f),
             glm::vec3(1.0f, -1.0f, -1.0f),
@@ -142,7 +143,7 @@ void ShadowMap::updatePerspectiveConstants(const Viewport& viewport)
 
         const glm::mat4 inverse = glm::inverse(viewport.GetCamera().GetProjection() * viewport.GetCamera().GetView());
 
-        for (auto& corner : frustumCorners)
+        for (glm::vec3& corner : frustumCorners)
         {
             glm::vec4 invCorner = inverse * glm::vec4(corner, 1.0f);
             corner = invCorner / invCorner.w;
@@ -156,7 +157,7 @@ void ShadowMap::updatePerspectiveConstants(const Viewport& viewport)
         }
 
         glm::vec3 frustumCenter = glm::vec3(0.0f);
-        for (const auto& corner : frustumCorners)
+        for (const glm::vec3& corner : frustumCorners)
             frustumCenter += corner;
 
         frustumCenter /= 8.0f;
@@ -175,9 +176,9 @@ void ShadowMap::updatePerspectiveConstants(const Viewport& viewport)
 
 void ShadowMap::updateCascades(const Scene& inScene, const Viewport& viewport)
 {
-    auto view_dir = glm::vec3(0.25f, -0.9f, 0.0f);
+    glm::vec3 view_dir = glm::vec3(0.25f, -0.9f, 0.0f);
 
-    if (auto sunlight = inScene.GetSunLight())
+    if (const DirectionalLight* sunlight = inScene.GetSunLight())
         view_dir = Vec3(glm::normalize(sunlight->GetDirection()));
 
     view_dir = glm::clamp(view_dir, { -1.0f, -1.0f, -1.0f }, { 1.0f, 1.0f, 1.0f });
@@ -192,7 +193,7 @@ void ShadowMap::updateCascades(const Scene& inScene, const Viewport& viewport)
     const float range = maxZ - minZ;
     const float ratio = maxZ / minZ;
 
-    auto dists = std::array<float, MAX_NR_OF_CASCADES>();
+    std::array<float, MAX_NR_OF_CASCADES> dists;
 
     // Calculate split depths based on view m_Camera frustum
     // Based on method presented in https://developer.nvidia.com/gpugems/GPUGems3/gpugems3_ch10.html
@@ -223,7 +224,7 @@ void ShadowMap::updateCascades(const Scene& inScene, const Viewport& viewport)
 
         const glm::mat4 inverse = glm::inverse(viewport.GetCamera().GetProjection() * viewport.GetCamera().GetView());
 
-        for (auto& corner : frustumCorners)
+        for (glm::vec3& corner : frustumCorners)
         {
             glm::vec4 invCorner = inverse * glm::vec4(corner, 1.0f);
             corner = invCorner / invCorner.w;
@@ -237,7 +238,7 @@ void ShadowMap::updateCascades(const Scene& inScene, const Viewport& viewport)
         }
 
         glm::vec3 frustumCenter = glm::vec3(0.0f);
-        for (const auto& corner : frustumCorners)
+        for (const glm::vec3& corner : frustumCorners)
         {
             frustumCenter += corner;
         }
@@ -302,7 +303,7 @@ void ShadowMap::Render(const Viewport& inViewport, const Scene& inScene)
             uniforms.modelMatrix = transform.worldTransform;
 
             // determine if we use the original mesh vertices or GPU skinned vertices
-            auto skeleton = inScene.GetPtr<Skeleton>(entity);
+            const Skeleton* skeleton = inScene.GetPtr<Skeleton>(entity);
             glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, skeleton ? skeleton->skinnedVertexBuffer : mesh.vertexBuffer);
 
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.indexBuffer);
@@ -362,7 +363,7 @@ void GBuffer::Render(const Scene& scene, const Viewport& inViewport, uint32_t m_
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    constexpr auto clear_color = std::array { float(Entity::Null), 0.0f, 0.0f, 1.0f };
+    constexpr std::array clear_color = { float(Entity::Null), 0.0f, 0.0f, 1.0f };
     glClearBufferfv(GL_COLOR, 3, clear_color.data());
 
     if (m_FrameNr == 0)
@@ -388,7 +389,7 @@ void GBuffer::Render(const Scene& scene, const Viewport& inViewport, uint32_t m_
     uniforms.view = inViewport.GetCamera().GetView();
     uniforms.projection = inViewport.GetJitteredProjMatrix();
 
-    const auto frustum = inViewport.GetCamera().GetFrustum();
+    const Frustum frustum = inViewport.GetCamera().GetFrustum();
 
     culled = 0;
 
@@ -396,7 +397,7 @@ void GBuffer::Render(const Scene& scene, const Viewport& inViewport, uint32_t m_
 
     for (const auto& [entity, mesh, transform] : scene.Each<Mesh, Transform>())
     {
-        const auto bounding_box = BBox3D(mesh.aabb[0], mesh.aabb[1]).Transform(transform.worldTransform);
+        const BBox3D bounding_box = BBox3D(mesh.aabb[0], mesh.aabb[1]).Transform(transform.worldTransform);
 
         // if the frustrum can't see the mesh's OBB we cull it
         // TODO: disabled for now, lots of imported scenes from SketchFab and other websites have weird BB/triangle issues. Re-enable?
@@ -426,7 +427,7 @@ void GBuffer::Render(const Scene& scene, const Viewport& inViewport, uint32_t m_
         uniforms.entity = uint32_t(entity);
 
         // determine if we use the original mesh vertices or GPU skinned vertices
-        auto skeleton = scene.GetPtr<Skeleton>(entity);
+        const Skeleton* skeleton = scene.GetPtr<Skeleton>(entity);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, skeleton ? skeleton->skinnedVertexBuffer : mesh.vertexBuffer);
 
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.indexBuffer);
@@ -592,7 +593,7 @@ void DeferredShading::Render(const Scene& inScene, const Viewport& viewport,
     uniforms.view = viewport.GetCamera().GetView();
     uniforms.projection = viewport.GetJitteredProjMatrix();
 
-    if (auto sunlight = inScene.GetSunLight())
+    if (const DirectionalLight* sunlight = inScene.GetSunLight())
         uniforms.dirLight = *sunlight;
 
     unsigned int i = 0;
@@ -711,7 +712,7 @@ void Bloom::Render(const Viewport& viewport, GLuint highlights)
     if (viewport.size.x < 16.0f || viewport.size.y < 16.0f)
         return;
 
-    auto quarter = glm::ivec2(viewport.size.x / 4, viewport.size.y / 4);
+    IVec2 quarter = IVec2(viewport.size.x / 4, viewport.size.y / 4);
 
     glNamedFramebufferTexture(highlightsFramebuffer, GL_COLOR_ATTACHMENT0, highlights, 0);
 
@@ -752,7 +753,8 @@ void Bloom::Render(const Viewport& viewport, GLuint highlights)
 
 void Bloom::CreateRenderTargets(const Viewport& viewport)
 {
-    auto quarterRes = glm::ivec2(
+    IVec2 quarterRes = IVec2
+    (
         std::max(viewport.size.x / 4, 1u),
         std::max(viewport.size.y / 4, 1u)
     );
@@ -891,8 +893,8 @@ Voxelize::Voxelize(uint32_t size) : size(size)
 
 void Voxelize::computeMipmaps(GLuint texture)
 {
-    auto level = 0, mip_size = size;
-    auto mipmap_count = GLsizei(std::log2(size)) - 3;
+    int level = 0, mip_size = size;
+    int mipmap_count = GLsizei(std::log2(size)) - 3;
 
     mipmapShader.Bind();
 
@@ -903,8 +905,9 @@ void Voxelize::computeMipmaps(GLuint texture)
         glBindImageTexture(0, texture, level, GL_TRUE, 0, GL_READ_ONLY, GL_RGBA8);
         glBindImageTexture(1, texture, ++level, GL_TRUE, 0, GL_WRITE_ONLY, GL_RGBA8);
 
-        auto dispatch_size = mip_size / 4;
+        const int dispatch_size = mip_size / 4;
         glDispatchCompute(dispatch_size, dispatch_size, dispatch_size);
+
         glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
     }
 }
@@ -915,7 +918,7 @@ void Voxelize::correctOpacity(GLuint texture)
     opacityFixShader.Bind();
     glBindImageTexture(0, texture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA8);
 
-    const auto dispatch_size = size / 4;
+    const int dispatch_size = size / 4;
     glDispatchCompute(dispatch_size, dispatch_size, dispatch_size);
 
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
@@ -925,7 +928,7 @@ void Voxelize::correctOpacity(GLuint texture)
 void Voxelize::Render(const Scene& scene, const Viewport& viewport, const ShadowMap& shadowmap)
 {
     // left, right, bottom, top, zNear, zFar
-    auto projectionMatrix = glm::ortho(-worldSize * 0.5f, worldSize * 0.5f, -worldSize * 0.5f, worldSize * 0.5f, worldSize * 0.5f, worldSize * 1.5f);
+    Mat4x4 projectionMatrix = glm::ortho(-worldSize * 0.5f, worldSize * 0.5f, -worldSize * 0.5f, worldSize * 0.5f, worldSize * 0.5f, worldSize * 1.5f);
     uniforms.px = projectionMatrix * glm::lookAt(glm::vec3(worldSize, 0, 0), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
     uniforms.py = projectionMatrix * glm::lookAt(glm::vec3(0, worldSize, 0), glm::vec3(0, 0, 0), glm::vec3(0, 0, -1));
     uniforms.pz = projectionMatrix * glm::lookAt(glm::vec3(0, 0, worldSize), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
@@ -939,7 +942,7 @@ void Voxelize::Render(const Scene& scene, const Viewport& viewport, const Shadow
     uniforms.view = viewport.GetCamera().GetView();
 
     // clear the first mip of the 3D texture, the other mips are filled by the mipmap shader
-    constexpr auto clearColour = glm::u8vec4(0.0f, 0.0f, 0.0f, 0.0f);
+    constexpr glm::u8vec4 clearColour = glm::u8vec4(0.0f, 0.0f, 0.0f, 0.0f);
     glClearTexImage(result, 0, GL_RGBA, GL_UNSIGNED_BYTE, glm::value_ptr(clearColour));
 
     // set OpenGL state
@@ -970,7 +973,7 @@ void Voxelize::Render(const Scene& scene, const Viewport& viewport, const Shadow
         glBindTextureUnit(0, ( material && material->gpuAlbedoMap ) ? material->gpuAlbedoMap : Material::Default.gpuAlbedoMap);
 
         // determine if we use the original mesh vertices or GPU skinned vertices
-        auto skeleton = scene.GetPtr<Skeleton>(entity);
+        const Skeleton* skeleton = scene.GetPtr<Skeleton>(entity);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, skeleton ? skeleton->skinnedVertexBuffer : mesh.vertexBuffer);
 
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.indexBuffer);
@@ -1055,7 +1058,7 @@ VoxelizeDebug::VoxelizeDebug(const Viewport& viewport, uint32_t voxelTextureSize
 
     std::vector<uint32_t> indexBufferData(numIndices);
 
-    const auto chunks = { 1, 2, 3, 4, 5, 6, 7, 8 };
+    const std::initializer_list<int> chunks = { 1, 2, 3, 4, 5, 6, 7, 8 };
     const size_t CHUNK_SIZE = numIndices / chunks.size();
 
 
@@ -1066,8 +1069,8 @@ VoxelizeDebug::VoxelizeDebug(const Viewport& viewport, uint32_t voxelTextureSize
 
         for (size_t i = start; i < end; i++)
         {
-            auto cube = i / NUM_CUBE_INDICES;
-            auto cube_local = i % NUM_CUBE_INDICES;
+            int cube = i / NUM_CUBE_INDICES;
+            int cube_local = i % NUM_CUBE_INDICES;
             indexBufferData[i] = static_cast<uint32_t>( cubeIndices[cube_local] + cube * NUM_CUBE_VERTICES );
         }
     });
@@ -1118,13 +1121,13 @@ void VoxelizeDebug::execute2(const Viewport& viewport, GLuint input, const Voxel
     glClear(GL_DEPTH_BUFFER_BIT);
 
     float voxelSize = voxels.worldSize / voxels.size;
-    glm::mat4 modelMatrix = glm::translate(glm::scale(glm::mat4(1.0f), glm::vec3(voxelSize)), glm::vec3(0, 0, 0));
+    Mat4x4 modelMatrix = glm::translate(glm::scale(Mat4x4(1.0f), Vec3(voxelSize)), Vec3(0, 0, 0));
 
     // bind shader and set uniforms
     shader.Bind();
     uniforms.p = viewport.GetCamera().GetProjection();
     uniforms.mv = viewport.GetCamera().GetView() * modelMatrix;
-    uniforms.cameraPosition = glm::vec4(viewport.GetCamera().GetPosition(), 1.0);
+    uniforms.cameraPosition = Vec4(viewport.GetCamera().GetPosition(), 1.0);
 
     glNamedBufferSubData(uniformBuffer, 0, sizeof(uniforms), &uniforms);
 
@@ -1172,10 +1175,11 @@ DebugLines::~DebugLines()
 
 DebugLines::DebugLines()
 {
-    shader.Compile({
-        {Shader::Type::VERTEX, "assets\\system\\shaders\\OpenGL\\aabb.vert"},
-        {Shader::Type::FRAG, "assets\\system\\shaders\\OpenGL\\aabb.frag"}
-        });
+    shader.Compile
+    ({
+        { Shader::Type::VERTEX, "assets\\system\\shaders\\OpenGL\\aabb.vert" },
+        { Shader::Type::FRAG, "assets\\system\\shaders\\OpenGL\\aabb.frag" }
+    });
 
     glCreateFramebuffers(1, &frameBuffer);
 
@@ -1262,7 +1266,7 @@ Icons::Icons(const Viewport& viewport)
     int w, h, ch;
     stbi_set_flip_vertically_on_load(true);
 
-    auto img = stbi_load("assets/system/light.png", &w, &h, &ch, 4);
+    stbi_uc* img = stbi_load("assets/system/light.png", &w, &h, &ch, 4);
     assert(img);
 
     glCreateTextures(GL_TEXTURE_2D, 1, &lightTexture);
@@ -1318,29 +1322,28 @@ void Icons::Render(const Scene& scene, const Viewport& viewport, GLuint colorAtt
 
     shader.Bind();
 
-    const auto vp = viewport.GetCamera().GetProjection() * viewport.GetCamera().GetView();
+    const Mat4x4 vp = viewport.GetCamera().GetProjection() * viewport.GetCamera().GetView();
 
     for (const auto& [entity, light, transform] : scene.Each<DirectionalLight, Transform>())
     {
-
-        glm::mat4 model = glm::mat4(1.0f);
+        Mat4x4 model = Mat4x4(1.0f);
         model = glm::translate(model, transform.position);
 
-        glm::vec3 V;
+        Vec3 V;
         V.x = viewport.GetCamera().GetPosition().x - transform.position.x;
         V.y = 0;
         V.z = viewport.GetCamera().GetPosition().z - transform.position.z;
 
-        auto Vnorm = glm::normalize(V);
+        glm::vec3 Vnorm = glm::normalize(V);
 
-        glm::vec3 lookAt = glm::vec3(0.0f, 0.0f, 1.0f);
+        Vec3 lookAt = Vec3(0.0f, 0.0f, 1.0f);
 
-        auto upAux = glm::cross(lookAt, Vnorm);
-        auto cosTheta = glm::dot(lookAt, Vnorm);
+        Vec3 upAux = glm::cross(lookAt, Vnorm);
+        float cosTheta = glm::dot(lookAt, Vnorm);
 
         model = glm::rotate(model, acos(cosTheta), upAux);
 
-        model = glm::scale(model, glm::vec3(glm::length(V) * 0.05f));
+        model = glm::scale(model, Vec3(glm::length(V) * 0.05f));
 
         uniforms.mvp = vp * model;
         uniforms.entity = uint32_t(entity);
@@ -1362,12 +1365,12 @@ void Icons::Render(const Scene& scene, const Viewport& viewport, GLuint colorAtt
         V.y = 0;
         V.z = viewport.GetCamera().GetPosition().z - transform.position.z;
 
-        auto Vnorm = glm::normalize(V);
+        glm::vec3 Vnorm = glm::normalize(V);
 
         glm::vec3 lookAt = glm::vec3(0.0f, 0.0f, 1.0f);
 
-        auto upAux = glm::cross(lookAt, Vnorm);
-        auto cosTheta = glm::dot(lookAt, Vnorm);
+        glm::vec3 upAux = glm::cross(lookAt, Vnorm);
+        float cosTheta = glm::dot(lookAt, Vnorm);
 
         model = glm::rotate(model, acos(cosTheta), upAux);
 
@@ -1459,7 +1462,7 @@ void Atmosphere::computeCubemaps(const Viewport& viewport, const Scene& inScene)
 
     // TODO: figure out this directional light crap, I only really want to support a single one or figure out a better way to deal with this
     // For now we send only the first directional light to the GPU for everything, if none are present we send a buffer with a direction of (0, -0.9, 0)
-    if (auto sunlight = inScene.GetSunLight())
+    if (const DirectionalLight* sunlight = inScene.GetSunLight())
     {
         uniforms.sunlightDir = sunlight->GetDirection();
         uniforms.sunlightColor = sunlight->GetColor();

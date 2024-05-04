@@ -1,6 +1,6 @@
 #pragma once
 
-namespace Raekor::DX12 {
+namespace RK::DX12 {
 
 /* explicit bindings to root descriptors hardcoded into the root signature. */
 enum EBindSlot

@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "ecs.h"
 
-namespace Raekor {
+namespace RK {
 
 RTTI_DEFINE_TYPE_PRIMITIVE(Entity);
 

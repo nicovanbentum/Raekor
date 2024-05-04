@@ -25,7 +25,7 @@ glm::mat4 toMat4(const aiMatrix4x4& from)
 } // namespace Assimp
 
 
-namespace Raekor {
+namespace RK {
 
 bool AssimpImporter::LoadFromFile(const std::string& file, Assets* inAssets)
 {
@@ -166,7 +166,7 @@ void AssimpImporter::ParseMeshes(const aiNode* assimpNode, Entity new_entity, En
 
 void AssimpImporter::LoadMesh(Entity entity, const aiMesh* assimpMesh)
 {
-	auto& mesh = m_Scene.Add<Mesh>(entity);
+	Mesh& mesh = m_Scene.Add<Mesh>(entity);
 
 	mesh.positions.reserve(assimpMesh->mNumVertices);
 	mesh.uvs.reserve(assimpMesh->mNumVertices);
@@ -187,7 +187,7 @@ void AssimpImporter::LoadMesh(Entity entity, const aiMesh* assimpMesh)
 
 		if (assimpMesh->HasTangentsAndBitangents())
 		{
-			auto& tangent = mesh.tangents.emplace_back(assimpMesh->mTangents[i].x, assimpMesh->mTangents[i].y, assimpMesh->mTangents[i].z);
+			glm::vec3& tangent = mesh.tangents.emplace_back(assimpMesh->mTangents[i].x, assimpMesh->mTangents[i].y, assimpMesh->mTangents[i].z);
 
 			glm::vec3 bitangent = glm::vec3(assimpMesh->mBitangents[i].x, assimpMesh->mBitangents[i].y, assimpMesh->mBitangents[i].z);
 
@@ -230,13 +230,13 @@ void AssimpImporter::LoadBones(Entity entity, const aiMesh* assimpMesh)
 	if (!m_AiScene->HasAnimations())
 		return;
 
-	auto& mesh = m_Scene.Get<Mesh>(entity);
-	auto& skeleton = m_Scene.Add<Skeleton>(entity);
+	Mesh& mesh = m_Scene.Get<Mesh>(entity);
+	Skeleton& skeleton = m_Scene.Add<Skeleton>(entity);
 
 	skeleton.boneWeights.resize(assimpMesh->mNumVertices);
 	skeleton.boneIndices.resize(assimpMesh->mNumVertices);
 
-	auto bone_map = std::unordered_map<std::string, uint32_t>();
+	std::unordered_map<std::string, uint32_t> bone_map;
 
 	auto IsBone = [&](const std::string& inBoneName)
 	{
@@ -250,8 +250,8 @@ void AssimpImporter::LoadBones(Entity entity, const aiMesh* assimpMesh)
 
 		for (const auto& assimp_weight : Slice(bone->mWeights, bone->mNumWeights))
 		{
-			auto& weight = skeleton.boneWeights[assimp_weight.mVertexId];
-			auto& indices = skeleton.boneIndices[assimp_weight.mVertexId];
+			Vec4& weight = skeleton.boneWeights[assimp_weight.mVertexId];
+			IVec4& indices = skeleton.boneIndices[assimp_weight.mVertexId];
 
 			for (int i = 0; i < weight.length(); i++)
 			{

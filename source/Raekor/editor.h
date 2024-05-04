@@ -8,7 +8,7 @@
 #include "widget.h"
 #include "compiler.h"
 
-namespace Raekor {
+namespace RK {
 
 class IEditor : public Application
 {

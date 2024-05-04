@@ -9,14 +9,14 @@
 #include "Raekor/async.h"
 #include "Raekor/application.h"
 
-namespace Raekor {
+namespace RK {
 
 class Application;
 class Scene;
 
 }
 
-namespace Raekor::DX12 {
+namespace RK::DX12 {
 
 class Device;
 class CommandList;

@@ -126,7 +126,7 @@
 #include <unordered_map>
 #include <source_location>
 
-namespace Raekor {
+namespace RK {
 
 namespace fs = std::filesystem;
 
@@ -162,6 +162,9 @@ using HashSet = std::set<Key>;
 template<typename Key, typename Value>
 using HashMap = std::unordered_map<Key, Value>;
 
+template<typename T>
+using Optional = std::optional<T>;
+
 }
 
 ///////////////////////
@@ -182,7 +185,7 @@ using HashMap = std::unordered_map<Key, Value>;
 #include "gtx/euler_angles.hpp"
 #include "gtx/texture.hpp"
 
-namespace Raekor 
+namespace RK 
 {
     using Quat   = glm::quat;
     using Vec2   = glm::vec2;
@@ -190,6 +193,7 @@ namespace Raekor
     using Vec4   = glm::vec4;
     using UVec2  = glm::uvec2;
     using UVec3  = glm::uvec3;
+    using UVec4  = glm::uvec4;
     using IVec2  = glm::ivec2;
     using IVec3  = glm::ivec3;
     using IVec4  = glm::ivec4;

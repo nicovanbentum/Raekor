@@ -2,7 +2,7 @@
 #include "VKCommandList.h"
 #include "VKTexture.h"
 
-namespace Raekor::VK {
+namespace RK::VK {
 
 void CommandList::ImageLayoutBarrier(const Texture& texture, VkImageLayout oldLayout, VkImageLayout newLayout)
 {

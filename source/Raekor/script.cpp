@@ -7,7 +7,7 @@
 
 // this once contained chaiscript, but in the future I'll mainly support native code or integrate Mono for C#
 
-namespace Raekor {
+namespace RK {
 
 RTTI_DEFINE_TYPE_NO_FACTORY(INativeScript) {}
 

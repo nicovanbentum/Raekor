@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace Raekor {
+namespace RK {
 
 constexpr uint32_t val_32_const = 0x811c9dc5;
 constexpr uint32_t prime_32_const = 0x1000193;
@@ -24,7 +24,7 @@ inline constexpr uint64_t gHash64Bit(const char* const str, const uint64_t value
 
 inline uint64_t gHashFNV1a(const char* const inData, uint64_t inLength)
 {
-    auto hash = val_64_const;
+    uint64_t hash = val_64_const;
 
     for (uint32_t i = 0; i < inLength; i++)
         hash = ( hash ^ inData[i] ) * prime_64_const;

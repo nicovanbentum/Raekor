@@ -3,7 +3,7 @@
 #include "slice.h"
 #include "rmath.h"
 
-namespace Raekor {
+namespace RK {
 
 enum ESerializeType
 {

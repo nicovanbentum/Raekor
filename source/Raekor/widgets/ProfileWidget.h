@@ -3,7 +3,7 @@
 #include "widget.h"
 #include "timer.h"
 
-namespace Raekor {
+namespace RK {
 
 class RTTI;
 class Application;

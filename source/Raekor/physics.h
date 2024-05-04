@@ -13,7 +13,7 @@ class DebugRenderer;
 
 }
 
-namespace Raekor {
+namespace RK {
 
 class Scene;
 class IRenderInterface;

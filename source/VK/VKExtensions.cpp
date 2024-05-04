@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "VKExtensions.h"
 
-namespace Raekor {
+namespace RK {
 
 void EXT::sInit(VkDevice device)
 {

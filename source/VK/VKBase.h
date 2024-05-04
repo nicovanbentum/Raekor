@@ -2,7 +2,7 @@
 
 #include "defines.h"
 
-namespace Raekor::VK {
+namespace RK::VK {
 
 class Instance
 {

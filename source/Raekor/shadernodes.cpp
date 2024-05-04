@@ -5,7 +5,7 @@
 #include "shader.h"
 #include "member.h"
 
-namespace Raekor {
+namespace RK {
 
 RTTI_DEFINE_TYPE(FloatValueShaderNode)
 {

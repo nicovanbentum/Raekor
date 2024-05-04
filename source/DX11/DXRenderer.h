@@ -3,7 +3,7 @@
 #include "pch.h"
 #include "DXShader.h"
 
-namespace Raekor {
+namespace RK {
 
 inline void gThrowIfFailed(HRESULT inResult)
 {

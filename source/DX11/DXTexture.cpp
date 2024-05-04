@@ -3,9 +3,9 @@
 #include "DXRenderer.h"
 #include "Raekor/timer.h"
 
-namespace Raekor {
+namespace RK {
 
-// TODO: right now we always let directx auto generate mip maps, might want to make that optional
+// TODO: right now we always let directx generate mip maps, might want to make that optional
 DXTexture::DXTexture(const std::string& filepath)
 {
     stbi_set_flip_vertically_on_load(true);
@@ -23,20 +23,23 @@ DXTexture::DXTexture(const std::string& filepath)
     desc.MiscFlags = D3D11_RESOURCE_MISC_GENERATE_MIPS;
 
     // load the image data using stb image
-    D3D11_SUBRESOURCE_DATA image_data;
     int width, height, channels;
+    D3D11_SUBRESOURCE_DATA image_data;
+    
     Timer timer;
-    auto image = stbi_load(filepath.c_str(), &width, &height, &channels, STBI_rgb_alpha);
+    stbi_uc* image = stbi_load(filepath.c_str(), &width, &height, &channels, STBI_rgb_alpha);
+    
     assert(image && "failed to load directx texture using stbi");
     std::cout << "DirectX stb texture load time : " << Timer::sToMilliseconds(timer.GetElapsedTime()) << " ms" << '\n';
 
     // point the directx resource to the stb image data
     image_data.pSysMem = (const void*)image;
     image_data.SysMemPitch = STBI_rgb_alpha * width;
+
     desc.Width = width;
     desc.Height = height;
 
-    auto hr = D3D.device->CreateTexture2D(&desc, nullptr, texture.GetAddressOf());
+    HRESULT hr = D3D.device->CreateTexture2D(&desc, nullptr, texture.GetAddressOf());
     assert(SUCCEEDED(hr) && "failed to create 2d texture object");
 
     // describe the shader resource view
@@ -86,7 +89,7 @@ DXTexture::DXTexture(uint32_t width, uint32_t height, const void* pixels)
     desc.Width = width;
     desc.Height = height;
 
-    auto hr = D3D.device->CreateTexture2D(&desc, nullptr, texture.GetAddressOf());
+    HRESULT hr = D3D.device->CreateTexture2D(&desc, nullptr, texture.GetAddressOf());
     m_assert(SUCCEEDED(hr), "failed to create 2d texture object");
 
     // describe the shader resource view
@@ -141,9 +144,12 @@ DXTextureCube::DXTextureCube(const std::array<std::string, 6>& face_files)
     int width = -1, height = -1, n_channels = -1;
     for (unsigned int i = 0; i < face_files.size(); i++)
     {
-        auto image = stbi_load(face_files[i].c_str(), &width, &height, &n_channels, STBI_rgb_alpha);
+        stbi_uc* image = stbi_load(face_files[i].c_str(), &width, &height, &n_channels, STBI_rgb_alpha);
         images[i] = image;
-        if (!image) std::cout << "failed to load stbi image fifle" << std::endl;
+
+        if (!image) 
+            std::cout << "failed to load stbi image fifle" << std::endl;
+
         data[i].pSysMem = (const void*)image;
         data[i].SysMemPitch = STBI_rgb_alpha * width;
     }
@@ -158,16 +164,14 @@ DXTextureCube::DXTextureCube(const std::array<std::string, 6>& face_files)
     resource.TextureCube.MostDetailedMip = 0;
 
 
-    auto hr = D3D.device->CreateTexture2D(&desc, &data[0], texture.GetAddressOf());
+    HRESULT hr = D3D.device->CreateTexture2D(&desc, &data[0], texture.GetAddressOf());
     m_assert(SUCCEEDED(hr), "failed to create 2d texture object for cubemap");
 
     hr = D3D.device->CreateShaderResourceView(texture.Get(), &resource, &texture_resource);
     m_assert(SUCCEEDED(hr), "failed to create shader resource view for cubemap");
 
     for (unsigned int i = 0; i < ARRAYSIZE(images); i++)
-    {
         stbi_image_free(images[i]);
-    }
 }
 
 void DXTextureCube::bind(uint32_t slot) const

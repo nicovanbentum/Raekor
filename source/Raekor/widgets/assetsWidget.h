@@ -3,7 +3,7 @@
 #include "widget.h"
 #include "cvars.h"
 
-namespace Raekor {
+namespace RK {
 
 class Material;
 class Animation;

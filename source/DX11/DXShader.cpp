@@ -2,7 +2,7 @@
 #include "DXShader.h"
 #include "DXRenderer.h"
 
-namespace Raekor {
+namespace RK {
 
 DXShader::DXShader(const Stage* stages, size_t stageCount)
 {
@@ -13,7 +13,7 @@ DXShader::DXShader(const Stage* stages, size_t stageCount)
         m_Stages[i] = stages[i];
         CompileStage(m_Stages[i]);
 
-        auto error_code = std::error_code();
+        std::error_code error_code;
         m_Stages[i].mUpdateTime = fs::last_write_time(m_Stages[i].mTextFile, error_code);
     }
 }
@@ -21,10 +21,10 @@ DXShader::DXShader(const Stage* stages, size_t stageCount)
 
 void DXShader::CheckForReload()
 {
-    for (auto& stage : m_Stages)
+    for (Stage& stage : m_Stages)
     {
-        auto error_code = std::error_code();
-        auto timestamp = fs::last_write_time(stage.mTextFile, error_code);
+        std::error_code error_code;
+        fs::file_time_type timestamp = fs::last_write_time(stage.mTextFile, error_code);
 
         while (error_code)
             timestamp = fs::last_write_time(stage.mTextFile, error_code);
@@ -40,12 +40,12 @@ void DXShader::CheckForReload()
 
 bool DXShader::CompileStage(const Stage& inStage)
 {
-    const auto fp = std::string(inStage.mTextFile);
-    const auto ww = std::wstring(fp.begin(), fp.end());
-    const auto wstr = ww.c_str();
+    const String fp = std::string(inStage.mTextFile);
+    const WString ww = std::wstring(fp.begin(), fp.end());
+    const wchar_t* wstr = ww.c_str();
 
-    ComPtr<ID3D10Blob> buffer, errors;
-    auto hr = D3DCompileFromFile(wstr, nullptr, nullptr, "main", sTypeTargets[inStage.type], 0, 0, buffer.GetAddressOf(), errors.GetAddressOf());
+    ComPtr<ID3D10Blob> buffer = nullptr, errors = nullptr;
+    HRESULT hr = D3DCompileFromFile(wstr, nullptr, nullptr, "main", sTypeTargets[inStage.type], 0, 0, buffer.GetAddressOf(), errors.GetAddressOf());
 
     if (FAILED(hr))
     {

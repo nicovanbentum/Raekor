@@ -4,7 +4,7 @@
 
 #define DEPTH_BIAS_D32_FLOAT(d) (d/(1/pow(2,23)))
 
-namespace Raekor {
+namespace RK {
 
 // TODO: globals are bad mkay
 COM_PTRS D3D;
@@ -21,16 +21,16 @@ DXRenderer::DXRenderer(const Viewport& inViewport, SDL_Window* window)
     GUI::SetTheme();
 
     renderWindow = window;
-    auto hr = CoInitialize(NULL);
+    HRESULT hr = CoInitialize(NULL);
     assert(SUCCEEDED(hr) && "failed to initialize microsoft WIC");
 
     // query SDL's machine info for the window's HWND
     SDL_SysWMinfo wminfo;
     SDL_VERSION(&wminfo.version);
     SDL_GetWindowWMInfo(window, &wminfo);
-    auto dx_hwnd = wminfo.info.win.window;
+    HWND dx_hwnd = wminfo.info.win.window;
 
-    auto device_flags = NULL;
+    UINT device_flags = NULL;
 #ifndef NDEBUG
     device_flags |= D3D11_CREATE_DEVICE_DEBUG;
 #endif
@@ -58,27 +58,27 @@ DXRenderer::DXRenderer(const Viewport& inViewport, SDL_Window* window)
     D3D.swap_chain->GetBuffer(0, IID_PPV_ARGS(backbuffer.GetAddressOf()));
     gThrowIfFailed(D3D.device->CreateRenderTargetView(backbuffer.Get(), NULL, D3D.back_buffer.GetAddressOf()));
 
-    const auto viewport = CD3D11_VIEWPORT(0.0f, 0.0f, (FLOAT)inViewport.GetRenderSize().x, (FLOAT)inViewport.GetRenderSize().y);
+    const CD3D11_VIEWPORT viewport = CD3D11_VIEWPORT(0.0f, 0.0f, (FLOAT)inViewport.GetRenderSize().x, (FLOAT)inViewport.GetRenderSize().y);
     D3D.context->RSSetViewports(1, &viewport);
 
-    auto blend_desc = CD3D11_BLEND_DESC(CD3D11_DEFAULT());
+    const CD3D11_BLEND_DESC blend_desc = CD3D11_BLEND_DESC(CD3D11_DEFAULT());
     D3D.device->CreateBlendState(&blend_desc, &blend_state);
 
-    auto depth_target_desc = CD3D11_TEXTURE2D_DESC(DXGI_FORMAT_D32_FLOAT, inViewport.GetRenderSize().x, inViewport.GetRenderSize().y, 1u, 1u, D3D11_BIND_DEPTH_STENCIL);
+    CD3D11_TEXTURE2D_DESC depth_target_desc = CD3D11_TEXTURE2D_DESC(DXGI_FORMAT_D32_FLOAT, inViewport.GetRenderSize().x, inViewport.GetRenderSize().y, 1u, 1u, D3D11_BIND_DEPTH_STENCIL);
     gThrowIfFailed(D3D.device->CreateTexture2D(&depth_target_desc, NULL, depth_stencil_buffer.GetAddressOf()));
 
     gThrowIfFailed(D3D.device->CreateDepthStencilView(depth_stencil_buffer.Get(), NULL, D3D.depth_stencil_view.GetAddressOf()));
 
     D3D.context->OMSetRenderTargets(1, D3D.back_buffer.GetAddressOf(), D3D.depth_stencil_view.Get());
 
-    auto depth_stencil_desc = CD3D11_DEPTH_STENCIL_DESC(CD3D11_DEFAULT());
+    CD3D11_DEPTH_STENCIL_DESC depth_stencil_desc = CD3D11_DEPTH_STENCIL_DESC(CD3D11_DEFAULT());
     gThrowIfFailed(D3D.device->CreateDepthStencilState(&depth_stencil_desc, depth_stencil_state.GetAddressOf()));
 
     depth_stencil_desc.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
     gThrowIfFailed(D3D.device->CreateDepthStencilState(&depth_stencil_desc, depth_stencil_state_equal.GetAddressOf()));
 
     // fill out the raster description struct and create a rasterizer state
-    auto raster_desc = CD3D11_RASTERIZER_DESC(CD3D11_DEFAULT());
+    CD3D11_RASTERIZER_DESC raster_desc = CD3D11_RASTERIZER_DESC(CD3D11_DEFAULT());
     raster_desc.FrontCounterClockwise = TRUE;
     gThrowIfFailed(D3D.device->CreateRasterizerState(&raster_desc, D3D.rasterize_state.GetAddressOf()));
 

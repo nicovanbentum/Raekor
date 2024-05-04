@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "DXResourceBuffer.h"
 
-namespace Raekor {
+namespace RK {
 
 DXResourceBuffer::~DXResourceBuffer()
 {
@@ -24,14 +24,14 @@ DXResourceBuffer::DXResourceBuffer(size_t size)
     cbdata.pSysMem = &mappedData;
     cbdata.SysMemPitch = 0;
     cbdata.SysMemSlicePitch = 0;
-    auto hr = D3D.device->CreateBuffer(&cbdesc, &cbdata, buffer.GetAddressOf());
+    HRESULT hr = D3D.device->CreateBuffer(&cbdesc, &cbdata, buffer.GetAddressOf());
     assert(SUCCEEDED(hr) && "failed to create dx constant buffer");
 
 }
 
 void DXResourceBuffer::Update(void* data, const size_t size)
 {
-    auto hr = D3D.context->Map(buffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &resource);
+    HRESULT hr = D3D.context->Map(buffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &resource);
     assert(SUCCEEDED(hr) && "failed to map dx constant buffer");
 
     // update the buffer's data on the GPU by memcpying from the mapped CPU memory to VRAM

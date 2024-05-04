@@ -5,7 +5,7 @@
 #include "widgets/menubarWidget.h"
 #include "IconsFontAwesome5.h"
 
-namespace Raekor::GUI {
+namespace RK::GUI {
 
 void BeginDockSpace(Widgets& inWidgets)
 {

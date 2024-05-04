@@ -2,7 +2,7 @@
 
 #include "timer.h"
 
-namespace Raekor {
+namespace RK {
 
 #define PROFILE_SCOPE_CPU(name) CPUProfileSectionScoped TOKENPASTE2(cpu_profile_section_, __LINE__)(name)
 

@@ -1,6 +1,6 @@
 #pragma once
 
-namespace Raekor {
+namespace RK {
 
 typedef int32_t SDL_Keycode;
 

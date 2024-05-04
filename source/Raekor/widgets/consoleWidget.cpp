@@ -3,7 +3,7 @@
 #include "iter.h"
 #include "application.h"
 
-namespace Raekor {
+namespace RK {
 
 RTTI_DEFINE_TYPE_NO_FACTORY(ConsoleWidget) {}
 
@@ -34,7 +34,7 @@ void ConsoleWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	}
 
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 1));
-	for (const auto& item : m_Items)
+	for (const String& item : m_Items)
 		ImGui::TextUnformatted(item.c_str());
 
 	if (m_ShouldScrollToBottom || ImGui::GetScrollY() >= ImGui::GetScrollMaxY())
@@ -46,14 +46,14 @@ void ConsoleWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	ImGui::PopStyleVar();
 	ImGui::EndChild();
 
-	const auto cursor_after_log = ImGui::GetCursorScreenPos();
+	const ImVec2 cursor_after_log = ImGui::GetCursorScreenPos();
 
 	ImGui::Separator();
 
 	ImGui::SetItemDefaultFocus();
 
 	ImGui::PushItemWidth(ImGui::GetWindowWidth());
-	auto flags = ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CallbackCompletion | ImGuiInputTextFlags_CallbackHistory;
+	ImGuiInputTextFlags flags = ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CallbackCompletion | ImGuiInputTextFlags_CallbackHistory;
 
 	if (ImGui::InputText("##Input", &m_InputBuffer, flags, sEditCallback, (void*)this))
 	{
@@ -62,7 +62,7 @@ void ConsoleWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			m_Items.push_back(m_InputBuffer);
 			m_ShouldScrollToBottom = true;
 
-			auto stream = std::istringstream(m_InputBuffer);
+			std::istringstream stream(m_InputBuffer);
 			std::string name, value;
 			stream >> name >> value;
 
@@ -91,17 +91,17 @@ void ConsoleWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 	if (!m_InputBuffer.empty())
 	{
-		const auto suggestion_count = int(ImGui::GetWindowHeight() * ( 2.0f / 3.0f ) / ImGui::GetTextLineHeightWithSpacing());
-		const auto suggestion_width = ImGui::GetItemRectSize().x - ImGui::GetStyle().FramePadding.x * 2;
-		const auto suggestion_height = ImGui::GetTextLineHeightWithSpacing() * suggestion_count;
+		const int suggestion_count = int(ImGui::GetWindowHeight() * ( 2.0f / 3.0f ) / ImGui::GetTextLineHeightWithSpacing());
+		const float suggestion_width = ImGui::GetItemRectSize().x - ImGui::GetStyle().FramePadding.x * 2;
+		const float suggestion_height = ImGui::GetTextLineHeightWithSpacing() * suggestion_count;
 
 		ImGui::SetNextWindowSize(ImVec2(suggestion_width, suggestion_height));
 		ImGui::SetNextWindowPos(ImVec2(cursor_after_log.x, cursor_after_log.y - suggestion_height));
 		ImGui::BeginTooltip();
 
-		const auto filter = ImGuiTextFilter(m_InputBuffer.c_str());
+		const ImGuiTextFilter filter = ImGuiTextFilter(m_InputBuffer.c_str());
 
-		auto first_cvar_index = -1;
+		int first_cvar_index = -1;
 
 		for (const auto& [index, mapping] : gEnumerate(g_CVars))
 		{
@@ -114,7 +114,7 @@ void ConsoleWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 				m_ActiveItem = glm::max(m_ActiveItem, first_cvar_index);
 			}
 
-			const auto cvar_text = mapping.first + " " + g_CVars.GetValue(mapping.first) + '\n';
+			const String cvar_text = mapping.first + " " + g_CVars.GetValue(mapping.first) + '\n';
 
 			if (index == m_ActiveItem)
 			{
@@ -124,7 +124,7 @@ void ConsoleWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 				ImGui::TextUnformatted(cvar_text.c_str());
 		}
 
-		const auto nr_of_cvars = g_CVars.GetCount();
+		const size_t nr_of_cvars = g_CVars.GetCount();
 		m_ActiveItem = m_ActiveItem > nr_of_cvars ? nr_of_cvars : m_ActiveItem;
 
 		ImGui::EndTooltip();
@@ -138,7 +138,7 @@ void ConsoleWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 void ConsoleWidget::LogMessage(const std::string& inMessage)
 {
-	auto lock = std::scoped_lock(m_ItemsMutex);
+	std::scoped_lock lock(m_ItemsMutex);
 	m_Items.push_back(inMessage);
 }
 
@@ -149,7 +149,7 @@ int ConsoleWidget::sEditCallback(ImGuiInputTextCallbackData* data)
 
 	if (data->EventKey == ImGuiKey_Tab && data->BufTextLen)
 	{
-		auto filter = ImGuiTextFilter(data->Buf);
+		ImGuiTextFilter filter = ImGuiTextFilter(data->Buf);
 
 		for (const auto& [index, cvar] : gEnumerate(g_CVars))
 		{
@@ -167,8 +167,8 @@ int ConsoleWidget::sEditCallback(ImGuiInputTextCallbackData* data)
 
 	auto GoToNextItem = [&]() -> int
 	{
-		auto found_active = false;
-		auto filter = ImGuiTextFilter(data->Buf);
+		bool found_active = false;
+		ImGuiTextFilter filter = ImGuiTextFilter(data->Buf);
 
 		for (const auto& [index, cvar] : gEnumerate(g_CVars))
 		{
@@ -190,9 +190,9 @@ int ConsoleWidget::sEditCallback(ImGuiInputTextCallbackData* data)
 
 	auto GoToPreviousItem = [&]() -> int
 	{
-		auto found_active = false;
-		auto previous_index = 0;
-		auto filter = ImGuiTextFilter(data->Buf);
+		bool found_active = false;
+		int previous_index = 0;
+		ImGuiTextFilter filter = ImGuiTextFilter(data->Buf);
 
 		for (const auto& [index, cvar] : gEnumerate(g_CVars))
 		{

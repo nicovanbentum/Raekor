@@ -7,12 +7,19 @@
 #include "defines.h"
 #include "animation.h"
 
-namespace Raekor {
+namespace RK {
 
 class Scene;
 class ScriptAsset;
 class TextureAsset;
 class INativeScript;
+
+
+struct Component 
+{
+	RTTI_DECLARE_TYPE(Component);
+};
+
 
 struct Name
 {

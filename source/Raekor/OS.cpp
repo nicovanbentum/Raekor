@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "OS.h"
 
-namespace Raekor {
+namespace RK {
 
 #ifdef WIN32
 
@@ -82,31 +82,31 @@ void* OS::sGetFunctionPointer(const char* inName)
 
 bool OS::sCheckCommandLineOption(const char* inOption)
 {
-    static const auto cmd_line = GetCommandLineA();
-    static const auto cmd_line_len = strlen(cmd_line);
+    static const char* cmd_line = GetCommandLineA();
+    static const size_t cmd_line_len = strlen(cmd_line);
 
-    const auto substr = strstr(cmd_line, inOption);
+    const char* substr = strstr(cmd_line, inOption);
     return substr != nullptr;
 }
 
 
-std::string OS::sGetCommandLineValue(const char* inOption)
+String OS::sGetCommandLineValue(const char* inOption)
 {
-	static const auto cmd_line = GetCommandLineA();
-	static const auto cmd_line_len = strlen(cmd_line);
+	static const char* cmd_line = GetCommandLineA();
+	static const size_t cmd_line_len = strlen(cmd_line);
 
-	const auto substr = strstr(cmd_line, inOption);
+	const char* substr = strstr(cmd_line, inOption);
 	if (substr == nullptr)
 		return {};
 
-	const auto option_len = strlen(inOption);
-	const auto equals = substr + option_len;
+	const size_t option_len = strlen(inOption);
+	const char* equals = substr + option_len;
 	if (*equals  != '=')
 		return {};
 
-	auto delim = ' ';
-	auto start = equals + 1;
-	auto end = start;
+	char delim = ' ';
+	const char* start = equals + 1;
+	const char* end = start;
 
 	if (*end == '"')
 	{
@@ -121,7 +121,7 @@ std::string OS::sGetCommandLineValue(const char* inOption)
 }
 
 
-std::string OS::sOpenFileDialog(const char* filters)
+String OS::sOpenFileDialog(const char* filters)
 {
 	OPENFILENAMEA ofn;
 	CHAR szFile[260] = { 0 };
@@ -145,7 +145,7 @@ std::string OS::sOpenFileDialog(const char* filters)
 }
 
 
-std::string OS::sSaveFileDialog(const char* filters, const char* defaultExt)
+String OS::sSaveFileDialog(const char* filters, const char* defaultExt)
 {
 	OPENFILENAMEA ofn;
 	CHAR szFile[260] = { 'u', 'n', 't', 'i', 't', 'l', 'e', 'd', '\0' };
@@ -170,7 +170,7 @@ std::string OS::sSaveFileDialog(const char* filters, const char* defaultExt)
 }
 
 
-fs::path OS::sGetTempPath()
+Path OS::sGetTempPath()
 {
 	char filepath[MAX_PATH];
 	GetTempPathA(MAX_PATH, filepath);
@@ -178,7 +178,7 @@ fs::path OS::sGetTempPath()
 }
 
 
-fs::path OS::sGetExecutablePath()
+Path OS::sGetExecutablePath()
 {
 	char filepath[MAX_PATH];
 	GetModuleFileNameA(NULL, filepath, MAX_PATH);
@@ -186,13 +186,13 @@ fs::path OS::sGetExecutablePath()
 }
 
 
-fs::path OS::sGetExecutableDirectoryPath()
+Path OS::sGetExecutableDirectoryPath()
 {
 	return sGetExecutablePath().parent_path();
 }
 
 
-std::string OS::sSelectFolderDialog()
+String OS::sSelectFolderDialog()
 {
 	IFileDialog* pfd;
 	if (SUCCEEDED(CoCreateInstance(CLSID_FileOpenDialog, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&pfd))))

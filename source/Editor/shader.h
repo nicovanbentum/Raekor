@@ -1,6 +1,6 @@
 #pragma once
 
-namespace Raekor {
+namespace RK {
 
 class Shader
 {

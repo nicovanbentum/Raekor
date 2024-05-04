@@ -3,7 +3,7 @@
 #include "ecs.h"
 #include "defines.h"
 
-namespace Raekor {
+namespace RK {
 
 class Ray;
 class Assets;

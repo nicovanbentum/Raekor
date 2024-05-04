@@ -8,7 +8,7 @@
 
 extern std::atomic_uint64_t sAllocationsPerFrame;
 
-namespace Raekor {
+namespace RK {
 
 class Mesh;
 class Scene;
@@ -27,7 +27,7 @@ struct ConfigSettings
 	bool mShowUI = true;
 	int mDisplayIndex = 0;
 	bool mVsyncEnabled = true;
-	String mAppName = "Raekor Renderer";
+	String mAppName = "RK Renderer";
 	Path mFontFile = "assets/system/Inter-Medium.ttf";
 	Path mSceneFile = "";
 	Array<Path> mRecentScenes;

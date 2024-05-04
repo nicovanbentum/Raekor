@@ -11,7 +11,7 @@
 #include "Raekor/camera.h"
 #include "Raekor/components.h"
 
-namespace Raekor::VK {
+namespace RK::VK {
 
 class Renderer
 {

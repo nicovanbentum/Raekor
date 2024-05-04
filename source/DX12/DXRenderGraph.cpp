@@ -6,7 +6,7 @@
 #include "Raekor/timer.h"
 #include "Raekor/profile.h"
 
-namespace Raekor::DX12 {
+namespace RK::DX12 {
 
 RenderGraphResourceID RenderGraphBuilder::Create(const Buffer::Desc& inDesc)
 {
@@ -578,7 +578,7 @@ void IRenderPass::SetRenderTargets(Device& inDevice, const RenderGraphResources&
 
     if (dsv_descriptor.IsValid())
     {
-        auto dsv_handle = dsv_heap.GetCPUDescriptorHandle(dsv_descriptor);
+        D3D12_CPU_DESCRIPTOR_HANDLE dsv_handle = dsv_heap.GetCPUDescriptorHandle(dsv_descriptor);
         inCmdList->OMSetRenderTargets(rtv_handle_count, rtv_handles.data(), FALSE, &dsv_handle);
     }
     else
@@ -733,7 +733,7 @@ bool RenderGraph::Compile(Device& inDevice)
             }
         }
 
-        for (const auto& resource_id : renderpass->m_ReadResources)
+        for (RenderGraphResourceViewID resource_id : renderpass->m_ReadResources)
         {
             const RenderGraphResourceViewDesc& view_desc = m_RenderGraphBuilder.GetResourceViewDesc(resource_id);
 
@@ -921,7 +921,7 @@ void RenderGraph::Execute(Device& inDevice, CommandList& inCmdList, uint64_t inF
 
 std::string RenderGraph::ToGraphVizText(const Device& inDevice, TextureID inBackBuffer) const
 {
-    auto ofs = std::stringstream();
+    std::stringstream ofs;
     ofs << R"(digraph G {
 bgcolor="#181A1B";
 rankdir="LR";
@@ -939,9 +939,9 @@ node [margin=.5 fontcolor="#E8E6E3" fontsize=32 width=0 shape=rectangle style=fi
     {
         ofs << '\"' << pass->GetName() << R"("[color="#CC8400"])" << '\n';
 
-        for (const auto& resource_id : pass->m_WrittenResources)
+        for (RenderGraphResourceViewID resource_id : pass->m_WrittenResources)
         {
-            auto resource_ptr = ( const ID3D12Resource* )nullptr;
+            const ID3D12Resource* resource_ptr = nullptr;
 
             if (m_RenderGraphResources.IsBuffer(resource_id))
                 resource_ptr = inDevice.GetD3D12Resource(m_RenderGraphResources.GetBufferView(resource_id));
@@ -951,7 +951,7 @@ node [margin=.5 fontcolor="#E8E6E3" fontsize=32 width=0 shape=rectangle style=fi
 
             assert(resource_ptr);
 
-            auto str_name = gGetDebugName(const_cast<ID3D12Resource*>(resource_ptr));
+            String str_name = gGetDebugName(const_cast<ID3D12Resource*>(resource_ptr));
 
             if (seen_resources.contains(str_name))
                 continue;
@@ -961,9 +961,9 @@ node [margin=.5 fontcolor="#E8E6E3" fontsize=32 width=0 shape=rectangle style=fi
             seen_resources.emplace(str_name);
         }
 
-        for (const auto& resource_id : pass->m_ReadResources)
+        for (RenderGraphResourceViewID resource_id : pass->m_ReadResources)
         {
-            auto resource_ptr = ( const ID3D12Resource* )nullptr;
+            const ID3D12Resource* resource_ptr = nullptr;
 
             if (m_RenderGraphResources.IsBuffer(resource_id))
                 resource_ptr = inDevice.GetD3D12Resource(m_RenderGraphResources.GetBufferView(resource_id));
@@ -973,7 +973,7 @@ node [margin=.5 fontcolor="#E8E6E3" fontsize=32 width=0 shape=rectangle style=fi
 
             assert(resource_ptr);
 
-            auto str_name = gGetDebugName(const_cast<ID3D12Resource*>( resource_ptr ));
+            String str_name = gGetDebugName(const_cast<ID3D12Resource*>( resource_ptr ));
 
             if (seen_resources.contains(str_name))
                 continue;
@@ -994,9 +994,9 @@ node [margin=.5 fontcolor="#E8E6E3" fontsize=32 width=0 shape=rectangle style=fi
     {
         ofs << "\n{\n" << "rank = same;\n";
 
-        for (const auto& resource_id : pass->m_WrittenResources)
+        for (RenderGraphResourceViewID resource_id : pass->m_WrittenResources)
         {
-            auto resource_ptr = ( const ID3D12Resource* )nullptr;
+            const ID3D12Resource* resource_ptr = nullptr;
 
             if (m_RenderGraphResources.IsBuffer(resource_id))
                 resource_ptr = inDevice.GetD3D12Resource(m_RenderGraphResources.GetBufferView(resource_id));
@@ -1006,7 +1006,7 @@ node [margin=.5 fontcolor="#E8E6E3" fontsize=32 width=0 shape=rectangle style=fi
 
             assert(resource_ptr);
 
-            auto str_name = gGetDebugName(const_cast<ID3D12Resource*>( resource_ptr ));
+            String str_name = gGetDebugName(const_cast<ID3D12Resource*>( resource_ptr ));
 
             if (seen_resources.contains(str_name))
                 continue;
@@ -1031,9 +1031,9 @@ node [margin=.5 fontcolor="#E8E6E3" fontsize=32 width=0 shape=rectangle style=fi
     /* Stringify the graph logic, basically all the connections e.g "pass" -> "write1" */
     for (const auto& pass : m_RenderPasses)
     {
-        for (const auto& resource_id : pass->m_ReadResources)
+        for (RenderGraphResourceViewID resource_id : pass->m_ReadResources)
         {
-            auto resource_ptr = ( const ID3D12Resource* )nullptr;
+            const ID3D12Resource* resource_ptr = nullptr;
 
             if (m_RenderGraphResources.IsBuffer(resource_id))
                 resource_ptr = inDevice.GetD3D12Resource(m_RenderGraphResources.GetBufferView(resource_id));
@@ -1043,14 +1043,14 @@ node [margin=.5 fontcolor="#E8E6E3" fontsize=32 width=0 shape=rectangle style=fi
 
             assert(resource_ptr);
 
-            auto str_name = gGetDebugName(const_cast<ID3D12Resource*>( resource_ptr ));
+            String str_name = gGetDebugName(const_cast<ID3D12Resource*>( resource_ptr ));
 
             ofs << '\"' << str_name << "\":e -> \"" << pass->GetName()  << "\":w [color=\"green\"][penwidth=3]\n";
         }
 
-        for (const auto& resource_id : pass->m_WrittenResources)
+        for (RenderGraphResourceViewID resource_id : pass->m_WrittenResources)
         {
-            auto resource_ptr = ( const ID3D12Resource* )nullptr;
+            const ID3D12Resource* resource_ptr = nullptr;
 
             if (m_RenderGraphResources.IsBuffer(resource_id))
                 resource_ptr = inDevice.GetD3D12Resource(m_RenderGraphResources.GetBufferView(resource_id));
@@ -1060,7 +1060,7 @@ node [margin=.5 fontcolor="#E8E6E3" fontsize=32 width=0 shape=rectangle style=fi
 
             assert(resource_ptr);
 
-            auto str_name = gGetDebugName(const_cast<ID3D12Resource*>( resource_ptr ));
+            String str_name = gGetDebugName(const_cast<ID3D12Resource*>( resource_ptr ));
 
             ofs << '\"' << pass->GetName() << "\":e -> \"" << str_name << "\":w [color=\"red\"][penwidth=3]\n";
         }

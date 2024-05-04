@@ -8,7 +8,7 @@
 #include "Raekor/primitives.h"
 #include "Raekor/application.h"
 
-namespace Raekor::DX12 {
+namespace RK::DX12 {
 
 void RayTracedScene::UpdateBLAS(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, Mesh& inMesh, Skeleton* inSkeleton, CommandList& inCmdList)
 {
@@ -66,9 +66,9 @@ void RayTracedScene::UpdateBLAS(Application* inApp, Device& inDevice, StagingHea
 
 void RayTracedScene::UploadMesh(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, Mesh& inMesh, Skeleton* inSkeleton, CommandList& inCmdList)
 {
-    const auto& vertices = inMesh.GetInterleavedVertices();
-    const auto  vertices_size = vertices.size() * sizeof(vertices[0]);
-    const auto  indices_size = inMesh.indices.size() * sizeof(inMesh.indices[0]);
+    const Array<float>& vertices = inMesh.GetInterleavedVertices();
+    const uint64_t vertices_size = vertices.size() * sizeof(vertices[0]);
+    const uint64_t indices_size = inMesh.indices.size() * sizeof(inMesh.indices[0]);
 
     if (!vertices_size || !indices_size)
         return;
@@ -131,7 +131,7 @@ void RayTracedScene::UploadMesh(Application* inApp, Device& inDevice, StagingHea
     inStagingHeap.StageBuffer(inCmdList, gpu_index_buffer, 0, inMesh.indices.data(), indices_size);
     inStagingHeap.StageBuffer(inCmdList, gpu_vertex_buffer, 0, vertices.data(), vertices_size);
 
-    const StaticArray barriers = 
+    const std::array barriers = 
     {
         CD3DX12_RESOURCE_BARRIER::Transition(gpu_index_buffer.GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ),
         CD3DX12_RESOURCE_BARRIER::Transition(gpu_vertex_buffer.GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ)
@@ -154,7 +154,7 @@ void RayTracedScene::UploadSkeleton(Application* inApp, Device& inDevice, Stagin
     inStagingHeap.StageBuffer(inCmdList, bone_index_buffer, 0, inSkeleton.boneIndices.data(), inSkeleton.boneIndices.size() * sizeof(IVec4));
     inStagingHeap.StageBuffer(inCmdList, bone_weights_buffer, 0, inSkeleton.boneWeights.data(), inSkeleton.boneWeights.size() * sizeof(Vec4));
 
-    const StaticArray barriers =
+    const std::array barriers =
     {
         CD3DX12_RESOURCE_BARRIER::Transition(bone_index_buffer.GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ),
         CD3DX12_RESOURCE_BARRIER::Transition(bone_weights_buffer.GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ)
@@ -168,7 +168,7 @@ void RayTracedScene::UploadTexture(Application* inApp, Device& inDevice, Staging
 {
     if (inUpload.mTexture.IsValid() && !inUpload.mData.IsEmpty())
     {
-        const auto& texture = inDevice.GetTexture(inUpload.mTexture);
+        const Texture& texture = inDevice.GetTexture(inUpload.mTexture);
         inStagingHeap.StageTexture(inCmdList, texture, inUpload.mMip, inUpload.mData.GetPtr());
     }
 }
@@ -180,14 +180,14 @@ void RayTracedScene::UploadMaterial(Application* inApp, Device& inDevice, Stagin
     {
         if (inAsset)
         {
-            auto data_ptr = inAsset->GetData();
-            const auto header_ptr = inAsset->GetHeader();
+            const char* data_ptr = inAsset->GetData();
+            const DDS_HEADER* header_ptr = inAsset->GetHeader();
 
-            const auto mipmap_levels = header_ptr->dwMipMapCount;
+            const uint32_t mipmap_levels = header_ptr->dwMipMapCount;
 
             for (uint32_t mip = 0; mip < mipmap_levels; mip++)
             {
-                const auto dimensions = glm::ivec2(std::max(header_ptr->dwWidth >> mip, 1ul), std::max(header_ptr->dwHeight >> mip, 1ul));
+                const IVec2 dimensions = IVec2(std::max(header_ptr->dwWidth >> mip, 1ul), std::max(header_ptr->dwHeight >> mip, 1ul));
 
                 inStagingHeap.StageTexture(inCmdList, inTexture, mip, data_ptr);
 
@@ -314,7 +314,7 @@ void RayTracedScene::UploadLights(Application* inApp, Device& inDevice, StagingH
         .debugName = "RT_LIGHTS_BUFFER"
     });
 
-    const auto& lights_buffer = inDevice.GetBuffer(m_LightsBuffer);
+    const Buffer& lights_buffer = inDevice.GetBuffer(m_LightsBuffer);
     
     inStagingHeap.StageBuffer(inCmdList, lights_buffer, 0, lights.GetPtr(), lights_buffer.GetSize());
 }
@@ -385,7 +385,7 @@ void RayTracedScene::UploadMaterials(Application* inApp, Device& inDevice, Stagi
 
     for (const auto& [index, material] : gEnumerate(materials))
     {
-        auto& rt_material = rt_materials[index];
+        RTMaterial& rt_material = rt_materials[index];
         rt_material.mAlbedo = material.albedo;
         rt_material.mMetallic = material.metallic;
         rt_material.mRoughness = material.roughness;

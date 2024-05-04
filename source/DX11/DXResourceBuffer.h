@@ -3,7 +3,7 @@
 #include "pch.h"
 #include "DXRenderer.h"
 
-namespace Raekor {
+namespace RK {
 
 class DXResourceBuffer
 {

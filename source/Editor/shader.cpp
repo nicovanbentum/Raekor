@@ -2,7 +2,7 @@
 #include "shader.h"
 #include "renderer.h"
 
-namespace Raekor {
+namespace RK {
 
 bool Shader::Stage::WasModified()
 {
@@ -32,12 +32,12 @@ void GLShader::Compile(const std::initializer_list<Stage>& list)
 
 void GLShader::Compile()
 {
-    auto newProgramID = glCreateProgram();
+    GLuint newProgramID = glCreateProgram();
     bool failed = false;
 
     std::vector<GLuint> shaders;
 
-    for (const auto& stage : stages)
+    for (const Stage& stage : stages)
     {
         std::ifstream file(stage.binfile, std::ios::binary);
         if (!file.is_open())
@@ -95,7 +95,7 @@ void GLShader::Compile()
     if (shaders.empty())
         return;
 
-    for (auto shader : shaders)
+    for (GLuint shader : shaders)
         glAttachShader(newProgramID, shader);
 
     glLinkProgram(newProgramID);
@@ -108,14 +108,14 @@ void GLShader::Compile()
     {
         glGetProgramiv(newProgramID, GL_INFO_LOG_LENGTH, &logMessageLength);
 
-        auto error_msg = std::vector<char>(logMessageLength);
+        std::vector<char> error_msg(logMessageLength);
         glGetProgramInfoLog(newProgramID, logMessageLength, NULL, error_msg.data());
 
         failed = true;
         std::cerr << error_msg.data() << '\n';
     }
 
-    for (auto shader : shaders)
+    for (GLuint shader : shaders)
     {
         glDetachShader(newProgramID, shader);
         glDeleteShader(shader);
@@ -137,8 +137,8 @@ bool GLShader::sGlslangValidator(const char* inVulkanSDK, const Path& inSrcPath,
     if (!fs::is_regular_file(inSrcPath))
         return false;
 
-    const auto compiler = inVulkanSDK + std::string("\\Bin\\glslangValidator.exe -G ");
-    const auto command = compiler + fs::absolute(inSrcPath).string() + " -o " + inDstPath.string();
+    const String compiler = inVulkanSDK + std::string("\\Bin\\glslangValidator.exe -G ");
+    const String command = compiler + fs::absolute(inSrcPath).string() + " -o " + inDstPath.string();
 
     if (system(command.c_str()) != 0)
         return false;
@@ -150,11 +150,11 @@ bool GLShader::sGlslangValidator(const char* inVulkanSDK, const Path& inSrcPath,
 
 void GLShader::Bind()
 {
-    for (auto& stage : stages)
+    for (Stage& stage : stages)
     {
         if (stage.WasModified())
         {
-            const auto sdk = getenv("VULKAN_SDK");
+            const char* sdk = getenv("VULKAN_SDK");
             assert(sdk);
 
             sGlslangValidator(sdk, stage.textfile, stage.binfile);
@@ -185,9 +185,9 @@ Shader::Stage::Stage(Type type, const Path& inSrcFile) :
         return;
     }
 
-    auto outfile = inSrcFile.parent_path() / "bin" / inSrcFile.filename();
+    Path outfile = inSrcFile.parent_path() / "bin" / inSrcFile.filename();
     outfile.replace_extension(outfile.extension().string() + ".spv");
     binfile = outfile.string().c_str();
 }
 
-} // Namespace Raekor
+} // Namespace RK

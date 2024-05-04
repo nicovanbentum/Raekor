@@ -1,6 +1,6 @@
 #define RAEKOR_SCRIPT
 #include "Raekor/raekor.h"
-using namespace Raekor;
+using namespace RK;
 
 
 class TestScript : public INativeScript 
@@ -13,7 +13,7 @@ public:
         if (!m_Enabled)
             return;
 
-        auto& transform = GetComponent<Transform>();
+        Transform& transform = GetComponent<Transform>();
 
         if (m_Input->IsKeyPressed(SDL_SCANCODE_W))
             transform.position.x += m_Speed * inDeltaTime;

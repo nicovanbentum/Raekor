@@ -5,13 +5,13 @@
 #include "Raekor/scene.h"
 #include "Raekor/defines.h"
 
-namespace Raekor {
+namespace RK {
 
 class Application;
 
 }
 
-namespace Raekor::DX12 {
+namespace RK::DX12 {
 
 /* 
     Since I don't feel like changing Scene to be some base pointer to a derived RayTracedScene class and having to pass pointers everywhere, 

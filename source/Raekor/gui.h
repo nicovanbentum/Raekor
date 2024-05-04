@@ -2,7 +2,7 @@
 
 #include "scene.h"
 
-namespace Raekor {
+namespace RK {
 class Widgets;
 class Viewport;
 }
@@ -11,7 +11,7 @@ struct ImVec2;
 struct ImVec4;
 typedef unsigned int ImU32;
 
-namespace Raekor::GUI {
+namespace RK::GUI {
 
 void BeginDockSpace(Widgets& inWidgets);
 void EndDockSpace();

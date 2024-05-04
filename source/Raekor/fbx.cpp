@@ -5,7 +5,7 @@
 #include "components.h"
 #include "application.h"
 
-namespace Raekor {
+namespace RK {
 
 bool FBXImporter::LoadFromFile(const std::string& inFile, Assets* inAssets)
 {
@@ -16,44 +16,45 @@ bool FBXImporter::LoadFromFile(const std::string& inFile, Assets* inAssets)
 
 	m_Directory = Path(inFile).parent_path() / "";
 
-	auto opts = ufbx_load_opts {};
+	ufbx_load_opts opts = ufbx_load_opts {};
 	opts.allow_null_material = true;
 	opts.allow_nodes_out_of_root = true;
-	auto error = ufbx_error {};
 
+	ufbx_error error = ufbx_error {};
 	m_FbxScene = ufbx_load_file(inFile.c_str(), &opts, &error);
-	if (!m_FbxScene)
+	
+	if (m_FbxScene == nullptr)
 		return false;
 
 	std::cout << "[FBX Import] File load took " << Timer::sToMilliseconds(timer.Restart()) << " ms.\n";
 
-	for (const auto& material : m_FbxScene->materials)
+	for (const ufbx_material* material : m_FbxScene->materials)
 	{
-		auto entity = m_Scene.Create();
-		auto& nameComponent = m_Scene.Add<Name>(entity);
+		Entity entity = m_Scene.Create();
+		Name& name = m_Scene.Add<Name>(entity);
 
 		if (material->name.length && strcmp(material->name.data, "") != 0)
-			nameComponent.name = material->name.data;
+			name.name = material->name.data;
 		else
-			nameComponent.name = "Material " + std::to_string(uint32_t(entity));
+			name.name = "Material " + std::to_string(uint32_t(entity));
 
 		ConvertMaterial(entity, material);
 
 		m_Materials.push_back(entity);
 	}
 
-	for (const auto& node : m_FbxScene->nodes)
+	for (const ufbx_node* node : m_FbxScene->nodes)
 	{
 		if (node->is_root)
 		{
-			auto root = m_CreatedNodeEntities.emplace_back(m_Scene.CreateSpatialEntity(node->name.data));
+			Entity root = m_CreatedNodeEntities.emplace_back(m_Scene.CreateSpatialEntity(node->name.data));
 			ParseNode(node, m_Scene.GetRootEntity(), root);
 		}
 	}
 
-	const auto root_entity = m_Scene.CreateSpatialEntity(Path(inFile).filename().string());
+	const Entity root_entity = m_Scene.CreateSpatialEntity(Path(inFile).filename().string());
 
-	for (const auto& entity : m_CreatedNodeEntities)
+	for (Entity entity : m_CreatedNodeEntities)
 	{
 		if (!m_Scene.HasParent(entity) || m_Scene.GetParent(entity) == m_Scene.GetRootEntity())
 			m_Scene.ParentTo(entity, root_entity);
@@ -83,18 +84,18 @@ void FBXImporter::ParseNode(const ufbx_node* inNode, Entity inParent, Entity inE
 	if (inParent != Entity::Null)
 		m_Scene.ParentTo(inEntity, inParent);
 
-	auto local_transform = glm::mat4(1.0f);
+	Mat4x4 local_transform = Mat4x4(1.0f);
 
-	const auto& translation = inNode->local_transform.translation;
+	const ufbx_vec3& translation = inNode->local_transform.translation;
 	local_transform = glm::translate(local_transform, Vec3(translation.x, translation.y, translation.z));
 
-	const auto& rotation = inNode->local_transform.rotation;
+	const ufbx_quat& rotation = inNode->local_transform.rotation;
 	local_transform = local_transform * glm::toMat4(Quat(rotation.w, rotation.x, rotation.y, rotation.z));
 
-	const auto& scale = inNode->local_transform.scale;
+	const ufbx_vec3& scale = inNode->local_transform.scale;
 	local_transform = glm::scale(local_transform, Vec3(scale.x, scale.y, scale.z));
 
-	auto& transform = m_Scene.Get<Transform>(inEntity);
+	Transform& transform = m_Scene.Get<Transform>(inEntity);
 	transform.localTransform = local_transform;
 	transform.Decompose();
 	
@@ -108,14 +109,14 @@ void FBXImporter::ParseNode(const ufbx_node* inNode, Entity inParent, Entity inE
 		{
 			for (const auto& [index, material] : gEnumerate(inNode->mesh->materials))
 			{
-				auto clone = m_CreatedNodeEntities.emplace_back(m_Scene.Clone(inEntity));
+				Entity clone = m_CreatedNodeEntities.emplace_back(m_Scene.Clone(inEntity));
 				ConvertMesh(clone, inNode->mesh, material);
 
-				auto& name = m_Scene.Get<Name>(clone);
+				Name& name = m_Scene.Get<Name>(clone);
 				name.name += "-" + std::to_string(index);
 
 				// multiple mesh entities of the same node all get parented to that node's transform, so their local transform can just be identity
-				auto& transform = m_Scene.Get<Transform>(clone);
+				Transform& transform = m_Scene.Get<Transform>(clone);
 				transform.localTransform = glm::mat4(1.0f);
 				transform.Decompose();
 
@@ -128,9 +129,9 @@ void FBXImporter::ParseNode(const ufbx_node* inNode, Entity inParent, Entity inE
 		//	ConvertBones(inEntity, inNode->bone);
 	}
 
-	for (const auto& child : inNode->children)
+	for (const ufbx_node* child : inNode->children)
 	{
-		auto child_entity = m_Scene.CreateSpatialEntity(child->name.data);
+		Entity child_entity = m_Scene.CreateSpatialEntity(child->name.data);
 		ParseNode(child, inEntity, child_entity);
 	}
 }
@@ -138,7 +139,7 @@ void FBXImporter::ParseNode(const ufbx_node* inNode, Entity inParent, Entity inE
 
 void FBXImporter::ConvertMesh(Entity inEntity, const ufbx_mesh* inMesh, const ufbx_mesh_material& inMaterial)
 {
-	auto& mesh = m_Scene.Add<Mesh>(inEntity);
+	Mesh& mesh = m_Scene.Add<Mesh>(inEntity);
 
 	if (!inMesh->num_indices || !inMaterial.num_triangles)
 		return;
@@ -155,8 +156,8 @@ void FBXImporter::ConvertMesh(Entity inEntity, const ufbx_mesh* inMesh, const uf
 	}
 
 	// Temporary buffers
-	const auto num_tri_indices = inMesh->max_face_triangles * 3;
-	auto tri_indices = std::vector<uint32_t>(num_tri_indices);
+	int num_tri_indices = inMesh->max_face_triangles * 3;
+	Array<uint32_t> tri_indices(num_tri_indices);
 
 	// First fetch all vertices into a flat non-indexed buffer, we also need to
 	// triangulate the faces
@@ -168,25 +169,25 @@ void FBXImporter::ConvertMesh(Entity inEntity, const ufbx_mesh* inMesh, const uf
 		size_t num_tris = ufbx_triangulate_face(tri_indices.data(), num_tri_indices, inMesh, face);
 
 		// Iterate through every vertex of every triangle in the triangulated result
-		for (auto vi = 0; vi < num_tris * 3; vi++)
+		for (int vi = 0; vi < num_tris * 3; vi++)
 		{
-			const auto ix = tri_indices[vi];
+			const uint32_t ix = tri_indices[vi];
 
-			const auto pos = ufbx_get_vertex_vec3(&inMesh->vertex_position, ix);
+			const ufbx_vec3 pos = ufbx_get_vertex_vec3(&inMesh->vertex_position, ix);
 			mesh.positions.push_back(Vec3(pos.x, pos.y, pos.z));
 
-			const auto uv = inMesh->vertex_uv.exists ? ufbx_get_vertex_vec2(&inMesh->vertex_uv, ix) : ufbx_vec2 { 0 };
+			const ufbx_vec2 uv = inMesh->vertex_uv.exists ? ufbx_get_vertex_vec2(&inMesh->vertex_uv, ix) : ufbx_vec2 { 0 };
 			mesh.uvs.push_back(Vec2(uv.x, uv.y));
 
 			if (inMesh->vertex_normal.exists)
 			{
-				const auto normal = ufbx_get_vertex_vec3(&inMesh->vertex_normal, ix);
+				const ufbx_vec3 normal = ufbx_get_vertex_vec3(&inMesh->vertex_normal, ix);
 				mesh.normals.push_back(glm::normalize(Vec3(normal.x, normal.y, normal.z)));
 			}
 
 			if (inMesh->vertex_tangent.exists)
 			{
-				const auto tangent = ufbx_get_vertex_vec3(&inMesh->vertex_tangent, ix);
+				const ufbx_vec3 tangent = ufbx_get_vertex_vec3(&inMesh->vertex_tangent, ix);
 				mesh.tangents.push_back(glm::normalize(Vec3(tangent.x, tangent.y, tangent.z)));
 			}
 
@@ -195,24 +196,25 @@ void FBXImporter::ConvertMesh(Entity inEntity, const ufbx_mesh* inMesh, const uf
 	}
 
 	std::vector<ufbx_vertex_stream> streams;
-	auto& pos_stream = streams.emplace_back();
+
+	ufbx_vertex_stream& pos_stream = streams.emplace_back();
 	pos_stream.data = mesh.positions.data();
 	pos_stream.vertex_size = sizeof(Vec3);
 
-	auto& uv_stream = streams.emplace_back();
+	ufbx_vertex_stream& uv_stream = streams.emplace_back();
 	uv_stream.data = mesh.uvs.data();
 	uv_stream.vertex_size = sizeof(Vec2);
 
 	if (inMesh->vertex_normal.exists)
 	{
-		auto& normal_stream = streams.emplace_back();
+		ufbx_vertex_stream& normal_stream = streams.emplace_back();
 		normal_stream.data = mesh.normals.data();
 		normal_stream.vertex_size = sizeof(Vec3);
 	}
 
 	if (inMesh->vertex_tangent.exists)
 	{
-		auto& tangent_stream = streams.emplace_back();
+		ufbx_vertex_stream& tangent_stream = streams.emplace_back();
 		tangent_stream.data = mesh.tangents.data();
 		tangent_stream.vertex_size = sizeof(Vec3);
 	}
@@ -245,9 +247,9 @@ void FBXImporter::ConvertBones(Entity inEntity, const ufbx_bone_list* inSkeleton
 
 void FBXImporter::ConvertMaterial(Entity inEntity, const ufbx_material* inMaterial)
 {
-	auto& material = m_Scene.Add<Material>(inEntity);
+	Material& material = m_Scene.Add<Material>(inEntity);
 
-	const auto& albedo = inMaterial->pbr.base_color;
+	const ufbx_material_map& albedo = inMaterial->pbr.base_color;
 	if (albedo.has_value)
 		for (uint32_t i = 0; i < albedo.value_components; i++)
 			material.albedo[i] = albedo.value_vec4.v[i];
@@ -255,19 +257,19 @@ void FBXImporter::ConvertMaterial(Entity inEntity, const ufbx_material* inMateri
 	if (albedo.texture && albedo.texture_enabled && albedo.texture->type == UFBX_TEXTURE_FILE)
 		material.albedoFile = TextureAsset::sAssetsToCachedPath(m_Directory.string() + albedo.texture->relative_filename.data);
 
-	const auto& normal_map = inMaterial->pbr.normal_map;
+	const ufbx_material_map& normal_map = inMaterial->pbr.normal_map;
 	if (normal_map.texture && normal_map.texture_enabled && normal_map.texture->type == UFBX_TEXTURE_FILE)
 		material.normalFile = TextureAsset::sAssetsToCachedPath(m_Directory.string() + normal_map.texture->relative_filename.data);
 
-	const auto& roughness = inMaterial->pbr.roughness;
+	const ufbx_material_map& roughness = inMaterial->pbr.roughness;
 	if (roughness.texture && roughness.texture_enabled && roughness.texture->type == UFBX_TEXTURE_FILE)
 		material.roughnessFile = TextureAsset::sAssetsToCachedPath(m_Directory.string() + roughness.texture->relative_filename.data);
 
-	const auto& metallic = inMaterial->pbr.metalness;
+	const ufbx_material_map& metallic = inMaterial->pbr.metalness;
 	if (metallic.texture && metallic.texture_enabled && metallic.texture->type == UFBX_TEXTURE_FILE)
 		material.metallicFile = TextureAsset::sAssetsToCachedPath(m_Directory.string() + metallic.texture->relative_filename.data);
 
-	const auto& emission = inMaterial->pbr.emission_color;
+	const ufbx_material_map& emission = inMaterial->pbr.emission_color;
 	if (emission.has_value)
 		for (uint32_t i = 0; i < emission.value_components; i++)
 			material.emissive[i] = emission.value_vec4.v[i];

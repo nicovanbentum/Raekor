@@ -7,7 +7,7 @@
 #include "Raekor/camera.h"
 #include "Raekor/primitives.h"
 
-namespace Raekor::DX12 {
+namespace RK::DX12 {
 
 RTTI_DEFINE_TYPE(DebugPrimitivesData)       {}
 RTTI_DEFINE_TYPE(SkyCubeData)               {}
@@ -75,7 +75,7 @@ const ClearBufferData& AddClearBufferPass(RenderGraph& inRenderGraph, Device& in
             .mBuffer = inDevice.GetBindlessHeapIndex(inResources.GetBufferView(inData.mBufferUAV))
         });
 
-        const auto& buffer = inDevice.GetBuffer(inResources.GetBufferView(inData.mBufferUAV));
+        const Buffer& buffer = inDevice.GetBuffer(inResources.GetBufferView(inData.mBufferUAV));
 
         inCmdList->SetPipelineState(g_SystemShaders.mClearTextureShader.GetComputePSO());
         inCmdList->Dispatch(( buffer.GetSize() + 63 ) / 64, 1, 1);
@@ -99,7 +99,7 @@ const ClearTextureFloatData& AddClearTextureFloatPass(RenderGraph& inRenderGraph
             .mTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mTextureUAV))
         });
 
-        const auto& texture = inDevice.GetTexture(inResources.GetTextureView(inData.mTextureUAV));
+        const Texture& texture = inDevice.GetTexture(inResources.GetTextureView(inData.mTextureUAV));
 
         inCmdList->SetPipelineState(g_SystemShaders.mClearTextureShader.GetComputePSO());
         inCmdList->Dispatch(( texture.GetWidth() + 7 ) / 8, ( texture.GetHeight() + 7 ) / 8, 1);
@@ -118,7 +118,7 @@ const SkyCubeData& AddSkyCubePass(RenderGraph& inRenderGraph, Device& inDevice, 
     },
     [&inDevice, &inScene](SkyCubeData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {   
-        if (auto sun_light = inScene.GetSunLight())
+        if (const DirectionalLight* sun_light = inScene.GetSunLight())
         {
             inCmdList.PushComputeConstants(SkyCubeRootConstants
             {
@@ -129,7 +129,7 @@ const SkyCubeData& AddSkyCubePass(RenderGraph& inRenderGraph, Device& inDevice, 
 
             inCmdList->SetPipelineState(g_SystemShaders.mSkyCubeShader.GetComputePSO());
 
-            const auto& texture_desc = inDevice.GetTexture(inResources.GetTexture(inData.mSkyCubeTexture)).GetDesc();
+            const Texture::Desc& texture_desc = inDevice.GetTexture(inResources.GetTexture(inData.mSkyCubeTexture)).GetDesc();
 
             inCmdList->Dispatch(texture_desc.width / 8, texture_desc.height / 8, texture_desc.depthOrArrayLayers);
         }
@@ -158,7 +158,7 @@ const ConvolveCubeData& AddConvolveCubePass(RenderGraph& inRenderGraph, Device& 
 
         inCmdList->SetPipelineState(g_SystemShaders.mConvolveCubeShader.GetComputePSO());
 
-        const auto& texture_desc = inDevice.GetTexture(inResources.GetTexture(inData.mConvolvedCubeTexture)).GetDesc();
+        const Texture::Desc& texture_desc = inDevice.GetTexture(inResources.GetTexture(inData.mConvolvedCubeTexture)).GetDesc();
 
         inCmdList->Dispatch(texture_desc.width / 8, texture_desc.height / 8, texture_desc.depthOrArrayLayers);
     });
@@ -258,18 +258,18 @@ const GBufferData& AddMeshletsRasterPass(RenderGraph& inRenderGraph, Device& inD
         CD3DX12_SHADER_BYTECODE vertex_shader, pixel_shader;
         g_SystemShaders.mGBufferShader.GetGraphicsProgram(vertex_shader, pixel_shader);
 
-        auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
+        D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
         inDevice->CreateGraphicsPipelineState(&pso_state, IID_PPV_ARGS(inData.mPipeline.GetAddressOf()));
         inData.mPipeline->SetName(L"PSO_MESHLETS_RASTER");
     },
 
     [&inRenderGraph, &inDevice, &inScene](GBufferData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
-        const auto& viewport = inRenderGraph.GetViewport();
+        const Viewport& viewport = inRenderGraph.GetViewport();
         inCmdList.SetViewportAndScissor(viewport);
         inCmdList->SetPipelineState(inData.mPipeline.Get());
 
-        const auto clear_color = Vec4(0.0f, 0.0f, 0.0f, 0.0f);
+        constexpr Vec4 clear_color = Vec4(0.0f, 0.0f, 0.0f, 0.0f);
         inCmdList->ClearDepthStencilView(inDevice.GetCPUDescriptorHandle(inResources.GetTexture(inData.mDepthTexture)), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
         inCmdList->ClearRenderTargetView(inDevice.GetCPUDescriptorHandle(inResources.GetTexture(inData.mRenderTexture)), glm::value_ptr(clear_color), 0, nullptr);
         inCmdList->ClearRenderTargetView(inDevice.GetCPUDescriptorHandle(inResources.GetTexture(inData.mVelocityTexture)), glm::value_ptr(clear_color), 0, nullptr);
@@ -386,7 +386,7 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
         CD3DX12_SHADER_BYTECODE vertex_shader, pixel_shader;
         g_SystemShaders.mGBufferShader.GetGraphicsProgram(vertex_shader, pixel_shader);
 
-        auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
+        D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
         inDevice->CreateGraphicsPipelineState(&pso_state, IID_PPV_ARGS(inData.mPipeline.GetAddressOf()));
         inData.mPipeline->SetName(L"PSO_GBUFFER");
 
@@ -512,7 +512,7 @@ const GBufferDebugData& AddGBufferDebugPass(RenderGraph& inRenderGraph, Device& 
             default: assert(false);
         }
 
-        auto state = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
+        D3D12_GRAPHICS_PIPELINE_STATE_DESC state = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
         state.InputLayout = {}; // clear the input layout, we generate the fullscreen triangle inside the vertex shader
         state.DepthStencilState.DepthEnable = FALSE;
         state.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
@@ -601,7 +601,7 @@ const DownsampleData& AddDownsamplePass(RenderGraph& inRenderGraph, Device& inDe
 
         CD3DX12_SHADER_BYTECODE compute_shader;
         g_SystemShaders.mDownsampleShader.GetComputeProgram(compute_shader);
-        auto state = inDevice.CreatePipelineStateDesc(inRenderPass, compute_shader);
+        D3D12_COMPUTE_PIPELINE_STATE_DESC state = inDevice.CreatePipelineStateDesc(inRenderPass, compute_shader);
 
         inDevice->CreateComputePipelineState(&state, IID_PPV_ARGS(inData.mPipeline.GetAddressOf()));
         inData.mPipeline->SetName(L"PSO_DOWNSAMPLE");
@@ -609,15 +609,15 @@ const DownsampleData& AddDownsamplePass(RenderGraph& inRenderGraph, Device& inDe
 
     [&inRenderGraph, &inDevice](DownsampleData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
     {
-        const auto& texture = inDevice.GetTexture(inRGResources.GetTextureView(inData.mSourceTextureUAV));
-        const auto rect_info = glm::uvec4(0u, 0u, texture->GetDesc().Width, texture->GetDesc().Height);
+        const Texture& texture = inDevice.GetTexture(inRGResources.GetTextureView(inData.mSourceTextureUAV));
+        const UVec4 rect_info = UVec4(0u, 0u, texture->GetDesc().Width, texture->GetDesc().Height);
 
         glm::uvec2 work_group_offset, dispatchThreadGroupCountXY, numWorkGroupsAndMips;
         work_group_offset[0] = rect_info[0] / 64; // rectInfo[0] = left
         work_group_offset[1] = rect_info[1] / 64; // rectInfo[1] = top
 
-        auto endIndexX = ( rect_info[0] + rect_info[2] - 1 ) / 64; // rectInfo[0] = left, rectInfo[2] = width
-        auto endIndexY = ( rect_info[1] + rect_info[3] - 1 ) / 64; // rectInfo[1] = top, rectInfo[3] = height
+        uint32_t endIndexX = ( rect_info[0] + rect_info[2] - 1 ) / 64; // rectInfo[0] = left, rectInfo[2] = width
+        uint32_t endIndexY = ( rect_info[1] + rect_info[3] - 1 ) / 64; // rectInfo[1] = top, rectInfo[3] = height
 
         dispatchThreadGroupCountXY[0] = endIndexX + 1 - work_group_offset[0];
         dispatchThreadGroupCountXY[1] = endIndexY + 1 - work_group_offset[1];
@@ -625,9 +625,9 @@ const DownsampleData& AddDownsamplePass(RenderGraph& inRenderGraph, Device& inDe
         numWorkGroupsAndMips[0] = ( dispatchThreadGroupCountXY[0] ) * ( dispatchThreadGroupCountXY[1] );
         numWorkGroupsAndMips[1] = gSpdCaculateMipCount(rect_info[2], rect_info[3]);
 
-        const auto& atomic_buffer = inDevice.GetBuffer(inData.mGlobalAtomicBuffer);
+        const Buffer& atomic_buffer = inDevice.GetBuffer(inData.mGlobalAtomicBuffer);
 
-        auto root_constants = SpdRootConstants 
+        SpdRootConstants root_constants =
         {
             .mNrOfMips = numWorkGroupsAndMips[1],
             .mNrOfWorkGroups = numWorkGroupsAndMips[0],
@@ -635,12 +635,12 @@ const DownsampleData& AddDownsamplePass(RenderGraph& inRenderGraph, Device& inDe
             .mWorkGroupOffset = work_group_offset,
         };
 
-        const auto mips_ptr = &root_constants.mTextureMip0;
+        uint* mips_ptr = &root_constants.mTextureMip0;
 
-        for (auto mip = 0u; mip < numWorkGroupsAndMips[1]; mip++)
+        for (uint32_t mip = 0u; mip < numWorkGroupsAndMips[1]; mip++)
             mips_ptr[mip] = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mSourceTextureMipsUAVs[mip]));
 
-        static auto first_run = true;
+        static bool first_run = true;
 
         if (first_run)
         {
@@ -648,7 +648,7 @@ const DownsampleData& AddDownsamplePass(RenderGraph& inRenderGraph, Device& inDe
 
             inCmdList->ResourceBarrier(1, &barrier);
 
-            const auto param = D3D12_WRITEBUFFERIMMEDIATE_PARAMETER { .Dest = atomic_buffer->GetGPUVirtualAddress(), .Value = 0 };
+            const D3D12_WRITEBUFFERIMMEDIATE_PARAMETER param = { .Dest = atomic_buffer->GetGPUVirtualAddress(), .Value = 0 };
             inCmdList->WriteBufferImmediate(1, &param, nullptr);
 
             barrier = CD3DX12_RESOURCE_BARRIER::Transition(atomic_buffer.GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
@@ -669,8 +669,8 @@ const TiledLightCullingData& AddTiledLightCullingPass(RenderGraph& inRenderGraph
     return inRenderGraph.AddComputePass<TiledLightCullingData>("TILED LIGHT CULLING PASS",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, TiledLightCullingData& inData)
     {
-        const auto render_size = inRenderGraph.GetViewport().GetRenderSize();
-        const auto nr_of_tiles = UVec2
+        const UVec2 render_size = inRenderGraph.GetViewport().GetRenderSize();
+        const UVec2 nr_of_tiles = UVec2
         (
             (render_size.x + LIGHT_CULL_TILE_SIZE - 1) / LIGHT_CULL_TILE_SIZE, 
             (render_size.y + LIGHT_CULL_TILE_SIZE - 1) / LIGHT_CULL_TILE_SIZE
@@ -737,7 +737,7 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
 
         CD3DX12_SHADER_BYTECODE vertex_shader, pixel_shader;
         g_SystemShaders.mLightingShader.GetGraphicsProgram(vertex_shader, pixel_shader);
-        auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
+        D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
 
         pso_state.InputLayout = {}; // clear the input layout, we generate the fullscreen triangle inside the vertex shader
         pso_state.DepthStencilState.DepthEnable = FALSE;
@@ -749,7 +749,7 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
 
     [&inRenderGraph, &inDevice, &inScene, &inLightData](LightingData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
     {
-        auto root_constants = LightingRootConstants
+        LightingRootConstants root_constants =
         {
             .mShadowMaskTexture       = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mShadowMaskTextureSRV)),
             .mReflectionsTexture      = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mReflectionsTextureSRV)),
@@ -759,8 +759,9 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
             .mAmbientOcclusionTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mAmbientOcclusionTextureSRV)),
         };
 
-        auto lights_count = inScene->Count<Light>();
-        if ( lights_count > 0 )
+        uint32_t lights_count = inScene->Count<Light>();
+
+        if (lights_count > 0)
         {
             root_constants.mLightsCount = lights_count;
             root_constants.mLightsBuffer = inDevice.GetBindlessHeapIndex(inScene.GetLightsDescriptor(inDevice));
@@ -809,7 +810,7 @@ const TAAResolveData& AddTAAResolvePass(RenderGraph& inRenderGraph, Device& inDe
 
         CD3DX12_SHADER_BYTECODE vertex_shader, pixel_shader;
         g_SystemShaders.mTAAResolveShader.GetGraphicsProgram(vertex_shader, pixel_shader);
-        auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
+        D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
 
         pso_state.InputLayout = {}; // clear the input layout, we generate the fullscreen triangle inside the vertex shader
         pso_state.DepthStencilState.DepthEnable = FALSE;
@@ -835,21 +836,21 @@ const TAAResolveData& AddTAAResolvePass(RenderGraph& inRenderGraph, Device& inDe
 
         inCmdList->DrawInstanced(6, 1, 0, 0);
 
-        auto result_texture_resource = inDevice.GetD3D12Resource(inResources.GetTexture(inData.mOutputTexture));
-        auto history_texture_resource = inDevice.GetD3D12Resource(inResources.GetTexture(inData.mHistoryTexture));
+        ID3D12Resource* result_texture_resource = inDevice.GetD3D12Resource(inResources.GetTexture(inData.mOutputTexture));
+        ID3D12Resource* history_texture_resource = inDevice.GetD3D12Resource(inResources.GetTexture(inData.mHistoryTexture));
 
-        auto barriers = std::array
+        std::array barriers =
         {
             D3D12_RESOURCE_BARRIER(CD3DX12_RESOURCE_BARRIER::Transition(result_texture_resource, gGetResourceStates(Texture::RENDER_TARGET), D3D12_RESOURCE_STATE_COPY_SOURCE)),
             D3D12_RESOURCE_BARRIER(CD3DX12_RESOURCE_BARRIER::Transition(history_texture_resource, gGetResourceStates(Texture::SHADER_READ_ONLY), D3D12_RESOURCE_STATE_COPY_DEST))
         };
         inCmdList->ResourceBarrier(barriers.size(), barriers.data());
 
-        const auto dest = CD3DX12_TEXTURE_COPY_LOCATION(history_texture_resource, 0);
-        const auto source = CD3DX12_TEXTURE_COPY_LOCATION(result_texture_resource, 0);
+        const CD3DX12_TEXTURE_COPY_LOCATION dest = CD3DX12_TEXTURE_COPY_LOCATION(history_texture_resource, 0);
+        const CD3DX12_TEXTURE_COPY_LOCATION source = CD3DX12_TEXTURE_COPY_LOCATION(result_texture_resource, 0);
         inCmdList->CopyTextureRegion(&dest, 0, 0, 0, &source, nullptr);
 
-        for (auto& barrier : barriers)
+        for (D3D12_RESOURCE_BARRIER& barrier : barriers)
             std::swap(barrier.Transition.StateBefore, barrier.Transition.StateAfter);
 
         inCmdList->ResourceBarrier(barriers.size(), barriers.data());
@@ -881,7 +882,7 @@ const DepthOfFieldData& AddDepthOfFieldPass(RenderGraph& inRenderGraph, Device& 
 
     [&inRenderGraph, &inDevice](DepthOfFieldData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
     {
-        const auto& viewport = inRenderGraph.GetViewport();
+        const Viewport& viewport = inRenderGraph.GetViewport();
 
         inCmdList.PushComputeConstants(DepthOfFieldRootConstants {
             .mDepthTexture  = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mDepthTextureSRV)),
@@ -936,13 +937,13 @@ const BloomData& AddBloomPass(RenderGraph& inRenderGraph, Device& inDevice, Rend
             uint64_t row_size = 0ull, total_size = 0ull;
             D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint = {};
 
-            auto desc = inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mFromTextureSRV))->GetDesc();
+            D3D12_RESOURCE_DESC desc = inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mFromTextureSRV))->GetDesc();
             inDevice->GetCopyableFootprints(&desc, inData.mFromTextureMip, 1, 0, &footprint, &nr_of_rows, &row_size, &total_size);
 
-            const auto& src_texture = inDevice.GetTexture(inResources.GetTextureView(inData.mFromTextureSRV));
-            const auto src_mip_size = UVec2(src_texture.GetWidth(), src_texture.GetHeight());
+            const Texture& src_texture = inDevice.GetTexture(inResources.GetTextureView(inData.mFromTextureSRV));
+            const UVec2 src_mip_size = UVec2(src_texture.GetWidth(), src_texture.GetHeight());
 
-            const auto dest_viewport = CD3DX12_VIEWPORT(inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mToTextureUAV)), inData.mToTextureMip);
+            const CD3DX12_VIEWPORT dest_viewport = CD3DX12_VIEWPORT(inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mToTextureUAV)), inData.mToTextureMip);
             
             inCmdList.PushComputeConstants(BloomRootConstants
             {
@@ -974,7 +975,7 @@ const BloomData& AddBloomPass(RenderGraph& inRenderGraph, Device& inDevice, Rend
     return inRenderGraph.AddComputePass<BloomData>("BLOOM PASS",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, BloomData& inData)
     {
-        const auto mip_levels = 6u;
+        const uint32_t mip_levels = 6u;
 
         inData.mOutputTexture = ioRGBuilder.Create(Texture::Desc
         {
@@ -992,11 +993,11 @@ const BloomData& AddBloomPass(RenderGraph& inRenderGraph, Device& inDevice, Rend
         AddDownsamplePass(inInputTexture, inData.mOutputTexture, 0, 1);
 
         // downsample along the bloom chain
-        for (auto mip = 1u; mip < mip_levels - 1; mip++)
+        for (uint32_t mip = 1u; mip < mip_levels - 1; mip++)
             AddDownsamplePass(inData.mOutputTexture, inData.mOutputTexture, mip, mip + 1);
 
         // upsample along the bloom chain
-        for (auto mip = mip_levels - 1; mip > 0; mip--)
+        for (uint32_t mip = mip_levels - 1; mip > 0; mip--)
             AddUpsamplePass(inData.mOutputTexture, inData.mOutputTexture, mip, mip - 1);
     },
 
@@ -1010,7 +1011,7 @@ const BloomData& AddBloomPass(RenderGraph& inRenderGraph, Device& inDevice, Rend
 
 const DebugPrimitivesData& AddDebugOverlayPass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inRenderTarget, RenderGraphResourceID inDepthTarget)
 {
-    constexpr auto cPrimitiveBufferSize = 3 * UINT16_MAX;
+    constexpr int cPrimitiveBufferSize = 3 * UINT16_MAX;
 
     return inRenderGraph.AddGraphicsPass<DebugPrimitivesData>("DEBUG PRIMITIVES PASS",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, DebugPrimitivesData& inData)
@@ -1020,7 +1021,7 @@ const DebugPrimitivesData& AddDebugOverlayPass(RenderGraph& inRenderGraph, Devic
 
         CD3DX12_SHADER_BYTECODE vertex_shader, pixel_shader;
         g_SystemShaders.mDebugPrimitivesShader.GetGraphicsProgram(vertex_shader, pixel_shader);
-        auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
+        D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
 
         pso_state.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
         pso_state.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
@@ -1034,7 +1035,7 @@ const DebugPrimitivesData& AddDebugOverlayPass(RenderGraph& inRenderGraph, Devic
     },
     [&inRenderGraph](DebugPrimitivesData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
-        const auto line_vertices = g_DebugRenderer.GetLinesToRender();
+        const Slice<Vec4> line_vertices = g_DebugRenderer.GetLinesToRender();
 
         if (line_vertices.IsEmpty())
             return;
@@ -1075,7 +1076,7 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, 
 
         CD3DX12_SHADER_BYTECODE vertex_shader, pixel_shader;
         g_SystemShaders.mFinalComposeShader.GetGraphicsProgram(vertex_shader, pixel_shader);
-        auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
+        D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
 
         pso_state.InputLayout = {}; // clear the input layout, we generate the fullscreen triangle inside the vertex shader
         pso_state.DepthStencilState.DepthEnable = FALSE;
@@ -1091,8 +1092,8 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, 
 
         const Viewport& viewport = inRenderGraph.GetViewport();
 
-        const auto dx_scissor = CD3DX12_RECT(0, 0, viewport.GetDisplaySize().x, viewport.GetDisplaySize().y);
-        const auto dx_viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, float(viewport.GetDisplaySize().x), float(viewport.GetDisplaySize().y));
+        const CD3DX12_RECT dx_scissor = CD3DX12_RECT(0, 0, viewport.GetDisplaySize().x, viewport.GetDisplaySize().y);
+        const CD3DX12_VIEWPORT dx_viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, float(viewport.GetDisplaySize().x), float(viewport.GetDisplaySize().y));
 
         inCmdList->RSSetViewports(1, &dx_viewport);
         inCmdList->RSSetScissorRects(1, &dx_scissor);
@@ -1140,8 +1141,8 @@ static void ImGui_ImplDX12_SetupRenderState(ImDrawData* draw_data, CommandList& 
     );
 
     // Setup viewport
-    const auto vp = CD3DX12_VIEWPORT(0.0f, 0.0f, draw_data->DisplaySize.x, draw_data->DisplaySize.y);
-    inCmdList->RSSetViewports(1, &vp);
+    const CD3DX12_VIEWPORT viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, draw_data->DisplaySize.x, draw_data->DisplaySize.y);
+    inCmdList->RSSetViewports(1, &viewport);
 
     // Bind shader and vertex buffers
     unsigned int stride = sizeof(ImDrawVert);
@@ -1196,7 +1197,7 @@ const ImGuiData& AddImGuiPass(RenderGraph& inRenderGraph, Device& inDevice, Stag
         inData.mInputTextureSRV = ioRGBuilder.Read(inInputTexture);
         inData.mBackBufferRTV = ioRGBuilder.RenderTarget(ioRGBuilder.Import(inDevice, inBackBuffer));
 
-        static constexpr auto input_layout = std::array
+        static constexpr std::array input_layout =
         {
             D3D12_INPUT_ELEMENT_DESC { "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT, 0, offsetof(ImDrawVert, pos), D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
             D3D12_INPUT_ELEMENT_DESC { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, offsetof(ImDrawVert, uv), D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
@@ -1206,7 +1207,7 @@ const ImGuiData& AddImGuiPass(RenderGraph& inRenderGraph, Device& inDevice, Stag
         CD3DX12_SHADER_BYTECODE vertex_shader, pixel_shader;
         g_SystemShaders.mImGuiShader.GetGraphicsProgram(vertex_shader, pixel_shader);
 
-        auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
+        D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
         pso_state.InputLayout = D3D12_INPUT_LAYOUT_DESC
         {
             .pInputElementDescs = input_layout.data(),
@@ -1229,11 +1230,11 @@ const ImGuiData& AddImGuiPass(RenderGraph& inRenderGraph, Device& inDevice, Stag
 
         inCmdList->SetPipelineState(inData.mPipeline.Get());
 
-        auto draw_data = ImGui::GetDrawData();
-        auto idx_dst = (ImDrawIdx*)inData.mIndexScratchBuffer.data();
-        auto vtx_dst = (ImDrawVert*)inData.mVertexScratchBuffer.data();
+        ImDrawData* draw_data = ImGui::GetDrawData();
+        ImDrawIdx* idx_dst = (ImDrawIdx*)inData.mIndexScratchBuffer.data();
+        ImDrawVert* vtx_dst = (ImDrawVert*)inData.mVertexScratchBuffer.data();
 
-        for (auto& cmd_list : Slice(draw_data->CmdLists, draw_data->CmdListsCount))
+        for (const ImDrawList* cmd_list : Slice(draw_data->CmdLists, draw_data->CmdListsCount))
         {
             memcpy(vtx_dst, cmd_list->VtxBuffer.Data, cmd_list->VtxBuffer.Size * sizeof(ImDrawVert));
             memcpy(idx_dst, cmd_list->IdxBuffer.Data, cmd_list->IdxBuffer.Size * sizeof(ImDrawIdx));
@@ -1241,14 +1242,14 @@ const ImGuiData& AddImGuiPass(RenderGraph& inRenderGraph, Device& inDevice, Stag
             idx_dst += cmd_list->IdxBuffer.Size;
         }
 
-        const auto index_buffer_size = (uint8_t*)idx_dst - inData.mIndexScratchBuffer.data();
-        const auto vertex_buffer_size = (uint8_t*)vtx_dst - inData.mVertexScratchBuffer.data();
+        const int64_t index_buffer_size = (uint8_t*)idx_dst - inData.mIndexScratchBuffer.data();
+        const int64_t vertex_buffer_size = (uint8_t*)vtx_dst - inData.mVertexScratchBuffer.data();
 
         assert(index_buffer_size < inData.mIndexScratchBuffer.size());
         assert(vertex_buffer_size < inData.mVertexScratchBuffer.size());
 
-        auto nr_of_barriers = 0;
-        auto barriers = std::array
+        int nr_of_barriers = 0;
+        std::array barriers =
         {
             D3D12_RESOURCE_BARRIER(CD3DX12_RESOURCE_BARRIER::Transition(inDevice.GetBuffer(inData.mIndexBuffer).GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_INDEX_BUFFER, D3D12_RESOURCE_STATE_COPY_DEST)),
             D3D12_RESOURCE_BARRIER(CD3DX12_RESOURCE_BARRIER::Transition(inDevice.GetBuffer(inData.mVertexBuffer).GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, D3D12_RESOURCE_STATE_COPY_DEST))
@@ -1268,22 +1269,22 @@ const ImGuiData& AddImGuiPass(RenderGraph& inRenderGraph, Device& inDevice, Stag
 
         if (nr_of_barriers)
         {
-            for (auto& barrier : barriers)
+            for (D3D12_RESOURCE_BARRIER& barrier : barriers)
                 std::swap(barrier.Transition.StateBefore, barrier.Transition.StateAfter);
 
             inCmdList->ResourceBarrier(nr_of_barriers, barriers.data());
         }
 
-        auto root_constants = ImGuiRootConstants { .mBindlessTextureIndex = 1 };
+        ImGuiRootConstants root_constants = { .mBindlessTextureIndex = 1 };
         ImGui_ImplDX12_SetupRenderState(draw_data, inCmdList, inDevice.GetBuffer(inData.mVertexBuffer), inDevice.GetBuffer(inData.mIndexBuffer), root_constants);
 
-        auto global_vtx_offset = 0;
-        auto global_idx_offset = 0;
-        auto clip_off = draw_data->DisplayPos;
+        int global_vtx_offset = 0;
+        int global_idx_offset = 0;
+        ImVec2 clip_off = draw_data->DisplayPos;
 
-        for (auto& cmd_list : Slice(draw_data->CmdLists, draw_data->CmdListsCount))
+        for (const ImDrawList* cmd_list : Slice(draw_data->CmdLists, draw_data->CmdListsCount))
         {
-            for (const auto& cmd : cmd_list->CmdBuffer)
+            for (const ImDrawCmd& cmd : cmd_list->CmdBuffer)
             {
                 if (cmd.UserCallback)
                 {
@@ -1303,12 +1304,12 @@ const ImGuiData& AddImGuiPass(RenderGraph& inRenderGraph, Device& inDevice, Stag
                     inCmdList.PushGraphicsConstants(root_constants);
 
                     // Project scissor/clipping rectangles into framebuffer space
-                    const auto clip_min = ImVec2(cmd.ClipRect.x - clip_off.x, cmd.ClipRect.y - clip_off.y);
-                    const auto clip_max = ImVec2(cmd.ClipRect.z - clip_off.x, cmd.ClipRect.w - clip_off.y);
+                    const ImVec2 clip_min = ImVec2(cmd.ClipRect.x - clip_off.x, cmd.ClipRect.y - clip_off.y);
+                    const ImVec2 clip_max = ImVec2(cmd.ClipRect.z - clip_off.x, cmd.ClipRect.w - clip_off.y);
                     if (clip_max.x <= clip_min.x || clip_max.y <= clip_min.y)
                         continue;
 
-                    const auto scissor_rect = D3D12_RECT { (LONG)clip_min.x, (LONG)clip_min.y, (LONG)clip_max.x, (LONG)clip_max.y };
+                    const D3D12_RECT scissor_rect = D3D12_RECT { (LONG)clip_min.x, (LONG)clip_min.y, (LONG)clip_max.x, (LONG)clip_max.y };
                     inCmdList->RSSetScissorRects(1, &scissor_rect);
 
                     inCmdList->DrawIndexedInstanced(cmd.ElemCount, 1, cmd.IdxOffset + global_idx_offset, cmd.VtxOffset + global_vtx_offset, 0);

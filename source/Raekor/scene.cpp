@@ -12,7 +12,7 @@
 #include "components.h"
 #include "application.h"
 
-namespace Raekor {
+namespace RK {
 
 Scene::Scene(IRenderInterface* inRenderer) : m_Renderer(inRenderer), m_RootEntity(Create())
 {
@@ -29,35 +29,35 @@ Scene::Scene(IRenderInterface* inRenderer) : m_Renderer(inRenderer), m_RootEntit
 
 Entity Scene::PickSpatialEntity(const Ray& inRay) const
 {
-	auto picked_entity = Entity::Null;
-	auto boxes_hit = std::map<float, Entity> {};
+	Entity picked_entity = Entity::Null;
+	HashMap<float, Entity> boxes_hit;
 
 	for (auto [entity, transform, mesh] : Each<Transform, Mesh>())
 	{
-		auto oobb = BBox3D(mesh.aabb[0], mesh.aabb[1]);
-		const auto hit_result = inRay.HitsOBB(oobb, transform.worldTransform);
+		BBox3D oobb = BBox3D(mesh.aabb[0], mesh.aabb[1]);
+		const Optional<float> hit_result = inRay.HitsOBB(oobb, transform.worldTransform);
 
 		if (hit_result.has_value())
 			boxes_hit[hit_result.value()] = entity;
 	}
 
-	for (auto& pair : boxes_hit)
+	for (const auto& [distance, entity] : boxes_hit)
 	{
-		const auto& mesh = Get<Mesh>(pair.second);
-		const auto& transform = Get<Transform>(pair.second);
+		const Mesh& mesh = Get<Mesh>(entity);
+		const Transform& transform = Get<Transform>(entity);
 
 		for (auto i = 0u; i < mesh.indices.size(); i += 3)
 		{
-			const auto v0 = Vec3(transform.worldTransform * Vec4(mesh.positions[mesh.indices[i]], 1.0));
-			const auto v1 = Vec3(transform.worldTransform * Vec4(mesh.positions[mesh.indices[i + 1]], 1.0));
-			const auto v2 = Vec3(transform.worldTransform * Vec4(mesh.positions[mesh.indices[i + 2]], 1.0));
+			const Vec3 v0 = Vec3(transform.worldTransform * Vec4(mesh.positions[mesh.indices[i]], 1.0));
+			const Vec3 v1 = Vec3(transform.worldTransform * Vec4(mesh.positions[mesh.indices[i + 1]], 1.0));
+			const Vec3 v2 = Vec3(transform.worldTransform * Vec4(mesh.positions[mesh.indices[i + 2]], 1.0));
 
 			Vec2 barycentrics;
-			const auto hit_result = inRay.HitsTriangle(v0, v1, v2, barycentrics);
+			const Optional<float> hit_result = inRay.HitsTriangle(v0, v1, v2, barycentrics);
 
 			if (hit_result.has_value())
 			{
-				picked_entity = pair.second;
+				picked_entity = entity;
 				return picked_entity;
 			}
 		}
@@ -93,21 +93,21 @@ void Scene::DestroySpatialEntity(Entity inEntity)
 
 Vec3 Scene::GetSunLightDirection() const
 {
-	auto lookDirection = Vec3(0.25f, -0.9f, 0.0f);
+	Vec3 sun_direction = Vec3(0.25f, -0.9f, 0.0f);
 
 	if (Count<DirectionalLight>() == 1)
 	{
-		auto dir_light_entity = GetEntities<DirectionalLight>()[0];
-		auto& transform = Get<Transform>(dir_light_entity);
-		lookDirection = static_cast<Quat>( transform.rotation ) * lookDirection;
+		const Entity sunlight_entity = GetEntities<DirectionalLight>()[0];
+		const Transform& sunlight_transform = Get<Transform>(sunlight_entity);
+		sun_direction = static_cast<Quat>(sunlight_transform.rotation) * sun_direction;
 	}
 	else
 	{
 		// we rotate default light a little or else we get nan values in our view matrix
-		lookDirection = static_cast<Quat>( Vec3(glm::radians(15.0f), 0, 0) ) * lookDirection;
+		sun_direction = static_cast<Quat>( Vec3(glm::radians(15.0f), 0, 0) ) * sun_direction;
 	}
 
-	return glm::clamp(lookDirection, { -1.0f, -1.0f, -1.0f }, { 1.0f, 1.0f, 1.0f });
+	return glm::clamp(sun_direction, { -1.0f, -1.0f, -1.0f }, { 1.0f, 1.0f, 1.0f });
 }
 
 
@@ -223,16 +223,16 @@ void Scene::UpdateAnimations(float inDeltaTime)
 	for (auto [entity, animation] : Each<Animation>())
 		animation.OnUpdate(inDeltaTime);
 
-	auto skeleton_count = Count<Skeleton>();
+	uint32_t skeleton_count = Count<Skeleton>();
 	if (!skeleton_count)
 		return;
 
-	auto skeleton_job_ptrs = std::vector<Job::Ptr>();
+	Array<Job::Ptr> skeleton_job_ptrs;
 	skeleton_job_ptrs.reserve(skeleton_count);
 
 	for (auto [entity, skeleton] : Each<Skeleton>())
 	{
-		auto job_ptr = g_ThreadPool.QueueJob([&]()
+		Job::Ptr job_ptr = g_ThreadPool.QueueJob([&]()
 		{
 			if (Exists(skeleton.animation) && Has<Animation>(skeleton.animation))
 			{
@@ -248,7 +248,7 @@ void Scene::UpdateAnimations(float inDeltaTime)
 		skeleton_job_ptrs.push_back(job_ptr);
 	}
 
-	for (const auto& job_ptr : skeleton_job_ptrs)
+	for (const Job::Ptr& job_ptr : skeleton_job_ptrs)
 		job_ptr->WaitCPU();
 }
 
@@ -368,7 +368,8 @@ void Scene::Destroy(Entity inEntity)
 	{
 		Scene::TraverseFunction Traverse = [](void* inContext, Scene& inScene, Entity inEntity)
 		{
-			inScene.Destroy(inEntity);
+			ECStorage* storage = (ECStorage*)inContext;
+			storage->Destroy(inEntity);
 			inScene.Unparent(inEntity);
 		};
 
@@ -480,11 +481,11 @@ void Scene::OpenFromFile(const std::string& inFilePath, Assets& ioAssets, Applic
 
 	for (const auto& [entity, script] : Each<NativeScript>())
 	{
-		if (auto asset = ioAssets.GetAsset<ScriptAsset>(script.file))
+		if (ScriptAsset::Ptr asset = ioAssets.GetAsset<ScriptAsset>(script.file))
 		{
-			for (const auto& type : asset->GetRegisteredTypes())
+			for (const String& type_str : asset->GetRegisteredTypes())
 			{
-				script.types.push_back(type);
+				script.types.push_back(type_str);
 			}
 
 			if (inApp)
@@ -563,9 +564,9 @@ bool SceneImporter::LoadFromFile(const std::string& inFile, Assets* inAssets)
 	*/
 	for (const auto& [entity, material] : m_ImportedScene.Each<Material>())
 	{
-		auto new_entity = m_Scene.Create();
+		Entity new_entity = m_Scene.Create();
 
-		auto& name = m_Scene.Add<Name>(new_entity, m_ImportedScene.Get<Name>(entity));
+		Name& name = m_Scene.Add<Name>(new_entity, m_ImportedScene.Get<Name>(entity));
 
 		ConvertMaterial(new_entity, m_ImportedScene.Get<Material>(entity));
 
@@ -587,7 +588,7 @@ bool SceneImporter::LoadFromFile(const std::string& inFile, Assets* inAssets)
 	
 	m_ImportedScene.TraverseDepthFirst(m_ImportedScene.GetRootEntity(), Traverse, this);
 
-	const auto root_entity = m_Scene.CreateSpatialEntity(Path(inFile).filename().string());
+	const Entity root_entity = m_Scene.CreateSpatialEntity(Path(inFile).filename().string());
 
 	for (Entity entity : m_CreatedNodeEntities)
 	{
@@ -600,7 +601,7 @@ bool SceneImporter::LoadFromFile(const std::string& inFile, Assets* inAssets)
 	// Load the converted textures from disk and upload them to the GPU
 	if (inAssets != nullptr)
 	{
-		auto materials = std::vector<Entity>();
+		Array<Entity> materials;
 		materials.reserve(m_MaterialMapping.size());
 
 		for (const auto& [imported_entity, output_entity] : m_MaterialMapping)
@@ -616,7 +617,7 @@ bool SceneImporter::LoadFromFile(const std::string& inFile, Assets* inAssets)
 void SceneImporter::ParseNode(Entity inEntity, Entity inParent)
 {
 	// Create new inEntity
-	auto new_entity = m_CreatedNodeEntities.emplace_back(m_Scene.CreateSpatialEntity());
+	Entity new_entity = m_CreatedNodeEntities.emplace_back(m_Scene.CreateSpatialEntity());
 
 	// Copy over transform
 	if (m_ImportedScene.Has<Transform>(inEntity))
@@ -654,7 +655,7 @@ void SceneImporter::ParseNode(Entity inEntity, Entity inParent)
 
 void SceneImporter::ConvertMesh(Entity inEntity, const Mesh& inMesh)
 {
-	auto& mesh = m_Scene.Add<Mesh>(inEntity, inMesh);
+	Mesh& mesh = m_Scene.Add<Mesh>(inEntity, inMesh);
 
 	mesh.material = m_MaterialMapping[mesh.material];
 
@@ -665,8 +666,8 @@ void SceneImporter::ConvertMesh(Entity inEntity, const Mesh& inMesh)
 
 void SceneImporter::ConvertBones(Entity inEntity, const Skeleton& inSkeleton)
 {
-	auto& mesh = m_Scene.Get<Mesh>(inEntity);
-	auto& skeleton = m_Scene.Add<Skeleton>(inEntity, inSkeleton);
+	Mesh& mesh = m_Scene.Get<Mesh>(inEntity);
+	Skeleton& skeleton = m_Scene.Add<Skeleton>(inEntity, inSkeleton);
 
 	if (m_Renderer)
 		m_Renderer->UploadSkeletonBuffers(inEntity, skeleton, mesh);
@@ -675,7 +676,7 @@ void SceneImporter::ConvertBones(Entity inEntity, const Skeleton& inSkeleton)
 
 void SceneImporter::ConvertMaterial(Entity inEntity, const Material& inMaterial)
 {
-	auto& material = m_Scene.Add<Material>(inEntity, inMaterial);
+	Material& material = m_Scene.Add<Material>(inEntity, inMaterial);
 
 	material.gpuAlbedoMap = 0;
 	material.gpuNormalMap = 0;

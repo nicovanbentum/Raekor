@@ -4,12 +4,12 @@
 #include "Raekor/timer.h"
 #include "Raekor/components.h"
 
-namespace Raekor {
+namespace RK {
 class Scene;
 class Viewport;
 }
 
-namespace Raekor::GL {
+namespace RK::GL {
 
 class GLTimer
 {
@@ -71,7 +71,7 @@ class ShadowMap final : public RenderPass
     };
 
 public:
-    static constexpr auto MAX_NR_OF_CASCADES = 4u;
+    static constexpr uint32_t MAX_NR_OF_CASCADES = 4u;
 
     struct
     {

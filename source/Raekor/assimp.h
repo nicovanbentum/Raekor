@@ -10,7 +10,7 @@ glm::mat4 toMat4(const aiMatrix4x4& from);
 
 } // assimp
 
-namespace Raekor {
+namespace RK {
 
 class Scene;
 class Async;

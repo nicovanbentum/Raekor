@@ -18,7 +18,7 @@
 #include "SequenceWidget.h"
 #include "NodeGraphWidget.h"
 
-namespace Raekor {
+namespace RK {
 
 RTTI_DEFINE_TYPE_NO_FACTORY(InspectorWidget) {}
 
@@ -31,9 +31,9 @@ void InspectorWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	ImGui::Begin(m_Title.c_str(), &m_Open);
 	m_Visible = ImGui::IsWindowAppearing();
 
-	auto viewport_widget = inWidgets->GetWidget<ViewportWidget>();
-    auto sequence_widget = inWidgets->GetWidget<SequenceWidget>();
-	auto nodegraph_widget = inWidgets->GetWidget<ShaderGraphWidget>();
+	ViewportWidget* viewport_widget = inWidgets->GetWidget<ViewportWidget>();
+	SequenceWidget* sequence_widget = inWidgets->GetWidget<SequenceWidget>();
+	ShaderGraphWidget* nodegraph_widget = inWidgets->GetWidget<ShaderGraphWidget>();
 
 	if (viewport_widget && GetActiveEntity() != Entity::Null)
 	{
@@ -50,15 +50,15 @@ void InspectorWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 void InspectorWidget::DrawEntityInspector(Widgets* inWidgets)
 {
-	auto active_entity = m_Editor->GetActiveEntity();
+	Entity active_entity = m_Editor->GetActiveEntity();
 	if (active_entity == Entity::Null)
 		return;
 
 	ImGui::Text("Entity ID: %i", active_entity);
 	ImGui::Text("Parent ID: %i", GetScene().GetParent(active_entity));
 
-	auto& scene = GetScene();
-	auto& assets = GetAssets();
+	Scene& scene = GetScene();
+	Assets& assets = GetAssets();
 
 	// I much prefered the for_each_tuple_element syntax tbh
 	std::apply([&](const auto& ... components)
@@ -101,7 +101,7 @@ void InspectorWidget::DrawEntityInspector(Widgets* inWidgets)
 
 		if (ImGui::Selectable("Rigid Body", false))
 		{
-			auto& collider = scene.Add<RigidBody>(active_entity);
+			RigidBody& collider = scene.Add<RigidBody>(active_entity);
 		}
 
 		if (scene.Has<Transform, Mesh>(active_entity))
@@ -110,13 +110,13 @@ void InspectorWidget::DrawEntityInspector(Widgets* inWidgets)
 
 			if (ImGui::Selectable("Soft Body", false))
 			{
-				auto& soft_body = scene.Add<SoftBody>(active_entity);
-				auto& transform = scene.Get<Transform>(active_entity);
+				SoftBody& soft_body = scene.Add<SoftBody>(active_entity);
+				Transform& transform = scene.Get<Transform>(active_entity);
 
 				// verts
-				for (const auto& pos : mesh.positions)
+				for (const Vec3& pos : mesh.positions)
 				{
-					const auto wpos = pos * transform.scale;
+					const Vec3 wpos = pos * transform.scale;
 
 					JPH::SoftBodySharedSettings::Vertex v;
 					v.mPosition = JPH::Float3(wpos.x, wpos.y, wpos.z);
@@ -125,7 +125,7 @@ void InspectorWidget::DrawEntityInspector(Widgets* inWidgets)
 				}
 
 				// faces
-				for (auto index = 0u; index < mesh.indices.size(); index += 3)
+				for (int index = 0; index < mesh.indices.size(); index += 3)
 				{
 					JPH::SoftBodySharedSettings::Face face;
 					face.mVertex[0] = mesh.indices[index];
@@ -135,15 +135,15 @@ void InspectorWidget::DrawEntityInspector(Widgets* inWidgets)
 					soft_body.mSharedSettings.AddFace(face);
 				}
 
-				const auto ntriangles = mesh.indices.size() / 3;
+				const int ntriangles = mesh.indices.size() / 3;
 				int		maxidx = 0;
 				int i, j, ni;
 
-				for (auto index : mesh.indices)
+				for (uint32_t index : mesh.indices)
 					maxidx = glm::max((int)index, maxidx);
 				++maxidx;
 
-				std::vector<bool> chks;
+				Array<bool> chks;
 				chks.resize(maxidx * maxidx, false);
 
 				for (int i = 0, ni = ntriangles * 3; i < ni; i += 3)
@@ -326,7 +326,7 @@ void InspectorWidget::DrawComponent(Entity inEntity, Name& inName)
 
 void InspectorWidget::DrawComponent(Entity inEntity, Mesh& ioMesh)
 {
-	const auto byte_size = sizeof(Mesh) + ioMesh.GetInterleavedStride() * ioMesh.positions.size();
+	const int byte_size = sizeof(Mesh) + ioMesh.GetInterleavedStride() * ioMesh.positions.size();
 	ImGui::Text("%.1f Kb", float(byte_size) / 1024);
 
 	ImGui::Text("%i Meshlets", ioMesh.meshlets.size());
@@ -334,13 +334,13 @@ void InspectorWidget::DrawComponent(Entity inEntity, Mesh& ioMesh)
 	ImGui::Text("%i Triangles", ioMesh.indices.size() / 3);
 
 
-	auto& scene = GetScene();
+	Scene& scene = GetScene();
 	if (scene.Has<Material>(ioMesh.material) && scene.Has<Material, Name>(ioMesh.material))
 	{
 		const auto& [material, name] = scene.Get<Material, Name>(ioMesh.material);
 
-		const auto albedo_imgui_id = m_Editor->GetRenderInterface()->GetImGuiTextureID(material.gpuAlbedoMap);
-		const auto tint_color = ImVec4(material.albedo.r, material.albedo.g, material.albedo.b, material.albedo.a);
+		const uint64_t albedo_imgui_id = m_Editor->GetRenderInterface()->GetImGuiTextureID(material.gpuAlbedoMap);
+		const ImVec4 tint_color = ImVec4(material.albedo.r, material.albedo.g, material.albedo.b, material.albedo.a);
 
 		if (ImGui::DragDropTargetButton("Material", name.name.c_str(), true))
 			SetActiveEntity(ioMesh.material);
@@ -426,7 +426,7 @@ void InspectorWidget::DrawComponent(Entity inEntity, Camera& ioCamera)
 
 void InspectorWidget::DrawComponent(Entity inEntity, SoftBody& ioSoftBody)
 {
-	auto& body_interface = GetPhysics().GetSystem()->GetBodyInterface();
+	JPH::BodyInterface& body_interface = GetPhysics().GetSystem()->GetBodyInterface();
 
 	ImGui::Text("Unique Body ID: %i", ioSoftBody.mBodyID.GetIndexAndSequenceNumber());
 
@@ -439,13 +439,13 @@ void InspectorWidget::DrawComponent(Entity inEntity, SoftBody& ioSoftBody)
 
 void InspectorWidget::DrawComponent(Entity inEntity, RigidBody& inBoxCollider)
 {
-	auto& body_interface = GetPhysics().GetSystem()->GetBodyInterface();
+	JPH::BodyInterface& body_interface = GetPhysics().GetSystem()->GetBodyInterface();
 
 	ImGui::Text("Unique Body ID: %i", inBoxCollider.bodyID.GetIndexAndSequenceNumber());
 
-	constexpr auto items = std::array { "Static", "Kinematic", "Dynamic" };
+	constexpr std::array items = { "Static", "Kinematic", "Dynamic" };
 
-	auto index = int(inBoxCollider.motionType);
+	int index = int(inBoxCollider.motionType);
 	if (ImGui::Combo("##MotionType", &index, items.data(), int(items.size())))
 	{
 		inBoxCollider.motionType = JPH::EMotionType(index);
@@ -517,7 +517,7 @@ void InspectorWidget::DrawComponent(Entity inEntity, Skeleton& inSkeleton)
 		inSkeleton.DebugDraw(inSkeleton.rootBone, world_transform);
 	}
 
-	auto& scene = GetScene();
+	Scene& scene = GetScene();
 	if (scene.Has<Animation>(inSkeleton.animation) && scene.Has<Animation, Name>(inSkeleton.animation))
 	{
 		const auto& [animation, name] = scene.Get<Animation, Name>(inSkeleton.animation);
@@ -543,20 +543,20 @@ void InspectorWidget::DrawComponent(Entity inEntity, Skeleton& inSkeleton)
 
 	if (ImGui::Button("Save as graph.."))
 	{
-		const auto file_path = OS::sSaveFileDialog("DOT File (*.dot)\0", "dot");
+		const String file_path = OS::sSaveFileDialog("DOT File (*.dot)\0", "dot");
 
 		if (!file_path.empty())
 		{
-			auto ofs = std::ofstream(file_path);
+			std::ofstream ofs(file_path);
 
 			ofs << "digraph G {\n";
 
 			auto traverse = [&](auto&& traverse, const Skeleton::Bone& boneNode) -> void
 			{
-				for (const auto& child : boneNode.children)
+				for (const Skeleton::Bone& child_bone : boneNode.children)
 				{
-					ofs << "\"" << boneNode.name << "\" -> \"" << child.name << "\";\n";
-					traverse(traverse, child);
+					ofs << "\"" << boneNode.name << "\" -> \"" << child_bone.name << "\";\n";
+					traverse(traverse, child_bone);
 				}
 			};
 
@@ -570,9 +570,9 @@ void InspectorWidget::DrawComponent(Entity inEntity, Skeleton& inSkeleton)
 
 void InspectorWidget::DrawComponent(Entity inEntity, Material& inMaterial)
 {
-	auto& io = ImGui::GetIO();
-	auto& style = ImGui::GetStyle();
-	const auto line_height = io.FontDefault->FontSize;
+	ImGuiIO& io = ImGui::GetIO();
+	ImGuiStyle& style = ImGui::GetStyle();
+	const float line_height = io.FontDefault->FontSize;
 
 	ImGui::ColorEdit4("Albedo", glm::value_ptr(inMaterial.albedo), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
 	ImGui::ColorEdit3("Emissive", glm::value_ptr(inMaterial.emissive), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
@@ -613,8 +613,8 @@ void InspectorWidget::DrawComponent(Entity inEntity, Material& inMaterial)
 	ImGui::AlignTextToFramePadding();
 
 	{
-		const auto file_text = inMaterial.vertexShaderFile.empty() ? "N/A" : inMaterial.vertexShaderFile.c_str();
-		const auto tooltip_text = inMaterial.vertexShaderFile.empty() ? "No file loaded." : inMaterial.vertexShaderFile.c_str();
+		const char* file_text = inMaterial.vertexShaderFile.empty() ? "N/A" : inMaterial.vertexShaderFile.c_str();
+		const char* tooltip_text = inMaterial.vertexShaderFile.empty() ? "No file loaded." : inMaterial.vertexShaderFile.c_str();
 
 		ImGui::Text(file_text);
 		if (ImGui::IsItemHovered())
@@ -640,8 +640,8 @@ void InspectorWidget::DrawComponent(Entity inEntity, Material& inMaterial)
 	ImGui::AlignTextToFramePadding();
 
 	{
-		const auto file_text = inMaterial.pixelShaderFile.empty() ? "N/A" : inMaterial.pixelShaderFile.c_str();
-		const auto tooltip_text = inMaterial.pixelShaderFile.empty() ? "No file loaded." : inMaterial.pixelShaderFile.c_str();
+		const char* file_text = inMaterial.pixelShaderFile.empty() ? "N/A" : inMaterial.pixelShaderFile.c_str();
+		const char* tooltip_text = inMaterial.pixelShaderFile.empty() ? "No file loaded." : inMaterial.pixelShaderFile.c_str();
 
 		ImGui::Text(file_text);
 		if (ImGui::IsItemHovered())
@@ -661,7 +661,7 @@ void InspectorWidget::DrawComponent(Entity inEntity, Material& inMaterial)
 
 	auto DrawSwizzleChannel = [&](const char* inLabel, uint8_t& inSwizzle, uint8_t inSwizzleMode)
 	{
-		const auto is_selected = ( inSwizzle == inSwizzleMode ) || inSwizzle == TEXTURE_SWIZZLE_RGBA;
+		const bool is_selected = ( inSwizzle == inSwizzleMode ) || inSwizzle == TEXTURE_SWIZZLE_RGBA;
 
 		if (is_selected)
 			ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetColorU32(ImGuiCol_ButtonHovered));
@@ -699,21 +699,21 @@ void InspectorWidget::DrawComponent(Entity inEntity, Material& inMaterial)
 		DrawSwizzleChannel("A", inSwizzle, TEXTURE_SWIZZLE_AAAA);
 		ImGui::PopID();*/
 
-		const auto imgui_map = inGpuMap ? inGpuMap : inDefaultMap;
-		const auto imgui_id = m_Editor->GetRenderInterface()->GetImGuiTextureID(imgui_map);
+		const uint32_t imgui_map = inGpuMap ? inGpuMap : inDefaultMap;
+		const uint64_t imgui_id = m_Editor->GetRenderInterface()->GetImGuiTextureID(imgui_map);
 
 		if (ImGui::ImageButton((void*)( (intptr_t)imgui_id ), ImVec2(line_height - 1, line_height - 1)))
 		{
-			auto filepath = OS::sOpenFileDialog("Image Files(*.jpg, *.jpeg, *.png)\0*.jpg;*.jpeg;*.png\0");
+			String filepath = OS::sOpenFileDialog("Image Files(*.jpg, *.jpeg, *.png)\0*.jpg;*.jpeg;*.png\0");
 
 			if (!filepath.empty())
 			{
-				const auto asset_path = TextureAsset::sConvert(filepath);
+				const String asset_path = TextureAsset::sConvert(filepath);
 
 				if (!asset_path.empty())
 				{
 					inFile = asset_path;
-					const auto is_srgb = inGpuMap == inMaterial.gpuAlbedoMap;
+					const bool is_srgb = inGpuMap == inMaterial.gpuAlbedoMap;
 					inGpuMap = m_Editor->GetRenderInterface()->UploadTextureFromAsset(GetAssets().GetAsset<TextureAsset>(asset_path), is_srgb);
 				}
 				else
@@ -735,8 +735,8 @@ void InspectorWidget::DrawComponent(Entity inEntity, Material& inMaterial)
 		ImGui::SameLine();
 		ImGui::AlignTextToFramePadding();
 		
-		const auto file_text = inFile.empty() ? "N/A" : inFile.c_str();
-		const auto tooltip_text = inFile.empty() ? "No file loaded." : inFile.c_str();
+		const char* file_text = inFile.empty() ? "N/A" : inFile.c_str();
+		const char* tooltip_text = inFile.empty() ? "No file loaded." : inFile.c_str();
 
 		ImGui::Text(file_text);
 		if (ImGui::IsItemHovered())
@@ -772,7 +772,7 @@ void InspectorWidget::DrawComponent(Entity inEntity, Transform& inTransform)
 		inTransform.Compose();
 
     ImGui::SetNextItemRightAlign("Rotation");
-	auto degrees = glm::degrees(glm::eulerAngles(inTransform.rotation));
+	Vec3 degrees = glm::degrees(glm::eulerAngles(inTransform.rotation));
 	if (ImGui::DragVec3("##RotationDragFloat3", degrees, 0.1f, -360.0f, 360.0f))
 	{
 		inTransform.rotation = glm::quat(glm::radians(degrees));
@@ -787,8 +787,8 @@ void InspectorWidget::DrawComponent(Entity inEntity, Transform& inTransform)
 
 void InspectorWidget::DrawComponent(Entity inEntity, Animation& inAnimation)
 {
-	const  auto current_time = inAnimation.GetRunningTime();
-	const  auto total_duration = inAnimation.GetTotalDuration();
+	const float current_time = inAnimation.GetRunningTime();
+	const float total_duration = inAnimation.GetTotalDuration();
 
 	ImGui::Text("Bone Count: %i", inAnimation.GetBoneCount());
 	ImGui::Text("Total Duration: %.2f seconds", total_duration / 1000.0f);
@@ -824,7 +824,7 @@ void InspectorWidget::DrawComponent(Entity inEntity, Animation& inAnimation)
 
 void InspectorWidget::DrawComponent(Entity inEntity, Light& inLight)
 {
-	constexpr auto type_names = std::array { "None", "Spot", "Point" };
+	constexpr std::array type_names = { "None", "Spot", "Point" };
 	ImGui::Combo("Type", (int*)&inLight.type, type_names.data(), type_names.size());
 
 	ImGui::ColorEdit3("Colour", glm::value_ptr(inLight.colour), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
@@ -850,8 +850,8 @@ void InspectorWidget::DrawComponent(Entity inEntity, Light& inLight)
 
 void InspectorWidget::DrawComponent(Entity inEntity, NativeScript& inScript)
 {
-	auto& scene = GetScene();
-	auto& assets = GetAssets();
+	Scene& scene = GetScene();
+	Assets& assets = GetAssets();
 
 	if (assets.contains(inScript.file))
 	{
@@ -860,16 +860,16 @@ void InspectorWidget::DrawComponent(Entity inEntity, NativeScript& inScript)
 
 	if (ImGui::Button("Load.."))
 	{
-		const auto filepath = OS::sOpenFileDialog("DLL Files (*.dll)\0*.dll\0");
+		const String filepath = OS::sOpenFileDialog("DLL Files (*.dll)\0*.dll\0");
 
 		if (!filepath.empty())
 		{
 			inScript.file = fs::relative(filepath).string();
 
-			if (auto asset = assets.GetAsset<ScriptAsset>(inScript.file))
+			if (ScriptAsset::Ptr asset = assets.GetAsset<ScriptAsset>(inScript.file))
 			{
-				for (const auto& type : asset->GetRegisteredTypes())
-					inScript.types.push_back(type);
+				for (const String& type_str : asset->GetRegisteredTypes())
+					inScript.types.push_back(type_str);
 			}
 		}
 	}

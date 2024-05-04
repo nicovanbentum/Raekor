@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "VKApp.h"
 
-using namespace Raekor;
+using namespace RK;
 
 int main(int argc, char** argv)
 {

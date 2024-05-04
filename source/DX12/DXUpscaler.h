@@ -2,7 +2,7 @@
 
 #include "DXRenderGraph.h"
 
-namespace Raekor::DX12 {
+namespace RK::DX12 {
 
 struct GBufferData;
 

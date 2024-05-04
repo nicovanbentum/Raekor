@@ -3,7 +3,7 @@
 #include "VKShader.h"
 #include "VKFrameBuffer.h"
 
-namespace Raekor::VK {
+namespace RK::VK {
 
 class GraphicsPipeline
 {

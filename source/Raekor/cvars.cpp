@@ -3,7 +3,7 @@
 #include "member.h"
 #include "archive.h"
 
-namespace Raekor {
+namespace RK {
 
 RTTI_DEFINE_TYPE(ConVar)
 {

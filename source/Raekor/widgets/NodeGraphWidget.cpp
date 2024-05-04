@@ -7,7 +7,7 @@
 #include "shadernodes.h"
 #include "application.h"
 
-namespace Raekor {
+namespace RK {
 
 RTTI_DEFINE_TYPE_NO_FACTORY(ShaderGraphWidget) {}
 
@@ -110,14 +110,14 @@ void ShaderGraphWidget::Draw(Widgets* inWidgets, float dt)
 
 			if (!file_path.empty())
 			{
-				auto ifs = std::ifstream(m_OpenTemplateFilePath);
-				auto buffer = std::stringstream();
+				std::ifstream ifs(m_OpenTemplateFilePath);
+				std::stringstream buffer;
 				
 				buffer << ifs.rdbuf();
 				m_GeneratedCode = buffer.str();
 				GetBuilder().GenerateCodeFromTemplate(m_GeneratedCode);
 
-				auto ofs = std::ofstream(file_path);
+				std::ofstream ofs(file_path);
 				ofs << m_GeneratedCode;
 
 				m_OpenGeneratedFilePath = file_path;
@@ -129,8 +129,8 @@ void ShaderGraphWidget::Draw(Widgets* inWidgets, float dt)
 
 	if (ImGui::Button((const char*)ICON_FA_ADJUST " Auto Layout"))
 	{
-		auto pin_index = 0u;
-		auto link_index = 0u;
+		int pin_index = 0;
+		int link_index = 0;
 
 		std::queue<uint32_t> queue;
 
@@ -142,8 +142,8 @@ void ShaderGraphWidget::Draw(Widgets* inWidgets, float dt)
 			}
 		}
 
-		auto cursor = ImVec2(0, 0);
-		auto depth_size = queue.size();
+		ImVec2 cursor = ImVec2(0, 0);
+		size_t depth_size = queue.size();
 
 		while (!queue.empty())
 		{
@@ -153,7 +153,7 @@ void ShaderGraphWidget::Draw(Widgets* inWidgets, float dt)
 
 			ImNodes::SetNodeGridSpacePos(object_index, cursor);
 
-			const auto dimensions = ImNodes::GetNodeDimensions(object_index);
+			const ImVec2 dimensions = ImNodes::GetNodeDimensions(object_index);
 
 			ShaderNode* shader_node = GetBuilder().GetShaderNode(object_index);
 
@@ -250,7 +250,7 @@ void ShaderGraphWidget::Draw(Widgets* inWidgets, float dt)
 	ImNodes::BeginNodeEditor();
 
 	// Reset to center of the canvas if we started at 0,0
-	const auto panning = ImNodes::EditorContextGetPanning();
+	const ImVec2 panning = ImNodes::EditorContextGetPanning();
 
 	if (panning.x == 0.0f && panning.y == 0.0f)
 		ImNodes::EditorContextResetPanning(ImNodes::GetCurrentContext()->CanvasRectScreenSpace.GetCenter());	
@@ -443,8 +443,8 @@ void ShaderGraphWidget::Draw(Widgets* inWidgets, float dt)
 	int deleted_node_id;
 	if (ImNodes::IsLinkDestroyed(&deleted_node_id))
 	{
-		const auto& links = GetBuilder().GetLinks();
-		const auto& link = links[deleted_node_id];
+		const Slice<Pair<int, int>>& links = GetBuilder().GetLinks();
+		const Pair<int, int>& link = links[deleted_node_id];
 		GetBuilder().DisconnectPins(link.first, link.second);
 	}
 
@@ -481,7 +481,7 @@ void ShaderGraphWidget::OnEvent(Widgets* inWidgets, const SDL_Event& ev)
 
 				for (int selected_node : GetContext().SelectedNodes)
 				{
-					for (auto link : GetBuilder().GetLinks())
+					for (Pair<int, int> link : GetBuilder().GetLinks())
 					{
 						const ShaderNodePin* input_pin = GetBuilder().GetInputPin(link.second);
 						const ShaderNodePin* output_pin = GetBuilder().GetOutputPin(link.first);

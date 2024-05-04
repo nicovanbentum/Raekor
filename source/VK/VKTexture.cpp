@@ -4,7 +4,7 @@
 #include "VKDevice.h"
 #include "VKUtil.h"
 
-namespace Raekor::VK {
+namespace RK::VK {
 
 Texture Device::CreateTexture(const Texture::Desc& desc)
 {

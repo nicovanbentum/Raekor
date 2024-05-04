@@ -5,7 +5,7 @@
 #include "VKDevice.h"
 #include "VKExtensions.h"
 
-namespace Raekor::VK {
+namespace RK::VK {
 
 AccelStruct Device::CreateAccelStruct(VkAccelerationStructureBuildGeometryInfoKHR& buildInfo, const uint32_t primitiveCount)
 {
@@ -43,12 +43,12 @@ AccelStruct Device::CreateAccelStruct(VkAccelerationStructureBuildGeometryInfoKH
 	buildInfo.scratchData.deviceAddress = GetDeviceAddress(scratchBuffer);
 
 	// build the acceleration structure on the GPU
-	auto commandBuffer = StartSingleSubmit();
+	VkCommandBuffer commandBuffer = StartSingleSubmit();
 
-	auto build_range = VkAccelerationStructureBuildRangeInfoKHR {};
+	VkAccelerationStructureBuildRangeInfoKHR build_range {};
 	build_range.primitiveCount = primitiveCount;
 
-	const auto build_ranges = std::array { &build_range };
+	const std::array build_ranges = { &build_range };
 
 	EXT::vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &buildInfo, build_ranges.data());
 

@@ -11,7 +11,7 @@
 #include "archive.h"
 #include "components.h"
 
-namespace Raekor {
+namespace RK {
 
 RTTI_DEFINE_TYPE(ConfigSettings)
 {
@@ -23,7 +23,7 @@ RTTI_DEFINE_TYPE(ConfigSettings)
 	RTTI_DEFINE_MEMBER(ConfigSettings, SERIALIZE_ALL, "Recent Scene Files", mRecentScenes);
 }
 
-static constexpr auto CONFIG_FILE_STR = "config.json";
+static constexpr const char* CONFIG_FILE_STR = "config.json";
 
 Application::Application(WindowFlags inFlags)
 {
@@ -49,13 +49,13 @@ Application::Application(WindowFlags inFlags)
 		std::abort();
 	}
 
-	auto displays = std::vector<SDL_Rect>(SDL_GetNumVideoDisplays());
+	Array<SDL_Rect> displays(SDL_GetNumVideoDisplays());
 	for (const auto& [index, display] : gEnumerate(displays))
 		SDL_GetDisplayBounds(index, &display);
 
 	// if the config setting is higher than the nr of displays we pick the default display
 	m_Settings.mDisplayIndex = m_Settings.mDisplayIndex > displays.size() - 1 ? 0 : m_Settings.mDisplayIndex;
-	const auto& rect = displays[m_Settings.mDisplayIndex];
+	const SDL_Rect& rect = displays[m_Settings.mDisplayIndex];
 
 	int width = int(rect.w * 0.88f);
 	int height = int(rect.h * 0.88f);
@@ -94,7 +94,7 @@ Application::Application(WindowFlags inFlags)
 Application::~Application()
 {
 	m_Settings.mDisplayIndex = SDL_GetWindowDisplayIndex(m_Window);
-	auto write_archive = JSON::WriteArchive(CONFIG_FILE_STR);
+	JSON::WriteArchive write_archive(CONFIG_FILE_STR);
 	write_archive << m_Settings;
 
 	SDL_DestroyWindow(m_Window);
@@ -133,7 +133,7 @@ void Application::Run()
 
 int Application::OnNativeEvent(void* inUserData, SDL_Event* inEvent)
 {
-	auto app = (Application*)inUserData;
+	Application* app = (Application*)inUserData;
 
 	if (inEvent && inEvent->type == SDL_SYSWMEVENT)
 	{
@@ -141,8 +141,7 @@ int Application::OnNativeEvent(void* inUserData, SDL_Event* inEvent)
 
 		if (win_msg.msg == WM_COPYDATA)
 		{
-			const auto copied_data = (PCOPYDATASTRUCT)win_msg.lParam;
-			constexpr auto LOG_MESSAGE = 1u;
+			const PCOPYDATASTRUCT copied_data = (PCOPYDATASTRUCT)win_msg.lParam;
 
 			if (copied_data->dwData == IPC::LOG_MESSAGE_SENT)
 			{
@@ -157,28 +156,28 @@ int Application::OnNativeEvent(void* inUserData, SDL_Event* inEvent)
 
 bool Application::IsWindowBorderless() const
 {
-	const auto window_flags = SDL_GetWindowFlags(m_Window);
+	const Uint32 window_flags = SDL_GetWindowFlags(m_Window);
 	return ( ( window_flags & SDL_WINDOW_FULLSCREEN_DESKTOP ) == SDL_WINDOW_FULLSCREEN_DESKTOP );
 }
 
 
 bool Application::IsWindowExclusiveFullscreen() const
 {
-	const auto window_flags = SDL_GetWindowFlags(m_Window);
+	const Uint32 window_flags = SDL_GetWindowFlags(m_Window);
 	return ( ( window_flags & SDL_WINDOW_FULLSCREEN ) && !IsWindowBorderless() );
 }
 
 
 void Application::AddRecentScene(const Path& inPath) 
 { 
-	const auto cMaxSize = 5u;
+	static constexpr int cMaxSize = 5;
 
-	std::vector<Path> new_paths;
+	Array<Path> new_paths;
 	new_paths.reserve(cMaxSize);
 
 	new_paths.push_back(inPath);
 
-	for (const auto& path : m_Settings.mRecentScenes)
+	for (const Path& path : m_Settings.mRecentScenes)
 	{
 		if (path == inPath)
 			continue;
@@ -199,7 +198,7 @@ void IRenderInterface::UploadMaterialTextures(Entity inEntity, Material& inMater
 
 	auto UploadTexture = [&](const std::string& inFile, bool inIsSRGB, uint8_t inSwizzle, uint32_t inDefaultMap, uint32_t& ioGpuMap)
 	{
-		if (auto asset = inAssets.GetAsset<TextureAsset>(inFile))
+		if (TextureAsset::Ptr asset = inAssets.GetAsset<TextureAsset>(inFile))
 			ioGpuMap = UploadTextureFromAsset(asset, inIsSRGB, inSwizzle);
 		else
 			ioGpuMap = inDefaultMap;
