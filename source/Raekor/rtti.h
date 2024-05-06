@@ -45,7 +45,7 @@ public:
 	bool operator==(const RTTI& rhs) const { return mHash == rhs.mHash; }
 	bool operator!=(const RTTI& rhs) const { return mHash != rhs.mHash; }
 
-	inline uint32_t GetHash() const { return mHash; }
+	constexpr inline uint32_t GetHash() const { return mHash; }
 	inline const char* GetTypeName() const { return m_Name.c_str(); }
 
 	inline const auto end() const { return m_Members.end(); }
@@ -212,6 +212,8 @@ public:                                                                         
 /// RTTI GETTERS / HELPERS ///
 
 #define RTTI_OF(name) sGetRTTI((name*)nullptr)
+
+#define RTTI_HASH(name) gHash32Bit(#name)
 
 template<typename T>
 RK::RTTI& gGetRTTI() { return sGetRTTI(( std::remove_cv_t<T>* )nullptr); }

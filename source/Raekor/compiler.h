@@ -130,7 +130,7 @@ private:
 	std::vector<FileEntry> m_Files;
 	std::set<fs::path> m_CachedFiles;
 	std::atomic<bool> m_CompileScenes = true;
-	std::atomic<bool> m_CompileScripts = true;
+	std::atomic<bool> m_CompileScripts = false;
 	std::atomic<bool> m_CompileTextures = true;
 };
 

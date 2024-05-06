@@ -16,13 +16,35 @@ namespace RK {
 
 Scene::Scene(IRenderInterface* inRenderer) : m_Renderer(inRenderer), m_RootEntity(Create())
 {
-	gForEachTupleElement(Components, [&](auto component)
+	for (const RTTI* rtti : g_RTTIFactory)
 	{
-		using ComponentType = decltype( component )::type;
+		if (rtti->IsDerivedFrom(&RTTI_OF(Component)))
+		{
+			if (!m_Components.contains(rtti->GetHash()))
+			{
 
-		if (!m_Components.contains(gGetTypeHash<ComponentType>()))
-			m_Components[gGetRTTI<ComponentType>().mHash] = new ComponentStorage<ComponentType>();
-	});
+#define CASE(T) case RTTI_HASH(T): m_Components[rtti->GetHash()] = new ComponentStorage<T>(); break;
+
+				switch (rtti->GetHash())
+				{
+					CASE(Name);
+					CASE(Mesh);
+					CASE(Light);
+					CASE(Material);
+					CASE(Skeleton);
+					CASE(SoftBody);
+					CASE(RigidBody);
+					CASE(Transform);
+					CASE(Animation);
+					CASE(NativeScript);
+					CASE(DirectionalLight);
+					CASE(DDGISceneSettings);
+				}
+#undef CASE
+
+			}
+		}
+	}
 }
 
 
@@ -318,7 +340,7 @@ Entity Scene::Clone(Entity inEntity)
 {
 	Entity copy = Create();
 
-	for (const auto& [type_hash, components] : m_Components)
+	for (IComponentStorage* components : std::views::values(m_Components))
 	{
 		if (components->Contains(inEntity))
 			components->Copy(inEntity, copy);
@@ -352,8 +374,9 @@ Entity Scene::Clone(Entity inEntity)
 	if (HasParent(inEntity))
 	{
 		ParentTo(copy, GetParent(inEntity));
-
-		for (Entity child : GetChildren(inEntity))
+		
+		Slice<Entity> children = GetChildren(inEntity);
+		for (Entity child : children)
 			Clone(child);
 	}
 
@@ -417,11 +440,10 @@ void Scene::SaveToFile(const std::string& inFile, Assets& ioAssets, Application*
 	BinaryWriteArchive archive(inFile);
 	WriteFileBinary(archive.GetFile(), m_Entities);
 
-	gForEachTupleElement(Components, [&](auto inVar)
+	for (auto [rtti_hash, components] : m_Components)
 	{
-		using Component = decltype( inVar )::type;
-		GetComponentStorage<Component>()->Write(archive);
-	});
+		components->Write(archive);
+	}
 
 	std::vector<EntityHierarchy::Pair> pairs;
 	pairs.reserve(m_Hierarchy.count());
@@ -447,11 +469,10 @@ void Scene::OpenFromFile(const std::string& inFilePath, Assets& ioAssets, Applic
 	BinaryReadArchive archive(inFilePath);
 	ReadFileBinary(archive.GetFile(), m_Entities);
 
-	gForEachTupleElement(Components, [&](auto inVar)
+	for (auto [rtti_hash, components] : m_Components)
 	{
-		using Component = decltype( inVar )::type;
-		GetComponentStorage<Component>()->Read(archive);
-	});
+		components->Read(archive);
+	}
 
 	std::cout << std::format("[Scene] Load ECStorage data took {:.3f} seconds.\n", timer.GetElapsedTime());
 

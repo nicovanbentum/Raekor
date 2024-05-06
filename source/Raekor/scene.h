@@ -74,9 +74,11 @@ public:
 
 	// script utilities
 	void BindScriptToEntity(Entity inEntity, NativeScript& inScript, Application* inApp);
-
-
 	void Optimize();
+
+protected:
+
+
 
 protected:
 	Path m_ActiveSceneFilePath;

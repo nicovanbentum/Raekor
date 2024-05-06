@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ecs.h"
 #include "rtti.h"
 
 namespace RK {
@@ -58,7 +59,7 @@ private:
 	Array<QuatKey> m_RotationKeys;
 };
 
-class Animation
+class Animation : public Component
 {
 	RTTI_DECLARE_TYPE(Animation);
 

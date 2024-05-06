@@ -177,20 +177,22 @@ void GltfImporter::ParseNode(const cgltf_node& inNode, Entity inParent, glm::mat
 			local_transform = glm::scale(local_transform, Vec3(inNode.scale[0], inNode.scale[1], inNode.scale[2]));
 	}
 
+	Entity entity = m_CreatedNodeEntities.emplace_back(m_Scene.CreateSpatialEntity());
+	
 	// Calculate global transform
 	inTransform *= local_transform;
 
 	if (inNode.mesh)
 	{
-		Entity entity = m_CreatedNodeEntities.emplace_back(m_Scene.CreateSpatialEntity());
+		Name& name = m_Scene.Get<Name>(entity);
 
 		// name it after the node or its mesh
 		if (inNode.name)
-			m_Scene.Get<Name>(entity).name = inNode.name;
+			name.name = inNode.name;
 		else if (inNode.mesh && inNode.mesh->name)
-			m_Scene.Get<Name>(entity).name = inNode.mesh->name;
+			name.name = inNode.mesh->name;
 		else
-			m_Scene.Get<Name>(entity).name = "Mesh " + std::to_string(uint32_t(entity));
+			name.name = "Mesh " + std::to_string(uint32_t(entity));
 
 		Transform& mesh_transform = m_Scene.Get<Transform>(entity);
 		mesh_transform.localTransform = inTransform;
@@ -208,18 +210,14 @@ void GltfImporter::ParseNode(const cgltf_node& inNode, Entity inParent, glm::mat
 		{
 			for (const auto& [index, primitive] : gEnumerate(Slice(inNode.mesh->primitives, inNode.mesh->primitives_count)))
 			{
-				Entity clone = m_CreatedNodeEntities.emplace_back(m_Scene.Clone(entity));
-				ConvertMesh(clone, primitive);
+				Entity sub_entity = m_Scene.CreateSpatialEntity();
+				ConvertMesh(sub_entity, primitive);
 
-				Name& name = m_Scene.Get<Name>(clone);
-				name.name += "-" + std::to_string(index);
+				Name& sub_name = m_Scene.Get<Name>(sub_entity);
+				sub_name.name = m_Scene.Get<Name>(entity).name + "-" + std::to_string(index);
 
-				// multiple mesh entities of the same node all get parented to that node's transform, so their local transform can just be identity
-				auto& transform = m_Scene.Get<Transform>(clone);
-				transform.localTransform = glm::mat4(1.0f);
-				transform.Decompose();
-
-				m_Scene.ParentTo(clone, entity);
+				m_Scene.ParentTo(sub_entity, entity);
+				m_CreatedNodeEntities.emplace_back(sub_entity);
 			}
 		}
 
@@ -229,8 +227,6 @@ void GltfImporter::ParseNode(const cgltf_node& inNode, Entity inParent, glm::mat
 
 	if (inNode.light)
 	{
-		const auto entity = m_CreatedNodeEntities.emplace_back(m_Scene.CreateSpatialEntity());
-
 		Transform& transform = m_Scene.Get<Transform>(entity);
 		transform.localTransform = inTransform;
 		transform.Decompose();
@@ -239,7 +235,7 @@ void GltfImporter::ParseNode(const cgltf_node& inNode, Entity inParent, glm::mat
 	}
 
 	for (cgltf_node* child : Slice(inNode.children, inNode.children_count))
-		ParseNode(*child, inParent, inTransform);
+		ParseNode(*child, entity, inTransform);
 }
 
 

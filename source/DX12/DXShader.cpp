@@ -90,17 +90,17 @@ RTTI_DEFINE_TYPE(SystemShadersDX12)
 }
 
 
-bool ShaderProgram::GetGraphicsProgram(CD3DX12_SHADER_BYTECODE& ioVertexShaderByteCode, CD3DX12_SHADER_BYTECODE& ioPixelShaderByteCode) const
+bool ShaderProgram::GetGraphicsProgram(ByteSlice& ioVertexShaderByteCode, ByteSlice& ioPixelShaderByteCode) const
 {
-    ioVertexShaderByteCode = CD3DX12_SHADER_BYTECODE(mVertexShader.data(), mVertexShader.size());
-    ioPixelShaderByteCode = CD3DX12_SHADER_BYTECODE(mPixelShader.data(), mPixelShader.size());
+    ioVertexShaderByteCode = ByteSlice(mVertexShader);
+    ioPixelShaderByteCode = ByteSlice(mPixelShader);
     return IsCompiled();
 }
 
 
-bool ShaderProgram::GetComputeProgram(CD3DX12_SHADER_BYTECODE& ioComputeShaderByteCode) const
+bool ShaderProgram::GetComputeProgram(ByteSlice& ioComputeShaderByteCode) const
 {
-    ioComputeShaderByteCode = CD3DX12_SHADER_BYTECODE(mComputeShader.data(), mComputeShader.size());
+    ioComputeShaderByteCode = ByteSlice(mComputeShader);
     return IsCompiled();
 }
 
@@ -114,7 +114,7 @@ bool ShaderProgram::CompilePSO(Device& inDevice, const char* inDebugName)
 
         Timer timer;
 
-        D3D12_COMPUTE_PIPELINE_STATE_DESC pso_desc = inDevice.CreatePipelineStateDesc(nullptr, CD3DX12_SHADER_BYTECODE(mComputeShader.data(), mComputeShader.size()));
+        D3D12_COMPUTE_PIPELINE_STATE_DESC pso_desc = inDevice.CreatePipelineStateDesc(nullptr, ByteSlice(mComputeShader.data(), mComputeShader.size()));
         gThrowIfFailed(inDevice->CreateComputePipelineState(&pso_desc, IID_PPV_ARGS(&m_ComputePipeline)));
 
         std::cout << std::format("[DX12] Compute PSO {} compilation took {:.2f} ms \n", inDebugName, Timer::sToMilliseconds(timer.GetElapsedTime()));
@@ -391,8 +391,8 @@ ID3D12PipelineState* ShaderCompiler::GetGraphicsPipeline(Device& inDevice, IRend
     }
     else
     {
-        CD3DX12_SHADER_BYTECODE pixel_shader(m_ShaderCache[inPixelShaderHash]->GetBufferPointer(), m_ShaderCache[inPixelShaderHash]->GetBufferSize());
-        CD3DX12_SHADER_BYTECODE vertex_shader(m_ShaderCache[inVertexShaderHash]->GetBufferPointer(), m_ShaderCache[inVertexShaderHash]->GetBufferSize());
+        ByteSlice pixel_shader((const uint8_t*)m_ShaderCache[inPixelShaderHash]->GetBufferPointer(), m_ShaderCache[inPixelShaderHash]->GetBufferSize());
+        ByteSlice vertex_shader((const uint8_t*)m_ShaderCache[inVertexShaderHash]->GetBufferPointer(), m_ShaderCache[inVertexShaderHash]->GetBufferSize());
 
         D3D12_GRAPHICS_PIPELINE_STATE_DESC desc = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
         inDevice->CreateGraphicsPipelineState(&desc, IID_PPV_ARGS(m_PipelineCache[shader_hash].GetAddressOf()));

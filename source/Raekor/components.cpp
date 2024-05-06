@@ -10,19 +10,16 @@
 
 namespace RK {
 
-RTTI_DEFINE_TYPE(Component)
-{
-
-}
-
 RTTI_DEFINE_TYPE(Name)
 {
+	RTTI_DEFINE_TYPE_INHERITANCE(Name, Component);
 	RTTI_DEFINE_MEMBER(Name, SERIALIZE_ALL, "Name", name);
 }
 
 
 RTTI_DEFINE_TYPE(Transform)
 {
+	RTTI_DEFINE_TYPE_INHERITANCE(Transform, Component);
 	RTTI_DEFINE_MEMBER(Transform, SERIALIZE_ALL, "Scale", scale);
 	RTTI_DEFINE_MEMBER(Transform, SERIALIZE_ALL, "Position", position);
 	RTTI_DEFINE_MEMBER(Transform, SERIALIZE_ALL, "Rotation", rotation);
@@ -33,6 +30,7 @@ RTTI_DEFINE_TYPE(Transform)
 
 RTTI_DEFINE_TYPE(DirectionalLight)
 {
+	RTTI_DEFINE_TYPE_INHERITANCE(DirectionalLight, Component);
 	RTTI_DEFINE_MEMBER(DirectionalLight, SERIALIZE_ALL, "Direction", direction);
 	RTTI_DEFINE_MEMBER(DirectionalLight, SERIALIZE_ALL, "Color", colour);
 }
@@ -48,6 +46,7 @@ RTTI_DEFINE_ENUM(ELightType)
 
 RTTI_DEFINE_TYPE(Light)
 {
+	RTTI_DEFINE_TYPE_INHERITANCE(Light, Component);
 	RTTI_DEFINE_MEMBER(Light, SERIALIZE_ALL, "Type", type);
 	RTTI_DEFINE_MEMBER(Light, SERIALIZE_ALL, "Direction", direction);
 	RTTI_DEFINE_MEMBER(Light, SERIALIZE_ALL, "Position", position);
@@ -58,6 +57,7 @@ RTTI_DEFINE_TYPE(Light)
 
 RTTI_DEFINE_TYPE(Mesh)
 {
+	RTTI_DEFINE_TYPE_INHERITANCE(Mesh, Component);
 	RTTI_DEFINE_MEMBER(Mesh, SERIALIZE_ALL, "Positions", positions);
 	RTTI_DEFINE_MEMBER(Mesh, SERIALIZE_ALL, "Texcoords", uvs);
 	RTTI_DEFINE_MEMBER(Mesh, SERIALIZE_ALL, "Normals", normals);
@@ -66,12 +66,22 @@ RTTI_DEFINE_TYPE(Mesh)
 	RTTI_DEFINE_MEMBER(Mesh, SERIALIZE_ALL, "Material", material);
 }
 
-RTTI_DEFINE_TYPE(RigidBody) {}
-RTTI_DEFINE_TYPE(SoftBody) {}
+
+RTTI_DEFINE_TYPE(RigidBody) 
+{
+	RTTI_DEFINE_TYPE_INHERITANCE(RigidBody, Component);
+}
+
+
+RTTI_DEFINE_TYPE(SoftBody) 
+{
+	RTTI_DEFINE_TYPE_INHERITANCE(SoftBody, Component);
+}
 
 
 RTTI_DEFINE_TYPE(Skeleton::Bone)
 {
+	RTTI_DEFINE_TYPE_INHERITANCE(Skeleton::Bone, Component);
 	RTTI_DEFINE_MEMBER(Skeleton::Bone, SERIALIZE_ALL, "Index", index);
 	RTTI_DEFINE_MEMBER(Skeleton::Bone, SERIALIZE_ALL, "Name", name);
 	RTTI_DEFINE_MEMBER(Skeleton::Bone, SERIALIZE_ALL, "Children", children);
@@ -80,6 +90,7 @@ RTTI_DEFINE_TYPE(Skeleton::Bone)
 
 RTTI_DEFINE_TYPE(Skeleton)
 {
+	RTTI_DEFINE_TYPE_INHERITANCE(Skeleton, Component);
 	RTTI_DEFINE_MEMBER(Skeleton, SERIALIZE_ALL, "Animation", animation);
 	RTTI_DEFINE_MEMBER(Skeleton, SERIALIZE_ALL, "Inv Global Transform", inverseGlobalTransform);
 	RTTI_DEFINE_MEMBER(Skeleton, SERIALIZE_ALL, "Bone Weights", boneWeights);
@@ -91,6 +102,7 @@ RTTI_DEFINE_TYPE(Skeleton)
 
 RTTI_DEFINE_TYPE(NativeScript) 
 {
+	RTTI_DEFINE_TYPE_INHERITANCE(NativeScript, Component);
 	RTTI_DEFINE_MEMBER(NativeScript, SERIALIZE_ALL, "File", file);
 	RTTI_DEFINE_MEMBER(NativeScript, SERIALIZE_ALL, "Type", type);
 }
@@ -98,6 +110,7 @@ RTTI_DEFINE_TYPE(NativeScript)
 
 RTTI_DEFINE_TYPE(Material)
 {
+	RTTI_DEFINE_TYPE_INHERITANCE(Material, Component);
 	RTTI_DEFINE_MEMBER(Material, SERIALIZE_ALL, "Base Color", albedo);
 	RTTI_DEFINE_MEMBER(Material, SERIALIZE_ALL, "Base Emissive", emissive);
 	RTTI_DEFINE_MEMBER(Material, SERIALIZE_ALL, "Metallic", metallic);
@@ -118,6 +131,7 @@ RTTI_DEFINE_TYPE(Material)
 
 RTTI_DEFINE_TYPE(DDGISceneSettings) 
 {
+	RTTI_DEFINE_TYPE_INHERITANCE(DDGISceneSettings, Component);
 	RTTI_DEFINE_MEMBER(DDGISceneSettings, SERIALIZE_ALL, "Debug Probe", mDDGIDebugProbe);
 	RTTI_DEFINE_MEMBER(DDGISceneSettings, SERIALIZE_ALL, "Probe Count", mDDGIProbeCount);
 	RTTI_DEFINE_MEMBER(DDGISceneSettings, SERIALIZE_ALL, "Probe Spacing", mDDGIProbeSpacing);

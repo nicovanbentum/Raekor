@@ -673,7 +673,7 @@ const ProbeDebugData& AddProbeDebugPass(RenderGraph& inRenderGraph, Device& inDe
         inData.mProbesDepthTextureSRV = ioRGBuilder.Read(inUpdateData.mProbesDepthTexture);
         inData.mProbesIrradianceTextureSRV = ioRGBuilder.Read(inUpdateData.mProbesIrradianceTexture);
 
-        CD3DX12_SHADER_BYTECODE vertex_shader, pixel_shader;
+        ByteSlice vertex_shader, pixel_shader;
         g_SystemShaders.mProbeDebugShader.GetGraphicsProgram(vertex_shader, pixel_shader);
         D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_desc = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
         
@@ -747,7 +747,7 @@ const ProbeDebugRaysData& AddProbeDebugRaysPass(RenderGraph& inRenderGraph, Devi
             D3D12_INPUT_ELEMENT_DESC { "POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
         };
 
-        CD3DX12_SHADER_BYTECODE vertex_shader, pixel_shader;
+        ByteSlice vertex_shader, pixel_shader;
         g_SystemShaders.mProbeDebugRaysShader.GetGraphicsProgram(vertex_shader, pixel_shader);
         D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
 

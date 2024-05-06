@@ -391,32 +391,19 @@ void Device::ReleaseTextureImmediate(TextureID inTextureID)
 
 
 
-D3D12_GRAPHICS_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* inRenderPass, const CD3DX12_SHADER_BYTECODE& inVertexShader, const CD3DX12_SHADER_BYTECODE& inPixelShader)
+D3D12_GRAPHICS_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* inRenderPass, const ByteSlice& inVertexShader, const ByteSlice& inPixelShader)
 {
     assert(inRenderPass->IsGraphics() && "Cannot create a Graphics PSO description for a Compute RenderPass");
-
-    static constexpr std::array vertex_layout =
-    {
-        D3D12_INPUT_ELEMENT_DESC { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-        D3D12_INPUT_ELEMENT_DESC { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-        D3D12_INPUT_ELEMENT_DESC { "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 20, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-        D3D12_INPUT_ELEMENT_DESC { "TANGENT",  0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 32, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
-    };
 
     D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state =
     {
         .pRootSignature = GetGlobalRootSignature(),
-        .VS = inVertexShader,
-        .PS = inPixelShader,
+        .VS = CD3DX12_SHADER_BYTECODE(inVertexShader.GetPtr(), inVertexShader.Length()),
+        .PS = CD3DX12_SHADER_BYTECODE(inPixelShader.GetPtr(), inPixelShader.Length()),
         .BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT),
         .SampleMask = UINT_MAX,
         .RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT),
         .DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT),
-        .InputLayout = D3D12_INPUT_LAYOUT_DESC
-        {
-            .pInputElementDescs = vertex_layout.data(),
-            .NumElements = vertex_layout.size(),
-        },
         .PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
         .SampleDesc = DXGI_SAMPLE_DESC {.Count = 1 },
     };
@@ -438,10 +425,11 @@ D3D12_GRAPHICS_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* 
 
 
 
-D3D12_COMPUTE_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* inRenderPass, const CD3DX12_SHADER_BYTECODE& inComputeShader)
+D3D12_COMPUTE_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* inRenderPass, const ByteSlice& inComputeShader)
 {
     assert(inRenderPass ? inRenderPass->IsCompute() : true && "Cannot create a Compute PSO description for a GraphicsRenderPass");
-    return D3D12_COMPUTE_PIPELINE_STATE_DESC { .pRootSignature = GetGlobalRootSignature(), .CS = inComputeShader };
+    D3D12_SHADER_BYTECODE cs_bytecode = CD3DX12_SHADER_BYTECODE(inComputeShader.GetPtr(), inComputeShader.Length());
+    return D3D12_COMPUTE_PIPELINE_STATE_DESC { .pRootSignature = GetGlobalRootSignature(), .CS = cs_bytecode };
 }
 
 

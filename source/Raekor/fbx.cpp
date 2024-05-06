@@ -109,18 +109,14 @@ void FBXImporter::ParseNode(const ufbx_node* inNode, Entity inParent, Entity inE
 		{
 			for (const auto& [index, material] : gEnumerate(inNode->mesh->materials))
 			{
-				Entity clone = m_CreatedNodeEntities.emplace_back(m_Scene.Clone(inEntity));
-				ConvertMesh(clone, inNode->mesh, material);
+				Entity sub_entity = m_Scene.CreateSpatialEntity();
+				ConvertMesh(sub_entity, inNode->mesh, material);
 
-				Name& name = m_Scene.Get<Name>(clone);
-				name.name += "-" + std::to_string(index);
+				Name& sub_name = m_Scene.Get<Name>(sub_entity);
+				sub_name.name = m_Scene.Get<Name>(inEntity).name + "-" + std::to_string(index);
 
-				// multiple mesh entities of the same node all get parented to that node's transform, so their local transform can just be identity
-				Transform& transform = m_Scene.Get<Transform>(clone);
-				transform.localTransform = glm::mat4(1.0f);
-				transform.Decompose();
-
-				m_Scene.ParentTo(clone, inEntity);
+				m_Scene.ParentTo(sub_entity, inEntity);
+				m_CreatedNodeEntities.emplace_back(sub_entity);
 			}
 		}
 

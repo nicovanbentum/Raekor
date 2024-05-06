@@ -255,7 +255,7 @@ const GBufferData& AddMeshletsRasterPass(RenderGraph& inRenderGraph, Device& inD
         ioRGBuilder.RenderTarget(inData.mVelocityTexture); // SV_Target1
         ioRGBuilder.DepthStencilTarget(inData.mDepthTexture);
 
-        CD3DX12_SHADER_BYTECODE vertex_shader, pixel_shader;
+        ByteSlice vertex_shader, pixel_shader;
         g_SystemShaders.mGBufferShader.GetGraphicsProgram(vertex_shader, pixel_shader);
 
         D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
@@ -312,6 +312,9 @@ const GBufferData& AddMeshletsRasterPass(RenderGraph& inRenderGraph, Device& inD
             const int instance_index = inScene->GetPackedIndex<Mesh>(entity);
             assert(instance_index != -1);
 
+            if (const Name* name = inScene->GetPtr<Name>(entity))
+                PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( inCmdList ), PIX_COLOR(0, 255, 0), name->name.c_str());
+
             const GbufferRootConstants root_constants = 
             {
                 .mInstancesBuffer = inDevice.GetBindlessHeapIndex(inScene.GetInstancesDescriptor(inDevice)),
@@ -330,8 +333,6 @@ const GBufferData& AddMeshletsRasterPass(RenderGraph& inRenderGraph, Device& inD
 
             inCmdList->DrawIndexedInstanced(mesh.indices.size(), 1, 0, 0, 0);
         }
-
-        // std::cout << std::format("gbuffer pass took {:.2f} ms.\n", Timer::sToMilliseconds(timer.Restart()));
     });
 }
 
@@ -383,7 +384,7 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
         ioRGBuilder.RenderTarget(inData.mSelectionTexture); // SV_Target2
         ioRGBuilder.DepthStencilTarget(inData.mDepthTexture);
 
-        CD3DX12_SHADER_BYTECODE vertex_shader, pixel_shader;
+        ByteSlice vertex_shader, pixel_shader;
         g_SystemShaders.mGBufferShader.GetGraphicsProgram(vertex_shader, pixel_shader);
 
         D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
@@ -499,7 +500,7 @@ const GBufferDebugData& AddGBufferDebugPass(RenderGraph& inRenderGraph, Device& 
             default: assert(false);
         }
 
-        CD3DX12_SHADER_BYTECODE vertex_shader, pixel_shader;
+        ByteSlice vertex_shader, pixel_shader;
         switch (inDebugTexture)
         {
             case DEBUG_TEXTURE_GBUFFER_DEPTH:     g_SystemShaders.mGBufferDebugDepthShader.GetGraphicsProgram(vertex_shader, pixel_shader);      break;
@@ -531,7 +532,7 @@ const GBufferDebugData& AddGBufferDebugPass(RenderGraph& inRenderGraph, Device& 
             .mFarPlane  = inRenderGraph.GetViewport().GetCamera().GetFar(),
             .mNearPlane = inRenderGraph.GetViewport().GetCamera().GetNear(),
         });
-        inCmdList->DrawInstanced(6, 1, 0, 0);
+        inCmdList->DrawInstanced(3, 1, 0, 0);
     });
 }
 
@@ -545,11 +546,10 @@ const GrassData& AddGrassRenderPass(RenderGraph& inGraph, Device& inDevice, cons
         inData.mRenderTextureSRV = ioRGBuilder.RenderTarget(inGBufferData.mRenderTexture);
         inData.mDepthTextureSRV  = ioRGBuilder.DepthStencilTarget(inGBufferData.mDepthTexture);
 
-        CD3DX12_SHADER_BYTECODE vertex_shader, pixel_shader;
+        ByteSlice vertex_shader, pixel_shader;
         g_SystemShaders.mGrassShader.GetGraphicsProgram(vertex_shader, pixel_shader);
-        D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_desc = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
 
-        pso_desc.InputLayout = {};
+        D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_desc = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
         pso_desc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 
         inDevice->CreateGraphicsPipelineState(&pso_desc, IID_PPV_ARGS(&inData.mPipeline));
@@ -559,7 +559,7 @@ const GrassData& AddGrassRenderPass(RenderGraph& inGraph, Device& inDevice, cons
         {
             .mBend = 0.0f,
             .mTilt = 0.0f,
-            .mWindDirection = glm::vec2(0.0f, -1.0f)
+            .mWindDirection = Vec2(0.0f, -1.0f)
         };
     },
 
@@ -599,7 +599,7 @@ const DownsampleData& AddDownsamplePass(RenderGraph& inRenderGraph, Device& inDe
             // inRGBuilder.Write(inSourceTexture, mip);
         }
 
-        CD3DX12_SHADER_BYTECODE compute_shader;
+        ByteSlice compute_shader;
         g_SystemShaders.mDownsampleShader.GetComputeProgram(compute_shader);
         D3D12_COMPUTE_PIPELINE_STATE_DESC state = inDevice.CreatePipelineStateDesc(inRenderPass, compute_shader);
 
@@ -735,7 +735,7 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
         inData.mGBufferDepthTextureSRV      = ioRGBuilder.Read(inGBufferData.mDepthTexture);
         inData.mGBufferRenderTextureSRV     = ioRGBuilder.Read(inGBufferData.mRenderTexture);
 
-        CD3DX12_SHADER_BYTECODE vertex_shader, pixel_shader;
+        ByteSlice vertex_shader, pixel_shader;
         g_SystemShaders.mLightingShader.GetGraphicsProgram(vertex_shader, pixel_shader);
         D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
 
@@ -772,7 +772,7 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
         inCmdList->SetPipelineState(inData.mPipeline.Get());
         inCmdList.SetViewportAndScissor(inRenderGraph.GetViewport());
         inCmdList.PushGraphicsConstants(root_constants);
-        inCmdList->DrawInstanced(6, 1, 0, 0);
+        inCmdList->DrawInstanced(3, 1, 0, 0);
     });
 }
 
@@ -808,7 +808,7 @@ const TAAResolveData& AddTAAResolvePass(RenderGraph& inRenderGraph, Device& inDe
         inData.mDepthTextureSRV    =  ioRGBuilder.Read(inGBufferData.mDepthTexture);
         inData.mVelocityTextureSRV =  ioRGBuilder.Read(inGBufferData.mVelocityTexture);
 
-        CD3DX12_SHADER_BYTECODE vertex_shader, pixel_shader;
+        ByteSlice vertex_shader, pixel_shader;
         g_SystemShaders.mTAAResolveShader.GetGraphicsProgram(vertex_shader, pixel_shader);
         D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
 
@@ -834,7 +834,7 @@ const TAAResolveData& AddTAAResolvePass(RenderGraph& inRenderGraph, Device& inDe
             .mVelocityTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mVelocityTextureSRV))
         });
 
-        inCmdList->DrawInstanced(6, 1, 0, 0);
+        inCmdList->DrawInstanced(3, 1, 0, 0);
 
         ID3D12Resource* result_texture_resource = inDevice.GetD3D12Resource(inResources.GetTexture(inData.mOutputTexture));
         ID3D12Resource* history_texture_resource = inDevice.GetD3D12Resource(inResources.GetTexture(inData.mHistoryTexture));
@@ -921,7 +921,7 @@ const LuminanceHistogramData& AddLuminanceHistogramPass(RenderGraph& inRenderGra
 
 const BloomData& AddBloomPass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inInputTexture)
 {
-    auto RunBloomPass = [&](const std::string& inPassName, ID3D12PipelineState* inPipeline, RenderGraphResourceID inFromTexture, RenderGraphResourceID inToTexture, uint32_t inFromMip, uint32_t inToMip)
+    auto RunBloomPass = [&](const String& inPassName, ID3D12PipelineState* inPipeline, RenderGraphResourceID inFromTexture, RenderGraphResourceID inToTexture, uint32_t inFromMip, uint32_t inToMip)
     {
         return inRenderGraph.AddComputePass<BloomDownscaleData>(inPassName,
         [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, BloomDownscaleData& inData)
@@ -1019,7 +1019,7 @@ const DebugPrimitivesData& AddDebugOverlayPass(RenderGraph& inRenderGraph, Devic
         inData.mRenderTarget = ioRGBuilder.RenderTarget(inRenderTarget);
         inData.mDepthTarget = ioRGBuilder.DepthStencilTarget(inDepthTarget);
 
-        CD3DX12_SHADER_BYTECODE vertex_shader, pixel_shader;
+        ByteSlice vertex_shader, pixel_shader;
         g_SystemShaders.mDebugPrimitivesShader.GetGraphicsProgram(vertex_shader, pixel_shader);
         D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
 
@@ -1074,7 +1074,7 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, 
         inData.mInputTextureSRV = inBuilder.Read(inInputTexture);
         inData.mBloomTextureSRV = inBuilder.Read(inBloomTexture);
 
-        CD3DX12_SHADER_BYTECODE vertex_shader, pixel_shader;
+        ByteSlice vertex_shader, pixel_shader;
         g_SystemShaders.mFinalComposeShader.GetGraphicsProgram(vertex_shader, pixel_shader);
         D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
 
@@ -1106,7 +1106,7 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, 
             .mChromaticAberrationStrength = inData.mChromaticAberrationStrength,
          });
 
-        inCmdList->DrawInstanced(6, 1, 0, 0);
+        inCmdList->DrawInstanced(3, 1, 0, 0);
     });
 }
 
@@ -1204,7 +1204,7 @@ const ImGuiData& AddImGuiPass(RenderGraph& inRenderGraph, Device& inDevice, Stag
             D3D12_INPUT_ELEMENT_DESC { "COLOR", 0, DXGI_FORMAT_R32_UINT, 0, offsetof(ImDrawVert, col), D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
         };
 
-        CD3DX12_SHADER_BYTECODE vertex_shader, pixel_shader;
+        ByteSlice vertex_shader, pixel_shader;
         g_SystemShaders.mImGuiShader.GetGraphicsProgram(vertex_shader, pixel_shader);
 
         D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);

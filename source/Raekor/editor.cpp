@@ -37,7 +37,7 @@ IEditor::IEditor(WindowFlags inWindowFlags, IRenderInterface* inRenderInterface)
 	ImGui::StyleColorsDark();
 
 	// get GUI i/o and set a bunch of settings
-	ImGuiIO& io = ImGui::GetIO(); (void)io;
+	ImGuiIO& io = ImGui::GetIO();
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 	io.ConfigFlags |= ImGuiConfigFlags_NavNoCaptureKeyboard;
 	io.ConfigWindowsMoveFromTitleBarOnly = true;
@@ -272,7 +272,7 @@ void IEditor::OnEvent(const SDL_Event& event)
 			{
 				if (SDL_GetModState() & KMOD_LCTRL)
 				{
-					std::string filepath = OS::sSaveFileDialog("Scene File (*.scene)\0", "scene");
+					String filepath = OS::sSaveFileDialog("Scene File (*.scene)\0", "scene");
 
 					if (!filepath.empty())
 					{
@@ -306,10 +306,16 @@ void IEditor::OnEvent(const SDL_Event& event)
 
 			case SDLK_ESCAPE:
 			{
+				if (m_Physics.GetState() != Physics::Idle)
+				{
+					m_Physics.RestoreState();
+					m_Physics.Step(m_Scene, 1.0f / 60.0f);
+					m_Physics.SetState(Physics::Idle);
+
+				}
+
 				EGameState state = GetGameState();
 				SetGameState(GAME_STOPPED);
-
-				m_Physics.SetState(Physics::Idle);
 
 				if (state != GAME_STOPPED)
 				{

@@ -21,21 +21,26 @@ int main(int argc, char** argv)
         should_launch = launcher.ShouldLaunch();
     }
 
-    std::string s;
-
     if (!should_launch)
         return 0;
+
+    static const bool is_asset_compiler = OS::sCheckCommandLineOption("-asset_compiler");
 
     Timer timer;
 
     Application* app = nullptr;
 
-    if (OS::sCheckCommandLineOption("-asset_compiler"))
+    if (is_asset_compiler)
         app = new CompilerApp(IsDebuggerPresent() ? WindowFlag::NONE : WindowFlag::HIDDEN);
     else
         app = new GL::GLApp();
 
     app->LogMessage(std::format("[App] startup took {:.2f} seconds", timer.GetElapsedTime()));
+
+    String file_to_compile = OS::sGetCommandLineValue("-compile");
+    if (!file_to_compile.empty() && is_asset_compiler)
+    {
+    }
 
     app->Run();
 

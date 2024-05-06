@@ -12,6 +12,11 @@ RTTI_DECLARE_TYPE_PRIMITIVE(Entity);
 
 using EntityHierarchy = BinaryRelations::OneToMany<Entity, Entity>;
 
+struct Component
+{
+	RTTI_DECLARE_TYPE(Component);
+};
+
 template<typename T>
 class ComponentStorage;
 

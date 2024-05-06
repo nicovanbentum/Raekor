@@ -44,10 +44,10 @@ class ShaderProgram : public IResource
     friend class SystemShadersDX12;
 
 public:
-    bool GetGraphicsProgram(CD3DX12_SHADER_BYTECODE& ioVertexShaderByteCode, CD3DX12_SHADER_BYTECODE& ioPixelShaderByteCode) const;
-    bool GetComputeProgram(CD3DX12_SHADER_BYTECODE& ioComputeShaderByteCode) const;
+    bool GetGraphicsProgram(ByteSlice& ioVertexShaderByteCode, ByteSlice& ioPixelShaderByteCode) const;
+    bool GetComputeProgram(ByteSlice& ioComputeShaderByteCode) const;
 
-    inline bool IsCompute() const { return mProgramType == SHADER_PROGRAM_COMPUTE; }
+    inline bool IsCompute() const { return mProgramType == SHADER_PROGRAM_COMPUTE; } 
     inline bool IsGraphics() const { return mProgramType == SHADER_PROGRAM_GRAPHICS; }
 
     uint64_t GetPixelShaderHash() const { return mPixelShaderHash; }

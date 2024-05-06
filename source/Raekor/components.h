@@ -13,15 +13,9 @@ class Scene;
 class ScriptAsset;
 class TextureAsset;
 class INativeScript;
+class IComponentStorage;
 
-
-struct Component 
-{
-	RTTI_DECLARE_TYPE(Component);
-};
-
-
-struct Name
+struct Name : public Component
 {
 	RTTI_DECLARE_TYPE(Name);
 
@@ -36,7 +30,7 @@ struct Name
 };
 
 
-struct Transform
+struct Transform : public Component
 {
 	RTTI_DECLARE_TYPE(Transform);
 
@@ -58,7 +52,7 @@ struct Transform
 };
 
 
-struct DirectionalLight
+struct DirectionalLight : public Component
 {
 	RTTI_DECLARE_TYPE(DirectionalLight);
 
@@ -81,7 +75,7 @@ enum ELightType
 RTTI_DECLARE_ENUM(ELightType);
 
 
-struct Light
+struct Light : public Component
 {
 	RTTI_DECLARE_TYPE(Light);
 
@@ -114,7 +108,7 @@ struct Meshlet
 };
 
 
-struct Mesh
+struct Mesh : public Component
 {
 	RTTI_DECLARE_TYPE(Mesh);
 
@@ -161,7 +155,7 @@ struct Mesh
 };
 
 
-struct RigidBody
+struct RigidBody : public Component
 {
 	RTTI_DECLARE_TYPE(RigidBody);
 
@@ -177,7 +171,7 @@ struct RigidBody
 };
 
 
-struct SoftBody
+struct SoftBody : public Component
 {
 	RTTI_DECLARE_TYPE(SoftBody);
 
@@ -190,7 +184,7 @@ struct SoftBody
 
 
 
-struct Skeleton
+struct Skeleton : public Component
 {
 	RTTI_DECLARE_TYPE(Skeleton);
 
@@ -226,7 +220,7 @@ struct Skeleton
 };
 
 
-struct Material
+struct Material : public Component
 {
 	RTTI_DECLARE_TYPE(Material);
 
@@ -307,7 +301,7 @@ struct Material
 };
 
 
-struct NativeScript
+struct NativeScript : public Component
 {
 	RTTI_DECLARE_TYPE(NativeScript);
 
@@ -318,7 +312,7 @@ struct NativeScript
 };
 
 
-struct DDGISceneSettings
+struct DDGISceneSettings : public Component
 {
 	RTTI_DECLARE_TYPE(DDGISceneSettings);
 

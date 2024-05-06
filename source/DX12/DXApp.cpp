@@ -24,7 +24,22 @@ extern float samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d_1sp
 
 namespace RK::DX12 {
 
-class DXProfiler : public Profiler {};
+struct GPUProfileSection : public ProfileSection
+{
+    float GetSeconds() const final { return Timer::sGetTicksToSeconds(mEndTick - mStartTick); }
+};
+
+class DXProfiler : public Profiler 
+{
+public:
+    int AllocateGPU() { m_GPUSections.emplace_back(); return m_GPUSections.size() - 1; }
+    GPUProfileSection& GetSectionGPU(int inIndex) { return m_GPUSections[inIndex]; }
+    const Array<GPUProfileSection>& GetGPUProfileSections() const { return m_HistoryGPUSections; }
+
+private:
+    Array<GPUProfileSection> m_GPUSections;
+    Array<GPUProfileSection> m_HistoryGPUSections;
+};
 
 DXApp::DXApp() :
     IEditor(WindowFlag::RESIZE, &m_RenderInterface),
