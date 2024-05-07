@@ -69,8 +69,8 @@ public:
 	void LoadMaterialTextures(Assets& ioAssets, const Slice<Entity>& inMaterials);
 
 	// save Scene to disk
-	void SaveToFile(const std::string& inFile, Assets& ioAssets, Application* inApp = nullptr);
-	void OpenFromFile(const std::string& inFile, Assets& ioAssets, Application* inApp = nullptr);
+	void SaveToFile(const String& inFile, Assets& ioAssets, Application* inApp = nullptr);
+	void OpenFromFile(const String& inFile, Assets& ioAssets, Application* inApp = nullptr);
 
 	// script utilities
 	void BindScriptToEntity(Entity inEntity, NativeScript& inScript, Application* inApp);
@@ -96,7 +96,7 @@ class Importer
 {
 public:
 	Importer(Scene& inScene, IRenderInterface* inRenderer) : m_Scene(inScene), m_Renderer(inRenderer) {}
-	virtual bool LoadFromFile(const std::string& inFile, Assets* inAssets) = 0;
+	virtual bool LoadFromFile(const String& inFile, Assets* inAssets) = 0;
 
 protected:
 	Scene& m_Scene;
@@ -108,7 +108,7 @@ class SceneImporter : public Importer
 {
 public:
 	SceneImporter(Scene& inScene, IRenderInterface* inRenderer) : Importer(inScene, inRenderer), m_ImportedScene(inRenderer) {}
-	bool LoadFromFile(const std::string& inFile, Assets* inAssets) override;
+	bool LoadFromFile(const String& inFile, Assets* inAssets) override;
 
 private:
 	void ParseNode(Entity inEntity, Entity inParent);
@@ -118,8 +118,8 @@ private:
 
 private:
 	Scene m_ImportedScene;
-	std::vector<Entity> m_CreatedNodeEntities;
-	std::unordered_map<Entity, Entity> m_MaterialMapping;
+	Array<Entity> m_CreatedNodeEntities;
+	HashMap<Entity, Entity> m_MaterialMapping;
 };
 
 } // Namespace Raekor

@@ -639,7 +639,7 @@ const ProbeDebugData& AddProbeDebugPass(RenderGraph& inRenderGraph, Device& inDe
             .stride = sizeof(uint32_t) * 3,
             .usage  = Buffer::Usage::INDEX_BUFFER,
             .mappable = true
-        }).GetIndex();
+        }).GetValue();
 
         inData.mProbeMesh.vertexBuffer = inDevice.CreateBuffer(Buffer::Desc
         {
@@ -647,7 +647,7 @@ const ProbeDebugData& AddProbeDebugPass(RenderGraph& inRenderGraph, Device& inDe
             .stride = sizeof(Vertex),
             .usage  = Buffer::Usage::VERTEX_BUFFER,
             .mappable = true
-        }).GetIndex();
+        }).GetValue();
 
         {
             Buffer& index_buffer = inDevice.GetBuffer(BufferID(inData.mProbeMesh.indexBuffer));
@@ -676,6 +676,17 @@ const ProbeDebugData& AddProbeDebugPass(RenderGraph& inRenderGraph, Device& inDe
         ByteSlice vertex_shader, pixel_shader;
         g_SystemShaders.mProbeDebugShader.GetGraphicsProgram(vertex_shader, pixel_shader);
         D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_desc = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
+
+        constexpr std::array vertex_layout =
+        {
+            D3D12_INPUT_ELEMENT_DESC { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(Vertex, pos),     D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+            D3D12_INPUT_ELEMENT_DESC { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, offsetof(Vertex, uv),      D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+            D3D12_INPUT_ELEMENT_DESC { "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(Vertex, normal),  D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+            D3D12_INPUT_ELEMENT_DESC { "TANGENT",  0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(Vertex, tangent), D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+        };
+
+        pso_desc.InputLayout.NumElements = vertex_layout.size();
+        pso_desc.InputLayout.pInputElementDescs = vertex_layout.data();
         
         gThrowIfFailed(inDevice->CreateGraphicsPipelineState(&pso_desc, IID_PPV_ARGS(inData.mPipeline.GetAddressOf())));
         inData.mPipeline->SetName(L"PSO_PROBE_DEBUG");

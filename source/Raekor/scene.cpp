@@ -23,7 +23,7 @@ Scene::Scene(IRenderInterface* inRenderer) : m_Renderer(inRenderer), m_RootEntit
 			if (!m_Components.contains(rtti->GetHash()))
 			{
 
-#define CASE(T) case RTTI_HASH(T): m_Components[rtti->GetHash()] = new ComponentStorage<T>(); break;
+#define CASE(T) case RTTI_HASH(T): EnsureExists<T>(); break;
 
 				switch (rtti->GetHash())
 				{
@@ -435,60 +435,123 @@ void Scene::LoadMaterialTextures(Assets& assets, const Slice<Entity>& inMaterial
 }
 
 
-void Scene::SaveToFile(const std::string& inFile, Assets& ioAssets, Application* inApp)
+void Scene::SaveToFile(const String& inFile, Assets& ioAssets, Application* inApp)
 {
 	BinaryWriteArchive archive(inFile);
-	WriteFileBinary(archive.GetFile(), m_Entities);
+	File& file = archive.GetFile();
+	
+	SceneHeader header;
+	header.Version = SceneHeader::sVersion;
+	header.MagicNumber = SceneHeader::sMagicNumber;
 
-	for (auto [rtti_hash, components] : m_Components)
-	{
-		components->Write(archive);
-	}
+	// jump over the header
+	file.seekg(sizeof(SceneHeader));
 
-	std::vector<EntityHierarchy::Pair> pairs;
+	// write Entity's
+	WriteFileBinary(file, m_Entities);
+
+	// write hierarchy
+	Array<EntityHierarchy::Pair> pairs;
 	pairs.reserve(m_Hierarchy.count());
 
 	for (const EntityHierarchy::Pair& pair : m_Hierarchy)
 		pairs.push_back(pair);
 
-	WriteFileBinary(archive.GetFile(), pairs);
+	WriteFileBinary(file, pairs);
+	
+	// write and track tables
+	Array<SceneTable> tables;
+	tables.reserve(m_Components.size());
+
+	for (const auto& [hash, components] : m_Components)
+	{
+		SceneTable table;
+		table.Hash = hash;
+		table.Start = file.tellg();
+
+		components->Write(archive);
+
+		table.Size = uint64_t(file.tellg()) - table.Start;
+		tables.push_back(table);
+	}
+
+	// update header
+	header.IndexTableStart = file.tellg();
+	header.IndexTableCount = tables.size();
+
+	// write tables
+	WriteFileBinary(file, tables);
+
+	// write header (start of the file)
+	file.seekg(0);
+	WriteFileBinary(file, header);
 }
 
 
-void Scene::OpenFromFile(const std::string& inFilePath, Assets& ioAssets, Application* inApp)
+void Scene::OpenFromFile(const String& inFilePath, Assets& ioAssets, Application* inApp)
 {
 	// set file path properties
 	m_ActiveSceneFilePath = inFilePath;
 	assert(fs::is_regular_file(inFilePath));
 
-	// clear the current scene
-	Clear();
-
-	// read in the component data
-	Timer timer;
+	// open archive
 	BinaryReadArchive archive(inFilePath);
-	ReadFileBinary(archive.GetFile(), m_Entities);
+	File& file = archive.GetFile();
 
-	for (auto [rtti_hash, components] : m_Components)
+	// read header
+	SceneHeader header;
+	ReadFileBinary(file, header);
+
+	// check for errors
+	if (header.MagicNumber != SceneHeader::sMagicNumber)
 	{
-		components->Read(archive);
+		if (inApp) 
+			inApp->LogMessage(std::format("[Scene] Magic number mismatch!"));
+		return;
+	}
+	
+	if (header.Version != SceneHeader::sVersion)
+	{
+		if (inApp)
+			inApp->LogMessage(std::format("[Scene] Format version mismatch!!"));
+		return;
 	}
 
-	std::cout << std::format("[Scene] Load ECStorage data took {:.3f} seconds.\n", timer.GetElapsedTime());
+	// clear the current scene
+	Clear();
+	m_Hierarchy.clear();
 
-	std::vector<EntityHierarchy::Pair> pairs;
-	ReadFileBinary(archive.GetFile(), pairs);
+	// read in Entity's
+	ReadFileBinary(file, m_Entities);
 
+	Timer timer;
+	
+	// read in hierarchy
+	Array<EntityHierarchy::Pair> pairs;
+	ReadFileBinary(file, pairs);
 	m_Hierarchy.insert(pairs);
 
 	std::cout << std::format("[Scene] Load Hierarchy data took {:.3f} seconds.\n", timer.GetElapsedTime());
 
+	// read in tables
+	Array<SceneTable> tables;
+	file.seekg(header.IndexTableStart);
+	ReadFileBinary(file, tables);
+
+	// read in components
+	for (const SceneTable& table : tables)
+	{
+		file.seekg(table.Start);
+		m_Components[table.Hash]->Read(archive);
+	}
+
+	std::cout << std::format("[Scene] Load ECStorage data took {:.3f} seconds.\n", timer.GetElapsedTime());
 
 	// load material texture data to vram
 	LoadMaterialTextures(ioAssets, GetEntities<Material>());
 	timer.Restart();
 
-	// load mesh data from vram to gpu memory
+	// load mesh data to vram
 	for (const auto& [entity, mesh] : Each<Mesh>())
 	{
 		mesh.CalculateAABB();

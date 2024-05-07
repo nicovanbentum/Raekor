@@ -144,7 +144,7 @@ struct ProbeTraceData
     static inline DDGIData mDDGIData =
     {
         .mProbeCount = IVec3(22, 22, 22),
-        .mProbeRadius = 1.0f,
+        .mProbeRadius = 0.25f,
         .mProbeSpacing = Vec3(6.4, 3.0, 2.8),
         .mCornerPosition = Vec3(-65, -1.4, -28.5)
     };

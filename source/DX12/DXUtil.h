@@ -72,7 +72,7 @@ inline void gThrowIfFailed(xess_result_t inErrCode)
 }
 
 
-inline std::string gGetDebugName(ID3D12Resource* inResource)
+inline String gGetDebugName(ID3D12Resource* inResource)
 {
     char name[1024];
     uint32_t size = 0;
@@ -80,7 +80,7 @@ inline std::string gGetDebugName(ID3D12Resource* inResource)
     inResource->GetPrivateData(WKPDID_D3DDebugObjectName, &size, nullptr);
     inResource->GetPrivateData(WKPDID_D3DDebugObjectName, &size, name);
 
-    return std::string(name, size - 1);
+    return String(name, size - 1);
 }
 
 
@@ -90,20 +90,20 @@ inline void gSetDebugName(ID3D12Resource* inResource, const char* inName)
 }
 
 
-inline std::string gGetShaderISA(ID3D12PipelineState* inPipeline)
+inline String gGetShaderISA(ID3D12PipelineState* inPipeline)
 {
     UINT size = 0;
     inPipeline->GetPrivateData(WKPDID_CommentStringW, &size, NULL);
 
     if (size > 0)
     {
-        std::wstring wisa;
+        WString wisa;
         wisa.resize(size);
 
         inPipeline->GetPrivateData(WKPDID_CommentStringW, &size, wisa.data());
 
         char ch = ' ';
-        std::string isa;
+        String isa;
         isa.resize(size);
 
         WideCharToMultiByte(CP_ACP, 0, wisa.data(), -1, isa.data(), size, &ch, NULL);

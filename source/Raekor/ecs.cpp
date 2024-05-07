@@ -38,9 +38,9 @@ RTTI_DEFINE_TYPE(TestMaterial) {}
 void RunECStorageTests()
 {
 	ECStorage ecs;
-	ecs.Ensure<TestName>();
-	ecs.Ensure<TestMaterial>();
-	ecs.Ensure<TestTransform>();
+	ecs.EnsureExists<TestName>();
+	ecs.EnsureExists<TestMaterial>();
+	ecs.EnsureExists<TestTransform>();
 
 	Entity entity = ecs.Create();
 	{

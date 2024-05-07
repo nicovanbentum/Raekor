@@ -610,7 +610,7 @@ public:
 	}
 
 	template<typename Component>
-	void Ensure()
+	void EnsureExists()
 	{
 		if (!m_Components.contains(gGetTypeHash<Component>()))
 			m_Components[gGetRTTI<Component>().mHash] = new ComponentStorage<Component>();

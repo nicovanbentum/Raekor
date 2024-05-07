@@ -13,33 +13,30 @@ enum ESerializeType
 	SERIALIZE_ALL = SERIALIZE_JSON | SERIALIZE_BINARY
 };
 
-enum EPakCompressionType
+enum ECompressionType
 {
 	COMPRESS_NONE,
-	COMPRESS_LZ4,
-	COMPRESS_GDEFLATE
+	COMPRESS_LZ4
 };
 
-constexpr auto PAK_VERSION = 1u;
 
-struct PakHeader
+struct SceneHeader
 {
-	uint32_t mMagicNumber = 'PAK';
-	uint32_t mVersionNumber = PAK_VERSION;
-	uint32_t mContentVersionNumber = 1;
-	uint32_t mOffset = 0;
-	uint32_t mEntryCount = 0;
+	static constexpr uint32_t sVersion = 1;
+	static constexpr uint64_t sMagicNumber = 'RKSC';
+
+	uint32_t Version;
+	uint64_t MagicNumber;
+	uint64_t IndexTableStart;
+	uint64_t IndexTableCount;
 };
 
-struct PakEntry
+struct SceneTable
 {
-	char mNameOrPath[255];
-	EPakCompressionType mCompressionType;
-	uint32_t mOffset = 0;
-	uint32_t mSize = 0;
-	uint32_t mUncompressedSize = 0;
+	uint32_t Hash;
+	uint32_t Size;
+	uint32_t Start;
 };
-
 
 
 template<typename T>
