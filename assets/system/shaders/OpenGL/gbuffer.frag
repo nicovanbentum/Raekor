@@ -1,9 +1,4 @@
-#version 460 core
-#extension GL_GOOGLE_include_directive : require
-
-#include "include/structs.glsl"
-
-//#extension GL_ARB_bindless_texture : require
+#version 450 core
 
 // TODO: optimize by packing more data per byte
 // MRT texture output 

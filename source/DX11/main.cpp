@@ -248,7 +248,7 @@ public:
         const std::array gbuffer_stages =  
         {
             DXShader::Stage {.type = DXShader::Type::VERTEX, .mTextFile = "assets/system/shaders/DirectX/old/simple_vertex.hlsl" },
-            DXShader::Stage {.type = DXShader::Type::FRAG, .mTextFile = "assets/system/shaders/DirectX/old/simple_fp.hlsl" },
+            DXShader::Stage {.type = DXShader::Type::FRAGMENT, .mTextFile = "assets/system/shaders/DirectX/old/simple_fp.hlsl" },
         };
 
         m_GbufferShader = DXShader(gbuffer_stages.data(), gbuffer_stages.size());
@@ -256,7 +256,7 @@ public:
         const std::array gbuffer_depth_stages = 
         {
             DXShader::Stage {.type = DXShader::Type::VERTEX, .mTextFile = "assets/system/shaders/DirectX/old/simple_vertex.hlsl" },
-            DXShader::Stage {.type = DXShader::Type::FRAG, .mTextFile = "assets/system/shaders/DirectX/old/depth_fp.hlsl" },
+            DXShader::Stage {.type = DXShader::Type::FRAGMENT, .mTextFile = "assets/system/shaders/DirectX/old/depth_fp.hlsl" },
         };
 
         m_GbufferDepthShader = DXShader(gbuffer_depth_stages.data(), gbuffer_depth_stages.size());

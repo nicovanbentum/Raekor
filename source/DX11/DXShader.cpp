@@ -62,11 +62,11 @@ bool DXShader::CompileStage(const Stage& inStage)
         {
             hr = D3D.device->CreateVertexShader(buffer.Get()->GetBufferPointer(), buffer->GetBufferSize(), NULL, m_VertexShader.GetAddressOf());
         } break;
-        case Type::FRAG:
+        case Type::FRAGMENT:
         {
             hr = D3D.device->CreatePixelShader(buffer.Get()->GetBufferPointer(), buffer->GetBufferSize(), NULL, m_PixelShader.GetAddressOf());
         } break;
-        case Type::GEO:
+        case Type::GEOMETRY:
         {
             hr = D3D.device->CreateGeometryShader(buffer.Get()->GetBufferPointer(), buffer->GetBufferSize(), NULL, m_GeometryShader.GetAddressOf());
         } break;

@@ -1,8 +1,7 @@
 # Build (CMake - Windows)
 
 ### Editor - Requirements
-* Graphics card with OpenGL 4.6 support.
-* Vulkan SDK accessible from PATH (for SPIR-V compiler).
+* Graphics card with OpenGL 4.5 support.
 
 ### Vulkan - Requirements
 * Graphics card with RTX support.
@@ -59,7 +58,7 @@ Basic RenderGraph architecture (automatically creates resource views and handles
 ![image](https://i.imgur.com/B3pbNgd.png)
 
 ### Editor
-This project requires OpenGL 4.6 for direct state access functions and shader include directives. 
+This project requires OpenGL 4.5 for direct state access functions.
 
 * Deferred PBR Renderer
     - Bloom
@@ -70,7 +69,7 @@ This project requires OpenGL 4.6 for direct state access functions and shader in
     - Voxel Cone Traced Ambient Occlusion
     - Voxel Cone Traced Specular Reflections
     - Voxel Cone Traced Global Illumination (single bounce diffuse)
-    - Ray Traced Hard Shadows using Vulkan interop (only availabe in the [Scatter](https://github.com/nicovanbentum/Scatter)-integration branch, very outdated using the vk_nv_ray_tracing extension).
+    - Ray Traced Hard Shadows using Vulkan interop (uses the **DEPRECATED** vk_nv_ray_tracing extension from [Scatter](https://github.com/nicovanbentum/Scatter))
 
 ![image](https://i.imgur.com/m8HLdED.png)
 

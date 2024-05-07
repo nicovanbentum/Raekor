@@ -75,46 +75,6 @@ Renderer::Renderer(SDL_Window* window, Viewport& viewport) :
     gpu_info.mActiveAPI = std::string("OpenGL " + std::string((const char*)glGetString(GL_VERSION)));
     SetGPUInfo(gpu_info);
 
-    if (!fs::exists("assets/system/shaders/OpenGL/bin"))
-        fs::create_directory("assets/system/shaders/OpenGL/bin");
-
-    const char* vulkanSDK = getenv("VULKAN_SDK");
-    assert(vulkanSDK);
-
-    for (const fs::directory_entry& file : fs::directory_iterator("assets/system/shaders/OpenGL"))
-    {
-        if (file.is_directory())
-            continue;
-
-        // visual studio code glsl linter keeps compiling spirv files to the directory,
-        // delete em
-        if (file.path().extension() == ".spv")
-        {
-            remove(file.path().string().c_str());
-            continue;
-        }
-
-        g_ThreadPool.QueueJob([=]()
-        {
-            Path outfile = file.path().parent_path() / "bin" / file.path().filename();
-            outfile.replace_extension(outfile.extension().string() + ".spv");
-
-            if (!fs::exists(outfile) || fs::last_write_time(outfile) < file.last_write_time())
-            {
-                bool success = GLShader::sGlslangValidator(vulkanSDK, file, outfile);
-
-                {
-                    std::scoped_lock lock(g_ThreadPool.GetMutex());
-
-                    std::string result_string = success ? COUT_GREEN("finished") : COUT_RED("failed");
-                    std::cout << "Compilation " << result_string << " for shader: " << file.path().string() << '\n';
-                }
-            }
-        });
-    }
-
-    g_ThreadPool.WaitForJobs();
-
     // set debug callback
     glEnable(GL_DEBUG_OUTPUT);
     glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
@@ -136,7 +96,7 @@ Renderer::Renderer(SDL_Window* window, Viewport& viewport) :
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
 
-    unsigned int vertexArrayID;
+    GLuint vertexArrayID;
     glGenVertexArrays(1, &vertexArrayID);
     glBindVertexArray(vertexArrayID);
 

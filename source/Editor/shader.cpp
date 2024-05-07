@@ -6,11 +6,14 @@ namespace RK {
 
 bool Shader::Stage::WasModified()
 {
-    if (auto new_time = std::filesystem::last_write_time(path); new_time != lastwrite_time)
+    fs::file_time_type new_time = std::filesystem::last_write_time(path);
+
+    if (new_time != lastwrite_time)
     {
         lastwrite_time = new_time;
         return true;
     }
+
     return false;
 }
 
@@ -35,62 +38,58 @@ void GLShader::Compile()
     GLuint newProgramID = glCreateProgram();
     bool failed = false;
 
-    std::vector<GLuint> shaders;
+    Array<GLuint> shaders;
 
     for (const Stage& stage : stages)
     {
-        std::ifstream file(stage.binfile, std::ios::binary);
+        std::ifstream file(stage.textfile, std::ios::binary);
         if (!file.is_open())
             return;
 
-        auto spirv = std::vector<unsigned char>(fs::file_size(stage.binfile));
-        file.read((char*)&spirv[0], spirv.size());
-        file.close();
+        std::ostringstream string_stream;
+        string_stream << file.rdbuf();
+
+        String shader_source = string_stream.str();
+        const char* shader_source_cstr = shader_source.c_str();
 
         GLenum type = NULL;
 
         switch (stage.type)
         {
-            case Type::VERTEX:
-            {
-                type = GL_VERTEX_SHADER;
-            } break;
-            case Type::FRAG:
-            {
-                type = GL_FRAGMENT_SHADER;
-            } break;
-            case Type::GEO:
-            {
-                type = GL_GEOMETRY_SHADER;
-            } break;
-            case Type::COMPUTE:
-            {
-                type = GL_COMPUTE_SHADER;
-            } break;
+            case Type::VERTEX:   type = GL_VERTEX_SHADER;   break;
+            case Type::FRAGMENT: type = GL_FRAGMENT_SHADER; break;
+            case Type::GEOMETRY: type = GL_GEOMETRY_SHADER; break;
+            case Type::COMPUTE:  type = GL_COMPUTE_SHADER;  break;
+            default:
+                assert(false);
         }
 
-        unsigned int shaderID = glCreateShader(type);
-        glShaderBinary(1, &shaderID, GL_SHADER_BINARY_FORMAT_SPIR_V, spirv.data(), (GLsizei)spirv.size());
-        glSpecializeShader(shaderID, "main", 0, nullptr, nullptr);
+        GLuint shaderID = glCreateShader(type);
+        glShaderSource(shaderID, 1, &shader_source_cstr, NULL);
+        glCompileShader(shaderID);
 
-        int shaderCompilationResult = GL_FALSE;
-        int logMessageLength = 0;
+        GLint compile_success = GL_FALSE;
+        GLint error_msg_length = 0;
 
-        glGetShaderiv(shaderID, GL_COMPILE_STATUS, &shaderCompilationResult);
+        glGetShaderiv(shaderID, GL_COMPILE_STATUS, &compile_success);
 
-        if (shaderCompilationResult)
+        if (compile_success == GL_TRUE)
             shaders.push_back(shaderID);
         else
         {
-            glGetShaderiv(shaderID, GL_INFO_LOG_LENGTH, &logMessageLength);
+            glGetShaderiv(shaderID, GL_INFO_LOG_LENGTH, &error_msg_length);
 
-            auto error_msg = std::vector<char>(logMessageLength);
-            glGetShaderInfoLog(shaderID, logMessageLength, NULL, error_msg.data());
+            Array<char> error_msg(error_msg_length);
+            glGetShaderInfoLog(shaderID, error_msg_length, NULL, error_msg.data());
 
             failed = true;
-            std::cerr << error_msg.data() << '\n';
+
+            if (!error_msg.empty())
+                std::cerr << error_msg.data() << '\n';
         }
     }
+
+    assert(!shaders.empty());
 
     if (shaders.empty())
         return;
@@ -100,19 +99,22 @@ void GLShader::Compile()
 
     glLinkProgram(newProgramID);
 
-    int shaderCompilationResult = 0, logMessageLength = 0;
+    GLint link_success = GL_FALSE;
+    GLint error_msg_length = 0;
 
-    glGetProgramiv(newProgramID, GL_LINK_STATUS, &shaderCompilationResult);
+    glGetProgramiv(newProgramID, GL_LINK_STATUS, &link_success);
 
-    if (shaderCompilationResult == GL_FALSE)
+    if (link_success == GL_FALSE)
     {
-        glGetProgramiv(newProgramID, GL_INFO_LOG_LENGTH, &logMessageLength);
+        glGetProgramiv(newProgramID, GL_INFO_LOG_LENGTH, &error_msg_length);
 
-        std::vector<char> error_msg(logMessageLength);
-        glGetProgramInfoLog(newProgramID, logMessageLength, NULL, error_msg.data());
+        Array<char> error_msg(error_msg_length);
+        glGetProgramInfoLog(newProgramID, error_msg_length, NULL, error_msg.data());
 
         failed = true;
-        std::cerr << error_msg.data() << '\n';
+
+        if (!error_msg.empty())
+            std::cerr << error_msg.data() << '\n';
     }
 
     for (GLuint shader : shaders)
@@ -132,35 +134,12 @@ void GLShader::Compile()
 
 
 
-bool GLShader::sGlslangValidator(const char* inVulkanSDK, const Path& inSrcPath, const Path& inDstPath)
-{
-    if (!fs::is_regular_file(inSrcPath))
-        return false;
-
-    const String compiler = inVulkanSDK + std::string("\\Bin\\glslangValidator.exe -G ");
-    const String command = compiler + fs::absolute(inSrcPath).string() + " -o " + inDstPath.string();
-
-    if (system(command.c_str()) != 0)
-        return false;
-
-    return true;
-}
-
-
-
 void GLShader::Bind()
 {
     for (Stage& stage : stages)
     {
         if (stage.WasModified())
-        {
-            const char* sdk = getenv("VULKAN_SDK");
-            assert(sdk);
-
-            sGlslangValidator(sdk, stage.textfile, stage.binfile);
-
             Compile();
-        }
     }
     glUseProgram(programID);
 }
@@ -184,10 +163,6 @@ Shader::Stage::Stage(Type type, const Path& inSrcFile) :
         std::cerr << "file does not exist on disk\n";
         return;
     }
-
-    Path outfile = inSrcFile.parent_path() / "bin" / inSrcFile.filename();
-    outfile.replace_extension(outfile.extension().string() + ".spv");
-    binfile = outfile.string().c_str();
 }
 
 } // Namespace RK

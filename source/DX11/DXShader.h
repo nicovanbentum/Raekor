@@ -7,7 +7,7 @@ class DXShader
 public:
     enum Type
     {
-        VERTEX, FRAG, GEO, COMPUTE
+        VERTEX, FRAGMENT, GEOMETRY, COMPUTE
     };
 
     inline static std::array sTypeTargets = 

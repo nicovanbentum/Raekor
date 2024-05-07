@@ -59,12 +59,12 @@ ShadowMap::ShadowMap(const Viewport& viewport)
 
     shader.Compile({
         {Shader::Type::VERTEX, "assets\\system\\shaders\\OpenGL\\depth.vert"},
-        {Shader::Type::FRAG, "assets\\system\\shaders\\OpenGL\\depth.frag"}
+        {Shader::Type::FRAGMENT, "assets\\system\\shaders\\OpenGL\\depth.frag"}
         });
 
     debugShader.Compile({
         {Shader::Type::VERTEX, "assets\\system\\shaders\\OpenGL\\quad.vert"},
-        {Shader::Type::FRAG, "assets\\system\\shaders\\OpenGL\\quad.frag"}
+        {Shader::Type::FRAGMENT, "assets\\system\\shaders\\OpenGL\\quad.frag"}
         });
 
     glCreateTextures(GL_TEXTURE_2D_ARRAY, 1, &texture);
@@ -335,7 +335,7 @@ GBuffer::GBuffer(const Viewport& inViewport)
 {
     shader.Compile({
         {Shader::Type::VERTEX, "assets\\system\\shaders\\OpenGL\\gbuffer.vert"},
-        {Shader::Type::FRAG, "assets\\system\\shaders\\OpenGL\\gbuffer.frag"}
+        {Shader::Type::FRAGMENT, "assets\\system\\shaders\\OpenGL\\gbuffer.frag"}
         });
 
     glCreateBuffers(1, &uniformBuffer);
@@ -547,12 +547,12 @@ DeferredShading::DeferredShading(const Viewport& viewport)
     // load shaders from disk
     shader.Compile({
         {Shader::Type::VERTEX, "assets\\system\\shaders\\OpenGL\\quad.vert"},
-        {Shader::Type::FRAG, "assets\\system\\shaders\\OpenGL\\pbr.frag"}
+        {Shader::Type::FRAGMENT, "assets\\system\\shaders\\OpenGL\\pbr.frag"}
         });
 
     brdfLUTshader.Compile({
         {Shader::Type::VERTEX, "assets\\system\\shaders\\OpenGL\\quad.vert"},
-        {Shader::Type::FRAG, "assets\\system\\shaders\\OpenGL\\brdfLUT.frag"}
+        {Shader::Type::FRAGMENT, "assets\\system\\shaders\\OpenGL\\brdfLUT.frag"}
         });
 
     // init resources
@@ -697,7 +697,7 @@ Bloom::Bloom(const Viewport& viewport)
 {
     blurShader.Compile({
         {Shader::Type::VERTEX, "assets\\system\\shaders\\OpenGL\\quad.vert"},
-        {Shader::Type::FRAG, "assets\\system\\shaders\\OpenGL\\gaussian.frag"}
+        {Shader::Type::FRAGMENT, "assets\\system\\shaders\\OpenGL\\gaussian.frag"}
         });
 
     CreateRenderTargets(viewport);
@@ -808,7 +808,7 @@ Tonemap::Tonemap(const Viewport& viewport)
     // load shaders from disk
     shader.Compile({
         {Shader::Type::VERTEX, "assets\\system\\shaders\\OpenGL\\quad.vert"},
-        {Shader::Type::FRAG, "assets\\system\\shaders\\OpenGL\\tonemap.frag"}
+        {Shader::Type::FRAGMENT, "assets\\system\\shaders\\OpenGL\\tonemap.frag"}
         });
 
     // init render targets
@@ -868,8 +868,8 @@ Voxelize::Voxelize(uint32_t size) : size(size)
     // load shaders from disk
     shader.Compile({
         {Shader::Type::VERTEX, "assets\\system\\shaders\\OpenGL\\voxelize.vert"},
-        {Shader::Type::GEO, "assets\\system\\shaders\\OpenGL\\voxelize.geom"},
-        {Shader::Type::FRAG, "assets\\system\\shaders\\OpenGL\\voxelize.frag"}
+        {Shader::Type::GEOMETRY, "assets\\system\\shaders\\OpenGL\\voxelize.geom"},
+        {Shader::Type::FRAGMENT, "assets\\system\\shaders\\OpenGL\\voxelize.frag"}
         });
 
     mipmapShader.Compile({ {Shader::Type::COMPUTE, "assets\\system\\shaders\\OpenGL\\mipmap.comp"} });
@@ -1015,8 +1015,8 @@ VoxelizeDebug::VoxelizeDebug(const Viewport& viewport)
 {
     shader.Compile({
         {Shader::Type::VERTEX, "assets\\system\\shaders\\OpenGL\\voxelDebug.vert"},
-        {Shader::Type::GEO, "assets\\system\\shaders\\OpenGL\\voxelDebug.geom"},
-        {Shader::Type::FRAG, "assets\\system\\shaders\\OpenGL\\voxelDebug.frag"}
+        {Shader::Type::GEOMETRY, "assets\\system\\shaders\\OpenGL\\voxelDebug.geom"},
+        {Shader::Type::FRAGMENT, "assets\\system\\shaders\\OpenGL\\voxelDebug.frag"}
         });
 
     CreateRenderTargets(viewport);
@@ -1031,7 +1031,7 @@ VoxelizeDebug::VoxelizeDebug(const Viewport& viewport, uint32_t voxelTextureSize
 {
     shader.Compile({
         {Shader::Type::VERTEX, "assets\\system\\shaders\\OpenGL\\voxelDebugFast.vert"},
-        {Shader::Type::FRAG, "assets\\system\\shaders\\OpenGL\\voxelDebugFast.frag"}
+        {Shader::Type::FRAGMENT, "assets\\system\\shaders\\OpenGL\\voxelDebugFast.frag"}
         });
 
     // init resources
@@ -1178,7 +1178,7 @@ DebugLines::DebugLines()
     shader.Compile
     ({
         { Shader::Type::VERTEX, "assets\\system\\shaders\\OpenGL\\aabb.vert" },
-        { Shader::Type::FRAG, "assets\\system\\shaders\\OpenGL\\aabb.frag" }
+        { Shader::Type::FRAGMENT, "assets\\system\\shaders\\OpenGL\\aabb.frag" }
     });
 
     glCreateFramebuffers(1, &frameBuffer);
@@ -1260,7 +1260,7 @@ Icons::Icons(const Viewport& viewport)
 {
     shader.Compile({
         {Shader::Type::VERTEX, "assets\\system\\shaders\\OpenGL\\billboard.vert"},
-        {Shader::Type::FRAG, "assets\\system\\shaders\\OpenGL\\billboard.frag"}
+        {Shader::Type::FRAGMENT, "assets\\system\\shaders\\OpenGL\\billboard.frag"}
         });
 
     int w, h, ch;

@@ -5,7 +5,7 @@ namespace RK {
 class Shader
 {
 public:
-    enum class Type { VERTEX, FRAG, GEO, COMPUTE };
+    enum class Type { VERTEX, FRAGMENT, GEOMETRY, COMPUTE };
 
     struct Stage
     {
@@ -15,8 +15,7 @@ public:
 
         Type type;
         Path path;
-        std::string textfile;
-        std::string binfile;
+        String textfile;
         fs::file_time_type lastwrite_time;
     };
 
@@ -33,8 +32,6 @@ public:
     void Compile(const std::initializer_list<Stage>& list);
     void Compile();
 
-    static bool sGlslangValidator(const char* inVulkanSDK, const Path& inSrcPath, const Path& inDstPath);
-
     operator bool() { return programID != 0; };
 
     void Bind() override;
@@ -42,7 +39,7 @@ public:
 
 private:
     GLuint programID = 0;
-    std::vector<Shader::Stage> stages;
+    Array<Shader::Stage> stages;
 };
 
 } // Namespace Raekor
