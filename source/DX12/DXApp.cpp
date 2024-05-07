@@ -95,9 +95,15 @@ DXApp::DXApp() :
         }
     }
 
-    TextureID bluenoise_texture = m_Device.CreateTexture(Texture::Desc2D(DXGI_FORMAT_R32G32B32A32_FLOAT, 128, 128, Texture::Usage::SHADER_READ_ONLY));
-    gSetDebugName(m_Device.GetD3D12Resource(bluenoise_texture), "BLUENOISE128x1spp");
-    
+    TextureID bluenoise_texture = m_Device.CreateTexture(Texture::Desc 
+    {
+        .format = DXGI_FORMAT_R32G32B32A32_FLOAT,
+        .width  = 128, 
+        .height = 128,
+        .usage  = Texture::Usage::SHADER_READ_ONLY,
+        .debugName = "BlueNoise128x1spp"
+    });
+
     assert(m_Device.GetBindlessHeapIndex(bluenoise_texture) == BINDLESS_BLUE_NOISE_TEXTURE_INDEX);
 
     m_Renderer.QueueTextureUpload(bluenoise_texture, 0, Slice<char>((const char*)blue_noise_samples.data(), blue_noise_samples.size() / sizeof(blue_noise_samples[0])));
@@ -120,11 +126,11 @@ DXApp::DXApp() :
     assert(m_DefaultWhiteTexture.IsValid() && m_DefaultWhiteTexture.GetIndex() != 0);
     assert(m_DefaultNormalTexture.IsValid() && m_DefaultNormalTexture.GetIndex() != 0);
 
-    Material::Default.gpuAlbedoMap    = m_DefaultWhiteTexture.GetIndex();
-    Material::Default.gpuNormalMap    = m_DefaultNormalTexture.GetIndex();
-    Material::Default.gpuEmissiveMap  = m_DefaultWhiteTexture.GetIndex();
-    Material::Default.gpuMetallicMap  = m_DefaultWhiteTexture.GetIndex();
-    Material::Default.gpuRoughnessMap = m_DefaultWhiteTexture.GetIndex();
+    Material::Default.gpuAlbedoMap    = m_DefaultWhiteTexture.GetValue();
+    Material::Default.gpuNormalMap    = m_DefaultNormalTexture.GetValue();
+    Material::Default.gpuEmissiveMap  = m_DefaultWhiteTexture.GetValue();
+    Material::Default.gpuMetallicMap  = m_DefaultWhiteTexture.GetValue();
+    Material::Default.gpuRoughnessMap = m_DefaultWhiteTexture.GetValue();
 
     m_RenderInterface.SetBlackTexture(m_DefaultBlackTexture.GetValue());
     m_RenderInterface.SetWhiteTexture(m_DefaultWhiteTexture.GetValue());
@@ -165,6 +171,9 @@ DXApp::DXApp() :
     gThrowIfFailed(storage_factory->CreateQueue(&queue_desc, IID_PPV_ARGS(&m_MemoryStorageQueue)));
 
     LogMessage(std::format("[CPU] DirectStorage init took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
+
+    m_Widgets.Register<DeviceResourcesWidget>(this);
+    m_Widgets.GetWidget<DeviceResourcesWidget>()->Hide();
 
     m_Renderer.Recompile(m_Device, m_RayTracedScene, m_StagingHeap, GetRenderInterface());
 
@@ -313,6 +322,185 @@ DescriptorID DXApp::UploadTextureDirectStorage(const TextureAsset::Ptr& inAsset,
     CloseHandle(fence_event);
 
     return texture.GetView();
+}
+
+
+
+void DeviceResourcesWidget::Draw(Widgets* inWidgets, float inDeltaTime)
+{
+    ImGui::Begin(m_Title.c_str(), &m_Open);
+    m_Visible = ImGui::IsWindowAppearing();
+
+    DXApp* app = (DXApp*)m_Editor;
+
+    const Buffer::Pool& buffer_pool = app->GetDevice().GetBufferPool();
+    const Texture::Pool& texture_pool = app->GetDevice().GetTexturePool();
+
+    constexpr static std::array buffer_usage_names =
+    {
+        "General", 
+        "Upload",
+        "Readback",
+        "IndexBuffer",
+        "VertexBuffer",
+        "ShaderReadOnly",
+        "ShaderReadWrite",
+        "IndirectArguments",
+        "AccelerationStructure"
+    };
+
+    constexpr static std::array texture_usage_names =
+    {
+        "General",
+        "ShaderReadOnly",
+        "ShaderReadWrite",
+        "RenderTarget",
+        "DepthStencilTarget"
+    };
+
+    ImGuiTableFlags table_flags = ImGuiTableFlags_RowBg;
+    ImGui::PushStyleColor(ImGuiCol_TableRowBg, ImVec4(0.15, 0.15, 0.15, 1.0));
+    ImGui::PushStyleColor(ImGuiCol_TableRowBgAlt, ImVec4(0.20, 0.20, 0.20, 1.0));
+
+    m_UniqueResources.clear();
+
+    if (ImGui::CollapsingHeader("Buffers", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        ImGui::SetNextItemWidth(ImGui::CalcTextSize("Usage Filter And Padding").x);
+
+        if (ImGui::BeginCombo("##BufferUsageFilter", "Usage Filter"))
+        {
+            for (const auto& [index, usage_name] : gEnumerate(buffer_usage_names))
+            {
+                bool enabled = m_BufferUsageFilter & ( 1 << index );
+                
+                if (ImGui::Checkbox(usage_name, &enabled))
+                    m_BufferUsageFilter ^= ( 1 << index );
+            }
+
+            ImGui::EndCombo();
+        }
+
+        if (ImGui::BeginTable("Buffers", 3, table_flags))
+        {
+            ImGui::TableSetupScrollFreeze(0, 1); // Make top row always visible
+            ImGui::TableSetupColumn("Name");
+            ImGui::TableSetupColumn("Size");
+            ImGui::TableSetupColumn("Usage");
+
+            for (const auto& [index, buffer] : gEnumerate(buffer_pool))
+            {
+                D3D12ResourceRef resource = buffer.GetD3D12Resource();
+                D3D12AllocationRef allocation = buffer.GetD3D12Allocation();
+
+                if (resource == nullptr)
+                    continue;
+
+                if (m_UniqueResources.contains(resource.Get()))
+                    continue;
+                else
+                    m_UniqueResources.insert(resource.Get());
+
+                if (( m_BufferUsageFilter & ( 1 << buffer.GetUsage() ) ) == 0)
+                    continue;
+
+                ImGui::TableNextRow();
+
+                ImGui::TableNextColumn();
+
+                if (buffer.GetDesc().debugName)
+                    ImGui::Text(buffer.GetDesc().debugName);
+                else
+                    ImGui::Text("N/A");
+
+                ImGui::TableNextColumn();
+
+                int byte_size = buffer.GetDesc().size;
+
+                if (allocation)
+                    byte_size = allocation->GetSize();
+
+                ImGui::Text("%.2f Kib", byte_size / 1000.0f);
+
+                ImGui::TableNextColumn();
+
+                ImGui::Text(buffer_usage_names[buffer.GetUsage()]);
+            }
+
+            ImGui::EndTable();
+        }
+    }
+
+    if (ImGui::CollapsingHeader("Textures", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        ImGui::SetNextItemWidth(ImGui::CalcTextSize("Usage Filter And Padding").x);
+
+        if (ImGui::BeginCombo("##TextureUsageFilter", "Usage Filter"))
+        {
+            for (const auto& [index, usage_name] : gEnumerate(texture_usage_names))
+            {
+                bool enabled = m_TextureUsageFilter & ( 1 << index );
+
+                if (ImGui::Checkbox(usage_name, &enabled))
+                    m_TextureUsageFilter ^= ( 1 << index );
+            }
+
+            ImGui::EndCombo();
+        }
+
+        if (ImGui::BeginTable("Textures", 3, table_flags))
+        {
+            ImGui::TableSetupScrollFreeze(0, 1); // Make top row always visible
+            ImGui::TableSetupColumn("Name");
+            ImGui::TableSetupColumn("Size");
+
+            for (const auto& [index, texture] : gEnumerate(texture_pool))
+            {
+                D3D12ResourceRef resource = texture.GetD3D12Resource();
+                D3D12AllocationRef allocation = texture.GetD3D12Allocation();
+
+                if (resource == nullptr)
+                    continue;
+
+                if (m_UniqueResources.contains(resource.Get()))
+                    continue;
+                else
+                    m_UniqueResources.insert(resource.Get());
+
+                if ( ( m_TextureUsageFilter & (1 << texture.GetUsage()) ) == 0)
+                    continue;
+
+                ImGui::TableNextRow();
+
+                ImGui::TableNextColumn();
+
+                if (texture.GetDesc().debugName)
+                    ImGui::Text(texture.GetDesc().debugName);
+                else
+                    ImGui::Text("N/A");
+
+                ImGui::TableNextColumn();
+
+                int byte_size = gBitsPerPixel(texture.GetFormat()) * ( texture.GetWidth() * texture.GetHeight() ) / 8.0f;
+
+                if (allocation)
+                    byte_size = allocation->GetSize();
+
+                ImGui::Text("%.2f Mib", byte_size / 1000000.0f);
+
+                ImGui::TableNextColumn();
+
+                ImGui::Text(texture_usage_names[texture.GetUsage()]);
+            }
+
+            ImGui::EndTable();
+        }
+    }
+
+
+    ImGui::PopStyleColor(2);
+
+    ImGui::End();
 }
 
 } // namespace::Raekor

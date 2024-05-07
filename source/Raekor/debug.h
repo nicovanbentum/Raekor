@@ -7,8 +7,8 @@ namespace RK {
 class DebugRenderer
 {
 public:
-    static constexpr auto cDefaultLineColor = Vec4(0.85, 0.3f, 0.1f, 1.0f);
-    static constexpr auto cDefaultFillColor = Vec4(0.85, 0.3f, 0.1f, 1.0f);
+    static constexpr Vec4 cDefaultLineColor = Vec4(0.85, 0.3f, 0.1f, 1.0f);
+    static constexpr Vec4 cDefaultFillColor = Vec4(0.85, 0.3f, 0.1f, 1.0f);
 
     // line shapes
     void AddLine(const Vec3& inStart, const Vec3& inEnd, const Vec4& inColor = cDefaultLineColor);
@@ -32,8 +32,8 @@ public:
     Slice<Vec4> GetTrianglesToRender() const { return Slice(m_RenderTriangles); }
 
 private:
-    std::vector<Vec4> m_RenderLines; // xyz = pos, w = packed color
-    std::vector<Vec4> m_RenderTriangles; // xyz = pos, w = packed color or texture index
+    Array<Vec4> m_RenderLines; // xyz = pos, w = packed color
+    Array<Vec4> m_RenderTriangles; // xyz = pos, w = packed color or texture index
 };
 
 extern DebugRenderer g_DebugRenderer;

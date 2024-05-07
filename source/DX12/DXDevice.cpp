@@ -274,8 +274,8 @@ BufferID Device::CreateBuffer(const Buffer::Desc& inDesc)
 
 BufferID Device::CreateBuffer(const Buffer::Desc& inDesc, const Buffer& inBuffer)
 {
-    if (inDesc.debugName != nullptr)
-        gSetDebugName(inBuffer.m_Resource.Get(), inDesc.debugName);
+    assert(inDesc.debugName);
+    gSetDebugName(inBuffer.m_Resource.Get(), inDesc.debugName);
 
     const BufferID buffer_id = m_Buffers.Add(inBuffer);
 
@@ -707,7 +707,8 @@ void StagingHeap::StageBuffer(CommandList& inCmdList, const Buffer& inBuffer, ui
     BufferID buffer_id = m_Device.CreateBuffer(Buffer::Desc
     {
         .size = inSize,
-        .usage = Buffer::Usage::UPLOAD
+        .usage = Buffer::Usage::UPLOAD,
+        .debugName = "StagingBuffer"
     });
 
     Buffer& buffer = m_Device.GetBuffer(buffer_id);
@@ -764,7 +765,7 @@ void StagingHeap::StageTexture(CommandList& inCmdList, const Texture& inTexture,
         }
     }*/
 
-    BufferID buffer_id = m_Device.CreateBuffer(Buffer::Describe(total_size, Buffer::Usage::UPLOAD));
+    BufferID buffer_id = m_Device.CreateBuffer(Buffer::Describe(total_size, Buffer::Usage::UPLOAD, false, "StagingBuffer"));
     Buffer& buffer = m_Device.GetBuffer(buffer_id);
 
     uint8_t* mapped_ptr = nullptr;
@@ -846,7 +847,12 @@ void RingAllocator::DestroyBuffer(Device& inDevice)
 
 void GlobalConstantsAllocator::CreateBuffer(Device& inDevice)
 {
-    m_Buffer = inDevice.CreateBuffer(Buffer::Desc { .size = sizeof(GlobalConstants), .usage = Buffer::Usage::UPLOAD});
+    m_Buffer = inDevice.CreateBuffer(Buffer::Desc 
+    { 
+        .size  = sizeof(GlobalConstants), 
+        .usage = Buffer::Usage::UPLOAD, 
+        .debugName = "GlobalConstantsBuffer"
+    });
 
     CD3DX12_RANGE buffer_range = CD3DX12_RANGE(0, 0);
     gThrowIfFailed(inDevice.GetBuffer(m_Buffer)->Map(0, &buffer_range, reinterpret_cast<void**>( &m_DataPtr )));

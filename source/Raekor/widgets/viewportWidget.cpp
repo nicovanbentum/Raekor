@@ -622,7 +622,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 void ViewportWidget::OnEvent(Widgets* inWidgets, const SDL_Event& inEvent)
 {
 
-	if (inEvent.type == SDL_KEYDOWN && !inEvent.key.repeat && !SDL_GetRelativeMouseMode())
+	if (inEvent.type == SDL_KEYDOWN && !inEvent.key.repeat && !g_Input->IsRelativeMouseMode())
 	{
 		switch (inEvent.key.keysym.sym)
 		{

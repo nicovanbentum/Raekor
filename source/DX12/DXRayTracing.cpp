@@ -56,7 +56,7 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
                 .width  = (inRenderGraph.GetViewport().size.x + cPackedRaysWidth - 1 ) / cPackedRaysWidth,
                 .height = (inRenderGraph.GetViewport().size.y + cPackedRaysHeight  - 1 ) / cPackedRaysHeight,
                 .usage  = Texture::Usage::SHADER_READ_WRITE,
-                .debugName = "PACKED SHADOW RAY HITS"
+                .debugName = "RT_PackedShadowRayHits"
             });
 
             inRGBuilder.Write(inData.mOutputTexture);
@@ -96,8 +96,8 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
             const uint32_t tile_height = ( render_size.y + cTileSize - 1 ) / cTileSize;
             const uint32_t tile_buffer_size = tile_width * tile_height * sizeof(uint32_t);
 
-            inData.mTilesBuffer = inRGBuilder.Create(Buffer::RWTypedBuffer(DXGI_FORMAT_R32_UINT, tile_buffer_size, "SHADOW_TILES_BUFFER"));
-            inData.mIndirectDispatchBuffer = inRGBuilder.Create(Buffer::RWByteAddressBuffer(sizeof(D3D12_DISPATCH_ARGUMENTS), "SHADOWS_DISPATCH_BUFFER"));
+            inData.mTilesBuffer = inRGBuilder.Create(Buffer::RWTypedBuffer(DXGI_FORMAT_R32_UINT, tile_buffer_size, "ShadowTilesBuffer"));
+            inData.mIndirectDispatchBuffer = inRGBuilder.Create(Buffer::RWByteAddressBuffer(sizeof(D3D12_DISPATCH_ARGUMENTS), "ShadowsDispatchBuffer"));
 
             inRGBuilder.Write(inData.mTilesBuffer);
             inRGBuilder.Write(inData.mIndirectDispatchBuffer);
@@ -161,7 +161,7 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
                 .width  = inRenderGraph.GetViewport().size.x,
                 .height = inRenderGraph.GetViewport().size.y,
                 .usage  = Texture::Usage::SHADER_READ_WRITE,
-                .debugName = "RT SHADOW MASK"
+                .debugName = "RT_ShadowMask"
             });
 
             inData.mShadowsTextureHistory = inRGBuilder.Create(Texture::Desc
@@ -170,7 +170,7 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
                 .width  = inRenderGraph.GetViewport().size.x,
                 .height = inRenderGraph.GetViewport().size.y,
                 .usage  = Texture::Usage::SHADER_READ_WRITE,
-                .debugName = "RT SHADOW MASK HISTORY"
+                .debugName = "RT_ShadowMaskHistory"
             });
 
             inRGBuilder.Write(inData.mShadowsTexture);
@@ -280,7 +280,7 @@ const RTAOData& AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDe
             .width  = inRenderGraph.GetViewport().size.x,
             .height = inRenderGraph.GetViewport().size.y,
             .usage  = Texture::Usage::SHADER_READ_WRITE,
-            .debugName = "RAY TRACED AO MASK"
+            .debugName = "RT_AOMask"
         });
 
         inRGBuilder.Write(inData.mOutputTexture);
@@ -325,7 +325,7 @@ const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& in
                 .height = inRenderGraph.GetViewport().size.y,
                 .mipLevels = 0, // let it calculate the nr of mips
                 .usage = Texture::Usage::SHADER_READ_WRITE,
-                .debugName = "RAY TRACED REFLECTIONS"
+                .debugName = "RT_Reflections"
             });
 
         inRGBuilder.Write(inData.mOutputTexture);
@@ -369,7 +369,7 @@ const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevi
             .width  = inRenderGraph.GetViewport().size.x,
             .height = inRenderGraph.GetViewport().size.y,
             .usage  = Texture::Usage::SHADER_READ_WRITE,
-            .debugName = "RT_PATH_TRACE_RESULT"
+            .debugName = "RT_PathTraceOutput"
         });
 
         inData.mAccumulationTexture = inRGBuilder.Create(Texture::Desc
@@ -378,7 +378,7 @@ const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevi
             .width  = inRenderGraph.GetViewport().size.x,
             .height = inRenderGraph.GetViewport().size.y,
             .usage  = Texture::Usage::SHADER_READ_WRITE,
-            .debugName = "RT_PATH_TRACE_ACCUMULATION"
+            .debugName = "RT_PathTraceAccumulation"
         });
 
         inRGBuilder.Write(inData.mOutputTexture);
@@ -430,7 +430,7 @@ const ProbeTraceData& AddProbeTracePass(RenderGraph& inRenderGraph, Device& inDe
             .width  = DDGI_RAYS_PER_PROBE,
             .height = uint32_t(total_probe_count),
             .usage  = Texture::Usage::SHADER_READ_WRITE,
-            .debugName = "DDGI TRACE DEPTH"
+            .debugName = "DDGI_TracedDepth"
         });
 
         inData.mRaysIrradianceTexture = ioRGBuilder.Create(Texture::Desc
@@ -439,7 +439,7 @@ const ProbeTraceData& AddProbeTracePass(RenderGraph& inRenderGraph, Device& inDe
             .width  = DDGI_RAYS_PER_PROBE,
             .height = uint32_t(total_probe_count),
             .usage  = Texture::Usage::SHADER_READ_WRITE,
-            .debugName = "DDGI TRACE IRRADIANCE"
+            .debugName = "DDGI_TracedIrradiance"
         });
 
         ioRGBuilder.Write(inData.mRaysDepthTexture);
@@ -511,7 +511,7 @@ const ProbeUpdateData& AddProbeUpdatePass(RenderGraph& inRenderGraph, Device& in
             .width  = uint32_t(DDGI_DEPTH_TEXELS * DDGI_PROBES_PER_ROW),
             .height = uint32_t(DDGI_DEPTH_TEXELS * ( total_probe_count / DDGI_PROBES_PER_ROW )),
             .usage  = Texture::Usage::SHADER_READ_WRITE,
-            .debugName = "DDGI UPDATE DEPTH"
+            .debugName = "DDGI_UpdatedDepth"
         });
 
         inData.mProbesIrradianceTexture = ioRGBuilder.Create(Texture::Desc
@@ -520,7 +520,7 @@ const ProbeUpdateData& AddProbeUpdatePass(RenderGraph& inRenderGraph, Device& in
             .width  = uint32_t(DDGI_IRRADIANCE_TEXELS * DDGI_PROBES_PER_ROW),
             .height = uint32_t(DDGI_IRRADIANCE_TEXELS * ( total_probe_count / DDGI_PROBES_PER_ROW )),
             .usage  = Texture::Usage::SHADER_READ_WRITE,
-            .debugName = "DDGI UPDATE IRRADIANCE"
+            .debugName = "DDGI_UpdatedIrradiance"
         });
 
         ioRGBuilder.Write(inData.mProbesDepthTexture);
@@ -586,7 +586,7 @@ const ProbeSampleData& AddProbeSamplePass(RenderGraph& inRenderGraph, Device& in
             .width  = inRenderGraph.GetViewport().size.x,
             .height = inRenderGraph.GetViewport().size.y,
             .usage  = Texture::SHADER_READ_WRITE,
-            .debugName = "INDIRECT DIFFUSE"
+            .debugName = "RT_DDGISampleOutput"
         });
 
         ioRGBuilder.Write(inData.mOutputTexture);
@@ -638,7 +638,8 @@ const ProbeDebugData& AddProbeDebugPass(RenderGraph& inRenderGraph, Device& inDe
             .size   = uint32_t(indices_size),
             .stride = sizeof(uint32_t) * 3,
             .usage  = Buffer::Usage::INDEX_BUFFER,
-            .mappable = true
+            .mappable = true,
+            .debugName = "DebugProbeIndices"
         }).GetValue();
 
         inData.mProbeMesh.vertexBuffer = inDevice.CreateBuffer(Buffer::Desc
@@ -646,7 +647,8 @@ const ProbeDebugData& AddProbeDebugPass(RenderGraph& inRenderGraph, Device& inDe
             .size   = uint32_t(vertices_size),
             .stride = sizeof(Vertex),
             .usage  = Buffer::Usage::VERTEX_BUFFER,
-            .mappable = true
+            .mappable = true,
+            .debugName = "DebugProbeVertices"
         }).GetValue();
 
         {
@@ -723,7 +725,7 @@ const ProbeDebugRaysData& AddProbeDebugRaysPass(RenderGraph& inRenderGraph, Devi
             .size   = sizeof(Vec4) * UINT16_MAX,
             .stride = sizeof(Vec4),
             .usage  = Buffer::Usage::SHADER_READ_WRITE,
-            .debugName = "DEBUG LINES VERTEX BUFFER"
+            .debugName = "DebugLinesVertexBuffer"
         });
 
 
@@ -731,7 +733,7 @@ const ProbeDebugRaysData& AddProbeDebugRaysPass(RenderGraph& inRenderGraph, Devi
         {
             .size  = sizeof(D3D12_DRAW_ARGUMENTS),
             .usage = Buffer::Usage::SHADER_READ_WRITE,
-            .debugName = "DEBUG LINES INDIRECT ARGS BUFFER"
+            .debugName = "DebugLinesIndirectArgsBuffer"
         });
 
         // ioRGBuilder.Write(inData.mVertexBuffer);

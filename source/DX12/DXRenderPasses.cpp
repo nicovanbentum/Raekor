@@ -230,7 +230,7 @@ const GBufferData& AddMeshletsRasterPass(RenderGraph& inRenderGraph, Device& inD
             .width  = inRenderGraph.GetViewport().size.x,
             .height = inRenderGraph.GetViewport().size.y,
             .usage  = Texture::RENDER_TARGET,
-            .debugName = "GBUFFER RENDER"
+            .debugName = "RT_GBufferRender"
         });
 
         inData.mVelocityTexture = ioRGBuilder.Create(Texture::Desc
@@ -239,7 +239,7 @@ const GBufferData& AddMeshletsRasterPass(RenderGraph& inRenderGraph, Device& inD
             .width  = inRenderGraph.GetViewport().size.x,
             .height = inRenderGraph.GetViewport().size.y,
             .usage  = Texture::RENDER_TARGET,
-            .debugName = "GBUFFER VELOCITY"
+            .debugName = "RT_GBufferVelocity"
         });
 
         inData.mDepthTexture = ioRGBuilder.Create(Texture::Desc
@@ -248,7 +248,7 @@ const GBufferData& AddMeshletsRasterPass(RenderGraph& inRenderGraph, Device& inD
             .width  = inRenderGraph.GetViewport().size.x,
             .height = inRenderGraph.GetViewport().size.y,
             .usage  = Texture::DEPTH_STENCIL_TARGET,
-            .debugName = "GBUFFER DEPTH"
+            .debugName = "RT_GBufferDepth"
         });
 
         ioRGBuilder.RenderTarget(inData.mRenderTexture); // SV_Target0
@@ -349,7 +349,7 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
             .width  = inRenderGraph.GetViewport().size.x,
             .height = inRenderGraph.GetViewport().size.y,
             .usage  = Texture::RENDER_TARGET,
-            .debugName = "GBUFFER RENDER"
+            .debugName = "RT_GBufferColor"
         });
 
         inData.mSelectionTexture = ioRGBuilder.Create(Texture::Desc
@@ -358,7 +358,7 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
             .width  = inRenderGraph.GetViewport().size.x,
             .height = inRenderGraph.GetViewport().size.y,
             .usage  = Texture::RENDER_TARGET,
-            .debugName = "GBUFFER SELECTION"
+            .debugName = "RT_GBufferSelection"
         });
 
         inData.mVelocityTexture = ioRGBuilder.Create(Texture::Desc
@@ -367,7 +367,7 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
             .width  = inRenderGraph.GetViewport().size.x,
             .height = inRenderGraph.GetViewport().size.y,
             .usage  = Texture::RENDER_TARGET,
-            .debugName = "GBUFFER VELOCITY"
+            .debugName = "RT_GBufferVelocity"
         });
 
         inData.mDepthTexture = ioRGBuilder.Create(Texture::Desc
@@ -376,7 +376,7 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
             .width  = inRenderGraph.GetViewport().size.x,
             .height = inRenderGraph.GetViewport().size.y,
             .usage  = Texture::DEPTH_STENCIL_TARGET,
-            .debugName = "GBUFFER DEPTH"
+            .debugName = "RT_GBufferDepth"
         });
 
         ioRGBuilder.RenderTarget(inData.mRenderTexture); // SV_Target0
@@ -483,7 +483,7 @@ const GBufferDebugData& AddGBufferDebugPass(RenderGraph& inRenderGraph, Device& 
             .width  = inRenderGraph.GetViewport().size.x,
             .height = inRenderGraph.GetViewport().size.y,
             .usage  = Texture::RENDER_TARGET,
-            .debugName = "GBUFFER_DEBUG"
+            .debugName = "RT_GBufferDebug"
         });
 
         ioRGBuilder.RenderTarget(inData.mOutputTexture);
@@ -583,7 +583,7 @@ const DownsampleData& AddDownsamplePass(RenderGraph& inRenderGraph, Device& inDe
     return inRenderGraph.AddComputePass<DownsampleData>("DOWNSAMPLE PASS",
     [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, DownsampleData& inData)
     {
-        inData.mGlobalAtomicBuffer = inRGBuilder.Create(Buffer::RWStructuredBuffer(sizeof(uint32_t), sizeof(uint32_t), "SPD_ATOMIC_UINT_BUFFER"));
+        inData.mGlobalAtomicBuffer = inRGBuilder.Create(Buffer::RWStructuredBuffer(sizeof(uint32_t), sizeof(uint32_t), "AtomicUintBuffer"));
 
         inData.mSourceTextureUAV = inRGBuilder.Write(inSourceTexture);
         /* inData.mGlobalAtomicBuffer */ inRGBuilder.Write(inData.mGlobalAtomicBuffer);
@@ -676,8 +676,8 @@ const TiledLightCullingData& AddTiledLightCullingPass(RenderGraph& inRenderGraph
             (render_size.y + LIGHT_CULL_TILE_SIZE - 1) / LIGHT_CULL_TILE_SIZE
         );
 
-        inData.mLightGridBuffer = ioRGBuilder.Create(Buffer::RWByteAddressBuffer(nr_of_tiles.x * nr_of_tiles.y, "LIGHT_CULLING_LIGHT_GRID"));
-        inData.mLightIndicesBuffer = ioRGBuilder.Create(Buffer::RWByteAddressBuffer(nr_of_tiles.x * nr_of_tiles.y * LIGHT_CULL_MAX_LIGHTS, "LIGHT_CULLING_INDICES"));
+        inData.mLightGridBuffer = ioRGBuilder.Create(Buffer::RWByteAddressBuffer(nr_of_tiles.x * nr_of_tiles.y, "LightCullingLightGrid"));
+        inData.mLightIndicesBuffer = ioRGBuilder.Create(Buffer::RWByteAddressBuffer(nr_of_tiles.x * nr_of_tiles.y * LIGHT_CULL_MAX_LIGHTS, "LightCullingIndices"));
 
         ioRGBuilder.Write(inData.mLightGridBuffer);
         ioRGBuilder.Write(inData.mLightIndicesBuffer);
@@ -719,7 +719,7 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
             .width  = inRenderGraph.GetViewport().size.x,
             .height = inRenderGraph.GetViewport().size.y,
             .usage  = Texture::RENDER_TARGET,
-            .debugName = "SHADING OUTPUT"
+            .debugName = "RT_ShadingOutput"
         });
 
         ioRGBuilder.RenderTarget(inData.mOutputTexture);
@@ -789,7 +789,7 @@ const TAAResolveData& AddTAAResolvePass(RenderGraph& inRenderGraph, Device& inDe
             .width  = inRenderGraph.GetViewport().size.x,
             .height = inRenderGraph.GetViewport().size.y,
             .usage  = Texture::RENDER_TARGET,
-            .debugName = "TAA OUTPUT"
+            .debugName = "RT_TAAOutput"
         });
 
         inData.mHistoryTexture = ioRGBuilder.Create(Texture::Desc
@@ -798,7 +798,7 @@ const TAAResolveData& AddTAAResolvePass(RenderGraph& inRenderGraph, Device& inDe
             .width  = inRenderGraph.GetViewport().size.x,
             .height = inRenderGraph.GetViewport().size.y,
             .usage  = Texture::SHADER_READ_ONLY,
-            .debugName = "TAA HISTORY"
+            .debugName = "RT_TAAHistory"
         });
 
         ioRGBuilder.RenderTarget(inData.mOutputTexture);
@@ -871,7 +871,7 @@ const DepthOfFieldData& AddDepthOfFieldPass(RenderGraph& inRenderGraph, Device& 
             .width  = inRenderGraph.GetViewport().GetDisplaySize().x,
             .height = inRenderGraph.GetViewport().GetDisplaySize().y,
             .usage  = Texture::SHADER_READ_WRITE,
-            .debugName = "DOF OUTPUT"
+            .debugName = "RT_DoFOutput"
         });
 
         inBuilder.Write(inData.mOutputTexture);
@@ -907,7 +907,7 @@ const LuminanceHistogramData& AddLuminanceHistogramPass(RenderGraph& inRenderGra
     return inRenderGraph.AddComputePass<LuminanceHistogramData>("LUMINANCE HISTOGRAM PASS",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, LuminanceHistogramData& inData)
     {
-        inData.mHistogramBuffer = ioRGBuilder.Create(Buffer::RWTypedBuffer(DXGI_FORMAT_R32_UINT, 128, "HISTOGRAM_BUFFER"));
+        inData.mHistogramBuffer = ioRGBuilder.Create(Buffer::RWTypedBuffer(DXGI_FORMAT_R32_UINT, 128, "LumHistogramBuffer"));
         inData.mInputTextureSRV = ioRGBuilder.Write(inInputTexture);
     },
 
@@ -984,7 +984,7 @@ const BloomData& AddBloomPass(RenderGraph& inRenderGraph, Device& inDevice, Rend
             .height    = inRenderGraph.GetViewport().size.y,
             .mipLevels = mip_levels,
             .usage     = Texture::SHADER_READ_WRITE,
-            .debugName = "BLOOM OUTPUT"
+            .debugName = "RT_BloomResult"
         });
 
         ioRGBuilder.Write(inData.mOutputTexture);
@@ -1066,7 +1066,7 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, 
             .width  = inRenderGraph.GetViewport().GetDisplaySize().x,
             .height = inRenderGraph.GetViewport().GetDisplaySize().y,
             .usage  = Texture::RENDER_TARGET,
-            .debugName = "COMPOSE OUTPUT"
+            .debugName = "RT_ComposeOutput"
         });
 
         inBuilder.RenderTarget(inData.mOutputTexture);
@@ -1183,7 +1183,7 @@ const ImGuiData& AddImGuiPass(RenderGraph& inRenderGraph, Device& inDevice, Stag
             .size   = max_buffer_size,
             .stride = sizeof(uint16_t),
             .usage  = Buffer::Usage::INDEX_BUFFER,
-            .debugName = "IMGUI_INDEX_BUFFER"
+            .debugName = "ImGuiIndexBuffer"
         });
 
         inData.mVertexBuffer = ioRGBuilder.Create(Buffer::Desc
@@ -1191,7 +1191,7 @@ const ImGuiData& AddImGuiPass(RenderGraph& inRenderGraph, Device& inDevice, Stag
             .size   = max_buffer_size,
             .stride = sizeof(ImDrawVert),
             .usage  = Buffer::Usage::VERTEX_BUFFER,
-            .debugName = "IMGUI_VERTEX_BUFFER"
+            .debugName = "ImGuiVertexBuffer"
         });
 
         inData.mInputTextureSRV = ioRGBuilder.Read(inInputTexture);

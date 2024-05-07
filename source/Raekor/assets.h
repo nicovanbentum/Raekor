@@ -22,6 +22,8 @@ public:
 	Path& GetPath() { return m_Path; }
 	const Path& GetPath() const { return m_Path; }
 
+	String& GetPathStr() { if (m_String.empty()) m_String = m_Path.string(); return m_String; }
+
 	// ONLY USE FOR FIXING UP OLD SCENES WHERE m_Path WASN'T SERIALIZED!!
 	[[deprecated]] void SetPath(const std::string& inPath) { m_Path = inPath; }
 
@@ -34,6 +36,7 @@ public:
 
 protected:
 	Path m_Path;
+	String m_String;
 };
 
 

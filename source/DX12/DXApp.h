@@ -47,4 +47,18 @@ private:
     RenderInterface m_RenderInterface;
 };
 
+
+class DeviceResourcesWidget : public IWidget
+{
+public:
+    DeviceResourcesWidget(Application* inApp) : IWidget(inApp, "GPU Resources ") {}
+    void Draw(Widgets* inWidgets, float inDeltaTime);
+    void OnEvent(Widgets* inWidgets, const SDL_Event& inEvent) {}
+
+private:
+    uint16_t m_BufferUsageFilter = 0xFFFF;
+    uint16_t m_TextureUsageFilter = 0xFFFF;
+    HashSet<ID3D12Resource*> m_UniqueResources;
+};
+
 } // namespace Raekor::DX12

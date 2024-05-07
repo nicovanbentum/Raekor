@@ -63,7 +63,17 @@ Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inW
     {
         D3D12ResourceRef rtv_resource = nullptr;
         gThrowIfFailed(m_Swapchain->GetBuffer(index, IID_PPV_ARGS(rtv_resource.GetAddressOf())));
-        backbuffer_data.mBackBuffer = inDevice.CreateTextureView(rtv_resource, Texture::Desc{.usage = Texture::Usage::RENDER_TARGET });
+        
+        D3D12_RESOURCE_DESC rtv_resource_desc = rtv_resource->GetDesc();
+
+        backbuffer_data.mBackBuffer = inDevice.CreateTextureView(rtv_resource, Texture::Desc
+        {
+            .format = rtv_resource_desc.Format,
+            .width  = uint32_t(rtv_resource_desc.Width),
+            .height = uint32_t(rtv_resource_desc.Height),
+            .usage  = Texture::Usage::RENDER_TARGET, 
+            .debugName = "BackBuffer"
+        });
 
         backbuffer_data.mDirectCmdList = CommandList(inDevice, D3D12_COMMAND_LIST_TYPE_DIRECT, index);
         backbuffer_data.mDirectCmdList->SetName(L"RK::DX12::CommandList(DIRECT)");
@@ -117,8 +127,23 @@ void Renderer::OnResize(Device& inDevice, Viewport& inViewport, bool inFullScree
         D3D12ResourceRef rtv_resource = nullptr;
         gThrowIfFailed(m_Swapchain->GetBuffer(index, IID_PPV_ARGS(rtv_resource.GetAddressOf())));
 
-        backbuffer_data.mBackBuffer = inDevice.CreateTextureView(rtv_resource, Texture::Desc{.usage = Texture::Usage::RENDER_TARGET });
-        rtv_resource->SetName(L"BACKBUFFER");
+        D3D12_RESOURCE_DESC rtv_resource_desc = rtv_resource->GetDesc();
+
+        static constexpr std::array swapchain_buffer_names =
+        {
+            "SwapchainBuffer0",
+            "SwapchainBuffer1",
+            "SwapchainBuffer2"
+        };
+
+        backbuffer_data.mBackBuffer = inDevice.CreateTextureView(rtv_resource, Texture::Desc
+        {
+            .format = rtv_resource_desc.Format,
+            .width  = uint32_t(rtv_resource_desc.Width),
+            .height = uint32_t(rtv_resource_desc.Height),
+            .usage  = Texture::Usage::RENDER_TARGET,
+            .debugName = swapchain_buffer_names[index]
+        });
     }
 
     m_FrameIndex = m_Swapchain->GetCurrentBackBufferIndex();
@@ -725,15 +750,15 @@ void RenderInterface::UploadMeshBuffers(Entity inEntity, Mesh& inMesh)
         .size   = uint32_t(indices_size),
         .stride = sizeof(uint32_t) * 3,
         .usage  = Buffer::Usage::INDEX_BUFFER,
-        .debugName = "INDEX_BUFFER"
-    }).GetIndex();
+        .debugName = "IndexBuffer"
+    }).GetValue();
 
     inMesh.vertexBuffer = m_Device.CreateBuffer(Buffer::Desc{
         .size   = uint32_t(vertices_size),
         .stride = sizeof(Vertex),
         .usage  = Buffer::Usage::VERTEX_BUFFER,
-        .debugName = "VERTEX_BUFFER"
-    }).GetIndex();
+        .debugName = "VertexBuffer"
+    }).GetValue();
 
     // actual data upload happens in RayTracedScene::UploadMesh at the start of the frame
     m_Renderer.QueueMeshUpload(inEntity);
@@ -750,22 +775,22 @@ void RenderInterface::UploadSkeletonBuffers(Entity inEntity, Skeleton& inSkeleto
         .size   = uint32_t(inSkeleton.boneIndices.size() * sizeof(IVec4)),
         .stride = sizeof(IVec4),
         .usage  = Buffer::Usage::SHADER_READ_ONLY,
-        .debugName = "BONE_INDICES_BUFFER"
-    }).GetIndex();
+        .debugName = "BoneIndicesBuffer"
+    }).GetValue();
 
     inSkeleton.boneWeightBuffer = m_Device.CreateBuffer(Buffer::Desc {
         .size   = uint32_t(inSkeleton.boneWeights.size() * sizeof(Vec4)),
         .stride = sizeof(Vec4),
         .usage  = Buffer::Usage::SHADER_READ_ONLY,
-        .debugName = "BONE_WEIGHTS_BUFFER"
-    }).GetIndex();
+        .debugName = "BoneWeightsBuffer"
+    }).GetValue();
 
     inSkeleton.boneTransformsBuffer = m_Device.CreateBuffer(Buffer::Desc {
         .size   = uint32_t(inSkeleton.boneTransformMatrices.size() * sizeof(Mat4x4)),
         .stride = sizeof(Mat4x4),
         .usage  = Buffer::Usage::SHADER_READ_ONLY,
-        .debugName = "BONE_TRANSFORMS_BUFFER"
-    }).GetIndex();
+        .debugName = "BoneTransformsBuffer"
+    }).GetValue();
 
     const Array<float>& mesh_vertices = inMesh.GetInterleavedVertices();
 
@@ -773,8 +798,8 @@ void RenderInterface::UploadSkeletonBuffers(Entity inEntity, Skeleton& inSkeleto
         .size   = uint32_t(sizeof(mesh_vertices[0]) * mesh_vertices.size()),
         .stride = sizeof(RTVertex),
         .usage  = Buffer::Usage::SHADER_READ_WRITE,
-        .debugName = "SKINNED_VERTEX_BUFFER"
-    }).GetIndex();
+        .debugName = "SkinnedVertexBuffer"
+    }).GetValue();
 
     m_Renderer.QueueSkeletonUpload(inEntity);
 }
@@ -812,7 +837,7 @@ uint32_t RenderInterface::UploadTextureFromAsset(const TextureAsset::Ptr& inAsse
     const DDS_HEADER* header_ptr = inAsset->GetHeader();
 
     const uint32_t mipmap_levels = header_ptr->dwMipMapCount;
-    const String debug_name = inAsset->GetPath().string();
+    const String& debug_name = inAsset->GetPathStr();
 
     DXGI_FORMAT format = inIsSRGB ? DXGI_FORMAT_BC3_UNORM_SRGB : DXGI_FORMAT_BC3_UNORM;
     EDDSFormat dds_format = (EDDSFormat)header_ptr->ddspf.dwFourCC;
@@ -1352,7 +1377,7 @@ uint32_t RenderInterface::GetSelectedEntity(const Scene& inScene, uint32_t inScr
     if (!entity_texture_id.IsValid())
         return Entity::Null;
 
-    BufferID readback_buffer_id = m_Device.CreateBuffer(Buffer::Describe(sizeof(Entity), Buffer::READBACK, true));
+    BufferID readback_buffer_id = m_Device.CreateBuffer(Buffer::Describe(sizeof(Entity), Buffer::READBACK, true, "PixelReadbackBuffer"));
 
     auto entity_texture_barrier = D3D12_RESOURCE_BARRIER(CD3DX12_RESOURCE_BARRIER::Transition(m_Device.GetD3D12Resource(entity_texture_id), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_SOURCE));
     cmd_list->ResourceBarrier(1, &entity_texture_barrier);
@@ -1387,7 +1412,11 @@ uint32_t RenderInterface::GetSelectedEntity(const Scene& inScene, uint32_t inScr
     const CD3DX12_RANGE range = CD3DX12_RANGE(0, 0);
     gThrowIfFailed(m_Device.GetBuffer(readback_buffer_id)->Map(0, &range, reinterpret_cast<void**>( &mapped_ptr )));
 
-    return Entity(*mapped_ptr);
+    Entity result = Entity(*mapped_ptr);
+
+    m_Device.ReleaseBuffer(readback_buffer_id);
+
+    return result;
 }
 
 
@@ -1404,7 +1433,7 @@ TextureID InitImGui(Device& inDevice, DXGI_FORMAT inRtvFormat, uint32_t inFrameC
         .width  = uint32_t(width),
         .height = uint32_t(height),
         .usage  = Texture::SHADER_READ_ONLY,
-        .debugName = "IMGUI_FONT_TEXTURE"
+        .debugName = "ImGuiFontTexture"
     });
 
     DescriptorID font_texture_view = inDevice.GetTexture(font_texture_id).GetView();

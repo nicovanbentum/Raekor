@@ -139,7 +139,7 @@ Frustum Camera::GetFrustum() const
 
 void EditorCameraController::OnUpdate(Camera& inCamera, float inDeltaTime)
 {
-	if (SDL_GetRelativeMouseMode())
+	if (g_Input->IsRelativeMouseMode())
 	{
 		if (g_Input->IsKeyPressed(SDL_SCANCODE_W))
 		{
@@ -188,13 +188,13 @@ bool EditorCameraController::OnEvent(Camera& inCamera, const SDL_Event& inEvent)
 
 	if (inEvent.type == SDL_MOUSEMOTION)
 	{
-		if (SDL_GetRelativeMouseMode() && g_Input->IsButtonPressed(3))
+		if (g_Input->IsRelativeMouseMode() && g_Input->IsButtonPressed(3))
 		{
 			const float formula = glm::radians(0.022f * inCamera.mSensitivity * 2.0f);
 			inCamera.Look(glm::vec2(inEvent.motion.xrel * formula, inEvent.motion.yrel * formula));
 			camera_changed = true;
 		}
-		else if (SDL_GetRelativeMouseMode() && g_Input->IsButtonPressed(2))
+		else if (g_Input->IsRelativeMouseMode() && g_Input->IsButtonPressed(2))
 		{
 			inCamera.Move(glm::vec2(inEvent.motion.xrel * 0.02f, inEvent.motion.yrel * 0.02f));
 			camera_changed = true;

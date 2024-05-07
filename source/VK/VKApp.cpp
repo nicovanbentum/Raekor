@@ -84,7 +84,7 @@ PathTracer::PathTracer() :
 
 void PathTracer::OnUpdate(float dt)
 {
-	if (SDL_GetRelativeMouseMode())
+	if (g_Input->IsRelativeMouseMode())
 		m_Renderer.ResetAccumulation();
 
 	m_Viewport.OnUpdate(dt);
@@ -122,9 +122,9 @@ void PathTracer::OnUpdate(float dt)
 			m_Renderer.ResetAccumulation();
 		}
 
-		auto& push_constants = m_Renderer.GetPushConstants();
+		PushConstants& push_constants = m_Renderer.GetPushConstants();
 
-		auto bounces = int(m_Renderer.GetPushConstants().bounces - 1);
+		int bounces = int(m_Renderer.GetPushConstants().bounces - 1);
 		if (ImGui::SliderInt("Bounces", &bounces, 0, 7))
 		{
 			m_Renderer.GetPushConstants().bounces = bounces + 1;
@@ -134,7 +134,7 @@ void PathTracer::OnUpdate(float dt)
 		reset |= ImGui::DragFloat("Sun Strength", &push_constants.lightDir.w, 0.1f, 0.0f, 100.0f, "%.1f");
 		reset |= ImGui::DragFloat("Sun Cone", &m_Renderer.GetPushConstants().sunConeAngle, 0.001f, 0.0f, 1.0f, "%.3f");
 
-		auto field_of_view = m_Viewport.GetFieldOfView();
+		float field_of_view = m_Viewport.GetFieldOfView();
 		if (ImGui::DragFloat("Camera Fov", &field_of_view, 0.1f, 25.0f, 120.0f, "%.3f"))
 		{
 			m_Viewport.SetFieldOfView(field_of_view);
@@ -148,10 +148,10 @@ void PathTracer::OnUpdate(float dt)
 		ImGuizmo::SetDrawlist(ImGui::GetBackgroundDrawList());
 		ImGuizmo::SetRect(0, 0, float(m_Viewport.GetRenderSize().x), float(m_Viewport.GetRenderSize().y));
 
-		if (auto sunlight = m_Scene.GetSunLight())
+		if (DirectionalLight* sunlight = m_Scene.GetSunLight())
 		{
 			// if we have a sunlight it means at least 1 entity has a DirectionalLight,  so [0] access is safe
-			auto& transform = m_Scene.Get<Transform>(m_Scene.GetEntities<DirectionalLight>()[0]);
+			Transform& transform = m_Scene.Get<Transform>(m_Scene.GetEntities<DirectionalLight>()[0]);
 
 			bool manipulated = ImGuizmo::Manipulate(
 				glm::value_ptr(m_Viewport.GetCamera().GetView()),
@@ -187,7 +187,7 @@ void PathTracer::OnEvent(const SDL_Event& inEvent)
 			m_Renderer.ResetAccumulation();
 	}
 
-	if (SDL_GetRelativeMouseMode())
+	if (g_Input->IsRelativeMouseMode())
 		m_Renderer.ResetAccumulation();
 
 	if (inEvent.window.event == SDL_WINDOWEVENT_RESIZED)
@@ -208,7 +208,7 @@ void PathTracer::OnEvent(const SDL_Event& inEvent)
 			} break;
 			case SDLK_F2:
 			{
-				std::string path = OS::sSaveFileDialog("Uncompressed PNG (*.png)\0", "png");
+				String path = OS::sSaveFileDialog("Uncompressed PNG (*.png)\0", "png");
 
 				if (!path.empty())
 					m_Renderer.Screenshot(path);

@@ -106,7 +106,7 @@ void RayTracedScene::UploadMesh(Application* inApp, Device& inDevice, StagingHea
         .debugName = "BLAS_BUFFER"
     });
 
-    inMesh.BottomLevelAS = blas_buffer_id.GetIndex();
+    inMesh.BottomLevelAS = blas_buffer_id.GetValue();
 
     const BufferID scratch_buffer_id = inDevice.CreateBuffer(Buffer::Desc
     {
@@ -418,7 +418,7 @@ void RayTracedScene::UploadMaterials(Application* inApp, Device& inDevice, Stagi
         .size      = sizeof(RTMaterial) * rt_materials.size(),
         .stride    = sizeof(RTMaterial),
         .usage     = Buffer::Usage::SHADER_READ_ONLY,
-        .debugName = "RT_MATERIAL_BUFFER"
+        .debugName = "MaterialsBuffer"
     });
 
     const Buffer& materials_buffer = inDevice.GetBuffer(m_MaterialsBuffer);

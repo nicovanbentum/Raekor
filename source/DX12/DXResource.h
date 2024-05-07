@@ -116,6 +116,12 @@ public:
         m_FreeIndices.clear();
     }
 
+    auto begin() { return m_Storage.begin(); }
+    auto end() { return m_Storage.end(); }
+
+    auto begin() const { return m_Storage.begin(); }
+    auto end() const { return m_Storage.end(); }
+
 protected:
     Array<uint16_t> m_Generations;
     Array<uint32_t> m_FreeIndices;
@@ -250,15 +256,15 @@ public:
 
     enum Usage
     {
-        GENERAL                 = 1 << 1,
-        UPLOAD                  = 1 << 2,
-        READBACK                = 1 << 3,
-        INDEX_BUFFER            = 1 << 4,
-        VERTEX_BUFFER           = 1 << 5,
-        SHADER_READ_ONLY        = 1 << 6,
-        SHADER_READ_WRITE       = 1 << 7,
-        INDIRECT_ARGUMENTS      = 1 << 8,
-        ACCELERATION_STRUCTURE  = 1 << 9
+        GENERAL,
+        UPLOAD,
+        READBACK,
+        INDEX_BUFFER,
+        VERTEX_BUFFER,
+        SHADER_READ_ONLY,
+        SHADER_READ_WRITE,
+        INDIRECT_ARGUMENTS,
+        ACCELERATION_STRUCTURE
     };
 
     enum class ShaderUsage : int

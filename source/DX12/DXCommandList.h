@@ -31,7 +31,7 @@ public:
     void ClearTexture(Device& inDevice, TextureID inTexture, Vec4 inValue);
 
     template<typename T> // omg c++ 20 concepts, much wow so cool
-        requires ( sizeof(T) < sMaxRootConstantsSize&& std::default_initializable<T> )
+        requires ( sizeof(T) < sMaxRootConstantsSize && std::default_initializable<T> )
     void PushGraphicsConstants(const T& inValue)
     {
         m_CommandLists[m_CurrentCmdListIndex]->SetGraphicsRoot32BitConstants(0, sizeof(T) / sizeof(DWORD), &inValue, 0);

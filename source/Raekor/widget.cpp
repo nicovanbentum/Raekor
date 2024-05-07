@@ -60,7 +60,7 @@ void Widgets::Draw(float inDeltaTime)
 	{
 		if (widget->IsOpen())
 		{
-			auto window_class = ImGuiWindowClass();
+			ImGuiWindowClass window_class = {};
 			window_class.DockNodeFlagsOverrideSet = ImGuiDockNodeFlags_NoCloseButton;
 			ImGui::SetNextWindowClass(&window_class);
 

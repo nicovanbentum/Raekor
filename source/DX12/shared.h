@@ -26,21 +26,12 @@
     using float3x3 = glm::mat3;
     using float4x4 = glm::mat4;
 
-    #define OUT_PARAM
-    #define STATIC_ASSERT(cond) static_assert(cond);
-
 #else
 
     #define IF_CPP(code)
     #define IF_CPP_ELSE(cpp, other) other
 
-    #define OUT_PARAM out
-    #define STATIC_ASSERT(cond) 
-
 #endif
-
-// NEEDS TO MATCH DXUtil.h , its 256 - 2 SRV root descriptors (which are 2 DWORDs each)
-#define MAX_ROOT_CONSTANTS_SIZE 232
 
 #define DDGI_TRACE_SIZE 64                  // Thread group size for the ray trace shader. Sorry AMD, I'm running a 3080
 #define DDGI_DEPTH_TEXELS 16                // Depth is stored as 16x16 FORMAT_R32F texels
@@ -172,7 +163,6 @@ struct DDGIData
     float3 mCornerPosition;
     uint   pad2;
 };
-STATIC_ASSERT(sizeof(DDGIData) < MAX_ROOT_CONSTANTS_SIZE);
 
 
 struct ClearTextureRootConstants
@@ -180,7 +170,6 @@ struct ClearTextureRootConstants
     float4 mClearValue;
     uint mTexture;
 };
-STATIC_ASSERT(sizeof(ClearTextureRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
 struct ClearBufferRootConstants
@@ -188,7 +177,6 @@ struct ClearBufferRootConstants
     uint mClearValue;
     uint mBuffer;
 };
-STATIC_ASSERT(sizeof(ClearBufferRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
 
@@ -198,7 +186,6 @@ struct ConvolveCubeRootConstants
     uint mCubeTexture;
     uint mConvolvedCubeTexture;
 };
-STATIC_ASSERT(sizeof(ConvolveCubeRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
 struct SkyCubeRootConstants
@@ -207,7 +194,6 @@ struct SkyCubeRootConstants
     float3 mSunLightDirection;
     float4 mSunLightColor;
 };
-STATIC_ASSERT(sizeof(SkyCubeRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
 struct SkinningRootConstants
@@ -219,7 +205,6 @@ struct SkinningRootConstants
     uint mBoneTransformsBuffer;
     uint mDispatchSize;
 };
-STATIC_ASSERT(sizeof(SkinningRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
 struct GbufferRootConstants
@@ -229,7 +214,6 @@ struct GbufferRootConstants
     uint     mInstanceIndex;
     uint     mEntity;
 };
-STATIC_ASSERT(sizeof(GbufferRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
 struct GbufferDebugRootConstants
@@ -238,7 +222,6 @@ struct GbufferDebugRootConstants
     float    mFarPlane;
     float    mNearPlane;
 };
-STATIC_ASSERT(sizeof(GbufferDebugRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
 struct ShadowMaskRootConstants
@@ -249,7 +232,6 @@ struct ShadowMaskRootConstants
     uint  mTLAS;
     uint2 mDispatchSize;
 };
-STATIC_ASSERT(sizeof(ShadowMaskRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
 struct AmbientOcclusionParams
@@ -270,7 +252,6 @@ struct AmbientOcclusionRootConstants
     uint  mTLAS;
     uint2 mDispatchSize;
 };
-STATIC_ASSERT(sizeof(AmbientOcclusionRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
 struct ReflectionsRootConstants
@@ -283,7 +264,6 @@ struct ReflectionsRootConstants
     uint  mGbufferRenderTexture;
     uint2 mDispatchSize;
 };
-STATIC_ASSERT(sizeof(ReflectionsRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
 struct PathTraceRootConstants
@@ -300,7 +280,6 @@ struct PathTraceRootConstants
     uint  mReset;
     uint mLightsCount;
 };
-STATIC_ASSERT(sizeof(PathTraceRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
 
@@ -309,7 +288,6 @@ struct ShadowsClearRootConstants
     uint mTilesBuffer;
     uint mDispatchBuffer;
 };
-STATIC_ASSERT(sizeof(ShadowsClearRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
 struct ShadowsClassifyRootConstants
@@ -319,7 +297,6 @@ struct ShadowsClassifyRootConstants
     uint mDispatchBuffer;
     uint2 mDispatchSize;
 };
-STATIC_ASSERT(sizeof(ShadowsClassifyRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
 struct ShadowsDenoiseRootConstants
@@ -334,7 +311,6 @@ struct ShadowsDenoiseRootConstants
     uint mPad0;
     uint2 mDispatchSize;
 };
-STATIC_ASSERT(sizeof(ShadowsDenoiseRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
 
@@ -359,7 +335,6 @@ struct SpdRootConstants
     uint   mTextureMip13;
     uint2  mWorkGroupOffset;
 };
-STATIC_ASSERT(sizeof(SpdRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
 
@@ -372,7 +347,6 @@ struct TiledLightCullingRootConstants
     uint2 mFullResSize;
     uint2 mDispatchSize;
 };
-STATIC_ASSERT(sizeof(TiledLightCullingRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
 
@@ -390,7 +364,6 @@ struct LightingRootConstants
     uint  mPad1;
     TiledLightCullingRootConstants mLights;
 };
-STATIC_ASSERT(sizeof(LightingRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
 struct HeightFogRootConstants
@@ -398,7 +371,6 @@ struct HeightFogRootConstants
     uint mGbufferDepthTexture;
     uint mGbufferRenderTexture;
 };
-STATIC_ASSERT(sizeof(HeightFogRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
 struct GrassRenderRootConstants
@@ -407,7 +379,6 @@ struct GrassRenderRootConstants
     float  mTilt;
     float2 mWindDirection;
 };
-STATIC_ASSERT(sizeof(GrassRenderRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
 struct ProbeTraceRootConstants
@@ -423,7 +394,6 @@ struct ProbeTraceRootConstants
     float4x4 mRandomRotationMatrix;
     DDGIData mDDGIData;
 };
-STATIC_ASSERT(sizeof(ProbeTraceRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
 struct ProbeUpdateRootConstants
@@ -431,7 +401,6 @@ struct ProbeUpdateRootConstants
     float4x4 mRandomRotationMatrix;
     DDGIData mDDGIData;
 };
-STATIC_ASSERT(sizeof(ProbeUpdateRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
 struct ProbeSampleRootConstants
@@ -443,7 +412,6 @@ struct ProbeSampleRootConstants
     uint mPad0;
     uint2 mDispatchSize;
 };
-STATIC_ASSERT(sizeof(ProbeSampleRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
 struct TAAResolveConstants
@@ -455,7 +423,6 @@ struct TAAResolveConstants
     uint mHistoryTexture;
     uint mVelocityTexture;
 };
-STATIC_ASSERT(sizeof(TAAResolveConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
 struct BloomRootConstants
@@ -477,7 +444,6 @@ struct ComposeRootConstants
     float mBloomBlendFactor;
     float mChromaticAberrationStrength;
 };
-STATIC_ASSERT(sizeof(ComposeRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
 struct DepthOfFieldRootConstants
@@ -492,7 +458,6 @@ struct DepthOfFieldRootConstants
     float mFocusScale;
     uint2 mDispatchSize;
 };
-STATIC_ASSERT(sizeof(DepthOfFieldRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
 struct ImGuiRootConstants
@@ -500,7 +465,6 @@ struct ImGuiRootConstants
     float4x4 mProjection;
     uint mBindlessTextureIndex;
 };
-STATIC_ASSERT(sizeof(ImGuiRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
 

@@ -41,7 +41,7 @@ IEditor::IEditor(WindowFlags inWindowFlags, IRenderInterface* inRenderInterface)
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 	io.ConfigFlags |= ImGuiConfigFlags_NavNoCaptureKeyboard;
 	io.ConfigWindowsMoveFromTitleBarOnly = true;
-	// io.ConfigDockingWithShift = true;
+	io.ConfigDockingWithShift = true;
 
 	GUI::SetTheme();
 	ImGui::GetStyle().ScaleAllSizes(1.33333333f);
@@ -183,7 +183,7 @@ void IEditor::OnUpdate(float inDeltaTime)
 	// start ImGui
 	GUI::BeginFrame();
 
-	if (SDL_GetRelativeMouseMode())
+	if (g_Input->IsRelativeMouseMode())
 		ImGui::GetIO().MousePos = ImVec2(-FLT_MAX, -FLT_MAX);
 
 	if (GetSettings().mShowUI)
