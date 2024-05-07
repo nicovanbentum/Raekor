@@ -18,9 +18,9 @@ Clone this repository using
  ```git clone --recursive https://github.com/nicovanbentum/Raekor.git```
  >**_NOTE:_** If the path to the repository contains any whitespace the shaders will fail to compile.
  
-* Run ``` cmake . ``` from the root of the repository. This can take a while as it builds everything, there are no pre-built binaries.
+* Run ``` cmake -B build ``` from the root of the repository. This can take a while as it builds everything, there are no pre-built binaries.
 
-* Build using the generated ```Solution.sln``` visual studio solution.
+* Build using the generated ```Solution.sln``` visual studio solution inside of the newly created ```build``` folder.
 
 # Projects
 
@@ -37,38 +37,6 @@ This project requires C++ 20.
     - RTTI-based Serialisation
     - Entity Component System
     - Multi-threaded Asset Loading
-
-
-### Editor
-This project requires OpenGL 4.6 for direct state access functions and shader include directives. 
-
-* Deferred PBR Renderer
-    - Bloom
-    - ACES Tonemapping
-    - Cook-Torrance BRDF
-    - Temporal Anti-Aliasing
-    - Cascaded Shadow Mapping
-    - Voxel Cone Traced Ambient Occlusion
-    - Voxel Cone Traced Specular Reflections
-    - Voxel Cone Traced Global Illumination (single bounce diffuse)
-    - Ray Traced Hard Shadows using Vulkan interop (only availabe in the [Scatter](https://github.com/nicovanbentum/Scatter)-integration branch, very outdated using the vk_nv_ray_tracing extension).
-* Scenes
-    - Simulate basic physics shapes.
-    - Import models from GLTF, FBX and OBJ file formats.
-    - Edit, add, delete, duplicate, and transform entities/components.
-
-![image](https://i.imgur.com/m8HLdED.png)
-
-### VK
-Requires Vulkan 1.2 with support for descriptor indexing, device buffer address, and hardware ray tracing. 
-* Uni-Directional GPU Path Tracer using the vk_khr_ray_tracing extensions.
-   - Progressive real-time rendering
-   - Importance sampled diffuse and specular BRDF
-   
-Older versions of this project contained rasterized experiments with parallel command buffer recording, dynamic uniform buffers, and bindless textures.
-
-![image](https://i.imgur.com/S4l11hb.jpg)
-*Path tracer WIP - 8 bounces. Converges in real time when stationary.*
 
 ### DX12
 *Main project at the moment.*
@@ -89,6 +57,33 @@ Basic RenderGraph architecture (automatically creates resource views and handles
 - Post Processing
 
 ![image](https://i.imgur.com/B3pbNgd.png)
+
+### Editor
+This project requires OpenGL 4.6 for direct state access functions and shader include directives. 
+
+* Deferred PBR Renderer
+    - Bloom
+    - ACES Tonemapping
+    - Cook-Torrance BRDF
+    - Temporal Anti-Aliasing
+    - Cascaded Shadow Mapping
+    - Voxel Cone Traced Ambient Occlusion
+    - Voxel Cone Traced Specular Reflections
+    - Voxel Cone Traced Global Illumination (single bounce diffuse)
+    - Ray Traced Hard Shadows using Vulkan interop (only availabe in the [Scatter](https://github.com/nicovanbentum/Scatter)-integration branch, very outdated using the vk_nv_ray_tracing extension).
+
+![image](https://i.imgur.com/m8HLdED.png)
+
+### VK
+Requires Vulkan 1.2 with support for descriptor indexing, device buffer address, and hardware ray tracing. 
+* Uni-Directional GPU Path Tracer using the vk_khr_ray_tracing extensions.
+   - Progressive real-time rendering
+   - Importance sampled diffuse and specular BRDF
+   
+Older versions of this project contained rasterized experiments with parallel command buffer recording, dynamic uniform buffers, and bindless textures.
+
+![image](https://i.imgur.com/S4l11hb.jpg)
+*Path tracer WIP - 8 bounces. Converges in real time when stationary.*
 
 ### DX11
 A small demo of async GPU resource creation and dithered mesh fading.
