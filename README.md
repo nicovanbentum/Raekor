@@ -18,9 +18,9 @@ Clone this repository using
  ```git clone --recursive https://github.com/nicovanbentum/Raekor.git```
  >**_NOTE:_** If the path to the repository contains any whitespace the shaders will fail to compile.
  
-* Run ``` cmake . ``` from the root of the repository. This can take a while as it builds everything, there are no pre-built binaries.
+* Run ``` cmake -B build ``` from the root of the repository. This can take a while as it builds everything, there are no pre-built binaries.
 
-* Build using the generated ```Solution.sln``` visual studio solution.
+* Build using the generated ```Solution.sln``` visual studio solution inside of the newly created ```build``` folder.
 
 # Projects
 
