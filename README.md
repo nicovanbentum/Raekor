@@ -1,6 +1,6 @@
 # Build (CMake - Windows)
 
-### Editor - Requirements
+### OpenGL - Requirements
 * Graphics card with OpenGL 4.5 support.
 
 ### Vulkan - Requirements
@@ -57,7 +57,7 @@ Basic RenderGraph architecture (automatically creates resource views and handles
 
 ![image](https://i.imgur.com/B3pbNgd.png)
 
-### Editor
+### OpenGL
 This project requires OpenGL 4.5 for direct state access functions.
 
 * Deferred PBR Renderer

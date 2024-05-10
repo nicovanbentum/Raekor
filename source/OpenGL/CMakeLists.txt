@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.15)
 
-project(Editor C CXX)
+project(OpenGL C CXX)
 
 # Build a list of all cpp source files
 file(GLOB_RECURSE HppFiles ${PROJECT_SOURCE_DIR}/*.h)
