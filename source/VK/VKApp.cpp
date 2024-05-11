@@ -122,7 +122,7 @@ void PathTracer::OnUpdate(float dt)
 			m_Renderer.ResetAccumulation();
 		}
 
-		PushConstants& push_constants = m_Renderer.GetPushConstants();
+		PathTracePass::PushConstants& push_constants = m_Renderer.GetPushConstants();
 
 		int bounces = int(m_Renderer.GetPushConstants().bounces - 1);
 		if (ImGui::SliderInt("Bounces", &bounces, 0, 7))
@@ -148,7 +148,7 @@ void PathTracer::OnUpdate(float dt)
 		ImGuizmo::SetDrawlist(ImGui::GetBackgroundDrawList());
 		ImGuizmo::SetRect(0, 0, float(m_Viewport.GetRenderSize().x), float(m_Viewport.GetRenderSize().y));
 
-		if (DirectionalLight* sunlight = m_Scene.GetSunLight())
+		if (const DirectionalLight* sunlight = m_Scene.GetSunLight())
 		{
 			// if we have a sunlight it means at least 1 entity has a DirectionalLight,  so [0] access is safe
 			Transform& transform = m_Scene.Get<Transform>(m_Scene.GetEntities<DirectionalLight>()[0]);
