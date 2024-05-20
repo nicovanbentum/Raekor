@@ -59,6 +59,7 @@ private:
         int& mEnableTAA          = g_CVars.Create("r_enable_taa",           1);
         int& mEnableDoF          = g_CVars.Create("r_enable_dof",           0);
         int& mEnableBloom        = g_CVars.Create("r_enable_bloom",         1);
+        int& mEnableVignette     = g_CVars.Create("r_enable_vignette",      1);
         int& mDoPathTrace        = g_CVars.Create("r_path_trace",           0,   true);
         float& mSunConeAngle     = g_CVars.Create("r_sun_cone_angle",       0.f, true);
     } m_Settings;
@@ -93,7 +94,6 @@ public:
     const RenderGraph&  GetRenderGraph() const  { return m_RenderGraph; }
     uint64_t            GetFrameCounter() const { return m_FrameCounter; }
     BackBufferData&     GetBackBufferData()     { return m_BackBufferData[m_FrameIndex]; }
-    BackBufferData&     GetPrevBackBufferData() { return m_BackBufferData[!m_FrameIndex]; }
 
 public:
     static constexpr uint32_t sFrameCount = 2;

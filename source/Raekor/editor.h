@@ -40,6 +40,7 @@ protected:
 	IRenderInterface* m_RenderInterface;
 
 	bool m_ViewportChanged = false;
+	bool m_ViewportFullscreen = false;
 	void* m_CompilerWindow = nullptr;
 	void* m_CompilerProcess = nullptr;
 	ImGuiID m_DockSpaceID;

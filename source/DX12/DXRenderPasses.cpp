@@ -1098,13 +1098,16 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, 
         inCmdList->RSSetViewports(1, &dx_viewport);
         inCmdList->RSSetScissorRects(1, &dx_scissor);
 
-        inCmdList.PushGraphicsConstants(ComposeRootConstants {
+        ComposeRootConstants root_constants = ComposeRootConstants {
             .mBloomTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mBloomTextureSRV)),
             .mInputTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mInputTextureSRV)),
-            .mExposure = inData.mExposure,
-            .mBloomBlendFactor = inData.mBloomBlendFactor,
-            .mChromaticAberrationStrength = inData.mChromaticAberrationStrength,
-         });
+            .mSettings = inData.mSettings
+        };
+
+        root_constants.mSettings.mVignetteScale *= g_CVars.GetValue<int>("r_enable_vignette");
+        root_constants.mSettings.mBloomBlendFactor *= g_CVars.GetValue<int>("r_enable_bloom");
+
+        inCmdList.PushGraphicsConstants(root_constants);
 
         inCmdList->DrawInstanced(3, 1, 0, 0);
     });

@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "ecs.h"
+#include "scene.h"
 
 namespace RK {
 
@@ -81,4 +82,14 @@ void RunECStorageTests()
 		std::cout << name.name << std::endl;
 }
 
+
+void Component::Change::Commit(Scene& inScene) 
+{
 }
+
+
+void Component::Change::Revert(Scene& inScene) 
+{
+}
+
+} // namespace RK

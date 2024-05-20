@@ -10,6 +10,11 @@
 
 namespace RK {
 
+RTTI_DEFINE_TYPE(SceneComponent)
+{
+	RTTI_DEFINE_TYPE_INHERITANCE(SceneComponent, Component);
+}
+
 RTTI_DEFINE_TYPE(Name)
 {
 	RTTI_DEFINE_TYPE_INHERITANCE(Name, Component);
@@ -30,7 +35,7 @@ RTTI_DEFINE_TYPE(Transform)
 
 RTTI_DEFINE_TYPE(DirectionalLight)
 {
-	RTTI_DEFINE_TYPE_INHERITANCE(DirectionalLight, Component);
+	RTTI_DEFINE_TYPE_INHERITANCE(DirectionalLight, SceneComponent);
 	RTTI_DEFINE_MEMBER(DirectionalLight, SERIALIZE_ALL, "Direction", direction);
 	RTTI_DEFINE_MEMBER(DirectionalLight, SERIALIZE_ALL, "Color", colour);
 }
@@ -46,7 +51,7 @@ RTTI_DEFINE_ENUM(ELightType)
 
 RTTI_DEFINE_TYPE(Light)
 {
-	RTTI_DEFINE_TYPE_INHERITANCE(Light, Component);
+	RTTI_DEFINE_TYPE_INHERITANCE(Light, SceneComponent);
 	RTTI_DEFINE_MEMBER(Light, SERIALIZE_ALL, "Type", type);
 	RTTI_DEFINE_MEMBER(Light, SERIALIZE_ALL, "Direction", direction);
 	RTTI_DEFINE_MEMBER(Light, SERIALIZE_ALL, "Position", position);
@@ -69,13 +74,13 @@ RTTI_DEFINE_TYPE(Mesh)
 
 RTTI_DEFINE_TYPE(RigidBody) 
 {
-	RTTI_DEFINE_TYPE_INHERITANCE(RigidBody, Component);
+	RTTI_DEFINE_TYPE_INHERITANCE(RigidBody, SceneComponent);
 }
 
 
 RTTI_DEFINE_TYPE(SoftBody) 
 {
-	RTTI_DEFINE_TYPE_INHERITANCE(SoftBody, Component);
+	RTTI_DEFINE_TYPE_INHERITANCE(SoftBody, SceneComponent);
 }
 
 
@@ -102,7 +107,7 @@ RTTI_DEFINE_TYPE(Skeleton)
 
 RTTI_DEFINE_TYPE(NativeScript) 
 {
-	RTTI_DEFINE_TYPE_INHERITANCE(NativeScript, Component);
+	RTTI_DEFINE_TYPE_INHERITANCE(NativeScript, SceneComponent);
 	RTTI_DEFINE_MEMBER(NativeScript, SERIALIZE_ALL, "File", file);
 	RTTI_DEFINE_MEMBER(NativeScript, SERIALIZE_ALL, "Type", type);
 }

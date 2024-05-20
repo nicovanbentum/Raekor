@@ -95,7 +95,8 @@ struct Frustum
 };
 
 
-
+int gRandomInt();
+uint32_t gRandomUInt();
 float gRandomFloatZO();
 float gRandomFloatNO();
 Mat3x3 gRandomOrientation();

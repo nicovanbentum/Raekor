@@ -2,6 +2,7 @@
 #include "DXRenderGraph.h"
 
 #include "shared.h"
+#include "Raekor/OS.h"
 #include "Raekor/iter.h"
 #include "Raekor/timer.h"
 #include "Raekor/profile.h"
@@ -390,10 +391,13 @@ void RenderGraphResources::Compile(Device& inDevice, const RenderGraphBuilder& i
 
     D3D12_RESOURCE_ALLOCATION_INFO allocation_info = inDevice->GetResourceAllocationInfo(0, resource_descriptions.size(), resource_descriptions.data());
 
-    if (allocation_info.SizeInBytes > m_Allocator.GetSize())
+    static bool do_resize_test = OS::sCheckCommandLineOption("-resize_test");
+
+    if (allocation_info.SizeInBytes > m_Allocator.GetSize() IF_DEBUG(|| do_resize_test))
     {
-        std::cout << std::format("Allocating {} MB\n", allocation_info.SizeInBytes / 1024 / 1024);
+        std::cout << std::format("Allocating RenderGraphResources: {} MB\n", allocation_info.SizeInBytes / 1024 / 1024);
         
+        m_Allocator.Clear();
         m_Allocator.Release();
         m_Allocator.Reserve(inDevice, allocation_info.SizeInBytes, allocation_info.Alignment);
     }
@@ -616,8 +620,6 @@ bool RenderGraph::Compile(Device& inDevice)
     Timer timer;
 
     m_RenderGraphResources.Compile(inDevice, m_RenderGraphBuilder);
-
-    std::cout << std::format("RenderGraph resource creation took {:.2f} ms\n", Timer::sToMilliseconds(timer.GetElapsedTime()));
 
     /*
         PASS VALIDATION

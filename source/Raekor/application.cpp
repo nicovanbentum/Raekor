@@ -102,13 +102,36 @@ Application::~Application()
 }
 
 
+void RandomlyResizeWindow(SDL_Window* inWindow)
+{
+	const int current_display_index = SDL_GetWindowDisplayIndex(inWindow);
+	const int num_display_modes = SDL_GetNumDisplayModes(current_display_index);
+
+	Array<SDL_DisplayMode> display_modes(num_display_modes);
+
+	for (const auto& [index, display_mode] : gEnumerate(display_modes))
+		SDL_GetDisplayMode(current_display_index, index, &display_mode);
+
+	const SDL_DisplayMode& mode = display_modes[gRandomUInt() % num_display_modes];
+
+	SDL_SetWindowSize(inWindow, mode.w, mode.h);
+
+	std::cout << std::format("Resizing Window to {}x{}\n", mode.w, mode.h);
+}
+
+
 void Application::Run()
 {
 	Timer timer;
 	float dt = 0;
 
+	static bool do_resize_test = OS::sCheckCommandLineOption("-resize_test");
+
 	while (m_Running)
 	{
+		if (do_resize_test && (m_FrameCounter % 100) == 0)
+			RandomlyResizeWindow(m_Window);
+
 		SDL_Event ev;
 		while (SDL_PollEvent(&ev))
 		{

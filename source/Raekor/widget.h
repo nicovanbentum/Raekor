@@ -22,8 +22,9 @@ public:
 	virtual void Draw(Widgets* inWidgets, float inDeltaTime) = 0;
 	virtual void OnEvent(Widgets* inWidgets, const SDL_Event& inEvent) = 0;
 
-	void Show() { m_Open = true; }
-	void Hide() { m_Open = false; }
+	void Show() { m_PrevOpen = m_Open; m_Open = true; }
+	void Hide() { m_PrevOpen = m_Open; m_Open = false; }
+	void Restore() { m_Open = m_PrevOpen; }
 
 	bool IsOpen() { return m_Open; }
 	bool IsVisible() { return m_Visible; }
@@ -44,6 +45,7 @@ protected:
 	Application* m_Editor;
 	std::string m_Title;
 	bool m_Open = true;
+	bool m_PrevOpen = true;
 	bool m_Visible = false;
 	bool m_Focused = false;
 };

@@ -290,12 +290,25 @@ void IEditor::OnEvent(const SDL_Event& event)
 
 			case SDLK_F1:
 			{
-				m_Settings.mShowUI = !m_Settings.mShowUI;
+				for (auto widget : m_Widgets)
+				{
+					if (widget->GetRTTI() != RTTI_OF(ViewportWidget))
+					{
+						if (m_ViewportFullscreen)
+							widget->Restore();
+						else
+							widget->Hide();
+					}
+				}
+
+				m_ViewportFullscreen = !m_ViewportFullscreen;
+
+				/*m_Settings.mShowUI = !m_Settings.mShowUI;
 
 				SDL_Event sdl_event;
 				sdl_event.type = SDL_WINDOWEVENT;
 				sdl_event.window.event = SDL_WINDOWEVENT_RESIZED;
-				SDL_PushEvent(&sdl_event);
+				SDL_PushEvent(&sdl_event);*/
 			} break;
 
 			case SDLK_LALT:

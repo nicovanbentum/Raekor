@@ -436,13 +436,24 @@ struct BloomRootConstants
 };
 
 
+struct ComposeSettings
+{
+    float mExposure;
+    float mVignetteScale;
+    float mVignetteBias;
+    float mVignetteInner;
+    float mVignetteOuter;
+    float mBloomBlendFactor;
+    float mChromaticAberrationStrength;
+};
+
 struct ComposeRootConstants
 {
     uint mBloomTexture;
     uint mInputTexture;
-    float mExposure;
-    float mBloomBlendFactor;
-    float mChromaticAberrationStrength;
+    uint mPad0;
+    uint mPad1;
+    ComposeSettings mSettings;
 };
 
 

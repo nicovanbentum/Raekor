@@ -7,6 +7,8 @@ namespace RK {
 static std::default_random_engine sDefaultRandomEngine;
 static std::uniform_real_distribution<float> sUniformDistributionZO(0.0, 1.0);
 static std::uniform_real_distribution<float> sUniformDistributionNO(-1.0, 1.0);
+static std::uniform_int_distribution<> sUniformIntDistribution(INT_MIN, INT_MAX);
+static std::uniform_int_distribution<uint32_t> sUniformUIntDistribution(0, UINT32_MAX);
 
 
 
@@ -195,6 +197,15 @@ bool BBox3D::Contains(const Vec3& inPoint) const
 		( inPoint.z >= mMin.z && inPoint.z <= mMax.z );
 }
 
+int gRandomInt()
+{
+	return sUniformIntDistribution(sDefaultRandomEngine);
+}
+
+uint32_t gRandomUInt()
+{
+	return sUniformUIntDistribution(sDefaultRandomEngine);
+}
 
 float gRandomFloatZO()
 {

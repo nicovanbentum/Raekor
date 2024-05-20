@@ -207,7 +207,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
 
     bool recompiled = false;
 
-    if (m_ShouldResize || need_recompile || (do_stress_test && m_FrameCounter > 0))
+    if (m_ShouldResize || need_recompile || (do_stress_test && m_FrameCounter > 60))
     {
         // Make sure nothing is using render targets anymore
         WaitForIdle(inDevice);
@@ -1323,11 +1323,25 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
         {
             ImGui::SeparatorText("Settings");
 
-            ImGui::DragFloat("Blend Factor", &ComposeData::mBloomBlendFactor, 0.01f, 0.0f, 0.5f, "%.2f");
+            ImGui::DragFloat("Blend Factor", &ComposeData::mSettings.mBloomBlendFactor, 0.01f, 0.0f, 0.5f, "%.2f");
 
             ImGui::EndMenu();
         }
 
+        need_recompile |= ImGui::Checkbox("##Vignettetoggle", (bool*)&m_Renderer.GetSettings().mEnableVignette);
+        ImGui::SameLine();
+
+        if (ImGui::BeginMenu("Vignette"))
+        {
+            ImGui::SeparatorText("Settings");
+
+            ImGui::DragFloat("Scale", &ComposeData::mSettings.mVignetteScale, 0.01f, 0.0f, 1.0f, "%.2f");
+            ImGui::DragFloat("Bias", &ComposeData::mSettings.mVignetteBias, 0.01f, 0.0f, 1.0f, "%.2f");
+            ImGui::DragFloat("Inner Radius", &ComposeData::mSettings.mVignetteInner, 0.01f, 0.0f, ComposeData::mSettings.mVignetteOuter, "%.2f");
+            ImGui::DragFloat("Outer Radius", &ComposeData::mSettings.mVignetteOuter, 0.01f, ComposeData::mSettings.mVignetteInner, 2.0f, "%.2f");
+
+            ImGui::EndMenu();
+        }
 
         need_recompile |= ImGui::Checkbox("##DOFtoggle", (bool*)&m_Renderer.GetSettings().mEnableDoF);
         ImGui::SameLine();
@@ -1349,8 +1363,8 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("Currently not implemented.");
 
-        ImGui::DragFloat("Manual Exposure", &ComposeData::mExposure, 0.01f, 0.0f, 100.0f, "%.2f");
-        ImGui::DragFloat("Chromatic Aberration", &ComposeData::mChromaticAberrationStrength, 0.01f, 0.0f, 10.0f, "%.2f");
+        ImGui::DragFloat("Manual Exposure", &ComposeData::mSettings.mExposure, 0.01f, 0.0f, 100.0f, "%.2f");
+        ImGui::DragFloat("Chromatic Aberration", &ComposeData::mSettings.mChromaticAberrationStrength, 0.01f, 0.0f, 10.0f, "%.2f");
 
         ImGui::EndMenu();
     }

@@ -6,6 +6,8 @@
 
 namespace RK {
 
+class Scene;
+
 enum Entity : uint32_t { Null = UINT32_MAX };
 using AtomicEntity = std::atomic<Entity>;
 RTTI_DECLARE_TYPE_PRIMITIVE(Entity);
@@ -15,7 +17,15 @@ using EntityHierarchy = BinaryRelations::OneToMany<Entity, Entity>;
 struct Component
 {
 	RTTI_DECLARE_TYPE(Component);
+
+	class Change
+	{
+		virtual void Commit(Scene& inScene);
+		virtual void Revert(Scene& inScene);
+	};
 };
+
+using ComponentID = uint32_t;
 
 template<typename T>
 class ComponentStorage;
@@ -27,6 +37,7 @@ public:
 
 	virtual void    Clear() = 0;
 	virtual size_t  Length() const = 0;
+	virtual void	Add(Entity inEntity) = 0;
 	virtual void    Remove(Entity inEntity) = 0;
 	virtual bool    Contains(Entity inEntity) const = 0;
 	virtual void	Copy(Entity inFrom, Entity inTo) = 0;
@@ -200,6 +211,11 @@ public:
 		Insert(inTo, component);
 	}
 
+	void Add(Entity inEntity) override final
+	{
+		Insert(inEntity, T {});
+	}
+
 	void Remove(Entity entity) override final
 	{
 		if (!Contains(entity))
@@ -314,9 +330,14 @@ public:
 	}
 
 	template<typename Component>
-	Component& Add(Entity entity, const Component& inComponent)
+	Component& Add(Entity inEntity, const Component& inComponent)
 	{
-		return GetComponentStorage<Component>()->Insert(entity, inComponent);
+		return GetComponentStorage<Component>()->Insert(inEntity, inComponent);
+	}
+
+	void Add(Entity inEntity, const RTTI* inRTTI)
+	{
+		m_Components[inRTTI->GetHash()]->Add(inEntity);
 	}
 
 	template<typename Component>
@@ -327,15 +348,15 @@ public:
 	}
 
 	template<typename Component>
-	Component& _GetInternal(Entity entity)
+	Component& _GetInternal(Entity inEntity)
 	{
-		return GetComponentStorage<Component>()->Get(entity);
+		return GetComponentStorage<Component>()->Get(inEntity);
 	}
 
 	template<typename Component>
-	const Component& _GetInternal(Entity entity) const
+	const Component& _GetInternal(Entity inEntity) const
 	{
-		return GetComponentStorage<Component>()->Get(entity);
+		return GetComponentStorage<Component>()->Get(inEntity);
 	}
 
 	template<typename Component>
@@ -424,6 +445,17 @@ public:
 		}( ) );
 
 		return has_all;
+	}
+
+	bool Has(Entity inEntity, const RTTI* inRTTI)
+	{
+		if (!inRTTI->IsDerivedFrom(&RTTI_OF(Component)))
+			return false;
+
+		if (!m_Components.contains(inRTTI->GetHash()))
+			return false;
+
+		return m_Components[inRTTI->GetHash()]->Contains(inEntity);
 	}
 
 	bool Exists(Entity inEntity) const

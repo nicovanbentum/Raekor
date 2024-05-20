@@ -114,7 +114,7 @@ public:
     void Reserve(Device& inDevice, uint64_t inSize, uint64_t inAlignment);
     void Release();
 
-    void Clear() { m_VirtualBlock->Clear(); }
+    void Clear() { if (m_VirtualBlock) m_VirtualBlock->Clear(); }
 
     BufferID CreateBuffer(Device& inDevice, const Buffer::Desc& inDesc);
     TextureID CreateTexture(Device& inDevice, const Texture::Desc& inDesc);

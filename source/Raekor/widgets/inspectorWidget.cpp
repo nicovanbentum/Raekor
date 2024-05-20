@@ -93,103 +93,18 @@ void InspectorWidget::DrawEntityInspector(Widgets* inWidgets)
 
 	if (ImGui::BeginPopup("Components"))
 	{
-		if (ImGui::Selectable("Native Script", false))
+		for (const RTTI* rtti : g_RTTIFactory)
 		{
-			scene.Add<NativeScript>(active_entity);
-			ImGui::CloseCurrentPopup();
-		}
+			if (!rtti->IsDerivedFrom(&RTTI_OF(SceneComponent)))
+				continue;
 
-		if (ImGui::Selectable("Rigid Body", false))
-		{
-			RigidBody& collider = scene.Add<RigidBody>(active_entity);
-		}
+			if (scene.Has(active_entity, rtti))
+				continue;
 
-		if (scene.Has<Transform, Mesh>(active_entity))
-		{
-			const auto& [transform, mesh] = scene.Get<Transform, Mesh>(active_entity);
-
-			if (ImGui::Selectable("Soft Body", false))
+			if (ImGui::Selectable(rtti->GetTypeName(), false))
 			{
-				SoftBody& soft_body = scene.Add<SoftBody>(active_entity);
-				Transform& transform = scene.Get<Transform>(active_entity);
-
-				// verts
-				for (const Vec3& pos : mesh.positions)
-				{
-					const Vec3 wpos = pos * transform.scale;
-
-					JPH::SoftBodySharedSettings::Vertex v;
-					v.mPosition = JPH::Float3(wpos.x, wpos.y, wpos.z);
-
-					soft_body.mSharedSettings.mVertices.push_back(v);
-				}
-
-				// faces
-				for (int index = 0; index < mesh.indices.size(); index += 3)
-				{
-					JPH::SoftBodySharedSettings::Face face;
-					face.mVertex[0] = mesh.indices[index];
-					face.mVertex[1] = mesh.indices[index + 1];
-					face.mVertex[2] = mesh.indices[index + 2];
-
-					soft_body.mSharedSettings.AddFace(face);
-				}
-
-				const int ntriangles = mesh.indices.size() / 3;
-				int		maxidx = 0;
-				int i, j, ni;
-
-				for (uint32_t index : mesh.indices)
-					maxidx = glm::max((int)index, maxidx);
-				++maxidx;
-
-				Array<bool> chks;
-				chks.resize(maxidx * maxidx, false);
-
-				for (int i = 0, ni = ntriangles * 3; i < ni; i += 3)
-				{
-					const int idx[] = { (int)mesh.indices[i], (int)mesh.indices[i + 1], (int)mesh.indices[i + 2] };
-#define IDX(_x_,_y_) ((_y_)*maxidx+(_x_))
-					for (int j = 2, k = 0; k < 3; j = k++)
-					{
-						if (!chks[IDX(idx[j], idx[k])])
-						{
-							chks[IDX(idx[j], idx[k])] = true;
-							chks[IDX(idx[k], idx[j])] = true;
-							soft_body.mSharedSettings.mEdgeConstraints.push_back(JPH::SoftBodySharedSettings::Edge(idx[j], idx[k], 0.00001f));
-						}
-					}
-#undef IDX
-				}
-
-				//// edges
-				//for (auto index = 0u; index < 24; index += 3) {
-				//    JPH::SoftBodySharedSettings::Edge edge;
-				//    edge.mCompliance = 0.00001f;
-				//    
-				//    edge.mVertex[0] = mesh.indices[index];
-				//    edge.mVertex[1] = mesh.indices[index + 1];
-				//    soft_body.mSharedSettings.mEdgeConstraints.push_back(edge);
-
-				//    edge.mVertex[0] = mesh.indices[index];
-				//    edge.mVertex[1] = mesh.indices[index + 2];
-				//    soft_body.mSharedSettings.mEdgeConstraints.push_back(edge);
-
-				//    edge.mVertex[0] = mesh.indices[index + 1];
-				//    edge.mVertex[1] = mesh.indices[index + 2];
-				//    soft_body.mSharedSettings.mEdgeConstraints.push_back(edge);
-				//}
-
-
-
-				soft_body.mSharedSettings.CalculateEdgeLengths();
-
-				soft_body.mCreationSettings.mUpdatePosition = false;
-				soft_body.mCreationSettings.mGravityFactor = 0.0f;
-				soft_body.mCreationSettings.mLinearDamping = 0.0f;
-				soft_body.mCreationSettings.mMaxLinearVelocity = 5.0f;
-
-				soft_body.mSharedSettings.SetEmbedded();
+				scene.Add(active_entity, rtti);
+				ImGui::CloseCurrentPopup();
 			}
 		}
 
@@ -429,6 +344,90 @@ void InspectorWidget::DrawComponent(Entity inEntity, SoftBody& ioSoftBody)
 	JPH::BodyInterface& body_interface = GetPhysics().GetSystem()->GetBodyInterface();
 
 	ImGui::Text("Unique Body ID: %i", ioSoftBody.mBodyID.GetIndexAndSequenceNumber());
+
+	Mesh& mesh = GetScene().Get<Mesh>(inEntity);
+	Transform& transform = GetScene().Get<Transform>(inEntity);
+
+	if (ImGui::Button("Build"))
+	{
+		// verts
+		for (const Vec3& pos : mesh.positions)
+		{
+			const Vec3 wpos = pos * transform.scale;
+
+			JPH::SoftBodySharedSettings::Vertex v;
+			v.mPosition = JPH::Float3(wpos.x, wpos.y, wpos.z);
+
+			ioSoftBody.mSharedSettings.mVertices.push_back(v);
+		}
+
+		// faces
+		for (int index = 0; index < mesh.indices.size(); index += 3)
+		{
+			JPH::SoftBodySharedSettings::Face face;
+			face.mVertex[0] = mesh.indices[index];
+			face.mVertex[1] = mesh.indices[index + 1];
+			face.mVertex[2] = mesh.indices[index + 2];
+
+			ioSoftBody.mSharedSettings.AddFace(face);
+		}
+
+		const int ntriangles = mesh.indices.size() / 3;
+		int		maxidx = 0;
+		int i, j, ni;
+
+		for (uint32_t index : mesh.indices)
+			maxidx = glm::max((int)index, maxidx);
+		++maxidx;
+
+		Array<bool> chks;
+		chks.resize(maxidx * maxidx, false);
+
+		for (int i = 0, ni = ntriangles * 3; i < ni; i += 3)
+		{
+			const int idx[] = { (int)mesh.indices[i], (int)mesh.indices[i + 1], (int)mesh.indices[i + 2] };
+#define IDX(_x_,_y_) ((_y_)*maxidx+(_x_))
+			for (int j = 2, k = 0; k < 3; j = k++)
+			{
+				if (!chks[IDX(idx[j], idx[k])])
+				{
+					chks[IDX(idx[j], idx[k])] = true;
+					chks[IDX(idx[k], idx[j])] = true;
+					ioSoftBody.mSharedSettings.mEdgeConstraints.push_back(JPH::SoftBodySharedSettings::Edge(idx[j], idx[k], 0.00001f));
+				}
+			}
+#undef IDX
+		}
+
+		//// edges
+		//for (auto index = 0u; index < 24; index += 3) {
+		//    JPH::SoftBodySharedSettings::Edge edge;
+		//    edge.mCompliance = 0.00001f;
+		//    
+		//    edge.mVertex[0] = mesh.indices[index];
+		//    edge.mVertex[1] = mesh.indices[index + 1];
+		//    soft_body.mSharedSettings.mEdgeConstraints.push_back(edge);
+
+		//    edge.mVertex[0] = mesh.indices[index];
+		//    edge.mVertex[1] = mesh.indices[index + 2];
+		//    soft_body.mSharedSettings.mEdgeConstraints.push_back(edge);
+
+		//    edge.mVertex[0] = mesh.indices[index + 1];
+		//    edge.mVertex[1] = mesh.indices[index + 2];
+		//    soft_body.mSharedSettings.mEdgeConstraints.push_back(edge);
+		//}
+
+
+
+		ioSoftBody.mSharedSettings.CalculateEdgeLengths();
+
+		ioSoftBody.mCreationSettings.mUpdatePosition = false;
+		ioSoftBody.mCreationSettings.mGravityFactor = 0.0f;
+		ioSoftBody.mCreationSettings.mLinearDamping = 0.0f;
+		ioSoftBody.mCreationSettings.mMaxLinearVelocity = 5.0f;
+
+		ioSoftBody.mSharedSettings.SetEmbedded();
+	}
 
 	if (ImGui::Button("Add Impulse"))
 	{

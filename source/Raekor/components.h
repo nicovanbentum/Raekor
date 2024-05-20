@@ -15,6 +15,11 @@ class TextureAsset;
 class INativeScript;
 class IComponentStorage;
 
+struct SceneComponent : public Component
+{
+	RTTI_DECLARE_TYPE(SceneComponent);
+};
+
 struct Name : public Component
 {
 	RTTI_DECLARE_TYPE(Name);
@@ -52,7 +57,7 @@ struct Transform : public Component
 };
 
 
-struct DirectionalLight : public Component
+struct DirectionalLight : public SceneComponent
 {
 	RTTI_DECLARE_TYPE(DirectionalLight);
 
@@ -60,8 +65,8 @@ struct DirectionalLight : public Component
 	const Vec4& GetDirection() const { return direction; }
 
 
-	glm::vec4 direction = { 0.25f, -0.9f, 0.0f, 0.0f };
-	glm::vec4 colour = { 1.0f, 1.0f, 1.0f, 1.0f };
+	Vec4 direction = { 0.25f, -0.9f, 0.0f, 0.0f };
+	Vec4 colour = { 1.0f, 1.0f, 1.0f, 1.0f };
 };
 
 
@@ -75,7 +80,7 @@ enum ELightType
 RTTI_DECLARE_ENUM(ELightType);
 
 
-struct Light : public Component
+struct Light : public SceneComponent
 {
 	RTTI_DECLARE_TYPE(Light);
 
@@ -128,7 +133,7 @@ struct Mesh : public Component
 	uint32_t indexBuffer = 0;
 	uint32_t BottomLevelAS = 0;
 
-	StaticArray<glm::vec3, 2> aabb;
+	StaticArray<Vec3, 2> aabb;
 
 	Entity material = Entity::Null;
 
@@ -155,7 +160,7 @@ struct Mesh : public Component
 };
 
 
-struct RigidBody : public Component
+struct RigidBody : public SceneComponent
 {
 	RTTI_DECLARE_TYPE(RigidBody);
 
@@ -171,7 +176,7 @@ struct RigidBody : public Component
 };
 
 
-struct SoftBody : public Component
+struct SoftBody : public SceneComponent
 {
 	RTTI_DECLARE_TYPE(SoftBody);
 
@@ -193,8 +198,8 @@ struct Skeleton : public Component
 		RTTI_DECLARE_TYPE(Skeleton::Bone);
 
 		uint32_t index;
-		std::string name;
-		std::vector<Bone> children;
+		String name;
+		Array<Bone> children;
 	};
 	
 	Bone rootBone;
@@ -301,7 +306,7 @@ struct Material : public Component
 };
 
 
-struct NativeScript : public Component
+struct NativeScript : public SceneComponent
 {
 	RTTI_DECLARE_TYPE(NativeScript);
 
