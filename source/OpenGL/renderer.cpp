@@ -404,10 +404,8 @@ void Renderer::DrawDebugSettings(Application* inApp, Scene& inScene, const Viewp
 
 void Renderer::UploadMeshBuffers(Entity inEntity, Mesh& mesh)
 {
-    const Array<float>& vertices = mesh.GetInterleavedVertices();
-
     glCreateBuffers(1, &mesh.vertexBuffer);
-    glNamedBufferData(mesh.vertexBuffer, sizeof(float) * vertices.size(), vertices.data(), GL_STATIC_DRAW);
+    glNamedBufferData(mesh.vertexBuffer, sizeof(float) * mesh.vertices.size(), mesh.vertices.data(), GL_STATIC_DRAW);
 
     glCreateBuffers(1, &mesh.indexBuffer);
     glNamedBufferData(mesh.indexBuffer, sizeof(uint32_t) * mesh.indices.size(), mesh.indices.data(), GL_STATIC_DRAW);
@@ -438,11 +436,9 @@ void Renderer::UploadSkeletonBuffers(Entity inEntity, Skeleton& skeleton, Mesh& 
     glCreateBuffers(1, &skeleton.boneTransformsBuffer);
     glNamedBufferData(skeleton.boneTransformsBuffer, skeleton.boneTransformMatrices.size() * sizeof(glm::mat4), skeleton.boneTransformMatrices.data(), GL_DYNAMIC_READ);
 
-    const Array<float>& originalMeshBuffer = mesh.GetInterleavedVertices();
-
     if (skeleton.skinnedVertexBuffer) glDeleteBuffers(1, &skeleton.skinnedVertexBuffer);
     glCreateBuffers(1, &skeleton.skinnedVertexBuffer);
-    glNamedBufferData(skeleton.skinnedVertexBuffer, sizeof(originalMeshBuffer[0]) * originalMeshBuffer.size(), originalMeshBuffer.data(), GL_STATIC_DRAW);
+    glNamedBufferData(skeleton.skinnedVertexBuffer, sizeof(mesh.vertices[0]) * mesh.vertices.size(), mesh.vertices.data(), GL_STATIC_DRAW);
 }
 
 

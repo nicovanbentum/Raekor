@@ -66,9 +66,8 @@ void RayTracedScene::UpdateBLAS(Application* inApp, Device& inDevice, StagingHea
 
 void RayTracedScene::UploadMesh(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, Mesh& inMesh, Skeleton* inSkeleton, CommandList& inCmdList)
 {
-    const Array<float>& vertices = inMesh.GetInterleavedVertices();
-    const uint64_t vertices_size = vertices.size() * sizeof(vertices[0]);
     const uint64_t indices_size = inMesh.indices.size() * sizeof(inMesh.indices[0]);
+    const uint64_t vertices_size = inMesh.vertices.size() * sizeof(inMesh.vertices[0]);
 
     if (!vertices_size || !indices_size)
         return;
@@ -129,7 +128,7 @@ void RayTracedScene::UploadMesh(Application* inApp, Device& inDevice, StagingHea
     const Buffer& gpu_vertex_buffer = inDevice.GetBuffer(BufferID(inMesh.vertexBuffer));
 
     inStagingHeap.StageBuffer(inCmdList, gpu_index_buffer, 0, inMesh.indices.data(), indices_size);
-    inStagingHeap.StageBuffer(inCmdList, gpu_vertex_buffer, 0, vertices.data(), vertices_size);
+    inStagingHeap.StageBuffer(inCmdList, gpu_vertex_buffer, 0, inMesh.vertices.data(), vertices_size);
 
     const std::array barriers = 
     {
@@ -406,12 +405,6 @@ void RayTracedScene::UploadMaterials(Application* inApp, Device& inDevice, Stagi
         // 0 is maybe fine? haven't seen this trigger before though
         assert(rt_material.mAlbedoTexture != 0 && rt_material.mNormalsTexture != 0 && rt_material.mMetallicTexture != 0);
     }
-
-    D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
-    srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-    srv_desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-    srv_desc.Buffer.StructureByteStride = sizeof(RTMaterial);
-    srv_desc.Buffer.NumElements = rt_materials.size();
 
     m_MaterialsBuffer = GrowBuffer(inDevice, m_MaterialsBuffer, Buffer::Desc
     {

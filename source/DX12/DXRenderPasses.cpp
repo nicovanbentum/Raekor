@@ -387,6 +387,9 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
         ByteSlice vertex_shader, pixel_shader;
         g_SystemShaders.mGBufferShader.GetGraphicsProgram(vertex_shader, pixel_shader);
 
+        const ShaderProgram& shader_program = g_SystemShaders.mGBufferShader;
+
+
         D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
         inDevice->CreateGraphicsPipelineState(&pso_state, IID_PPV_ARGS(inData.mPipeline.GetAddressOf()));
         inData.mPipeline->SetName(L"PSO_GBUFFER");
@@ -425,15 +428,6 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
             //if (material && material->isTransparent)
                 //continue;
 
-            const Buffer& index_buffer = inDevice.GetBuffer(BufferID(mesh.indexBuffer));
-
-            const D3D12_INDEX_BUFFER_VIEW index_view =
-            {
-                .BufferLocation = index_buffer->GetGPUVirtualAddress(),
-                .SizeInBytes = uint32_t(mesh.indices.size() * sizeof(mesh.indices[0])),
-                .Format = DXGI_FORMAT_R32_UINT,
-            };
-
             const Material* material = inScene->GetPtr<Material>(mesh.material);
 
             if (material == nullptr)
@@ -458,7 +452,7 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
                 .mEntity = uint32_t(entity)
             });
 
-            inCmdList->IASetIndexBuffer(&index_view);
+            inCmdList.BindIndexBuffer(inDevice.GetBuffer(BufferID(mesh.indexBuffer)));
 
             if (entity == inData.mActiveEntity)
             {
@@ -1117,7 +1111,7 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, 
 
 const PreImGuiData& AddPreImGuiPass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID ioDisplayTexture)
 {
-    return inRenderGraph.AddGraphicsPass<PreImGuiData>("PRE-UI PASS",
+    return inRenderGraph.AddGraphicsPass<PreImGuiData>("TRANSITION TEXTURE PASS",
 
     [&](RenderGraphBuilder& inBuilder, IRenderPass* inRenderPass, PreImGuiData& inData)
     {

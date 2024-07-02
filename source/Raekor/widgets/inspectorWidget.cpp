@@ -241,7 +241,7 @@ void InspectorWidget::DrawComponent(Entity inEntity, Name& inName)
 
 void InspectorWidget::DrawComponent(Entity inEntity, Mesh& ioMesh)
 {
-	const int byte_size = sizeof(Mesh) + ioMesh.GetInterleavedStride() * ioMesh.positions.size();
+	const int byte_size = sizeof(Mesh) + ioMesh.GetVertexStride() * ioMesh.positions.size();
 	ImGui::Text("%.1f Kb", float(byte_size) / 1024);
 
 	ImGui::Text("%i Meshlets", ioMesh.meshlets.size());

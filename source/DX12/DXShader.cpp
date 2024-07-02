@@ -380,6 +380,9 @@ ID3D12PipelineState* ShaderCompiler::GetGraphicsPipeline(Device& inDevice, IRend
     if (inVertexShaderHash == 0 || inPixelShaderHash == 0)
         return nullptr; 
 
+    if (!m_ShaderCache.contains(inVertexShaderHash) || !m_ShaderCache.contains(inPixelShaderHash))
+        return nullptr;
+
     const StaticArray hash_data = { inVertexShaderHash, inPixelShaderHash };
     const uint32_t shader_hash = gHashFNV1a((const char*)hash_data.data(), sizeof(hash_data[0]) * hash_data.size());
 

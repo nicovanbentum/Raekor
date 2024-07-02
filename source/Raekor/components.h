@@ -123,6 +123,7 @@ struct Mesh : public Component
 	Array<Vec3> tangents; // ptr
 
 	Array<uint32_t> indices; // ptr
+	Array<float> vertices; // ptr , rip memory
 
 	Array<Meshlet> meshlets;
 	Array<uint32_t> meshletIndices;
@@ -139,24 +140,13 @@ struct Mesh : public Component
 
 	float mLODFade = 0.0f;
 
-	Array<float> mInterleavedVertices;
-
 	void CalculateAABB();
 	void CalculateNormals();
 	void CalculateTangents(float inTangentSign = 1.0f);
 
-	uint32_t GetInterleavedStride() const;
-	const std::vector<float>& GetInterleavedVertices();
-
-	void Clear()
-	{
-		positions.clear();
-		uvs.clear();
-		normals.clear();
-		tangents.clear();
-		indices.clear();
-
-	}
+	void CalculateVertices();
+	uint32_t GetVertexStride() const;
+	void Clear();
 };
 
 

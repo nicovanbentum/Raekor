@@ -308,6 +308,9 @@ bool GltfImporter::ConvertMesh(Entity inEntity, const cgltf_primitive& inMesh)
 	if (mesh.tangents.empty() && !mesh.uvs.empty())
 		mesh.CalculateTangents();
 
+	if (mesh.vertices.empty())
+		mesh.CalculateVertices();
+
 	if (m_Renderer)
 		m_Renderer->UploadMeshBuffers(inEntity, mesh);
 

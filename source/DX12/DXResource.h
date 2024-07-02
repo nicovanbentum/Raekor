@@ -335,9 +335,11 @@ public:
     Buffer(const Desc& inDesc) : m_Desc(inDesc) {}
     ~Buffer() { if (m_MappedPtr) m_Resource->Unmap(0, nullptr); }
 
+    const Desc& GetDesc() const { return m_Desc; }
+    
     Usage GetUsage() const { return m_Desc.usage; }
     uint32_t GetSize() const { return m_Desc.size; }
-    const Desc& GetDesc() const { return m_Desc; }
+    DXGI_FORMAT GetFormat() const { return m_Desc.format; }
 
     bool HasDescriptor() const { return m_Descriptor.IsValid(); }
     DescriptorID GetDescriptor() const { return m_Descriptor; }

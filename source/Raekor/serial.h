@@ -22,7 +22,7 @@ enum ECompressionType
 
 struct SceneHeader
 {
-	static constexpr uint32_t sVersion = 1;
+	static constexpr uint32_t sVersion = 2;
 	static constexpr uint64_t sMagicNumber = 'RKSC';
 
 	uint32_t Version;

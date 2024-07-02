@@ -629,9 +629,8 @@ const ProbeDebugData& AddProbeDebugPass(RenderGraph& inRenderGraph, Device& inDe
     {
         gGenerateSphere(inData.mProbeMesh, 0.5f, 32u, 32u);
 
-        const Array<float> vertices = inData.mProbeMesh.GetInterleavedVertices();
-        const uint64_t vertices_size = vertices.size() * sizeof(vertices[0]);
         const uint64_t indices_size = inData.mProbeMesh.indices.size() * sizeof(inData.mProbeMesh.indices[0]);
+        const uint64_t vertices_size = inData.mProbeMesh.vertices.size() * sizeof(inData.mProbeMesh.vertices[0]);
 
         inData.mProbeMesh.indexBuffer = inDevice.CreateBuffer(Buffer::Desc
         {
@@ -663,7 +662,7 @@ const ProbeDebugData& AddProbeDebugPass(RenderGraph& inRenderGraph, Device& inDe
             Buffer& vertex_buffer = inDevice.GetBuffer(BufferID(inData.mProbeMesh.vertexBuffer));
             void* mapped_ptr = nullptr;
             vertex_buffer->Map(0, nullptr, &mapped_ptr);
-            memcpy(mapped_ptr, vertices.data(), vertices_size);
+            memcpy(mapped_ptr, inData.mProbeMesh.vertices.data(), vertices_size);
             vertex_buffer->Unmap(0, nullptr);
         }
 

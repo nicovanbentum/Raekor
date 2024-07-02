@@ -56,7 +56,7 @@ void main(uint3 threadID : SV_DispatchThreadID) {
         brdf.FromHit(vertex, material);
         //brdf.mNormal = vertex.mNormal; // use the vertex normal, texture based detail is lost anyway
         
-        irradiance = material.mEmissive.rgb;
+        irradiance = brdf.mEmissive;
         
         const float3 Wo = -ray.Direction;
         const float3 Wi = normalize(-fc.mSunDirection.xyz);

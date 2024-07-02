@@ -230,6 +230,9 @@ void FBXImporter::ConvertMesh(Entity inEntity, const ufbx_mesh* inMesh, const uf
 	if (mesh.tangents.empty() && !mesh.uvs.empty())
 		mesh.CalculateTangents();
 
+	if (mesh.vertices.empty())
+		mesh.CalculateVertices();
+
 	if (m_Renderer)
 		m_Renderer->UploadMeshBuffers(inEntity, mesh);
 }

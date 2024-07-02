@@ -739,14 +739,14 @@ const char* RenderInterface::GetDebugTextureName(uint32_t inIndex) const
 
 void RenderInterface::UploadMeshBuffers(Entity inEntity, Mesh& inMesh)
 {
-    const Array<float>& vertices = inMesh.GetInterleavedVertices();
-    const int vertices_size = vertices.size() * sizeof(vertices[0]);
     const int indices_size = inMesh.indices.size() * sizeof(inMesh.indices[0]);
+    const int vertices_size = inMesh.vertices.size() * sizeof(inMesh.vertices[0]);
 
     if (!vertices_size || !indices_size)
         return;
 
     inMesh.indexBuffer = m_Device.CreateBuffer(Buffer::Desc{
+        .format = DXGI_FORMAT_R32_UINT,
         .size   = uint32_t(indices_size),
         .stride = sizeof(uint32_t) * 3,
         .usage  = Buffer::Usage::INDEX_BUFFER,
@@ -792,10 +792,8 @@ void RenderInterface::UploadSkeletonBuffers(Entity inEntity, Skeleton& inSkeleto
         .debugName = "BoneTransformsBuffer"
     }).GetValue();
 
-    const Array<float>& mesh_vertices = inMesh.GetInterleavedVertices();
-
     inSkeleton.skinnedVertexBuffer = m_Device.CreateBuffer(Buffer::Desc {
-        .size   = uint32_t(sizeof(mesh_vertices[0]) * mesh_vertices.size()),
+        .size   = uint32_t(sizeof(inMesh.vertices[0]) * inMesh.vertices.size()),
         .stride = sizeof(RTVertex),
         .usage  = Buffer::Usage::SHADER_READ_WRITE,
         .debugName = "SkinnedVertexBuffer"
@@ -1017,6 +1015,8 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
                 for (Vec2& uv : mesh.uvs)
                     uv.y = 1.0 - uv.y;
 
+                mesh.CalculateVertices();
+
                 UploadMeshBuffers(entity, mesh);
             }
         }
@@ -1232,6 +1232,8 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
         }
 
         ImGui::SliderInt("V-Sync", &m_Renderer.GetSettings().mEnableVsync, 0, 3);
+
+        ImGui::InputInt("Target FPS", &m_Renderer.GetSettings().mTargetFps);
 
         ImGui::EndMenu();
     }

@@ -45,6 +45,7 @@ private:
     {
         int& mEnableImGui        = g_CVars.Create("r_enable_imgui",         1);
         int& mEnableVsync        = g_CVars.Create("r_vsync",                1);
+        int& mTargetFps          = g_CVars.Create("r_target_fps",          -1);
         int& mDisableAlbedo      = g_CVars.Create("r_disable_albedo",       0, true);
         int& mEnableDDGI         = g_CVars.Create("r_enable_ddgi",          1, true);
         int& mDebugProbeRays     = g_CVars.Create("r_debug_gi_rays",        0, true);

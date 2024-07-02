@@ -80,6 +80,7 @@ void gGenerateSphere(Mesh& ioMesh, float inRadius, uint32_t inSectorCount, uint3
 
 	ioMesh.CalculateTangents();
 	ioMesh.CalculateAABB();
+	ioMesh.CalculateVertices();
 }
 
 }

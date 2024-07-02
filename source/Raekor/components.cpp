@@ -67,6 +67,7 @@ RTTI_DEFINE_TYPE(Mesh)
 	RTTI_DEFINE_MEMBER(Mesh, SERIALIZE_ALL, "Texcoords", uvs);
 	RTTI_DEFINE_MEMBER(Mesh, SERIALIZE_ALL, "Normals", normals);
 	RTTI_DEFINE_MEMBER(Mesh, SERIALIZE_ALL, "Tangents", tangents);
+	RTTI_DEFINE_MEMBER(Mesh, SERIALIZE_ALL, "Vertices", vertices);
 	RTTI_DEFINE_MEMBER(Mesh, SERIALIZE_ALL, "Indices", indices);
 	RTTI_DEFINE_MEMBER(Mesh, SERIALIZE_ALL, "Material", material);
 }
@@ -338,11 +339,11 @@ void Mesh::CalculateAABB()
 }
 
 
-const std::vector<float>& Mesh::GetInterleavedVertices()
+void Mesh::CalculateVertices()
 {
-	mInterleavedVertices.clear();
+	vertices.clear();
 
-	mInterleavedVertices.reserve(
+	vertices.reserve(
 		3 * positions.size() +
 		2 * uvs.size() +
 		3 * normals.size() +
@@ -356,40 +357,51 @@ const std::vector<float>& Mesh::GetInterleavedVertices()
 	for (int i = 0; i < positions.size(); i++)
 	{
 		Vec3 position = positions[i];
-		mInterleavedVertices.push_back(position.x);
-		mInterleavedVertices.push_back(position.y);
-		mInterleavedVertices.push_back(position.z);
+		vertices.push_back(position.x);
+		vertices.push_back(position.y);
+		vertices.push_back(position.z);
 
 		if (has_uvs)
 		{
 			Vec2 uv = uvs[i];
-			mInterleavedVertices.push_back(uv.x);
-			mInterleavedVertices.push_back(uv.y);
+			vertices.push_back(uv.x);
+			vertices.push_back(uv.y);
 		}
 
 		if (has_normals)
 		{
 			Vec3 normal = normals[i];
-			mInterleavedVertices.push_back(normal.x);
-			mInterleavedVertices.push_back(normal.y);
-			mInterleavedVertices.push_back(normal.z);
+			vertices.push_back(normal.x);
+			vertices.push_back(normal.y);
+			vertices.push_back(normal.z);
 		}
 
 		if (has_tangents && i < tangents.size())
 		{
 			Vec3 tangent = tangents[i];
-			mInterleavedVertices.push_back(tangent.x);
-			mInterleavedVertices.push_back(tangent.y);
-			mInterleavedVertices.push_back(tangent.z);
+			vertices.push_back(tangent.x);
+			vertices.push_back(tangent.y);
+			vertices.push_back(tangent.z);
 		}
 	}
-
-	return mInterleavedVertices;
 }
 
 
 
-uint32_t Mesh::GetInterleavedStride() const
+void Mesh::Clear()
+{
+	positions.clear();
+	uvs.clear();
+	normals.clear();
+	tangents.clear();
+	indices.clear();
+	vertices.clear();
+
+}
+
+
+
+uint32_t Mesh::GetVertexStride() const
 {
 	uint32_t stride = 0u;
 	stride += sizeof(Vec3) * !positions.empty();

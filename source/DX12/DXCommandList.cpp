@@ -96,6 +96,20 @@ void CommandList::BindToSlot(Buffer& inBuffer, EBindSlot inSlot, uint32_t inOffs
 }
 
 
+void CommandList::BindIndexBuffer(const Buffer& inBuffer)
+{
+    const D3D12_INDEX_BUFFER_VIEW index_view =
+    {
+        .BufferLocation = inBuffer->GetGPUVirtualAddress(),
+        .SizeInBytes = inBuffer.GetSize(),
+        .Format = inBuffer.GetFormat()
+    };
+
+    assert(index_view.SizeInBytes <= inBuffer.GetSize());
+    m_CommandLists[m_CurrentCmdListIndex]->IASetIndexBuffer(&index_view);
+}
+
+
 void CommandList::BindVertexAndIndexBuffers(Device& inDevice, const Mesh& inMesh)
 {
     const Buffer& index_buffer = inDevice.GetBuffer(BufferID(inMesh.indexBuffer));
@@ -112,7 +126,7 @@ void CommandList::BindVertexAndIndexBuffers(Device& inDevice, const Mesh& inMesh
     {
         .BufferLocation = vertex_buffer->GetGPUVirtualAddress(),
         .SizeInBytes = uint32_t(vertex_buffer->GetDesc().Width),
-        .StrideInBytes = inMesh.GetInterleavedStride()
+        .StrideInBytes = inMesh.GetVertexStride()
     };
 
     m_CommandLists[m_CurrentCmdListIndex]->IASetIndexBuffer(&index_view);

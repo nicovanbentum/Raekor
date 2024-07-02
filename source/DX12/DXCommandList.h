@@ -47,7 +47,8 @@ public:
     /* Only buffers are allowed to be used as root descriptor. */
     void BindToSlot(Buffer& inBuffer, EBindSlot inSlot, uint32_t inOffset = 0);
 
-    /* Helper function to bind a mesh. */
+    /* geometry helper functions. */
+    void BindIndexBuffer(const Buffer& inBuffer);
     void BindVertexAndIndexBuffers(Device& inDevice, const Mesh& inMesh);
 
     /* Sets both the viewport and scissor to the size defined by inViewport. */

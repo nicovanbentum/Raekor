@@ -169,9 +169,10 @@ D3D12_SHADER_RESOURCE_VIEW_DESC Buffer::Desc::ToSRVDesc() const
         srv_desc.Buffer.NumElements = size / sizeof(uint32_t);
     }
     // Structured buffer
-    else if (stride > 0 && format == DXGI_FORMAT_UNKNOWN) 
+    else if (stride > 0) 
     {
         assert(size > 0);
+        srv_desc.Format = DXGI_FORMAT_UNKNOWN;
         srv_desc.Buffer.StructureByteStride = stride;
         srv_desc.Buffer.NumElements = size / stride;
     }
