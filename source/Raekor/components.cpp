@@ -228,7 +228,168 @@ void Transform::Print()
 }
 
 
-void Mesh::CalculateTangents(float inTangentSign)
+void Mesh::CreateCube(Mesh& ioMesh, float inScale)
+{
+	static constexpr std::array vertices = 
+	{
+		Vertex{{-0.5f, -0.5f,  0.5f}},
+		Vertex{{ 0.5f, -0.5f,  0.5f}},
+		Vertex{{ 0.5f,  0.5f,  0.5f}},
+		Vertex{{-0.5f,  0.5f,  0.5f}},
+		Vertex{{-0.5f, -0.5f, -0.5f}},
+		Vertex{{ 0.5f, -0.5f, -0.5f}},
+		Vertex{{ 0.5f,  0.5f, -0.5f}},
+		Vertex{{-0.5f,  0.5f, -0.5f}}
+	};
+
+	static constexpr std::array indices = 
+	{
+		Triangle{0, 1, 2}, Triangle{2, 3, 0},
+		Triangle{1, 5, 6}, Triangle{6, 2, 1},
+		Triangle{7, 6, 5}, Triangle{5, 4, 7},
+		Triangle{4, 0, 3}, Triangle{3, 7, 4},
+		Triangle{4, 5, 1}, Triangle{1, 0, 4},
+		Triangle{3, 2, 6}, Triangle{6, 7, 3}
+	};
+
+	for (const Vertex& v : vertices)
+	{
+		ioMesh.uvs.push_back(v.uv);
+		ioMesh.normals.push_back(v.normal);
+		ioMesh.positions.push_back(v.pos * inScale);
+	}
+
+	for (const Triangle& index : indices)
+	{
+		ioMesh.indices.push_back(index.p1);
+		ioMesh.indices.push_back(index.p2);
+		ioMesh.indices.push_back(index.p3);
+	}
+
+	ioMesh.CalculateNormals();
+	ioMesh.CalculateTangents();
+	ioMesh.CalculateVertices();
+	ioMesh.CalculateBoundingBox();
+}
+
+
+void Mesh::CreatePlane(Mesh& ioMesh, float inScale)
+{
+	static constexpr std::array vertices = 
+	{
+		Vertex{{-0.5f, 0.0f, -0.5f}, {0.0f, 0.0f}, {0.0, 1.0, 0.0}, {}},
+		Vertex{{ 0.5f, 0.0f, -0.5f}, {1.0f, 0.0f}, {0.0, 1.0, 0.0}, {}},
+		Vertex{{ 0.5f, 0.0f,  0.5f}, {1.0f, 1.0f}, {0.0, 1.0, 0.0}, {}},
+		Vertex{{-0.5f, 0.0f,  0.5f}, {0.0f, 1.0f}, {0.0, 1.0, 0.0}, {}}
+	};
+
+	static constexpr std::array indices = 
+	{
+		Triangle{3, 1, 0}, Triangle{2, 1, 3}
+	};
+
+	for (const Vertex& v : vertices)
+	{
+		ioMesh.uvs.push_back(v.uv);
+		ioMesh.normals.push_back(v.normal);
+		ioMesh.positions.push_back(v.pos * inScale);
+	}
+
+	for (const Triangle& triangle : indices)
+	{
+		ioMesh.indices.push_back(triangle.p1);
+		ioMesh.indices.push_back(triangle.p2);
+		ioMesh.indices.push_back(triangle.p3);
+	}
+
+	ioMesh.CalculateTangents();
+	ioMesh.CalculateVertices();
+	ioMesh.CalculateBoundingBox();
+}
+
+
+void Mesh::CreateSphere(Mesh& ioMesh, float inRadius, uint32_t inSectorCount, uint32_t inStackCount)
+{
+	ioMesh.positions.clear();
+	ioMesh.normals.clear();
+	ioMesh.tangents.clear();
+	ioMesh.uvs.clear();
+
+	float x, y, z, xy;                              // vertex position
+	float nx, ny, nz, lengthInv = 1.0f / inRadius;  // vertex normal
+	float s, t;                                     // vertex texCoord
+
+	const float PI = static_cast<float>( M_PI );
+	float sectorStep = 2 * PI / inSectorCount;
+	float stackStep = PI / inStackCount;
+	float sectorAngle, stackAngle;
+
+	for (uint32_t i = 0; i <= inStackCount; ++i)
+	{
+		stackAngle = PI / 2 - i * stackStep;        // starting from pi/2 to -pi/2
+		xy = inRadius * cosf(stackAngle);             // r * cos(u)
+		z = inRadius * sinf(stackAngle);              // r * sin(u)
+
+		// add (sectorCount+1) vertices per stack
+		// the first and last vertices have same position and normal, but different tex coords
+		for (uint32_t j = 0; j <= inSectorCount; ++j)
+		{
+			sectorAngle = j * sectorStep;           // starting from 0 to 2pi
+
+			// vertex position (x, y, z)
+			x = xy * cosf(sectorAngle);             // r * cos(u) * cos(v)
+			y = xy * sinf(sectorAngle);             // r * cos(u) * sin(v)
+			ioMesh.positions.emplace_back(x, y, z);
+
+			// normalized vertex normal (nx, ny, nz)
+			nx = x * lengthInv;
+			ny = y * lengthInv;
+			nz = z * lengthInv;
+			ioMesh.normals.emplace_back(nx, ny, nz);
+
+			// vertex tex coord (s, t) range between [0, 1]
+			s = (float)j / inSectorCount;
+			t = (float)i / inStackCount;
+			ioMesh.uvs.emplace_back(s, t);
+
+		}
+	}
+
+	int k1, k2;
+	for (uint32_t i = 0; i < inStackCount; ++i)
+	{
+		k1 = i * ( inSectorCount + 1 );     // beginning of current stack
+		k2 = k1 + inSectorCount + 1;      // beginning of next stack
+
+		for (uint32_t j = 0; j < inSectorCount; ++j, ++k1, ++k2)
+		{
+			// 2 triangles per sector excluding first and last stacks
+			// k1 => k2 => k1+1
+			if (i != 0)
+			{
+				ioMesh.indices.push_back(k1);
+				ioMesh.indices.push_back(k2);
+				ioMesh.indices.push_back(k1 + 1);
+			}
+
+			// k1+1 => k2 => k2+1
+			if (i != ( inStackCount - 1 ))
+			{
+				ioMesh.indices.push_back(k1 + 1);
+				ioMesh.indices.push_back(k2);
+				ioMesh.indices.push_back(k2 + 1);
+			}
+		}
+	}
+	
+	ioMesh.CalculateNormals();
+	ioMesh.CalculateTangents();
+	ioMesh.CalculateVertices();
+	ioMesh.CalculateBoundingBox();
+}
+
+
+void Mesh::CalculateTangents()
 {
 	tangents.resize(positions.size());
 
@@ -292,7 +453,7 @@ void Mesh::CalculateTangents(float inTangentSign)
 			// and write it into the mesh.
 			tangents[p] = localTangent;
 
-			if (glm::dot(glm::cross(normals[p], tangents[p]), localBitangent) * inTangentSign < 0.0f)
+			if (glm::dot(glm::cross(normals[p], tangents[p]), localBitangent) < 0.0f)
 			{
 				tangents[p] = tangents[p] * -1.0f;
 			}
@@ -323,7 +484,7 @@ void Mesh::CalculateNormals()
 }
 
 
-void Mesh::CalculateAABB()
+void Mesh::CalculateBoundingBox()
 {
 	if (positions.size() < 2)
 		return;
@@ -385,20 +546,6 @@ void Mesh::CalculateVertices()
 		}
 	}
 }
-
-
-
-void Mesh::Clear()
-{
-	positions.clear();
-	uvs.clear();
-	normals.clear();
-	tangents.clear();
-	indices.clear();
-	vertices.clear();
-
-}
-
 
 
 uint32_t Mesh::GetVertexStride() const

@@ -358,9 +358,9 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice,
 ////////////////////////////////////////
 /// Bloom Downscale and Upscale passes
 ////////////////////////////////////////
-struct BloomDownscaleData
+struct BloomBlurData
 {
-    RTTI_DECLARE_TYPE(BloomDownscaleData);
+    RTTI_DECLARE_TYPE(BloomBlurData);
 
     uint32_t mToTextureMip = 0;
     uint32_t mFromTextureMip = 0;
@@ -369,15 +369,15 @@ struct BloomDownscaleData
 };
 
 
-struct BloomData
+struct BloomPassData
 {
-    RTTI_DECLARE_TYPE(BloomData);
+    RTTI_DECLARE_TYPE(BloomPassData);
 
     RenderGraphResourceID mOutputTexture;
 };
 
 
-const BloomData& AddBloomPass(RenderGraph& inRenderGraph, Device& inDevice,
+const BloomPassData& AddBloomPass(RenderGraph& inRenderGraph, Device& inDevice,
     RenderGraphResourceID inInputTexture
 );
 

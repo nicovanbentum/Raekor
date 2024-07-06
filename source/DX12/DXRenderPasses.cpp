@@ -23,9 +23,9 @@ RTTI_DEFINE_TYPE(TAAResolveData)            {}
 RTTI_DEFINE_TYPE(DepthOfFieldData)          {}
 RTTI_DEFINE_TYPE(ComposeData)               {}
 RTTI_DEFINE_TYPE(PreImGuiData)              {}
+RTTI_DEFINE_TYPE(BloomBlurData)             {}
+RTTI_DEFINE_TYPE(BloomPassData)             {}
 RTTI_DEFINE_TYPE(ImGuiData)                 {}
-RTTI_DEFINE_TYPE(BloomDownscaleData)        {}
-RTTI_DEFINE_TYPE(BloomData)                 {}
 RTTI_DEFINE_TYPE(DefaultTexturesData)       {}
 RTTI_DEFINE_TYPE(ClearBufferData)           {}
 RTTI_DEFINE_TYPE(ClearTextureFloatData)     {}
@@ -913,19 +913,19 @@ const LuminanceHistogramData& AddLuminanceHistogramPass(RenderGraph& inRenderGra
 
 
 
-const BloomData& AddBloomPass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inInputTexture)
+const BloomPassData& AddBloomPass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inInputTexture)
 {
     auto RunBloomPass = [&](const String& inPassName, ID3D12PipelineState* inPipeline, RenderGraphResourceID inFromTexture, RenderGraphResourceID inToTexture, uint32_t inFromMip, uint32_t inToMip)
     {
-        return inRenderGraph.AddComputePass<BloomDownscaleData>(inPassName,
-        [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, BloomDownscaleData& inData)
+        return inRenderGraph.AddComputePass<BloomBlurData>(inPassName,
+        [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, BloomBlurData& inData)
         {
             inData.mToTextureMip   = inToMip;
             inData.mFromTextureMip = inFromMip;
             inData.mToTextureUAV   = ioRGBuilder.WriteTexture(inToTexture, inToMip);
             inData.mFromTextureSRV = ioRGBuilder.ReadTexture(inFromTexture, inFromMip);
         },
-        [&inRenderGraph, &inDevice, inPipeline](BloomDownscaleData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+        [&inRenderGraph, &inDevice, inPipeline](BloomBlurData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
         {
             uint32_t nr_of_rows = 0u;
             uint64_t row_size = 0ull, total_size = 0ull;
@@ -966,8 +966,8 @@ const BloomData& AddBloomPass(RenderGraph& inRenderGraph, Device& inDevice, Rend
     };
 
 
-    return inRenderGraph.AddComputePass<BloomData>("BLOOM PASS",
-    [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, BloomData& inData)
+    return inRenderGraph.AddComputePass<BloomPassData>("BLOOM PASS",
+    [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, BloomPassData& inData)
     {
         const uint32_t mip_levels = 6u;
 
@@ -995,7 +995,7 @@ const BloomData& AddBloomPass(RenderGraph& inRenderGraph, Device& inDevice, Rend
             AddUpsamplePass(inData.mOutputTexture, inData.mOutputTexture, mip, mip - 1);
     },
 
-    [&inDevice](BloomData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+    [&inDevice](BloomPassData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
         // clear or discard maybe?
     });

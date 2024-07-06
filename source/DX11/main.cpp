@@ -66,7 +66,7 @@ class DX11App : public Application
 public:
     bool UploadMesh(Mesh& inMesh, DXMesh& ioMesh)
     {
-        const Array<float>& vertices = inMesh.GetInterleavedVertices();
+        const Array<float>& vertices = inMesh.vertices;
         const uint64_t vertices_size = vertices.size() * sizeof(vertices[0]);
         const uint64_t indices_size = inMesh.indices.size() * sizeof(inMesh.indices[0]);
 
@@ -80,7 +80,7 @@ public:
             // "vertex" buffers are bound as structured buffers and the shader manually fetches the data by indexing into the buffer using SV_VertexID
             buffer_desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
             buffer_desc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-            buffer_desc.StructureByteStride = inMesh.GetInterleavedStride();
+            buffer_desc.StructureByteStride = inMesh.GetVertexStride();
 
             D3D11_SUBRESOURCE_DATA vb_data = {};
             vb_data.pSysMem = &( vertices[0] );
@@ -402,7 +402,7 @@ public:
 
                 mesh.material = material_entity;
                 constexpr float radius = 2.5f;
-                gGenerateSphere(mesh, radius, 16, 16);
+                Mesh::CreateSphere(mesh, radius, 16u, 16u);
                 UploadMesh(mesh, m_Scene.Add<DXMesh>(entity));
 
                 transform.position = Vec3(-65.0f, 85.0f + i * ( radius * 2.0f ), 0.0f);

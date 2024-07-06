@@ -300,7 +300,7 @@ bool GltfImporter::ConvertMesh(Entity inEntity, const cgltf_primitive& inMesh)
 	for (uint32_t i = 0; i < inMesh.indices->count; i++)
 		mesh.indices.emplace_back(uint32_t(cgltf_accessor_read_index(inMesh.indices, i)));
 
-	mesh.CalculateAABB();
+	mesh.CalculateBoundingBox();
 
 	if (mesh.normals.empty() && !mesh.positions.empty())
 		mesh.CalculateNormals();

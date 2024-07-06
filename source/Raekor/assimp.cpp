@@ -210,7 +210,7 @@ void AssimpImporter::LoadMesh(Entity entity, const aiMesh* assimpMesh)
 		mesh.indices.push_back(assimpMesh->mFaces[i].mIndices[2]);
 	}
 
-	mesh.CalculateAABB();
+	mesh.CalculateBoundingBox();
 
 	//if (!assimpMesh->HasNormals() && !mesh.positions.empty())
 	//    mesh.CalculateNormals();

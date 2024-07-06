@@ -499,10 +499,10 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, Stagin
         
         if (m_Settings.mEnableDDGI && m_Settings.mDebugProbes)
         {
-            auto ddgi_trace_data = m_RenderGraph.GetPass<ProbeTraceData>();
-            auto ddgi_update_data = m_RenderGraph.GetPass<ProbeUpdateData>();
-            
-            AddProbeDebugPass(m_RenderGraph, inDevice, ddgi_trace_data->GetData(), ddgi_update_data->GetData(), light_data.mOutputTexture, gbuffer_data.mDepthTexture);
+            ProbeTraceData* ddgi_trace_data = m_RenderGraph.GetData<ProbeTraceData>();
+            ProbeUpdateData* ddgi_update_data = m_RenderGraph.GetData<ProbeUpdateData>();
+
+            AddProbeDebugPass(m_RenderGraph, inDevice, *ddgi_trace_data, *ddgi_update_data, light_data.mOutputTexture, gbuffer_data.mDepthTexture);
         }
 
         if (m_Settings.mEnableDDGI && m_Settings.mDebugProbeRays)
@@ -552,16 +552,16 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, Stagin
         switch (m_Upscaler.GetActiveUpscaler())
         {
             case UPSCALER_FSR:
-                if (auto render_pass = m_RenderGraph.GetPass<GBufferData>())
-                    compose_input = AddFsrPass(m_RenderGraph, inDevice, m_Upscaler, compose_input, render_pass->GetData()).mOutputTexture;
+                if (GBufferData* gbuffer_data = m_RenderGraph.GetData<GBufferData>())
+                    compose_input = AddFsrPass(m_RenderGraph, inDevice, m_Upscaler, compose_input, *gbuffer_data).mOutputTexture;
                     break;
             case UPSCALER_DLSS:
-                if (auto render_pass = m_RenderGraph.GetPass<GBufferData>())
-                    compose_input = AddDLSSPass(m_RenderGraph, inDevice, m_Upscaler, compose_input, render_pass->GetData()).mOutputTexture;
+                if (GBufferData* gbuffer_data = m_RenderGraph.GetData<GBufferData>())
+                    compose_input = AddDLSSPass(m_RenderGraph, inDevice, m_Upscaler, compose_input, *gbuffer_data).mOutputTexture;
                     break;
             case UPSCALER_XESS:
-                if (auto render_pass = m_RenderGraph.GetPass<GBufferData>())
-                    compose_input = AddXeSSPass(m_RenderGraph, inDevice, m_Upscaler, compose_input, render_pass->GetData()).mOutputTexture;
+                if (GBufferData* gbuffer_data = m_RenderGraph.GetData<GBufferData>())
+                    compose_input = AddXeSSPass(m_RenderGraph, inDevice, m_Upscaler, compose_input, *gbuffer_data).mOutputTexture;
                     break;
         }
     }

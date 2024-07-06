@@ -297,8 +297,11 @@ public:
     template<typename T>
     const T& AddComputePass(const std::string& inName, const IRenderPass::SetupFn<T>& inSetup, const IRenderPass::ExecFn<T>& inExecute);
 
-    template<typename T> RenderPass<T>* GetPass();
-    template<typename T> RenderPass<T>* GetPass() const;
+    template<typename T> requires HasRTTI<T> T* GetData();
+    template<typename T> requires HasRTTI<T> const T* GetData() const;
+
+    template<typename T> requires HasRTTI<T> RenderPass<T>* GetPass();
+    template<typename T> requires HasRTTI<T> RenderPass<T>* GetPass() const;
 
     /* Clears the graph by destroying all the render passes and their associated resources. After clearing the user is free to call Compile again. */
     void Clear(Device& inDevice);
@@ -373,7 +376,7 @@ const T& RenderGraph::AddComputePass(const std::string& inName, const IRenderPas
 
 
 
-template<typename T>
+template<typename T> requires HasRTTI<T>
 RenderPass<T>* RenderGraph::GetPass()
 {
     for (auto& renderpass : m_RenderPasses)
@@ -387,7 +390,7 @@ RenderPass<T>* RenderGraph::GetPass()
 
 
 
-template<typename T>
+template<typename T> requires HasRTTI<T>
 RenderPass<T>* RenderGraph::GetPass() const
 {
     for (auto& renderpass : m_RenderPasses)
@@ -396,6 +399,25 @@ RenderPass<T>* RenderGraph::GetPass() const
             return static_cast<RenderPass<T>*>( renderpass.get());
     }
 
+    return nullptr;
+}
+
+
+
+template<typename T> requires HasRTTI<T>
+T* RenderGraph::GetData()
+{
+    if (auto pass = GetPass<T>())
+        return &pass->GetData();
+    return nullptr;
+}
+
+
+template<typename T> requires HasRTTI<T>
+const T* RenderGraph::GetData() const
+{
+    if (auto pass = GetPass<T>())
+        return &pass->GetData();
     return nullptr;
 }
 

@@ -89,7 +89,7 @@ Entity Scene::PickSpatialEntity(const Ray& inRay) const
 }
 
 
-Entity Scene::CreateSpatialEntity(std::string_view inName)
+Entity Scene::CreateSpatialEntity(StringView inName)
 {
 	Entity entity = Create();
 	ParentTo(entity, m_RootEntity);
@@ -554,7 +554,7 @@ void Scene::OpenFromFile(const String& inFilePath, Assets& ioAssets, Application
 	// load mesh data to vram
 	for (const auto& [entity, mesh] : Each<Mesh>())
 	{
-		mesh.CalculateAABB();
+		mesh.CalculateBoundingBox();
 
 		if (m_Renderer)
 			m_Renderer->UploadMeshBuffers(entity, mesh);

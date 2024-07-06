@@ -627,7 +627,7 @@ const ProbeDebugData& AddProbeDebugPass(RenderGraph& inRenderGraph, Device& inDe
     return inRenderGraph.AddGraphicsPass<ProbeDebugData>("GI PROBE DEBUG PASS",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ProbeDebugData& inData)
     {
-        gGenerateSphere(inData.mProbeMesh, 0.5f, 32u, 32u);
+        Mesh::CreateSphere(inData.mProbeMesh, 0.5f, 32u, 32u);
 
         const uint64_t indices_size = inData.mProbeMesh.indices.size() * sizeof(inData.mProbeMesh.indices[0]);
         const uint64_t vertices_size = inData.mProbeMesh.vertices.size() * sizeof(inData.mProbeMesh.vertices[0]);

@@ -28,7 +28,7 @@ public:
 
 	// Spatial entity management
 	Entity PickSpatialEntity(const Ray& inRay) const;
-	Entity CreateSpatialEntity(std::string_view inName = "");
+	Entity CreateSpatialEntity(StringView inName = "");
 	void DestroySpatialEntity(Entity inEntity);
 
 	// TODO: kinda hacky, pls fix

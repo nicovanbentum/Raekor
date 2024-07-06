@@ -273,9 +273,10 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 				if (ImGui::MenuItem("Sphere"))
 				{
 					Entity entity = scene.CreateSpatialEntity("Sphere");
+					
 					Mesh& mesh = scene.Add<Mesh>(entity);
+					Mesh::CreateSphere(mesh, 0.5f, 32, 32);
 
-					gGenerateSphere(mesh, 2.5f, 32, 32);
 					m_Editor->GetRenderInterface()->UploadMeshBuffers(entity, mesh);
 					m_Editor->SetActiveEntity(entity);
 				}
@@ -283,24 +284,9 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 				if (ImGui::MenuItem("Plane"))
 				{
 					Entity entity = scene.CreateSpatialEntity("Plane");
+					
 					Mesh& mesh = scene.Add<Mesh>(entity);
-
-					for (const Vertex& v : UnitPlane::vertices)
-					{
-						mesh.positions.push_back(v.pos);
-						mesh.uvs.push_back(v.uv);
-						mesh.normals.push_back(v.normal);
-					}
-
-					for (const Triangle& triangle : UnitPlane::indices)
-					{
-						mesh.indices.push_back(triangle.p1);
-						mesh.indices.push_back(triangle.p2);
-						mesh.indices.push_back(triangle.p3);
-					}
-
-					mesh.CalculateTangents();
-					mesh.CalculateAABB();
+					Mesh::CreatePlane(mesh, 1.0f);
 
 					m_Editor->GetRenderInterface()->UploadMeshBuffers(entity, mesh);
 					m_Editor->SetActiveEntity(entity);
@@ -309,25 +295,9 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 				if (ImGui::MenuItem("Cube"))
 				{
 					Entity entity = scene.CreateSpatialEntity("Cube");
+					
 					Mesh& mesh = scene.Add<Mesh>(entity);
-
-					for (const Vertex& v : UnitCube::vertices)
-					{
-						mesh.positions.push_back(v.pos);
-						mesh.uvs.push_back(v.uv);
-						mesh.normals.push_back(v.normal);
-					}
-
-					for (const Triangle& index : UnitCube::indices)
-					{
-						mesh.indices.push_back(index.p1);
-						mesh.indices.push_back(index.p2);
-						mesh.indices.push_back(index.p3);
-					}
-
-					mesh.CalculateNormals();
-					mesh.CalculateTangents();
-					mesh.CalculateAABB();
+					Mesh::CreateCube(mesh, 1.0f);
 
 					m_Editor->GetRenderInterface()->UploadMeshBuffers(entity, mesh);
 					m_Editor->SetActiveEntity(entity);

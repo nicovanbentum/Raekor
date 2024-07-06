@@ -140,13 +140,16 @@ struct Mesh : public Component
 
 	float mLODFade = 0.0f;
 
-	void CalculateAABB();
-	void CalculateNormals();
-	void CalculateTangents(float inTangentSign = 1.0f);
+	static void CreateCube(Mesh& inMesh, float inScale);
+	static void CreatePlane(Mesh& inMesh, float inScale);
+	static void CreateSphere(Mesh& inMesh, float inRadius, uint32_t inSectorCount, uint32_t inStackCount);
 
+	void CalculateNormals();
+	void CalculateTangents();
 	void CalculateVertices();
+	void CalculateBoundingBox();
+
 	uint32_t GetVertexStride() const;
-	void Clear();
 };
 
 

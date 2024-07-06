@@ -589,7 +589,7 @@ void Renderer::SetSyncInterval(bool on)
 
 RTGeometry Renderer::CreateBLAS(Mesh& mesh, const Material& material)
 {
-	const auto& vertices = mesh.GetInterleavedVertices();
+	const auto& vertices = mesh.vertices;
 	const auto sizeOfVertexBuffer = vertices.size() * sizeof(vertices[0]);
 	const auto sizeOfIndexBuffer = mesh.indices.size() * sizeof(mesh.indices[0]);
 

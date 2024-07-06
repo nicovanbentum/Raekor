@@ -2,15 +2,13 @@
 
 namespace RK {
 
-class Mesh;
-
 struct Vertex
 {
 	constexpr Vertex(
-		glm::vec3 p = {},
-		glm::vec2 uv = {},
-		glm::vec3 n = {},
-		glm::vec3 t = {}
+		Vec3 p = {},
+		Vec2 uv = {},
+		Vec3 n = {},
+		Vec3 t = {}
 	) :
 		pos(p),
 		uv(uv),
@@ -19,10 +17,10 @@ struct Vertex
 	{
 	}
 
-	glm::vec3 pos;
-	glm::vec2 uv;
-	glm::vec3 normal;
-	glm::vec3 tangent;
+	Vec3 pos;
+	Vec2 uv;
+	Vec3 normal;
+	Vec3 tangent;
 };
 
 
@@ -41,46 +39,5 @@ struct Triangle
 
 	uint32_t p1, p2, p3;
 };
-
-
-struct UnitCube
-{
-	static constexpr std::array<Vertex, 8> vertices = {
-		Vertex{{-0.5f, -0.5f,  0.5f}},
-		Vertex{{ 0.5f, -0.5f,  0.5f}},
-		Vertex{{ 0.5f,  0.5f,  0.5f}},
-		Vertex{{-0.5f,  0.5f,  0.5f}},
-		Vertex{{-0.5f, -0.5f, -0.5f}},
-		Vertex{{ 0.5f, -0.5f, -0.5f}},
-		Vertex{{ 0.5f,  0.5f, -0.5f}},
-		Vertex{{-0.5f,  0.5f, -0.5f}}
-	};
-
-	static constexpr std::array<Triangle, 12>  indices = {
-		Triangle{0, 1, 2}, Triangle{2, 3, 0},
-		Triangle{1, 5, 6}, Triangle{6, 2, 1},
-		Triangle{7, 6, 5}, Triangle{5, 4, 7},
-		Triangle{4, 0, 3}, Triangle{3, 7, 4},
-		Triangle{4, 5, 1}, Triangle{1, 0, 4},
-		Triangle{3, 2, 6}, Triangle{6, 7, 3}
-	};
-};
-
-
-struct UnitPlane
-{
-	static constexpr std::array<Vertex, 4> vertices = {
-		Vertex{{-0.5f, 0.0f, -0.5f}, {0.0f, 0.0f}, {0.0, 1.0, 0.0}, {}},
-		Vertex{{ 0.5f, 0.0f, -0.5f}, {1.0f, 0.0f}, {0.0, 1.0, 0.0}, {}},
-		Vertex{{ 0.5f, 0.0f,  0.5f}, {1.0f, 1.0f}, {0.0, 1.0, 0.0}, {}},
-		Vertex{{-0.5f, 0.0f,  0.5f}, {0.0f, 1.0f}, {0.0, 1.0, 0.0}, {}}
-	};
-
-	static constexpr std::array<Triangle, 2> indices = {
-		Triangle{3, 1, 0}, Triangle{2, 1, 3}
-	};
-};
-
-void gGenerateSphere(Mesh& ioMesh, float inRadius, uint32_t inSectorCount, uint32_t inStackCount);
 
 }

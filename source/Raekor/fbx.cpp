@@ -222,7 +222,7 @@ void FBXImporter::ConvertMesh(Entity inEntity, const ufbx_mesh* inMesh, const uf
 	size_t num_vertices = ufbx_generate_indices(streams.data(), streams.size(), mesh.indices.data(), num_indices, NULL, &error);
 	assert(error.type == UFBX_ERROR_NONE);
 
-	mesh.CalculateAABB();
+	mesh.CalculateBoundingBox();
 
 	if (mesh.normals.empty() && !mesh.positions.empty())
 		mesh.CalculateNormals();

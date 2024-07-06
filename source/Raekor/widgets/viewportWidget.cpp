@@ -411,7 +411,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 				mesh.material = material_entity;
 
 				constexpr float radius = 4.5f;
-				gGenerateSphere(mesh, radius, 32, 32);
+				Mesh::CreateSphere(mesh, radius, 32, 32);
 				GetRenderInterface().UploadMeshBuffers(entity, mesh);
 				GetRenderInterface().UploadMaterialTextures(material_entity, ball_material, GetAssets());
 
