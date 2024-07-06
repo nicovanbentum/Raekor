@@ -604,6 +604,7 @@ void RenderGraph::Clear(Device& inDevice)
     m_TimestampQueryHeap = nullptr;
 
     m_RenderPasses.clear();
+    m_FinalBarriers.clear();
     m_RenderGraphBuilder.Clear();
     m_RenderGraphResources.Clear(inDevice);
 
@@ -782,7 +783,6 @@ bool RenderGraph::Compile(Device& inDevice)
         if final state differs from the state in which it was created, add a begin-of render pass barrier to the pass that creates it. These barriers are skipped the first frame.
 
         TODO: Ideally we refactor this to use aliasing as that would reset the state of the resource, so we wouldn't need the begin-of render pass barriers.
-                Probably also a good idea to submit begin-of barriers earlier, either all batched together at the end of the frame
     */
     for (const auto& [resource_id, node] : graph)
     {
@@ -851,7 +851,7 @@ bool RenderGraph::Compile(Device& inDevice)
             if (old_state == new_state)
                 continue;
 
-            pass->AddEntryBarrier( CD3DX12_RESOURCE_BARRIER::Transition(resource_ptr, old_state, new_state, edge.mSubResource) );
+            m_FinalBarriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(resource_ptr, old_state, new_state, edge.mSubResource));
         }
     }
 
@@ -885,7 +885,7 @@ bool RenderGraph::Compile(Device& inDevice)
 
 
 
-void RenderGraph::Execute(Device& inDevice, CommandList& inCmdList, uint64_t inFrameCounter)
+void RenderGraph::Execute(Device& inDevice, CommandList& inCmdList)
 {
     PROFILE_FUNCTION_CPU();
 
@@ -905,9 +905,6 @@ void RenderGraph::Execute(Device& inDevice, CommandList& inCmdList, uint64_t inF
         if (renderpass->IsGraphics())
             renderpass->SetRenderTargets(inDevice, m_RenderGraphResources, inCmdList);
 
-        if (inFrameCounter > 0)
-            renderpass->FlushBarriers(inDevice, inCmdList, renderpass->m_EntryBarriers);
-
         renderpass->Execute(m_RenderGraphResources, inCmdList);
 
         renderpass->FlushBarriers(inDevice, inCmdList, renderpass->m_ExitBarriers);
@@ -917,6 +914,11 @@ void RenderGraph::Execute(Device& inDevice, CommandList& inCmdList, uint64_t inF
 
         inCmdList->EndQuery(m_TimestampQueryHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, index * 2 + 1);
     }
+
+    PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( inCmdList ), PIX_COLOR(0, 255, 0), "FINAL BARRIERS");
+
+    if (!m_FinalBarriers.empty())
+        inCmdList->ResourceBarrier(m_FinalBarriers.size(), m_FinalBarriers.data());
 }
 
 

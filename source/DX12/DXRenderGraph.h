@@ -198,7 +198,6 @@ public:
     /* AddExitBarrier is exposed to the user to add manual barriers around resources they have no control over (external code like FSR2).
     D3D12_RESOURCE_TRANSITION_BARRIER::StateAfter could be overwritten by the graph if it finds a better match during graph compilation. */
     void AddExitBarrier(const D3D12_RESOURCE_BARRIER& inBarrier) { m_ExitBarriers.push_back(inBarrier); }
-    void AddEntryBarrier(const D3D12_RESOURCE_BARRIER& inBarrier) { m_EntryBarriers.push_back(inBarrier); }
 
     inline const std::string& GetName() const { return m_Name; }
 
@@ -219,7 +218,6 @@ protected:
     DXGI_FORMAT m_DepthStencilFormat = DXGI_FORMAT_UNKNOWN;
 
     Array<D3D12_RESOURCE_BARRIER> m_ExitBarriers;
-    Array<D3D12_RESOURCE_BARRIER> m_EntryBarriers;
 };
 
 
@@ -310,7 +308,7 @@ public:
     bool Compile(Device& inDevice);
 
     /* Execute the entire graph into inCmdList. inCmdList should be open (.Begin() called). */
-    void Execute(Device& inDevice, CommandList& inCmdList, uint64_t inFrameCounter);
+    void Execute(Device& inDevice, CommandList& inCmdList);
 
     /* Dump the entire graph to GraphViz text, can be written directly to a file and opened using the VS Code extension. */
     std::string	ToGraphVizText(const Device& inDevice, TextureID inBackBuffer) const;
@@ -338,6 +336,7 @@ private:
     RenderGraphBuilder m_RenderGraphBuilder;
     RenderGraphResources m_RenderGraphResources;
     Array<UniquePtr<IRenderPass>> m_RenderPasses;
+    Array<D3D12_RESOURCE_BARRIER> m_FinalBarriers;
 };
 
 

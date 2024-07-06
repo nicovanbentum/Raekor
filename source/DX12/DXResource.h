@@ -137,7 +137,6 @@ using DescriptorPool = ResourcePool<D3D12ResourceRef>;
 using DescriptorID = DescriptorPool::TypedID;
 
 
-
 class DeviceResource
 {
 public:
@@ -159,7 +158,6 @@ protected:
     D3D12ResourceRef m_Resource = nullptr;
     D3D12AllocationRef m_Allocation = nullptr;
 };
-
 
 
 class Texture : public DeviceResource
@@ -405,14 +403,12 @@ public:
     ID3D12DescriptorHeap* operator-> ()             { return m_Heap.Get(); }
     const ID3D12DescriptorHeap* operator-> () const { return m_Heap.Get(); }
 
-
-
-    inline D3D12_CPU_DESCRIPTOR_HANDLE GetCPUDescriptorHandle(TypedID inResourceID) const
+    D3D12_CPU_DESCRIPTOR_HANDLE GetCPUDescriptorHandle(DescriptorID inResourceID) const
     {
         return CD3DX12_CPU_DESCRIPTOR_HANDLE(m_HeapPtr, inResourceID.GetIndex(), m_HeapIncrement);
     }
 
-    inline D3D12_GPU_DESCRIPTOR_HANDLE GetGPUDescriptorHandle(TypedID inResourceID) const
+    D3D12_GPU_DESCRIPTOR_HANDLE GetGPUDescriptorHandle(DescriptorID inResourceID) const
     {
         return CD3DX12_GPU_DESCRIPTOR_HANDLE(m_Heap->GetGPUDescriptorHandleForHeapStart(), inResourceID.GetIndex(), m_HeapIncrement);
     }
