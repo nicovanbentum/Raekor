@@ -59,7 +59,7 @@ public:
             const Transform* wheel_transform = FindComponent<Transform>(m_WheelEntities[i]);
 
             const Vec3 wheel_pos = wheel_transform->GetPositionWorldSpace();
-            const BBox3D wheel_aabb = BBox3D(wheel_mesh->aabb[0], wheel_mesh->aabb[1]);
+            const BBox3D wheel_aabb = BBox3D(wheel_mesh->bbox);
 
             JPH::RVec3 wheel_pos1 = JPH::Vec3(wheel_pos.x, wheel_pos.y, wheel_pos.z);;
             JPH::RVec3 wheel_pos2 = wheel_pos1 - JPH::Vec3(0, wheel_aabb.GetHeight(), 0);

@@ -210,8 +210,8 @@ void Device::BindDrawDefaults(CommandList& inCmdList)
     };
 
     inCmdList->SetDescriptorHeaps(heaps.size(), heaps.data());
-    inCmdList->SetComputeRootSignature(GetGlobalRootSignature());
-    inCmdList->SetGraphicsRootSignature(GetGlobalRootSignature());
+    inCmdList->SetComputeRootSignature(m_GlobalRootSignature.Get());
+    inCmdList->SetGraphicsRootSignature(m_GlobalRootSignature.Get());
 }
 
 
@@ -397,7 +397,7 @@ D3D12_GRAPHICS_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* 
 
     D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state =
     {
-        .pRootSignature = GetGlobalRootSignature(),
+        .pRootSignature = m_GlobalRootSignature.Get(),
         .VS = CD3DX12_SHADER_BYTECODE(inVertexShader.GetPtr(), inVertexShader.Length()),
         .PS = CD3DX12_SHADER_BYTECODE(inPixelShader.GetPtr(), inPixelShader.Length()),
         .BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT),
@@ -429,7 +429,7 @@ D3D12_COMPUTE_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* i
 {
     assert(inRenderPass ? inRenderPass->IsCompute() : true && "Cannot create a Compute PSO description for a GraphicsRenderPass");
     D3D12_SHADER_BYTECODE cs_bytecode = CD3DX12_SHADER_BYTECODE(inComputeShader.GetPtr(), inComputeShader.Length());
-    return D3D12_COMPUTE_PIPELINE_STATE_DESC { .pRootSignature = GetGlobalRootSignature(), .CS = cs_bytecode };
+    return D3D12_COMPUTE_PIPELINE_STATE_DESC { .pRootSignature = m_GlobalRootSignature.Get(), .CS = cs_bytecode };
 }
 
 

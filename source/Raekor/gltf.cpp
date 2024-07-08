@@ -519,21 +519,21 @@ void GltfImporter::ConvertMaterial(Entity inEntity, const cgltf_material& gltfMa
 		memcpy(glm::value_ptr(material.albedo), gltfMaterial.pbr_metallic_roughness.base_color_factor, sizeof(material.albedo));
 
 		if (cgltf_texture* texture = gltfMaterial.pbr_metallic_roughness.base_color_texture.texture)
-			material.albedoFile = TextureAsset::sAssetsToCachedPath(m_Directory.string() + texture->image->uri);
+			material.albedoFile = TextureAsset::GetCachedPath(m_Directory.string() + texture->image->uri);
 
 		if (cgltf_texture* texture = gltfMaterial.pbr_metallic_roughness.metallic_roughness_texture.texture)
 		{
-			String cached_texture_path = TextureAsset::sAssetsToCachedPath(m_Directory.string() + texture->image->uri);
+			String cached_texture_path = TextureAsset::GetCachedPath(m_Directory.string() + texture->image->uri);
 			material.metallicFile = cached_texture_path;
 			material.roughnessFile = cached_texture_path;
 		}
 	}
 
 	if (cgltf_texture* normal_texture = gltfMaterial.normal_texture.texture)
-		material.normalFile = TextureAsset::sAssetsToCachedPath(m_Directory.string() + normal_texture->image->uri);
+		material.normalFile = TextureAsset::GetCachedPath(m_Directory.string() + normal_texture->image->uri);
 
 	if (cgltf_texture* emissive_texture = gltfMaterial.emissive_texture.texture)
-		material.emissiveFile = TextureAsset::sAssetsToCachedPath(m_Directory.string() + emissive_texture->image->uri);
+		material.emissiveFile = TextureAsset::GetCachedPath(m_Directory.string() + emissive_texture->image->uri);
 
 	memcpy(glm::value_ptr(material.emissive), gltfMaterial.emissive_factor, sizeof(material.emissive));
 }

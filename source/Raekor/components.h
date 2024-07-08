@@ -120,28 +120,26 @@ struct Mesh : public Component
 {
 	RTTI_DECLARE_TYPE(Mesh);
 
-	Array<Vec3> positions; // ptr
-	Array<Vec2> uvs; // ptr
-	Array<Vec3> normals; // ptr
-	Array<Vec3> tangents; // ptr
+	String name;
+	BBox3D bbox;
+	float lodFade = 0.0f;
+	Entity material = Entity::Null;
+	
+	Array<Vec3> positions;
+	Array<Vec2> uvs; 
+	Array<Vec3> normals;
+	Array<Vec3> tangents; 
 
-	Array<uint32_t> indices; // ptr
-	Array<float> vertices; // ptr , rip memory
+	Array<uint32_t> indices;
+	Array<float> vertices; // OPTIMIZE ME
 
 	Array<Meshlet> meshlets;
 	Array<uint32_t> meshletIndices;
 	Array<MeshletTriangle> meshletTriangles;
 
-	// GPU resources
 	uint32_t vertexBuffer = 0;
 	uint32_t indexBuffer = 0;
 	uint32_t BottomLevelAS = 0;
-
-	StaticArray<Vec3, 2> aabb;
-
-	Entity material = Entity::Null;
-
-	float mLODFade = 0.0f;
 
 	static void CreateCube(Mesh& inMesh, float inScale);
 	static void CreatePlane(Mesh& inMesh, float inScale);

@@ -489,13 +489,13 @@ void Mesh::CalculateBoundingBox()
 	if (positions.size() < 2)
 		return;
 
-	aabb[0] = positions[0];
-	aabb[1] = positions[1];
+	bbox.mMin = positions[0];
+	bbox.mMax = positions[1];
 
 	for (const Vec3& pos : positions)
 	{
-		aabb[0] = glm::min(aabb[0], pos);
-		aabb[1] = glm::max(aabb[1], pos);
+		bbox.mMin = glm::min(bbox.mMin, pos);
+		bbox.mMax = glm::max(bbox.mMax, pos);
 	}
 }
 
@@ -618,7 +618,7 @@ void DDGISceneSettings::FitToScene(const Scene& inScene, Transform& ioTransform)
 	BBox3D scene_bounds;
 
 	for (const auto& [entity, transform, mesh] : inScene.Each<Transform, Mesh>())
-		scene_bounds.Combine(BBox3D(mesh.aabb[0], mesh.aabb[1]).Transform(transform.worldTransform));
+		scene_bounds.Combine(mesh.bbox.Transformed(transform.worldTransform));
 
 	if (scene_bounds.IsValid())
 	{
@@ -669,7 +669,7 @@ void RigidBody::CreateMeshCollider(const Mesh& inMesh, const Transform& inTransf
 
 void RigidBody::CreateCylinderCollider(const Mesh& inMesh, const Transform& inTransform)
 {
-	const BBox3D aabb = BBox3D(inMesh.aabb[0], inMesh.aabb[1]).Scale(inTransform.scale);
+	const BBox3D aabb = BBox3D(inMesh.bbox).Scale(inTransform.scale);
 	const Vec3 half_extent = aabb.GetExtents() / 2.0f;
 	shapeSettings = new JPH::CylinderShapeSettings(half_extent.y, half_extent.x);
 }

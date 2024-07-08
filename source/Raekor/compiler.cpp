@@ -399,7 +399,7 @@ void CompilerApp::OnUpdate(float inDeltaTime)
 			{
 				if (Path(file.mAssetPath).extension() != ".dds")
 				{
-					TextureAsset::sConvert(file.mAssetPath);
+					TextureAsset::Convert(file.mAssetPath);
 				}
 				else
 				{

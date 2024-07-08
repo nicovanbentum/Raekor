@@ -24,9 +24,6 @@ public:
     bool IsDLSSSupported() const { return mIsDLSSSupported; }
     bool IsDLSSInitialized() const { return mIsDLSSInitialized; }
     bool IsTearingSupported() const { return mIsTearingSupported; }
-
-    [[nodiscard]] ID3D12RootSignature* GetGlobalRootSignature() const { return m_GlobalRootSignature.Get(); }
-    [[nodiscard]] ID3D12CommandSignature* GetCommandSignature(ECommandSignature inCmdSig) { return m_CommandSignatures[inCmdSig].Get(); }
     
     [[nodiscard]] DescriptorHeap& GetClearHeap() { return m_ClearHeap; }
     [[nodiscard]] DescriptorHeap& GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE inType) { return m_Heaps[inType]; }
@@ -95,6 +92,8 @@ public:
 
     IDXGIAdapter1* GetAdapter() { return m_Adapter.Get(); }
     D3D12MA::Allocator* GetAllocator() { return m_Allocator.Get(); }
+    ID3D12CommandSignature* GetCommandSignature(ECommandSignature inCmdSig) { return m_CommandSignatures[inCmdSig].Get(); }
+
 
     const Buffer::Pool& GetBufferPool() const { return m_Buffers; }
     const Texture::Pool& GetTexturePool() const { return m_Textures; }

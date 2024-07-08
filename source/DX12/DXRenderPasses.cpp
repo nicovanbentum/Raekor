@@ -1083,14 +1083,7 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, 
     [&inRenderGraph, &inDevice](ComposeData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
         inCmdList->SetPipelineState(inData.mPipeline.Get());
-
-        const Viewport& viewport = inRenderGraph.GetViewport();
-
-        const CD3DX12_RECT dx_scissor = CD3DX12_RECT(0, 0, viewport.GetDisplaySize().x, viewport.GetDisplaySize().y);
-        const CD3DX12_VIEWPORT dx_viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, float(viewport.GetDisplaySize().x), float(viewport.GetDisplaySize().y));
-
-        inCmdList->RSSetViewports(1, &dx_viewport);
-        inCmdList->RSSetScissorRects(1, &dx_scissor);
+        inCmdList.SetViewportAndScissor(inRenderGraph.GetViewport());
 
         ComposeRootConstants root_constants = ComposeRootConstants {
             .mBloomTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mBloomTextureSRV)),
@@ -1102,7 +1095,6 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, 
         root_constants.mSettings.mBloomBlendFactor *= g_CVars.GetValue<int>("r_enable_bloom");
 
         inCmdList.PushGraphicsConstants(root_constants);
-
         inCmdList->DrawInstanced(3, 1, 0, 0);
     });
 }

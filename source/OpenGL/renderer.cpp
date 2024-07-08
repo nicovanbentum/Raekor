@@ -461,10 +461,10 @@ void Renderer::DestroyMaterialTextures(Entity inEntity, Material& material, Asse
     glDeleteTextures(1, &material.gpuRoughnessMap);
     material.gpuAlbedoMap = 0, material.gpuNormalMap = 0, material.gpuRoughnessMap = 0, material.gpuMetallicMap = 0;
 
-    assets.Release(material.albedoFile);
-    assets.Release(material.normalFile);
-    assets.Release(material.metallicFile);
-    assets.Release(material.roughnessFile);
+    assets.ReleaseAsset(material.albedoFile);
+    assets.ReleaseAsset(material.normalFile);
+    assets.ReleaseAsset(material.metallicFile);
+    assets.ReleaseAsset(material.roughnessFile);
 }
 
 

@@ -111,9 +111,9 @@ DXApp::DXApp() :
     LogMessage(std::format("[CPU] Blue noise texture took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
 
     // Create default textures / assets
-    const String black_texture_file  = TextureAsset::sConvert("assets/system/black4x4.png");
-    const String white_texture_file  = TextureAsset::sConvert("assets/system/white4x4.png");
-    const String normal_texture_file = TextureAsset::sConvert("assets/system/normal4x4.png");
+    const String black_texture_file  = TextureAsset::Convert("assets/system/black4x4.png");
+    const String white_texture_file  = TextureAsset::Convert("assets/system/white4x4.png");
+    const String normal_texture_file = TextureAsset::Convert("assets/system/normal4x4.png");
     m_DefaultBlackTexture  = TextureID(m_RenderInterface.UploadTextureFromAsset(m_Assets.GetAsset<TextureAsset>(black_texture_file)));
     m_DefaultWhiteTexture  = TextureID(m_RenderInterface.UploadTextureFromAsset(m_Assets.GetAsset<TextureAsset>(white_texture_file)));
     m_DefaultNormalTexture = TextureID(m_RenderInterface.UploadTextureFromAsset(m_Assets.GetAsset<TextureAsset>(normal_texture_file)));

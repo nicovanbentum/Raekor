@@ -397,7 +397,7 @@ void GBuffer::Render(const Scene& scene, const Viewport& inViewport, uint32_t m_
 
     for (const auto& [entity, mesh, transform] : scene.Each<Mesh, Transform>())
     {
-        const BBox3D bounding_box = BBox3D(mesh.aabb[0], mesh.aabb[1]).Transform(transform.worldTransform);
+        const BBox3D bounding_box = mesh.bbox.Transformed(transform.worldTransform);
 
         // if the frustrum can't see the mesh's OBB we cull it
         // TODO: disabled for now, lots of imported scenes from SketchFab and other websites have weird BB/triangle issues. Re-enable?
@@ -412,7 +412,7 @@ void GBuffer::Render(const Scene& scene, const Viewport& inViewport, uint32_t m_
         if (scene.Exists(mesh.material))
             material = scene.GetPtr<Material>(mesh.material);
 
-        uniforms.mLODFade = mesh.mLODFade;
+        uniforms.mLODFade = mesh.lodFade;
 
         uniforms.colour = material ? material->albedo : Material::Default.albedo;
         uniforms.metallic = material ? material->metallic : Material::Default.metallic;

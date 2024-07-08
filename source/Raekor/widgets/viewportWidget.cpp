@@ -244,7 +244,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 		if (mesh)
 		{
-			const BBox3D bounds = BBox3D(mesh->aabb[0], mesh->aabb[1]).Scale(transform.GetScaleWorldSpace());
+			const BBox3D bounds = mesh->bbox.Scaled(transform.GetScaleWorldSpace());
 			transform.localTransform = glm::translate(transform.localTransform, bounds.GetCenter());
 		}
 
@@ -263,7 +263,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 		// transform back to world space
 		if (mesh)
 		{
-			const BBox3D bounds = BBox3D(mesh->aabb[0], mesh->aabb[1]).Scale(transform.GetScaleWorldSpace());
+			const BBox3D bounds = mesh->bbox.Scaled(transform.GetScaleWorldSpace());
 			transform.localTransform = glm::translate(transform.localTransform, -bounds.GetCenter());
 		}
 

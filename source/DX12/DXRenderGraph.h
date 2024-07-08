@@ -131,7 +131,6 @@ private:
 
     ComPtr<D3D12MA::Allocation> m_Allocation = nullptr;
     ComPtr<D3D12MA::VirtualBlock> m_VirtualBlock = nullptr;
-
 };
 
 
@@ -340,7 +339,6 @@ private:
 };
 
 
-
 template<typename T, typename PassType>
 const T& RenderGraph::AddPass(const std::string& inName, const IRenderPass::SetupFn<T>& inSetup, const IRenderPass::ExecFn<T>& inExecute)
 {
@@ -358,7 +356,6 @@ const T& RenderGraph::AddPass(const std::string& inName, const IRenderPass::Setu
 }
 
 
-
 template<typename T>
 const T& RenderGraph::AddGraphicsPass(const std::string& inName, const IRenderPass::SetupFn<T>& inSetup, const IRenderPass::ExecFn<T>& inExecute)
 {
@@ -366,13 +363,11 @@ const T& RenderGraph::AddGraphicsPass(const std::string& inName, const IRenderPa
 }
 
 
-
 template<typename T>
 const T& RenderGraph::AddComputePass(const std::string& inName, const IRenderPass::SetupFn<T>& inSetup, const IRenderPass::ExecFn<T>& inExecute)
 {
     return RenderGraph::AddPass<T, ComputeRenderPass<T>>(inName, inSetup, inExecute);
 }
-
 
 
 template<typename T> requires HasRTTI<T>
@@ -388,7 +383,6 @@ RenderPass<T>* RenderGraph::GetPass()
 }
 
 
-
 template<typename T> requires HasRTTI<T>
 RenderPass<T>* RenderGraph::GetPass() const
 {
@@ -400,7 +394,6 @@ RenderPass<T>* RenderGraph::GetPass() const
 
     return nullptr;
 }
-
 
 
 template<typename T> requires HasRTTI<T>

@@ -216,9 +216,9 @@ public:
 
         g_ThreadPool.QueueJob([this]()
         {
-            const String black_texture_file = TextureAsset::sConvert("assets/system/black4x4.png");
-            const String white_texture_file = TextureAsset::sConvert("assets/system/white4x4.png");
-            const String normal_texture_file = TextureAsset::sConvert("assets/system/normal4x4.png");
+            const String black_texture_file = TextureAsset::Convert("assets/system/black4x4.png");
+            const String white_texture_file = TextureAsset::Convert("assets/system/white4x4.png");
+            const String normal_texture_file = TextureAsset::Convert("assets/system/normal4x4.png");
             m_DefaultBlackTexture = UploadTexture(m_Assets.GetAsset<TextureAsset>(black_texture_file), DXGI_FORMAT_BC3_UNORM);
             D3D.device->CreateShaderResourceView(m_DefaultBlackTexture.Get(), nullptr, m_DefaultBlackTextureSRV.GetAddressOf());
             m_DefaultWhiteTexture = UploadTexture(m_Assets.GetAsset<TextureAsset>(white_texture_file), DXGI_FORMAT_BC3_UNORM);
@@ -324,7 +324,7 @@ public:
             {
                 for (const auto& [entity, mesh] : m_Scene.Each<Mesh>())
                 {
-                    mesh.mLODFade = 1.0f;
+                    mesh.lodFade = 1.0f;
                     Sleep(rand() % 100);
                 }
             });
@@ -513,11 +513,11 @@ public:
             if (dx_material && !dx_material->IsReady())
                 continue;
 
-            if (mesh.mLODFade == 0.0f)
+            if (mesh.lodFade == 0.0f)
                 continue;
 
 
-            m_GBufferConstants.mLODFade = mesh.mLODFade;
+            m_GBufferConstants.mLODFade = mesh.lodFade;
             m_GBufferConstants.mModelMatrix = transform.worldTransform;
 
             m_GBufferConstantBuffer.Update(&m_GBufferConstants, sizeof(GBufferConstants));
@@ -534,7 +534,7 @@ public:
             D3D.context->DrawIndexedInstanced(uint32_t(mesh.indices.size()), 1, 0, 0, 0);
 
             // Fade in the mesh over a span of 4 seconds
-            mesh.mLODFade = glm::max(0.0f, mesh.mLODFade - ( dt * 0.25f ));
+            mesh.lodFade = glm::max(0.0f, mesh.lodFade - ( dt * 0.25f ));
         }
 
         // SCENE GEOMETRY PASS
@@ -554,7 +554,7 @@ public:
             if (dx_material && !dx_material->IsReady())
                 continue;
 
-            if (mesh.mLODFade == 0.0f)
+            if (mesh.lodFade == 0.0f)
                 m_Renderer.BindPipeline();
             else
                 m_Renderer.BindPipeline(D3D11_COMPARISON_EQUAL);
@@ -562,7 +562,7 @@ public:
             Material& material = m_Scene.Get<Material>(mesh.material);
 
             m_GBufferConstants.mAlbedo = material.albedo;
-            m_GBufferConstants.mLODFade = mesh.mLODFade;
+            m_GBufferConstants.mLODFade = mesh.lodFade;
             m_GBufferConstants.mModelMatrix = transform.worldTransform;
 
             m_GBufferConstantBuffer.Update(&m_GBufferConstants, sizeof(GBufferConstants));

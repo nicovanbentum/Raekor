@@ -360,13 +360,13 @@ void AssimpImporter::LoadMaterial(Entity entity, const aiMaterial* assimpMateria
 		material.roughness = roughness;
 
 	if (albedoFile.length)
-		material.albedoFile = TextureAsset::sAssetsToCachedPath(m_Directory.string() + albedoFile.C_Str());
+		material.albedoFile = TextureAsset::GetCachedPath(m_Directory.string() + albedoFile.C_Str());
 
 	if (normalmapFile.length)
-		material.normalFile = TextureAsset::sAssetsToCachedPath(m_Directory.string() + normalmapFile.C_Str());
+		material.normalFile = TextureAsset::GetCachedPath(m_Directory.string() + normalmapFile.C_Str());
 
 	if (metalroughFile.length)
-		material.metalroughFile = TextureAsset::sAssetsToCachedPath(m_Directory.string() + metalroughFile.C_Str());
+		material.metalroughFile = TextureAsset::GetCachedPath(m_Directory.string() + metalroughFile.C_Str());
 }
 
 } // raekor

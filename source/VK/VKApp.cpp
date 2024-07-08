@@ -64,7 +64,7 @@ PathTracer::PathTracer() :
 	m_Renderer.Init(m_Scene);
 
 	// saves a bit of memory at runtime, as we no longer need the textures on the CPU after uploading them to the GPU
-	m_Assets.clear();
+	m_Assets.ReleaseUnreferenced();
 
 	// gui stuff
 	GUI::SetTheme();

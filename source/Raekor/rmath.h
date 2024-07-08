@@ -20,8 +20,8 @@ inline glm::mat<C, R, T> gFromString(const std::string& inValue);
 inline float gRadiansToDegrees(float inValue) { return inValue * ( 180.0f / M_PI ); }
 inline float gDegreesToRadians(float inValue) { return inValue * ( M_PI / 180.0f ); }
 
-
-constexpr inline size_t gAlignUp(size_t value, size_t alignment) noexcept { return ( value + alignment - 1 ) & ~( alignment - 1 ); }
+constexpr bool gIsPow2(size_t value) noexcept { return ( value & ( value - 1 ) ) == 0 && value != 0; }
+constexpr inline size_t gAlignUp(size_t value, size_t alignment) noexcept { return ( value + (alignment - 1) ) & ~( alignment - 1 ); }
 constexpr inline size_t gAlignDown(size_t value, size_t alignment) noexcept { return value & ~( alignment - 1 ); }
 
 
@@ -43,6 +43,10 @@ struct BBox3D
 	BBox3D& Scale(const Vec3& inScale);
 	BBox3D& Combine(const BBox3D& inOther);
 	BBox3D& Transform(const Mat4x4& inTransform);
+
+	BBox3D Scaled(const Vec3& inScale) const { return BBox3D(*this).Scale(inScale); }
+	BBox3D Combined(const BBox3D& inOther) const { return BBox3D(*this).Combine(inOther); }
+	BBox3D Transformed(const Mat4x4& inTransform) const { return BBox3D(*this).Transform(inTransform); }
 
 	bool Contains(const Vec3& inPoint) const;
 

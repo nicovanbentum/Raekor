@@ -660,7 +660,7 @@ RenderInterface::RenderInterface(Application* inApp, Device& inDevice, Renderer&
     SetGPUInfo(gpu_info);
 
     // Create default textures / assets
-    const String light_texture_file = TextureAsset::sConvert("assets/system/light.png");
+    const String light_texture_file = TextureAsset::Convert("assets/system/light.png");
     m_LightTexture = TextureID(UploadTextureFromAsset(inApp->GetAssets()->GetAsset<TextureAsset>(light_texture_file)));
     m_Renderer.QueueTextureUpload(m_LightTexture, 0, inApp->GetAssets()->GetAsset<TextureAsset>(light_texture_file));
 }
@@ -835,7 +835,7 @@ uint32_t RenderInterface::UploadTextureFromAsset(const TextureAsset::Ptr& inAsse
     const DDS_HEADER* header_ptr = inAsset->GetHeader();
 
     const uint32_t mipmap_levels = header_ptr->dwMipMapCount;
-    const String& debug_name = inAsset->GetPathStr();
+    const String& debug_name = inAsset->GetPathAsString();
 
     DXGI_FORMAT format = inIsSRGB ? DXGI_FORMAT_BC3_UNORM_SRGB : DXGI_FORMAT_BC3_UNORM;
     EDDSFormat dds_format = (EDDSFormat)header_ptr->ddspf.dwFourCC;

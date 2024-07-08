@@ -334,7 +334,7 @@ void InspectorWidget::DrawComponent(Entity inEntity, Mesh& ioMesh)
 		}
 	}
 
-	ImGui::DragFloat("LOD Fade", &ioMesh.mLODFade, 0.001f, -1.0f, 1.0f, "%.3f");
+	ImGui::DragFloat("LOD Fade", &ioMesh.lodFade, 0.001f, -1.0f, 1.0f, "%.3f");
 
 	if (ImGui::Button("Generate Normals"))
 		ioMesh.CalculateNormals();
@@ -480,7 +480,7 @@ void InspectorWidget::DrawComponent(Entity inEntity, RigidBody& inBoxCollider)
 		Transform* transform = GetScene().GetPtr<Transform>(inEntity);
 
 		if (mesh && transform)
-			inBoxCollider.CreateCubeCollider(BBox3D(mesh->aabb[0], mesh->aabb[1]).Scale(transform->scale));
+			inBoxCollider.CreateCubeCollider(mesh->bbox.Scaled(transform->scale));
 		else
 			inBoxCollider.CreateCubeCollider(BBox3D(Vec3(0.0f), Vec3(1.0f)));
 	}
@@ -718,7 +718,7 @@ void InspectorWidget::DrawComponent(Entity inEntity, Material& inMaterial)
 
 			if (!filepath.empty())
 			{
-				const String asset_path = TextureAsset::sConvert(filepath);
+				const String asset_path = TextureAsset::Convert(filepath);
 
 				if (!asset_path.empty())
 				{
@@ -925,7 +925,7 @@ void InspectorWidget::DrawComponent(Entity inEntity, NativeScript& inScript)
 	Scene& scene = GetScene();
 	Assets& assets = GetAssets();
 
-	if (assets.contains(inScript.file))
+	if (assets.ContainsAsset(inScript.file))
 	{
 		ImGui::Text("File: %s", inScript.file.c_str());
 	}
@@ -950,7 +950,7 @@ void InspectorWidget::DrawComponent(Entity inEntity, NativeScript& inScript)
 
 	if (ImGui::Button("Reload"))
 	{
-		assets.Release(inScript.file);
+		assets.ReleaseAsset(inScript.file);
 		assets.GetAsset<ScriptAsset>(inScript.file);
 		
 		scene.BindScriptToEntity(GetActiveEntity(), inScript, m_Editor);
@@ -960,7 +960,7 @@ void InspectorWidget::DrawComponent(Entity inEntity, NativeScript& inScript)
 
 	if (ImGui::Button("Release"))
 	{
-		assets.Release(inScript.file);
+		assets.ReleaseAsset(inScript.file);
 	}
 
     if (!inScript.types.empty())

@@ -391,13 +391,7 @@ D3D12_DESCRIPTOR_HEAP_TYPE gGetHeapType(Texture::Usage inUsage);
 
 class DescriptorHeap : public DescriptorPool
 {
-private:
-    friend class Device; // Only Device is allowed to create DescriptorHeap's
-    void Allocate(Device& inDevice, D3D12_DESCRIPTOR_HEAP_TYPE inType, uint32_t inCount, D3D12_DESCRIPTOR_HEAP_FLAGS inFlags);
-
 public:
-    DescriptorHeap() = default;
-
     ID3D12DescriptorHeap* operator* ()              { return m_Heap.Get(); }
     const ID3D12DescriptorHeap* operator* () const  { return m_Heap.Get(); }
     ID3D12DescriptorHeap* operator-> ()             { return m_Heap.Get(); }
@@ -412,6 +406,10 @@ public:
     {
         return CD3DX12_GPU_DESCRIPTOR_HANDLE(m_Heap->GetGPUDescriptorHandleForHeapStart(), inResourceID.GetIndex(), m_HeapIncrement);
     }
+
+private:
+    friend class Device; // Only Device is allowed to create DescriptorHeap's
+    void Allocate(Device& inDevice, D3D12_DESCRIPTOR_HEAP_TYPE inType, uint32_t inCount, D3D12_DESCRIPTOR_HEAP_FLAGS inFlags);
 
 private:
     UINT m_HeapIncrement = 0;

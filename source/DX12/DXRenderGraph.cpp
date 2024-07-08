@@ -870,12 +870,9 @@ bool RenderGraph::Compile(Device& inDevice)
 
     m_PerFrameAllocatorOffset = 0;
 
-    
-    D3D12_QUERY_HEAP_DESC query_heap_desc = 
-    {
-        .Type = D3D12_QUERY_HEAP_TYPE_TIMESTAMP,
-        .Count = uint32_t(m_RenderPasses.size()) * 2u
-    };
+    D3D12_QUERY_HEAP_DESC query_heap_desc = {};
+    query_heap_desc.Type = D3D12_QUERY_HEAP_TYPE_TIMESTAMP;
+    query_heap_desc.Count = uint32_t(m_RenderPasses.size()) * 2u;
 
     assert(m_TimestampQueryHeap == nullptr);
     inDevice->CreateQueryHeap(&query_heap_desc, IID_PPV_ARGS(m_TimestampQueryHeap.GetAddressOf()));

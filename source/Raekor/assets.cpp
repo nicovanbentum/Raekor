@@ -15,34 +15,38 @@ RTTI_DEFINE_TYPE(ScriptAsset) { RTTI_DEFINE_TYPE_INHERITANCE(ScriptAsset, Asset)
 RTTI_DEFINE_TYPE(TextureAsset) { RTTI_DEFINE_TYPE_INHERITANCE(TextureAsset, Asset); }
 
 
-std::string TextureAsset::sConvert(const std::string& filepath)
+String TextureAsset::Convert(const String& inPath)
 {
 	int width = 0, height = 0, ch = 0;
-	stbi_uc* pixels = stbi_load(filepath.c_str(), &width, &height, &ch, 4);
+	stbi_uc* mip0_pixels = stbi_load(inPath.c_str(), &width, &height, &ch, 4);
+
+	if (mip0_pixels == nullptr)
+	{
+		std::cout << std::format("[STBI] Failed to load {}\n", inPath);
+		return String();
+	}
 	
 	Array<stbi_uc*> mip_chain;
-	mip_chain.push_back(pixels);
+	mip_chain.push_back(mip0_pixels);
 
-	if (!mip_chain[0])
+	// if it's not a power of 2, instead of ruling it unusable, try to resize it to a power of 2
+	if (!gIsPow2(width) || !gIsPow2(height))
 	{
-		std::cout << "stb failed " << filepath << '\n';
-		return {};
-	}
+		const size_t aligned_width = gAlignUp(width, 32); 
+		const size_t aligned_height = gAlignUp(height, 32);
 
-	if (width % 4 != 0 || height % 4 != 0)
-	{
-		std::cout << "Image " << Path(filepath).filename() << " with resolution " << width << 'x' << height << " is not a power of 2 resolution.\n";
-		const size_t aw = gAlignUp(width, 4), ah = gAlignUp(height, 4);
-
-		mip_chain.push_back((stbi_uc*)malloc(aw * ah * 4));
-		stbir_resize_uint8_linear(mip_chain[0], width, height, 0, mip_chain[1], aw, ah, 0, (stbir_pixel_layout)4);
+		mip_chain.push_back((stbi_uc*)malloc(aligned_width * aligned_height * 4));
+		stbir_resize_uint8_linear(mip_chain[0], width, height, 0, mip_chain[1], aligned_width, aligned_height, 0, STBIR_RGBA);
 
 		stbi_image_free(mip_chain[0]);
 		mip_chain[0] = mip_chain[1];
 		mip_chain.pop_back();
-		width = aw, height = ah;
 
-		// return {};
+		width = aligned_width;
+		height = aligned_height;
+
+		String filename = Path(inPath).filename().string();
+		std::cout << std::format("[Assets] Image {} at {}x{} is not a power of 2.\n", filename, width, height);
 	}
 
 	// TODO: gpu mip mapping, cant right now because assets are loaded in parallel but OpenGL can't do multithreading
@@ -51,42 +55,44 @@ std::string TextureAsset::sConvert(const std::string& filepath)
 	int nr_of_mips = (int)std::max(std::floor(std::log2(std::max(width, height))) - 1, 0.0);
 	int actual_mip_count = nr_of_mips;
 
-	for (uint32_t i = 1; i < nr_of_mips; i++)
+	for (int mip_index = 1; mip_index < nr_of_mips; mip_index++)
 	{
-		const IVec2 mip_size = IVec2(width >> i, height >> i);
-		const IVec2 prev_mip_size = IVec2(width >> ( i - 1 ), height >> ( i - 1 ));
+		const IVec2 mip_size = IVec2(width >> mip_index, height >> mip_index);
+		const IVec2 prev_mip_size = IVec2(width >> ( mip_index - 1 ), height >> ( mip_index - 1 ));
 
-		if (mip_size.x % 4 != 0 || mip_size.y % 4 != 0)
+		if (!gIsPow2(mip_size.x) || !gIsPow2(mip_size.y))
 		{
-			std::cout << "[Assets] Image " << Path(filepath).filename() << " with MIP resolution " << mip_size.x << 'x' << mip_size.y << " is not a power of 2 resolution.\n";
-			actual_mip_count = i;
+			actual_mip_count = mip_index;
+			String filename = Path(inPath).filename().string();
+			std::cout << std::format("[Assets] Mip {} of Image {} at {}x{} is not a power of 2\n", mip_index, filename, mip_size.x, mip_size.y);
 			break;
 		}
 
 		mip_chain.push_back((stbi_uc*)malloc(mip_size.x * mip_size.y * 4));
-		stbir_resize_uint8_linear(mip_chain[i - 1], prev_mip_size.x, prev_mip_size.y, 0, mip_chain[i], mip_size.x, mip_size.y, 0, (stbir_pixel_layout)4);
+		stbir_resize_uint8_linear(mip_chain[mip_index - 1], prev_mip_size.x, prev_mip_size.y, 0, mip_chain[mip_index], mip_size.x, mip_size.y, 0, STBIR_RGBA);
 	}
 
 	uint32_t offset = 128;
-	std::vector<unsigned char> dds_buffer(offset);
+	Array<unsigned char> dds_buffer(offset);
 
-	for (uint32_t i = 0; i < actual_mip_count; i++)
+	for (int mip_index = 0; mip_index < actual_mip_count; mip_index++)
 	{
-		const IVec2 mip_dimensions = IVec2(width >> i, height >> i);
+		const IVec2 mip_size = IVec2(width >> mip_index, height >> mip_index);
 
-		if (mip_dimensions.x % 4 != 0 || mip_dimensions.y % 4 != 0)
+		if (!gIsPow2(mip_size.x) || !gIsPow2(mip_size.y))
 		{
-			std::cout << "[Assets] Image " << Path(filepath).filename() << " with MIP resolution " << width << 'x' << height << " is not a power of 2 resolution.\n";
+			String filename = Path(inPath).filename().string();
+			std::cout << std::format("[Assets] Mip {} of Image {} at {}x{} is not a power of 2\n", mip_index, filename, mip_size.x, mip_size.y);
 			break;
 		}
 
 		// make room for the new dxt mip
-		dds_buffer.resize(dds_buffer.size() + mip_dimensions.x * mip_dimensions.y);
+		dds_buffer.resize(dds_buffer.size() + mip_size.x * mip_size.y);
 
 		// block compress
-		RK::CompressDXT(dds_buffer.data() + offset, mip_chain[i], mip_dimensions.x, mip_dimensions.y, true);
+		RK::CompressDXT(dds_buffer.data() + offset, mip_chain[mip_index], mip_size.x, mip_size.y, true);
 
-		offset += mip_dimensions.x * mip_dimensions.y;
+		offset += mip_size.x * mip_size.y;
 	}
 
 	for (stbi_uc* mip : mip_chain)
@@ -120,13 +126,26 @@ std::string TextureAsset::sConvert(const std::string& filepath)
 	memcpy(dds_buffer.data() + 4, &header, sizeof(DDS_HEADER));
 
 	// write to disk
-	const String dds_file_path = sAssetsToCachedPath(filepath);
+	const String dds_file_path = GetCachedPath(inPath);
 	fs::create_directories(Path(dds_file_path).parent_path());
 
 	std::ofstream dds_file(dds_file_path, std::ios::binary | std::ios::ate);
 	dds_file.write((const char*)dds_buffer.data(), dds_buffer.size());
 
 	return dds_file_path;
+}
+
+
+bool TextureAsset::Save()
+{
+	File file(m_Path, std::ios::binary | std::ios::out);
+
+	if (!file.is_open())
+		return false;
+
+	file.write(m_Data.data(), m_Data.size());
+
+	return true;
 }
 
 
@@ -157,19 +176,6 @@ bool TextureAsset::Load()
 }
 
 
-bool TextureAsset::Save()
-{
-	File file(m_Path, std::ios::binary | std::ios::out);
-
-	if (!file.is_open())
-		return false;
-
-	file.write(m_Data.data(), m_Data.size());
-
-	return true;
-}
-
-
 Assets::Assets()
 {
 	if (!fs::exists("assets"))
@@ -181,25 +187,29 @@ void Assets::ReleaseUnreferenced()
 {
 	Array<String> keys;
 
-	for (const auto& [key, value] : *this)
+	for (const auto& [key, value] : m_Assets)
 		if (value.use_count() == 1)
 			keys.push_back(key);
 
 	{
 		std::scoped_lock lock(m_Mutex);
 		for (const String& key : keys)
-			erase(key);
+			m_Assets.erase(key);
 	}
 }
 
 
-void Assets::Release(const std::string& filepath)
+bool Assets::ReleaseAsset(const String& inFilePath)
 {
 	std::scoped_lock lock(m_Mutex);
 
-	if (find(filepath) != end())
-		erase(filepath);
+	if (!m_Assets.contains(inFilePath))
+		return false;
+
+	m_Assets.erase(inFilePath);
+	return true;
 }
+
 
 ScriptAsset::~ScriptAsset()
 {
@@ -214,7 +224,7 @@ ScriptAsset::~ScriptAsset()
 }
 
 
-Path ScriptAsset::sConvert(const Path& inPath)
+String ScriptAsset::Convert(const String& inPath)
 {
 	// TODO: The plan is to have a seperate VS project in the solution dedicated to cpp scripts.
 	//          That should compile them down to a single DLL that we can load in as asset, 
@@ -225,7 +235,7 @@ Path ScriptAsset::sConvert(const Path& inPath)
 
 	fs::copy(inPath, "assets" / abs_path.filename());
 	fs::copy(pdb_path, "assets" / pdb_path.filename());
-	return dest;
+	return dest.string();
 }
 
 

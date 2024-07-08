@@ -56,8 +56,7 @@ Entity Scene::PickSpatialEntity(const Ray& inRay) const
 
 	for (auto [entity, transform, mesh] : Each<Transform, Mesh>())
 	{
-		BBox3D oobb = BBox3D(mesh.aabb[0], mesh.aabb[1]);
-		const Optional<float> hit_result = inRay.HitsOBB(oobb, transform.worldTransform);
+		const Optional<float> hit_result = inRay.HitsOBB(mesh.bbox, transform.worldTransform);
 
 		if (hit_result.has_value())
 			boxes_hit[hit_result.value()] = entity;
@@ -329,7 +328,7 @@ void Scene::RenderDebugShapes(Entity inEntity) const
 	if (Has<Mesh>(inEntity))
 	{
 		const auto& [mesh, transform] = Get<Mesh, Transform>(inEntity);
-		g_DebugRenderer.AddLineCube(mesh.aabb[0], mesh.aabb[1], transform.worldTransform);
+		g_DebugRenderer.AddLineCube(mesh.bbox.GetMin(), mesh.bbox.GetMax(), transform.worldTransform);
 	}
 	// render debug shape for lights
 	if (Has<Light>(inEntity))
