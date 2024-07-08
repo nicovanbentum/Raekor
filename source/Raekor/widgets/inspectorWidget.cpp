@@ -55,7 +55,18 @@ void InspectorWidget::DrawEntityInspector(Widgets* inWidgets)
 		return;
 
 	ImGui::Text("Entity ID: %i", active_entity);
-	ImGui::Text("Parent ID: %i", GetScene().GetParent(active_entity));
+
+	if (GetScene().HasParent(active_entity))
+	{
+		ImGui::Text("Parent ID:");
+		ImGui::SameLine();
+	
+		Entity parent = GetScene().GetParent(active_entity);
+		String button_text = std::format("{}", uint32_t(parent));
+
+		if (ImGui::SmallButton(button_text.c_str()))
+			SetActiveEntity(parent);
+	}
 
 	Scene& scene = GetScene();
 	Assets& assets = GetAssets();
@@ -781,6 +792,42 @@ void InspectorWidget::DrawComponent(Entity inEntity, Transform& inTransform)
     ImGui::SetNextItemRightAlign("Position ");
 	if (ImGui::DragVec3("##PositionDragFloat3", inTransform.position, 0.001f, -FLT_MAX, FLT_MAX))
 		inTransform.Compose();
+
+	ImGui::Separator();
+
+	const Animation* animation = GetScene().GetPtr<Animation>(inTransform.animation);
+	const String preview_text = animation ? animation->GetName() : "None";
+
+	if (ImGui::DragDropTargetButton("Animation", preview_text.c_str(), animation != nullptr))
+		SetActiveEntity(inTransform.animation);
+
+	if (ImGui::BeginDragDropTarget())
+	{
+		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("drag_drop_entity"))
+			inTransform.animation = *reinterpret_cast<const Entity*>( payload->Data );
+
+		ImGui::EndDragDropTarget();
+	}
+
+	if (animation != nullptr)
+	{
+		if (ImGui::BeginCombo("Channel", inTransform.animationChannel.c_str()))
+		{
+			static HashSet<String> channels;
+			channels.clear();
+
+			for (const String& bone_name : animation->GetBoneNames())
+				channels.insert(bone_name);
+
+			for (const String& channel : channels)
+			{
+				if (ImGui::Selectable(channel.c_str(), inTransform.animationChannel == channel))
+					inTransform.animationChannel = channel;
+			}
+
+			ImGui::EndCombo();
+		}
+	}
 }
 
 
@@ -791,6 +838,30 @@ void InspectorWidget::DrawComponent(Entity inEntity, Animation& inAnimation)
 
 	ImGui::Text("Bone Count: %i", inAnimation.GetBoneCount());
 	ImGui::Text("Total Duration: %.2f seconds", total_duration / 1000.0f);
+
+	if (ImGui::Button("Apply to Scene"))
+	{
+		for (const auto& [entity, name, transform] : GetScene().Each<Name, Transform>())
+		{
+			if (inAnimation.HasKeyFrames(name))
+			{
+				transform.animation = inEntity;
+				transform.animationChannel = name;
+			}
+		}
+	}
+
+	if (ImGui::Button("Remove from Scene"))
+	{
+		for (const auto& [entity, transform] : GetScene().Each<Transform>())
+		{
+			if (transform.animation == inEntity)
+			{
+				transform.animation = Entity::Null;
+				transform.animationChannel = "";
+			}
+		}
+	}
 
 	if (inAnimation.IsPlaying())
 	{
@@ -818,6 +889,8 @@ void InspectorWidget::DrawComponent(Entity inEntity, Animation& inAnimation)
 		if (ImGui::SliderFloat("Time", &time, 0.0f, inAnimation.GetTotalDuration() / 1000.0f))
 			inAnimation.SetRunningTime(time * 1000.0f);
 	}
+
+
 }
 
 

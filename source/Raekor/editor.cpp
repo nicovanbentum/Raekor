@@ -67,7 +67,7 @@ IEditor::IEditor(WindowFlags inWindowFlags, IRenderInterface* inRenderInterface)
 		m_Widgets.Register<HierarchyWidget>(this);
 	}
 
-	LogMessage("[Editor] initialization done.");
+	LogMessage("[Editor] initialization done");
 
 	// hide the console window
 	if (!IsDebuggerPresent())

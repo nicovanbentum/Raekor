@@ -47,6 +47,9 @@ struct Transform : public Component
 	Mat4x4 worldTransform = Mat4x4(1.0f);
 	Mat4x4 invWorldTransform = Mat4x4(1.0f);
 
+	Entity animation = Entity::Null;
+	String animationChannel = "";
+
 	Vec3 GetScaleWorldSpace() const;
 	Vec3 GetPositionWorldSpace() const;
 	Quat GetRotationWorldSpace() const;

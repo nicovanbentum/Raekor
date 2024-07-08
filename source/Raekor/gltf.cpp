@@ -158,49 +158,69 @@ bool GltfImporter::LoadFromFile(const std::string& inFile, Assets* inAssets)
 
 void GltfImporter::ParseNode(const cgltf_node& inNode, Entity inParent, glm::mat4 inTransform)
 {
+	bool has_transform = false;
 	Mat4x4 local_transform(1.0f);
 
 	if (inNode.has_matrix)
 	{
+		has_transform = true;
 		static_assert( sizeof(inNode.matrix) == sizeof(local_transform) );
 		memcpy(glm::value_ptr(local_transform), inNode.matrix, sizeof(inNode.matrix));
 	}
 	else
 	{
 		if (inNode.has_translation)
+		{
+			has_transform = true;
 			local_transform = glm::translate(local_transform, Vec3(inNode.translation[0], inNode.translation[1], inNode.translation[2]));
+		}
 
 		if (inNode.has_rotation)
+		{
+			has_transform = true;
 			local_transform = local_transform * glm::toMat4(glm::quat(inNode.rotation[3], inNode.rotation[0], inNode.rotation[1], inNode.rotation[2]));
+		}
 
 		if (inNode.has_scale)
+		{
+			has_transform = true;
 			local_transform = glm::scale(local_transform, Vec3(inNode.scale[0], inNode.scale[1], inNode.scale[2]));
+		}
 	}
 
-	Entity entity = m_CreatedNodeEntities.emplace_back(m_Scene.CreateSpatialEntity());
-	
 	// Calculate global transform
 	inTransform *= local_transform;
+
+	// initialize current entity to it's parent, so that if it doesn't have a transform it gets collapsed
+	Entity entity = inParent;
+
+	if (has_transform || (inNode.mesh && m_Scene.Has<Mesh>(inParent)))
+	{
+		String name = inNode.name ? inNode.name : "GLTF Node";
+		entity = m_CreatedNodeEntities.emplace_back(m_Scene.CreateSpatialEntity(name));
+
+		// set the new entity's parent
+		if (inParent != Entity::Null)
+			m_Scene.ParentTo(entity, inParent);
+	}
+
+	if (has_transform)
+	{
+		Transform& mesh_transform = m_Scene.Get<Transform>(entity);
+		mesh_transform.localTransform = inTransform;
+		mesh_transform.Decompose();
+	}
+	
 
 	if (inNode.mesh)
 	{
 		Name& name = m_Scene.Get<Name>(entity);
 
-		// name it after the node or its mesh
-		if (inNode.name)
-			name.name = inNode.name;
-		else if (inNode.mesh && inNode.mesh->name)
-			name.name = inNode.mesh->name;
-		else
-			name.name = "Mesh " + std::to_string(uint32_t(entity));
-
-		Transform& mesh_transform = m_Scene.Get<Transform>(entity);
-		mesh_transform.localTransform = inTransform;
-		mesh_transform.Decompose();
-
-		// set the new entity's parent
-		if (inParent != Entity::Null)
-			m_Scene.ParentTo(entity, inParent);
+		// name it after the mesh
+		//if (inNode.mesh && inNode.mesh->name)
+		//	name.name = inNode.mesh->name;
+		//else
+		//	name.name = "Mesh " + std::to_string(uint32_t(entity));
 
 		if (inNode.mesh->primitives_count == 1)
 		{
@@ -244,18 +264,18 @@ bool GltfImporter::ConvertMesh(Entity inEntity, const cgltf_primitive& inMesh)
 	if (!inMesh.indices || inMesh.type != cgltf_primitive_type_triangles)
 		return false;
 	
+	assert(!m_Scene.Has<Mesh>(inEntity));
 	Mesh& mesh = m_Scene.Add<Mesh>(inEntity);
 
 	for (int i = 0; i < m_GltfData->materials_count; i++)
 	{
 		if (inMesh.material == &m_GltfData->materials[i])
-		{
 			mesh.material = m_Materials[i];
-		}
 	}
+
 	bool seen_uv0 = false;
 
-	for (const auto& attribute : Slice(inMesh.attributes, inMesh.attributes_count))
+	for (const cgltf_attribute& attribute : Slice(inMesh.attributes, inMesh.attributes_count))
 	{
 		const cgltf_size float_count = cgltf_accessor_unpack_floats(attribute.data, NULL, 0);
 		Array<float> accessor_data(float_count); // TODO: allocate this once?

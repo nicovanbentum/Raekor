@@ -223,14 +223,41 @@ void Scene::UpdateTransforms()
 		Entity parent = inScene.GetParent(inEntity);
 		Transform& transform = inScene.Get<Transform>(inEntity);
 
+		Mat4x4 local_transform = transform.localTransform;
+
+		if (const Animation* animation = inScene.GetPtr<Animation>(transform.animation))
+		{
+			if (animation->HasKeyFrames(transform.animationChannel))
+			{
+				const KeyFrames& keyframes = animation->GetKeyFrames(transform.animationChannel);
+
+				Vec3 scale = transform.scale;
+				Vec3 position = transform.position;
+				Quat rotation = transform.rotation;
+
+				if (keyframes.CanInterpolateScale())
+					scale = keyframes.GetInterpolatedScale(animation->GetRunningTime());
+
+				if (keyframes.CanInterpolatePosition())
+					position = keyframes.GetInterpolatedPosition(animation->GetRunningTime());
+
+				if (keyframes.CanInterpolateRotation())
+					rotation = keyframes.GetInterpolatedRotation(animation->GetRunningTime());
+
+				local_transform = glm::translate(Mat4x4(1.0f), position);
+				local_transform = local_transform * glm::toMat4(rotation);
+				local_transform = glm::scale(local_transform, scale);
+			}
+		}
+
 		if (parent == Entity::Null || parent == inScene.GetRootEntity())
 		{
-			transform.worldTransform = transform.localTransform;
+			transform.worldTransform = local_transform;
 		}
 		else
 		{
 			const Transform& parent_transform = inScene.Get<Transform>(parent);
-			transform.worldTransform = parent_transform.worldTransform * transform.localTransform;
+			transform.worldTransform = parent_transform.worldTransform * local_transform;
 		}
 	};
 
