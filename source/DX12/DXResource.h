@@ -14,6 +14,8 @@ public:
     ResourceID() : m_Index(cInvalidIndex), m_Generation(0) {}
     explicit ResourceID(uint32_t inValue) : m_Value(inValue) {}
 
+    explicit operator uint32_t() const { return m_Value; }
+
     bool operator==(const ResourceID& inOther) const { return m_Index == inOther.m_Index; }
     bool operator!=(const ResourceID& inOther) const { return m_Index != inOther.m_Index; }
 
@@ -371,22 +373,25 @@ struct TextureUpload
     Slice<char> mData;
 };
 
-
-enum EResourceType
+struct UploadBuffer
 {
-    RESOURCE_TYPE_BUFFER,
-    RESOURCE_TYPE_TEXTURE
+    bool mRetired        = true;
+    uint32_t mFrameIndex = 0;
+    size_t mSize         = 0;
+    size_t mCapacity     = 0;
+    uint8_t* mPtr        = nullptr;
+    BufferID mID         = BufferID();
 };
 
 
-D3D12_RESOURCE_STATES gGetResourceStates(Buffer::Usage inUsage);
-D3D12_RESOURCE_STATES gGetResourceStates(Texture::Usage inUsage);
+D3D12_RESOURCE_STATES GetD3D12ResourceStates(Buffer::Usage inUsage);
+D3D12_RESOURCE_STATES GetD3D12ResourceStates(Texture::Usage inUsage);
 
-D3D12_RESOURCE_STATES gGetInitialResourceState(Buffer::Usage inUsage);
-D3D12_RESOURCE_STATES gGetInitialResourceState(Texture::Usage inUsage);
+D3D12_RESOURCE_STATES GetD3D12InitialResourceStates(Buffer::Usage inUsage);
+D3D12_RESOURCE_STATES GetD3D12InitialResourceStates(Texture::Usage inUsage);
 
-D3D12_DESCRIPTOR_HEAP_TYPE gGetHeapType(Buffer::Usage inUsage);
-D3D12_DESCRIPTOR_HEAP_TYPE gGetHeapType(Texture::Usage inUsage);
+D3D12_DESCRIPTOR_HEAP_TYPE GetD3D12HeapType(Buffer::Usage inUsage);
+D3D12_DESCRIPTOR_HEAP_TYPE GetD3D12HeapType(Texture::Usage inUsage);
 
 
 class DescriptorHeap : public DescriptorPool

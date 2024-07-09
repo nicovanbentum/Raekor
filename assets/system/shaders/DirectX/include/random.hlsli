@@ -2,13 +2,14 @@
 #define RANDOM_HLSLI
 
 #include "shared.h"
+#include "bindless.hlsli"
 
 #define M_PI 3.14159265358979323846
 #define GOLDEN_RATIO 0.61803398875
 
 // Animation over time from https://www.shadertoy.com/view/XtGBDc
 float4 SampleBlueNoise(uint2 inCoord, uint inFrameCounter) {
-    Texture2D<float4> blue_noise_texture = ResourceDescriptorHeap[BINDLESS_BLUE_NOISE_TEXTURE_INDEX];
+    Texture2D<float4> blue_noise_texture = ResourceDescriptorHeap[GlobalConstantsBuffer.mBlueNoiseTexture];
     float4 blue_noise = blue_noise_texture[inCoord.xy % 128];
     return frac(blue_noise + (GOLDEN_RATIO * (inFrameCounter & 255)));
 }

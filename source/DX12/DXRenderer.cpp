@@ -18,6 +18,8 @@
 #include "Raekor/primitives.h"
 #include "Raekor/application.h"
 
+extern float samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d_1spp(int pixel_i, int pixel_j, int sampleIndex, int sampleDimension);
+
 namespace RK::DX12 {
 
 Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inWindow) :
@@ -104,6 +106,43 @@ Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inW
         SetShouldResize(true);
         g_ThreadPool.WaitForJobs();
     });
+
+    static Array<Vec4> blue_noise_samples;
+    blue_noise_samples.reserve(128 * 128);
+
+    for (int y = 0; y < 128; y++)
+    {
+        for (int x = 0; x < 128; x++)
+        {
+            Vec4& sample = blue_noise_samples.emplace_back();
+
+            for (int i = 0; i < sample.length(); i++)
+                sample[i] = samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d_1spp(x, y, 0, i);
+        }
+    }
+
+    m_GlobalConstants.mBlueNoiseTexture = uint32_t(inDevice.CreateTexture(Texture::Desc
+    {
+        .format = DXGI_FORMAT_R32G32B32A32_FLOAT,
+        .width  = 128,
+        .height = 128,
+        .usage  = Texture::Usage::SHADER_READ_ONLY,
+        .debugName = "BlueNoise128x1spp"
+    }));
+
+    QueueTextureUpload(m_GlobalConstants.mBlueNoiseTexture, 0, Slice<char>((const char*)blue_noise_samples.data(), blue_noise_samples.size() / sizeof(blue_noise_samples[0])));
+
+    Texture::Desc sky_cube_texture_desc = Texture::DescCube(DXGI_FORMAT_R32G32B32A32_FLOAT, 64, 64, Texture::SHADER_READ_WRITE);
+    Texture::Desc convolved_sky_cube_texture_desc = Texture::DescCube(DXGI_FORMAT_R32G32B32A32_FLOAT, 16, 16, Texture::SHADER_READ_WRITE);
+    
+    sky_cube_texture_desc.debugName = "SkyCubeTexture";
+    convolved_sky_cube_texture_desc.debugName = "ConvolvedSkyCubeTexture";
+
+    m_GlobalConstants.mSkyCubeTexture = uint32_t(inDevice.CreateTexture(sky_cube_texture_desc));
+    m_GlobalConstants.mConvolvedSkyCubeTexture = uint32_t(inDevice.CreateTexture(convolved_sky_cube_texture_desc));
+    
+    //m_GlobalConstants.mDebugLinesVertexBuffer = uint32_t(inDevice.CreateBuffer(Buffer::RWStructuredBuffer(sizeof(Vec4) * UINT16_MAX, sizeof(Vec4), "DebugLinesVertexBuffer")));
+    //m_GlobalConstants.mDebugLinesIndirectArgsBuffer = uint32_t(inDevice.CreateBuffer(Buffer::Describe(sizeof(D3D12_DRAW_ARGUMENTS), Buffer::SHADER_READ_WRITE, "DebugLinesIndirectArgsBuffer")));
 }
 
 
@@ -192,7 +231,7 @@ void Renderer::OnResize(Device& inDevice, Viewport& inViewport, bool inFullScree
 
 
 
-void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewport, RayTracedScene& inScene, StagingHeap& inStagingHeap, IRenderInterface* inRenderInterface, float inDeltaTime)
+void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewport, RayTracedScene& inScene, IRenderInterface* inRenderInterface, float inDeltaTime)
 {
     PROFILE_FUNCTION_CPU();
 
@@ -216,7 +255,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
         OnResize(inDevice, inViewport, inApp->IsWindowExclusiveFullscreen());
 
         // Recompile the renderer, super overkill. TODO: pls fix
-        Recompile(inDevice, inScene, inStagingHeap, inRenderInterface);
+        Recompile(inDevice, inScene, inRenderInterface);
 
         // Flag / Unflag
         recompiled = true;
@@ -240,8 +279,8 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     // at this point we know the GPU is no longer working on this frame, so free/release stuff here
      if (m_FrameCounter > 0)
     {
-        inStagingHeap.RetireBuffers(backbuffer_data.mCopyCmdList);
-        inStagingHeap.RetireBuffers(backbuffer_data.mDirectCmdList);
+        inDevice.RetireUploadBuffers(backbuffer_data.mCopyCmdList);
+        inDevice.RetireUploadBuffers(backbuffer_data.mDirectCmdList);
         backbuffer_data.mCopyCmdList.ReleaseTrackedResources();
         backbuffer_data.mDirectCmdList.ReleaseTrackedResources();
     }
@@ -326,12 +365,12 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
         PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( copy_cmd_list ), PIX_COLOR(0, 255, 0), "UPLOAD MESHES");
 
         for (Entity entity : m_PendingMeshUploads)
-            inScene.UploadMesh(inApp, inDevice, inStagingHeap, inScene->Get<Mesh>(entity), inScene->GetPtr<Skeleton>(entity), copy_cmd_list);
+            inScene.UploadMesh(inApp, inDevice, inScene->Get<Mesh>(entity), inScene->GetPtr<Skeleton>(entity), copy_cmd_list);
     }
     
     // upload skeleton bone attributes and bone transform buffers
     for (Entity entity : m_PendingSkeletonUploads)
-        inScene.UploadSkeleton(inApp, inDevice, inStagingHeap, inScene->Get<Skeleton>(entity), copy_cmd_list);
+        inScene.UploadSkeleton(inApp, inDevice, inScene->Get<Skeleton>(entity), copy_cmd_list);
     
     // update bottom level AS for entities that have both a mesh and skeleton
     if (update_skinning)
@@ -339,7 +378,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
         PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( copy_cmd_list ), PIX_COLOR(0, 255, 0), "BUILD BLASes");
         
         for (Entity entity : m_PendingBlasUpdates)
-            inScene.UpdateBLAS(inApp, inDevice, inStagingHeap, inScene->Get<Mesh>(entity), inScene->GetPtr<Skeleton>(entity), copy_cmd_list);
+            inScene.UpdateBLAS(inApp, inDevice, inScene->Get<Mesh>(entity), inScene->GetPtr<Skeleton>(entity), copy_cmd_list);
     }
 
     // upload pixel data for texture assets 
@@ -347,7 +386,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
         PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( copy_cmd_list ), PIX_COLOR(0, 255, 0), "UPLOAD TEXTURES");
 
         for (TextureUpload& texture_upload : m_PendingTextureUploads)
-            inScene.UploadTexture(inApp, inDevice, inStagingHeap, texture_upload, copy_cmd_list);
+            inScene.UploadTexture(inApp, inDevice, texture_upload, copy_cmd_list);
     }
 
     // upload pixel data for textures that are associated with materials
@@ -355,7 +394,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
         PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( copy_cmd_list ), PIX_COLOR(0, 255, 0), "UPLOAD MATERIALS");
 
         for (Entity entity : m_PendingMaterialUploads)
-            inScene.UploadMaterial(inApp, inDevice, inStagingHeap, inScene->Get<Material>(entity), copy_cmd_list);
+            inScene.UploadMaterial(inApp, inDevice, inScene->Get<Material>(entity), copy_cmd_list);
     }
 
     // clear all pending uploads for this frame, memory will be re-used
@@ -368,10 +407,10 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     //// Record uploads for the RT scene 
     if (upload_tlas)
     {
-        inScene.UploadInstances(inApp, inDevice, inStagingHeap, copy_cmd_list);
-        inScene.UploadMaterials(inApp, inDevice, inStagingHeap, copy_cmd_list, m_Settings.mDisableAlbedo);
-        inScene.UploadTLAS(inApp, inDevice, inStagingHeap, copy_cmd_list);
-        inScene.UploadLights(inApp, inDevice, inStagingHeap, copy_cmd_list);
+        inScene.UploadInstances(inApp, inDevice, copy_cmd_list);
+        inScene.UploadMaterials(inApp, inDevice, copy_cmd_list, m_Settings.mDisableAlbedo);
+        inScene.UploadTLAS(inApp, inDevice, copy_cmd_list);
+        inScene.UploadLights(inApp, inDevice, copy_cmd_list);
     }
 
     //// Submit all copy commands
@@ -430,22 +469,20 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
 
 
 
-void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, StagingHeap& inStagingHeap, IRenderInterface* inRenderInterface)
+void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRenderInterface* inRenderInterface)
 {
     m_RenderGraph.Clear(inDevice);
 
-    //const auto& sky_cube_data = AddSkyCubePass(m_RenderGraph, inDevice, inScene, m_GlobalConstants.mSkyCubeTexture);
-
-    //const auto& convolved_cube_data = AddConvolveCubePass(m_RenderGraph, inDevice, sky_cube_data.mSkyCubeTexture, m_GlobalConstants.mConvolvedSkyCubeTexture);
-
     const DefaultTexturesData& default_textures = AddDefaultTexturesPass(m_RenderGraph, inDevice, inRenderInterface->GetBlackTexture(), inRenderInterface->GetWhiteTexture());
     
-    // const auto& skycube_data = AddSkyCubePass(m_RenderGraph, inDevice, inScene, )
-
     RenderGraphResourceID depth_texture = default_textures.mWhiteTexture;
     RenderGraphResourceID compose_input = default_textures.mBlackTexture;
 
-    const SkinningData& skinning_data = AddSkinningPass(m_RenderGraph, inDevice, inScene, inStagingHeap);
+    const SkinningData& skinning_data = AddSkinningPass(m_RenderGraph, inDevice, inScene);
+
+    const SkyCubeData& sky_cube_data = AddSkyCubePass(m_RenderGraph, inDevice, inScene, m_GlobalConstants);
+
+    const ConvolveCubeData& convolved_cube_data = AddConvolveSkyCubePass(m_RenderGraph, inDevice,  m_GlobalConstants, sky_cube_data.mSkyCubeTexture);
 
     if (m_Settings.mDoPathTrace)
     {
@@ -603,7 +640,7 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, Stagin
 
     // const auto& imgui_data = AddImGuiPass(m_RenderGraph, inDevice, inStagingHeap, compose_data.mOutputTexture);
 
-    m_RenderGraph.Compile(inDevice);
+    m_RenderGraph.Compile(inDevice, m_GlobalConstants);
 }
 
 
@@ -635,8 +672,8 @@ void Renderer::WaitForIdle(Device& inDevice)
 
 
 
-RenderInterface::RenderInterface(Application* inApp, Device& inDevice, Renderer& inRenderer, const RenderGraphResources& inResources, StagingHeap& inStagingHeap) :
-    IRenderInterface(GraphicsAPI::DirectX12), m_Device(inDevice), m_Viewport(inApp->GetViewport()), m_Renderer(inRenderer), m_Resources(inResources), m_StagingHeap(inStagingHeap)
+RenderInterface::RenderInterface(Application* inApp, Device& inDevice, Renderer& inRenderer, const RenderGraphResources& inResources) :
+    IRenderInterface(GraphicsAPI::DirectX12), m_Device(inDevice), m_Viewport(inApp->GetViewport()), m_Renderer(inRenderer), m_Resources(inResources)
 {
     DXGI_ADAPTER_DESC adapter_desc = {};
     m_Device.GetAdapter()->GetDesc(&adapter_desc);
@@ -1479,7 +1516,7 @@ void RenderImGui(RenderGraph& inRenderGraph, Device& inDevice, CommandList& inCm
     PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( inCmdList ), PIX_COLOR(0, 255, 0), "IMGUI BACKEND PASS");
 
     // Just in-case we did some external pass like FSR2 before this that sets its own descriptor heaps
-    inDevice.BindDrawDefaults(inCmdList);
+    inCmdList.BindDefaults(inDevice);
 
     {   // manual barriers around the imported backbuffer resource, the rendergraph doesn't handle this kind of state
         auto backbuffer_barrier = CD3DX12_RESOURCE_BARRIER::Transition(inDevice.GetD3D12Resource(inBackBuffer), D3D12_RESOURCE_STATE_PRESENT | D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_RENDER_TARGET);

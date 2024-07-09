@@ -20,8 +20,6 @@
 #include "DXRayTracing.h"
 #include "DXRenderGraph.h"
 
-extern float samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d_1spp(int pixel_i, int pixel_j, int sampleIndex, int sampleDimension);
-
 namespace RK::DX12 {
 
 struct GPUProfileSection : public ProfileSection
@@ -43,11 +41,10 @@ private:
 
 DXApp::DXApp() :
     IEditor(WindowFlag::RESIZE, &m_RenderInterface),
-    m_Device(m_Window, sFrameCount),
-    m_StagingHeap(m_Device),
+    m_Device(),
     m_Renderer(m_Device, m_Viewport, m_Window),
     m_RayTracedScene(m_Scene),
-    m_RenderInterface(this, m_Device, m_Renderer, m_Renderer.GetRenderGraph().GetResources(), m_StagingHeap)
+    m_RenderInterface(this, m_Device, m_Renderer, m_Renderer.GetRenderGraph().GetResources())
 {
     delete g_Profiler;
     g_Profiler = new DXProfiler();
@@ -77,38 +74,9 @@ DXApp::DXApp() :
 
     LogMessage(std::format("[CPU] Shader compilation took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
 
-    // Creating the SRV for the blue noise texture at heap index 0 results in a 4x4 black square in the top left of the texture,
+    // Creating the SRVs at heap index 0 results in a 4x4 black square in the top left of the texture,
     // this is a hacky workaround. at least we get the added benefit of 0 being an 'invalid' index :D
     (void)m_Device.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).Add(nullptr);
-
-    static Array<Vec4> blue_noise_samples;
-    blue_noise_samples.reserve(128 * 128);
-
-    for (int y = 0; y < 128; y++)
-    {
-        for (int x = 0; x < 128; x++)
-        {
-            Vec4& sample = blue_noise_samples.emplace_back();
-
-            for (int i = 0; i < sample.length(); i++)
-                sample[i] = samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d_1spp(x, y, 0, i);
-        }
-    }
-
-    TextureID bluenoise_texture = m_Device.CreateTexture(Texture::Desc 
-    {
-        .format = DXGI_FORMAT_R32G32B32A32_FLOAT,
-        .width  = 128, 
-        .height = 128,
-        .usage  = Texture::Usage::SHADER_READ_ONLY,
-        .debugName = "BlueNoise128x1spp"
-    });
-
-    assert(m_Device.GetBindlessHeapIndex(bluenoise_texture) == BINDLESS_BLUE_NOISE_TEXTURE_INDEX);
-
-    m_Renderer.QueueTextureUpload(bluenoise_texture, 0, Slice<char>((const char*)blue_noise_samples.data(), blue_noise_samples.size() / sizeof(blue_noise_samples[0])));
-
-    LogMessage(std::format("[CPU] Blue noise texture took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
 
     // Create default textures / assets
     const String black_texture_file  = TextureAsset::Convert("assets/system/black4x4.png");
@@ -175,7 +143,7 @@ DXApp::DXApp() :
     m_Widgets.Register<DeviceResourcesWidget>(this);
     m_Widgets.GetWidget<DeviceResourcesWidget>()->Hide();
 
-    m_Renderer.Recompile(m_Device, m_RayTracedScene, m_StagingHeap, GetRenderInterface());
+    m_Renderer.Recompile(m_Device, m_RayTracedScene, GetRenderInterface());
 
     if (!m_Settings.mSceneFile.empty() && fs::exists(m_Settings.mSceneFile))
     {
@@ -203,7 +171,7 @@ void DXApp::OnUpdate(float inDeltaTime)
     
     m_RenderInterface.UpdateGPUStats(m_Device);
 
-    m_Renderer.OnRender(this, m_Device, m_Viewport, m_RayTracedScene, m_StagingHeap, GetRenderInterface(), inDeltaTime);
+    m_Renderer.OnRender(this, m_Device, m_Viewport, m_RayTracedScene, GetRenderInterface(), inDeltaTime);
 }
 
 

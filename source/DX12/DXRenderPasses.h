@@ -77,6 +77,22 @@ const ClearTextureFloatData& AddClearTextureFloatPass(RenderGraph& inRenderGraph
 );
 
 
+////////////////////////////////////////
+/// Transition Resource Pass
+////////////////////////////////////////
+struct TransitionResourceData
+{
+    RTTI_DECLARE_TYPE(TransitionResourceData);
+    RenderGraphResourceViewID mResourceView;
+};
+
+typedef RenderGraphResourceViewID ( RenderGraphBuilder::*RenderGraphBuilderFunction ) ( RenderGraphResourceID );
+
+const TransitionResourceData& AddTransitionResourceData(RenderGraph& inRenderGraph, Device& inDevice, 
+    RenderGraphBuilderFunction inFunction,
+    RenderGraphResourceID inResource
+);
+
 
 ////////////////////////////////////////
 /// Compute Sky Cube Pass
@@ -92,7 +108,7 @@ struct SkyCubeData
 
 const SkyCubeData& AddSkyCubePass(RenderGraph& inRenderGraph, Device& inDevice,
     const Scene& inScene,
-    TextureID inSkyCubeTexture
+    const GlobalConstants& inGlobalConstants
 );
 
 
@@ -104,15 +120,15 @@ struct ConvolveCubeData
 {
     RTTI_DECLARE_TYPE(ConvolveCubeData);
 
+    RenderGraphResourceViewID mCubeTextureSRV;
     RenderGraphResourceID mConvolvedCubeTexture;
     RenderGraphResourceViewID mConvolvedCubeTextureUAV;
-    RenderGraphResourceViewID mCubeTexture;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
 
-const ConvolveCubeData& AddConvolveCubePass(RenderGraph& inRenderGraph, Device& inDevice,
-    RenderGraphResourceID inCubeTexture,
-    TextureID inConvolvedCubeTexture
+const ConvolveCubeData& AddConvolveSkyCubePass(RenderGraph& inRenderGraph, Device& inDevice,
+    const GlobalConstants& inGlobalConstants,
+    RenderGraphResourceID inSkyCubeTexture
 );
 
 
@@ -126,8 +142,7 @@ struct SkinningData
 };
 
 const SkinningData& AddSkinningPass(RenderGraph& inRenderGraph, Device& inDevice,
-    const Scene& inScene,
-    StagingHeap& inStagingHeap
+    const Scene& inScene
 );
 
 
@@ -438,7 +453,6 @@ struct ImGuiData
 };
 
 const ImGuiData& AddImGuiPass(RenderGraph& inRenderGraph, Device& inDevice,
-    StagingHeap& inStagingHeap,
     RenderGraphResourceID inInputTexture,
     TextureID inBackBuffer
 );

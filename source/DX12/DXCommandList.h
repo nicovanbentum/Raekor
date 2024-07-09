@@ -31,6 +31,7 @@ public:
     void ClearBuffer(Device& inDevice, BufferID inBuffer, Vec4 inValue);
     void ClearTexture(Device& inDevice, TextureID inTexture, Vec4 inValue);
 
+    void BindDefaults(Device& inDevice);
     void BindIndexBuffer(const Buffer& inBuffer);
     void BindVertexAndIndexBuffers(Device& inDevice, const Mesh& inMesh);
 

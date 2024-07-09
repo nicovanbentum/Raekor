@@ -11,6 +11,13 @@ class Viewport;
 
 namespace RK::DX12 {
 
+enum EResourceType
+{
+    RESOURCE_TYPE_BUFFER,
+    RESOURCE_TYPE_TEXTURE
+};
+
+
 // Index into RenderGraphBuilder::m_ResourceDescriptions
 enum RenderGraphResourceID : uint32_t {};
 // Index into RenderGraphBuilder::m_ResourceViewDescriptions
@@ -304,7 +311,7 @@ public:
     void Clear(Device& inDevice);
 
     /* Compiles the entire graph, performs validity checks, and calculates optimal barriers. */
-    bool Compile(Device& inDevice);
+    bool Compile(Device& inDevice, const GlobalConstants& inGlobalConstants);
 
     /* Execute the entire graph into inCmdList. inCmdList should be open (.Begin() called). */
     void Execute(Device& inDevice, CommandList& inCmdList);

@@ -69,9 +69,9 @@ public:
     Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inWindow);
 
     void OnResize(Device& inDevice, Viewport& inViewport, bool inExclusiveFullscreen = false);
-    void OnRender(Application* inApp, Device& inDevice, Viewport& inViewport, RayTracedScene& inScene, StagingHeap& inStagingHeap, IRenderInterface* inRenderInterfacee, float inDeltaTime);
+    void OnRender(Application* inApp, Device& inDevice, Viewport& inViewport, RayTracedScene& inScene, IRenderInterface* inRenderInterfacee, float inDeltaTime);
 
-    void Recompile(Device& inDevice, const RayTracedScene& inScene, StagingHeap& inStagingHeap, IRenderInterface* inRenderInterface);
+    void Recompile(Device& inDevice, const RayTracedScene& inScene, IRenderInterface* inRenderInterface);
 
     CommandList& StartSingleSubmit();
     void FlushSingleSubmit(Device& inDevice, CommandList& inCommandList);
@@ -129,7 +129,7 @@ private:
 class RenderInterface : public IRenderInterface
 {
 public:
-    RenderInterface(Application* inApp, Device& inDevice, Renderer& inRenderer, const RenderGraphResources& inResources, StagingHeap& inStagingHeap);
+    RenderInterface(Application* inApp, Device& inDevice, Renderer& inRenderer, const RenderGraphResources& inResources);
 
     void UpdateGPUStats(Device& inDevice);
 
@@ -169,7 +169,6 @@ private:
     Device& m_Device;
     Viewport& m_Viewport;
     Renderer& m_Renderer;
-    StagingHeap& m_StagingHeap;
     const RenderGraphResources& m_Resources;
 
 };

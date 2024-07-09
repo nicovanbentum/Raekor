@@ -34,16 +34,16 @@ public:
     DescriptorID GetInstancesDescriptor(Device& inDevice) const { return inDevice.GetBuffer(m_InstancesBuffer).GetDescriptor(); }
     DescriptorID GetMaterialsDescriptor(Device& inDevice) const { return inDevice.GetBuffer(m_MaterialsBuffer).GetDescriptor(); }
 
-    void UploadMesh(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, Mesh& inMesh, Skeleton* inSkeleton, CommandList& inCmdList);
-    void UpdateBLAS(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, Mesh& inMesh, Skeleton* inSkeleton, CommandList& inCmdList);
-    void UploadTexture(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, TextureUpload& inUpload, CommandList& inCmdList);
-    void UploadSkeleton(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, Skeleton& inSkeleton, CommandList& inCmdList);
-    void UploadMaterial(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, Material& inMaterial, CommandList& inCmdList);
+    void UploadMesh(Application* inApp, Device& inDevice, Mesh& inMesh, Skeleton* inSkeleton, CommandList& inCmdList);
+    void UpdateBLAS(Application* inApp, Device& inDevice, Mesh& inMesh, Skeleton* inSkeleton, CommandList& inCmdList);
+    void UploadTexture(Application* inApp, Device& inDevice, TextureUpload& inUpload, CommandList& inCmdList);
+    void UploadSkeleton(Application* inApp, Device& inDevice, Skeleton& inSkeleton, CommandList& inCmdList);
+    void UploadMaterial(Application* inApp, Device& inDevice, Material& inMaterial, CommandList& inCmdList);
 
-    void UploadTLAS(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, CommandList& inCmdList);
-    void UploadLights(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, CommandList& inCmdList);
-    void UploadInstances(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, CommandList& inCmdList);
-    void UploadMaterials(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, CommandList& inCmdList, bool inDisableAlbedo);
+    void UploadTLAS(Application* inApp, Device& inDevice, CommandList& inCmdList);
+    void UploadLights(Application* inApp, Device& inDevice, CommandList& inCmdList);
+    void UploadInstances(Application* inApp, Device& inDevice, CommandList& inCmdList);
+    void UploadMaterials(Application* inApp, Device& inDevice, CommandList& inCmdList, bool inDisableAlbedo);
 
 private:
     BufferID GrowBuffer(Device& inDevice, BufferID inBuffer, const Buffer::Desc& inDesc);

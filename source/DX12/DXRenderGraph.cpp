@@ -34,7 +34,11 @@ RenderGraphResourceID RenderGraphBuilder::Import(Device& inDevice, BufferID inBu
         .mBufferDesc = buffer.GetDesc()
     });
 
-    return RenderGraphResourceID(m_ResourceDescriptions.size() - 1);
+    const RenderGraphResourceID graph_resource_id = RenderGraphResourceID(m_ResourceDescriptions.size() - 1);
+
+    GetRenderPass()->m_CreatedResources.push_back(graph_resource_id);
+
+    return graph_resource_id;
 }
 
 
@@ -50,7 +54,11 @@ RenderGraphResourceID RenderGraphBuilder::Import(Device& inDevice, TextureID inT
         .mTextureDesc = texture.GetDesc(),
     });
 
-    return RenderGraphResourceID(m_ResourceDescriptions.size() - 1);
+    const RenderGraphResourceID graph_resource_id = RenderGraphResourceID(m_ResourceDescriptions.size() - 1);
+
+    GetRenderPass()->m_CreatedResources.push_back(graph_resource_id);
+
+    return graph_resource_id;
 }
 
 
@@ -263,7 +271,7 @@ BufferID RenderGraphResourceAllocator::CreateBuffer(Device& inDevice, const Buff
     D3D12_CLEAR_VALUE clear_value = {};
     D3D12_CLEAR_VALUE* clear_value_ptr = nullptr;
 
-    D3D12_RESOURCE_STATES initial_state = gGetInitialResourceState(inDesc.usage);
+    D3D12_RESOURCE_STATES initial_state = GetD3D12InitialResourceStates(inDesc.usage);
     uint64_t resource_allocation_offset = Allocate(inDevice, resource_description);
 
     gThrowIfFailed(inDevice.GetAllocator()->CreateAliasingResource(m_Allocation.Get(), resource_allocation_offset, &resource_description, initial_state, clear_value_ptr, IID_PPV_ARGS(buffer.GetD3D12Resource().GetAddressOf())));
@@ -282,7 +290,7 @@ TextureID RenderGraphResourceAllocator::CreateTexture(Device& inDevice, const Te
     D3D12_CLEAR_VALUE clear_value = {};
     D3D12_CLEAR_VALUE* clear_value_ptr = nullptr;
 
-    D3D12_RESOURCE_STATES initial_state = gGetInitialResourceState(inDesc.usage);
+    D3D12_RESOURCE_STATES initial_state = GetD3D12InitialResourceStates(inDesc.usage);
     uint64_t resource_allocation_offset = Allocate(inDevice, resource_description);
 
     if (inDesc.usage == Texture::DEPTH_STENCIL_TARGET)
@@ -614,7 +622,7 @@ void RenderGraph::Clear(Device& inDevice)
 
 
 
-bool RenderGraph::Compile(Device& inDevice)
+bool RenderGraph::Compile(Device& inDevice, const GlobalConstants& inGlobalConstants)
 {
     PROFILE_FUNCTION_CPU();
     
@@ -720,11 +728,11 @@ bool RenderGraph::Compile(Device& inDevice)
 
             if (node.mResourceType == RESOURCE_TYPE_BUFFER)
             {
-                state = gGetResourceStates(inDevice.GetBuffer(m_RenderGraphResources.GetBufferView(resource_id)).GetDesc().usage);
+                state = GetD3D12ResourceStates(inDevice.GetBuffer(m_RenderGraphResources.GetBufferView(resource_id)).GetDesc().usage);
             }
             else if (node.mResourceType == RESOURCE_TYPE_TEXTURE)
             {
-                state = gGetResourceStates(inDevice.GetTexture(m_RenderGraphResources.GetTextureView(resource_id)).GetDesc().usage);
+                state = GetD3D12ResourceStates(inDevice.GetTexture(m_RenderGraphResources.GetTextureView(resource_id)).GetDesc().usage);
 
                 subresource_index = view_desc.mResourceDesc.mTextureDesc.baseMip;
                 subresource_count = view_desc.mResourceDesc.mTextureDesc.mipLevels;
@@ -749,11 +757,11 @@ bool RenderGraph::Compile(Device& inDevice)
 
             if (node.mResourceType == RESOURCE_TYPE_BUFFER)
             {
-                state = gGetResourceStates(inDevice.GetBuffer(m_RenderGraphResources.GetBufferView(resource_id)).GetDesc().usage);
+                state = GetD3D12ResourceStates(inDevice.GetBuffer(m_RenderGraphResources.GetBufferView(resource_id)).GetDesc().usage);
             }
             else if (node.mResourceType == RESOURCE_TYPE_TEXTURE)
             {
-                state = gGetResourceStates(inDevice.GetTexture(m_RenderGraphResources.GetTextureView(resource_id)).GetDesc().usage);
+                state = GetD3D12ResourceStates(inDevice.GetTexture(m_RenderGraphResources.GetTextureView(resource_id)).GetDesc().usage);
 
                 subresource_index = view_desc.mResourceDesc.mTextureDesc.baseMip;
                 subresource_count = view_desc.mResourceDesc.mTextureDesc.mipLevels;
@@ -870,6 +878,16 @@ bool RenderGraph::Compile(Device& inDevice)
 
     m_PerFrameAllocatorOffset = 0;
 
+    m_GlobalConstantsAllocator.Copy(GlobalConstants
+    {
+        .mBlueNoiseTexture = inDevice.GetBindlessHeapIndex(TextureID(inGlobalConstants.mBlueNoiseTexture)),
+        .mSkyCubeTexture = inDevice.GetBindlessHeapIndex(TextureID(inGlobalConstants.mSkyCubeTexture)),
+        .mConvolvedSkyCubeTexture = inDevice.GetBindlessHeapIndex(TextureID(inGlobalConstants.mConvolvedSkyCubeTexture))
+
+        //.mDebugLinesVertexBuffer = inDevice.GetBindlessHeapIndex(BufferID(m_GlobalConstants.mDebugLinesVertexBuffer)),
+        //.mDebugLinesIndirectArgsBuffer = inDevice.GetBindlessHeapIndex(BufferID(m_GlobalConstants.mDebugLinesIndirectArgsBuffer))
+    });
+
     D3D12_QUERY_HEAP_DESC query_heap_desc = {};
     query_heap_desc.Type = D3D12_QUERY_HEAP_TYPE_TIMESTAMP;
     query_heap_desc.Count = uint32_t(m_RenderPasses.size()) * 2u;
@@ -886,12 +904,10 @@ void RenderGraph::Execute(Device& inDevice, CommandList& inCmdList)
 {
     PROFILE_FUNCTION_CPU();
 
-    inDevice.BindDrawDefaults(inCmdList);
-    
+    inCmdList.BindDefaults(inDevice);
     inCmdList.BindToSlot(inDevice.GetBuffer(m_GlobalConstantsAllocator.GetBuffer()), EBindSlot::CBV0);
     inCmdList.BindToSlot(inDevice.GetBuffer(m_PerFrameAllocator.GetBuffer()), EBindSlot::SRV0, m_PerFrameAllocatorOffset);
     inCmdList.BindToSlot(inDevice.GetBuffer(m_PerPassAllocator.GetBuffer()), EBindSlot::SRV1);
-
 
     for (const auto& [index, renderpass] : gEnumerate(m_RenderPasses))
     {
@@ -907,7 +923,7 @@ void RenderGraph::Execute(Device& inDevice, CommandList& inCmdList)
         renderpass->FlushBarriers(inDevice, inCmdList, renderpass->m_ExitBarriers);
 
         if (renderpass->IsExternal())
-            inDevice.BindDrawDefaults(inCmdList);
+            inCmdList.BindDefaults(inDevice);
 
         inCmdList->EndQuery(m_TimestampQueryHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, index * 2 + 1);
     }

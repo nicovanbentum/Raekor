@@ -15,13 +15,12 @@
 
 namespace RK::DX12 {
 
-Device::Device(SDL_Window* window, uint32_t inFrameCount) : m_NumFrames(inFrameCount)
+Device::Device()
 {
     uint32_t device_creation_flags = 0u;
 
-#ifndef NDEBUG
+#ifdef RK_DEBUG_BUILD
     ComPtr<ID3D12Debug1> debug_interface = nullptr;
-
     if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debug_interface))))
     {
         static bool debug_layer_enabled = OS::sCheckCommandLineOption("-debug_layer");
@@ -199,22 +198,6 @@ Device::Device(SDL_Window* window, uint32_t inFrameCount) : m_NumFrames(inFrameC
 }
 
 
-void Device::BindDrawDefaults(CommandList& inCmdList)
-{
-    inCmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-    const std::array heaps = 
-    {
-        *GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER),
-        *GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV)
-    };
-
-    inCmdList->SetDescriptorHeaps(heaps.size(), heaps.data());
-    inCmdList->SetComputeRootSignature(m_GlobalRootSignature.Get());
-    inCmdList->SetGraphicsRootSignature(m_GlobalRootSignature.Get());
-}
-
-
 TextureID Device::CreateTexture(const Texture::Desc& inDesc, const Texture& inTexture)
 {
     if (inDesc.debugName != nullptr)
@@ -236,7 +219,7 @@ TextureID Device::CreateTexture(const Texture::Desc& inDesc)
 
     D3D12_CLEAR_VALUE clear_value = {};
     D3D12_CLEAR_VALUE* clear_value_ptr = nullptr;
-    D3D12_RESOURCE_STATES initial_state = gGetInitialResourceState(inDesc.usage);
+    D3D12_RESOURCE_STATES initial_state = GetD3D12InitialResourceStates(inDesc.usage);
 
     if (inDesc.usage == Texture::DEPTH_STENCIL_TARGET)
     {
@@ -264,7 +247,7 @@ BufferID Device::CreateBuffer(const Buffer::Desc& inDesc)
 
     D3D12_CLEAR_VALUE clear_value = {};
     D3D12_CLEAR_VALUE* clear_value_ptr = nullptr;
-    D3D12_RESOURCE_STATES initial_state = gGetInitialResourceState(inDesc.usage);
+    D3D12_RESOURCE_STATES initial_state = GetD3D12InitialResourceStates(inDesc.usage);
 
     gThrowIfFailed(m_Allocator->CreateResource(&alloc_desc, &buffer_desc, initial_state, clear_value_ptr, buffer.m_Allocation.GetAddressOf(), IID_PPV_ARGS(&buffer.m_Resource)));
 
@@ -675,25 +658,17 @@ DescriptorID Device::CreateUnorderedAccessView(D3D12ResourceRef inResource, cons
 
 
 
-StagingHeap::~StagingHeap()
-{
-    for (StagingBuffer& buffer : m_Buffers)
-        m_Device.GetBuffer(buffer.mBufferID)->Unmap(0, nullptr);
-}
-
-
-
-void StagingHeap::StageBuffer(CommandList& inCmdList, const Buffer& inBuffer, uint32_t inOffset, const void* inData, uint32_t inSize)
+void Device::UploadBufferData(CommandList& inCmdList, const Buffer& inBuffer, uint32_t inOffset, const void* inData, uint32_t inSize)
 {
     inCmdList.TrackResource(inBuffer);
 
-    for (StagingBuffer& buffer : m_Buffers)
+    for (UploadBuffer& buffer : m_UploadBuffers)
     {
         if (buffer.mRetired && inSize <= buffer.mCapacity - buffer.mSize)
         {
             memcpy(buffer.mPtr + buffer.mSize, inData, inSize);
 
-            ID3D12Resource* buffer_resource = m_Device.GetD3D12Resource(buffer.mBufferID);
+            ID3D12Resource* buffer_resource = GetD3D12Resource(buffer.mID);
             inCmdList->CopyBufferRegion(inBuffer.GetD3D12Resource().Get(), inOffset, buffer_resource, buffer.mSize, inSize);
 
             buffer.mSize += inSize;
@@ -704,14 +679,14 @@ void StagingHeap::StageBuffer(CommandList& inCmdList, const Buffer& inBuffer, ui
         }
     }
 
-    BufferID buffer_id = m_Device.CreateBuffer(Buffer::Desc
+    BufferID buffer_id = CreateBuffer(Buffer::Desc
     {
         .size = inSize,
         .usage = Buffer::Usage::UPLOAD,
         .debugName = "StagingBuffer"
     });
 
-    Buffer& buffer = m_Device.GetBuffer(buffer_id);
+    Buffer& buffer = GetBuffer(buffer_id);
 
     uint8_t* mapped_ptr = nullptr;
     const CD3DX12_RANGE range = CD3DX12_RANGE(0, 0);
@@ -722,20 +697,20 @@ void StagingHeap::StageBuffer(CommandList& inCmdList, const Buffer& inBuffer, ui
     assert(inBuffer.GetSize() >= inSize);
     inCmdList->CopyBufferRegion(inBuffer.GetD3D12Resource().Get(), inOffset, buffer.GetD3D12Resource().Get(), 0, inSize);
 
-    m_Buffers.emplace_back(StagingBuffer
+    m_UploadBuffers.emplace_back(UploadBuffer
     {
         .mRetired    = false,
         .mFrameIndex = inCmdList.GetFrameIndex(),
-        .mBufferID   = buffer_id,
         .mSize       = inSize,
         .mCapacity   = inSize,
-        .mPtr        = mapped_ptr
+        .mPtr        = mapped_ptr,
+        .mID        = buffer_id,
     });
 }
 
 
 
-void StagingHeap::StageTexture(CommandList& inCmdList, const Texture& inTexture, uint32_t inSubResource, const void* inData)
+void Device::UploadTextureData(CommandList& inCmdList, const Texture& inTexture, uint32_t inSubResource, const void* inData)
 {
     inCmdList.TrackResource(inTexture);
 
@@ -746,27 +721,33 @@ void StagingHeap::StageTexture(CommandList& inCmdList, const Texture& inTexture,
     D3D12_RESOURCE_DESC desc = inTexture.GetD3D12Resource()->GetDesc();
     m_Device->GetCopyableFootprints(&desc, inSubResource, 1, 0, &footprint, &nr_of_rows, &row_size, &total_size);
 
-    /*for (StagingBuffer& buffer : m_Buffers) 
+    for (UploadBuffer& buffer : m_UploadBuffers) 
     {
-        if (buffer.mRetired && inSize <= buffer.mCapacity - buffer.mSize) 
+        if (buffer.mRetired && total_size <= buffer.mCapacity - buffer.mSize) 
         {
-            memcpy(buffer.mPtr + buffer.mSize, inData, aligned_size);
+            uint8_t* data_ptr = (uint8_t*)inData;
 
-            const ID3D12Resource* buffer_resource = m_Device.GetBuffer(buffer.mBufferID).GetD3D12Resource();
-            const CD3DX12_TEXTURE_COPY_LOCATION dest = CD3DX12_TEXTURE_COPY_LOCATION(inResource.Get(), inSubResource);
-            const CD3DX12_TEXTURE_COPY_LOCATION source = CD3DX12_TEXTURE_COPY_LOCATION(buffer_resource.Get(), font_texture_footprint);
+            for (uint32_t row = 0u; row < nr_of_rows; row++)
+            {
+                uint8_t* copy_src = data_ptr + row * row_size;
+                uint8_t* copy_dst = buffer.mPtr + row * footprint.Footprint.RowPitch;
+                memcpy(copy_dst, copy_src, row_size);
+            }
 
-            inCmdList->CopyTextureRegion(&dest, 0, 0, 0, &source, nullptr);
+            CD3DX12_TEXTURE_COPY_LOCATION src(GetD3D12Resource(buffer.mID), footprint);
+            CD3DX12_TEXTURE_COPY_LOCATION dst(inTexture.GetD3D12Resource().Get(), inSubResource);
 
-            buffer.mSize += aligned_size;
+            inCmdList->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
+
+            buffer.mSize += total_size;
             buffer.mRetired = false;
 
             return;
         }
-    }*/
+    }
 
-    BufferID buffer_id = m_Device.CreateBuffer(Buffer::Describe(total_size, Buffer::Usage::UPLOAD, false, "StagingBuffer"));
-    Buffer& buffer = m_Device.GetBuffer(buffer_id);
+    BufferID buffer_id = CreateBuffer(Buffer::Describe(total_size, Buffer::Usage::UPLOAD, false, "StagingBuffer"));
+    Buffer& buffer = GetBuffer(buffer_id);
 
     uint8_t* mapped_ptr = nullptr;
     CD3DX12_RANGE range = CD3DX12_RANGE(0, 0);
@@ -787,14 +768,14 @@ void StagingHeap::StageTexture(CommandList& inCmdList, const Texture& inTexture,
 
     inCmdList->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
 
-    m_Buffers.emplace_back(StagingBuffer
+    m_UploadBuffers.emplace_back(UploadBuffer
     {
         .mRetired    = false,
         .mFrameIndex = inCmdList.GetFrameIndex(),
-        .mBufferID   = buffer_id,
         .mSize       = total_size,
         .mCapacity   = total_size,
         .mPtr        = mapped_ptr,
+        .mID         = buffer_id
     });
 
     auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(inTexture.GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ, inSubResource);
@@ -803,9 +784,9 @@ void StagingHeap::StageTexture(CommandList& inCmdList, const Texture& inTexture,
 
 
 
-void StagingHeap::RetireBuffers(CommandList& inCmdList)
+void Device::RetireUploadBuffers(CommandList& inCmdList)
 {
-    for (StagingBuffer& buffer : m_Buffers)
+    for (UploadBuffer& buffer : m_UploadBuffers)
     {
         if (buffer.mFrameIndex == inCmdList.GetFrameIndex())
         {
@@ -841,6 +822,26 @@ void RingAllocator::DestroyBuffer(Device& inDevice)
     m_Size = 0;
     m_DataPtr = nullptr;
     m_TotalCapacity = 0;
+}
+
+/*
+Allocates memory and memcpy's inData to the mapped buffer. ioOffset contains the offset from the starting pointer.
+This function default aligns to 4, so the offset can be used with HLSL byte address buffers directly:
+ByteAddressBuffer buffer;
+T data = buffer.Load<T>(ioOffset);
+*/
+
+ void RingAllocator::AllocAndCopy(uint32_t inSize, const void* inData, uint32_t& ioOffset, uint32_t inAlignment)
+{
+    const auto size = gAlignUp(inSize, inAlignment);
+    //assert(m_Size + size <= m_TotalCapacity);
+    m_Size += size;
+
+    if (m_Size >= m_TotalCapacity)
+        m_Size = 0;
+
+    memcpy(m_DataPtr + m_Size, inData, inSize);
+    ioOffset = m_Size;
 }
 
 

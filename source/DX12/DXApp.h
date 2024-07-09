@@ -42,7 +42,6 @@ private:
 
     Device          m_Device;
     Renderer        m_Renderer;
-    StagingHeap     m_StagingHeap;
     RayTracedScene  m_RayTracedScene;
     RenderInterface m_RenderInterface;
 };

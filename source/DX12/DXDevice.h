@@ -12,28 +12,29 @@ class ShaderProgram;
 class Device
 {
 public:
-    NO_COPY_NO_MOVE(Device);
-
-    Device(SDL_Window* window, uint32_t inFrameCount);
+    explicit Device();
 
     ID3D12Device5* operator* ()              { return m_Device.Get(); }
     const ID3D12Device5* operator* () const  { return m_Device.Get(); }
     ID3D12Device5* operator-> ()             { return m_Device.Get(); }
     const ID3D12Device5* operator-> () const { return m_Device.Get(); }
 
-    bool IsDLSSSupported() const { return mIsDLSSSupported; }
-    bool IsDLSSInitialized() const { return mIsDLSSInitialized; }
-    bool IsTearingSupported() const { return mIsTearingSupported; }
-    
-    [[nodiscard]] DescriptorHeap& GetClearHeap() { return m_ClearHeap; }
-    [[nodiscard]] DescriptorHeap& GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE inType) { return m_Heaps[inType]; }
+    [[nodiscard]] bool IsDLSSSupported() const { return mIsDLSSSupported; }
+    [[nodiscard]] bool IsDLSSInitialized() const { return mIsDLSSInitialized; }
+    [[nodiscard]] bool IsTearingSupported() const { return mIsTearingSupported; }
 
+    [[nodiscard]] IDXGIAdapter1* GetAdapter() { return m_Adapter.Get(); }
+    [[nodiscard]] D3D12MA::Allocator* GetAllocator() { return m_Allocator.Get(); }
+    
     [[nodiscard]] ID3D12CommandQueue* GetCopyQueue() { return m_CopyQueue.Get(); }
     [[nodiscard]] ID3D12CommandQueue* GetComputeQueue() { return m_ComputeQueue.Get(); }
     [[nodiscard]] ID3D12CommandQueue* GetGraphicsQueue() { return m_GraphicsQueue.Get(); }
 
-    void BindDrawDefaults(CommandList& inCmdList);
-    void Submit(const Slice<CommandList>& inCmdLists);
+    [[nodiscard]] DescriptorHeap& GetClearHeap() { return m_ClearHeap; }
+    [[nodiscard]] DescriptorHeap& GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE inType) { return m_Heaps[inType]; }
+
+    [[nodiscard]] ID3D12RootSignature* GetGlobalRootSignature() { return m_GlobalRootSignature.Get(); }
+    [[nodiscard]] ID3D12CommandSignature* GetCommandSignature(ECommandSignature inCmdSig) { return m_CommandSignatures[inCmdSig].Get(); }
 
     [[nodiscard]] BufferID  CreateBuffer(const Buffer::Desc& inDesc);
     [[nodiscard]] TextureID CreateTexture(const Texture::Desc& inDesc);
@@ -44,6 +45,10 @@ public:
     [[nodiscard]] BufferID  CreateBufferView(BufferID inTextureID, const Buffer::Desc& inDesc);
     [[nodiscard]] TextureID CreateTextureView(TextureID inTextureID, const Texture::Desc& inDesc);
     [[nodiscard]] TextureID CreateTextureView(D3D12ResourceRef inResource, const Texture::Desc& inDesc);
+
+    void UploadBufferData(CommandList& inCmdList, const Buffer& inBuffer, uint32_t inOffset, const void* inData, uint32_t inSize);
+    void UploadTextureData(CommandList& inCmdList, const Texture& inTexture, uint32_t inSubResource, const void* inData);
+    void RetireUploadBuffers(CommandList& inCmdList);
 
     /* USE WITH CAUTION. NEXT CREATE* CALL WILL DELETE THE OLD RESOURCE. ONLY USE WHEN YOU KNOW THE GPU IS NO LONGER USING THE RESOURCE!! */
     void ReleaseBuffer(BufferID inID);
@@ -90,13 +95,8 @@ public:
     [[nodiscard]] uint32_t GetBindlessHeapIndex(BufferID inID) const { return GetBindlessHeapIndex(GetBuffer(inID).GetDescriptor()); }
     [[nodiscard]] uint32_t GetBindlessHeapIndex(TextureID inID) const { return GetBindlessHeapIndex(GetTexture(inID).GetView()); }
 
-    IDXGIAdapter1* GetAdapter() { return m_Adapter.Get(); }
-    D3D12MA::Allocator* GetAllocator() { return m_Allocator.Get(); }
-    ID3D12CommandSignature* GetCommandSignature(ECommandSignature inCmdSig) { return m_CommandSignatures[inCmdSig].Get(); }
-
-
-    const Buffer::Pool& GetBufferPool() const { return m_Buffers; }
-    const Texture::Pool& GetTexturePool() const { return m_Textures; }
+    [[nodiscard]] const Buffer::Pool& GetBufferPool() const { return m_Buffers; }
+    [[nodiscard]] const Texture::Pool& GetTexturePool() const { return m_Textures; }
 
 private:
     void CreateDescriptor(BufferID inBufferID, const Buffer::Desc& inDesc);
@@ -113,7 +113,7 @@ private:
     BOOL mIsDLSSSupported = false;
     BOOL mIsDLSSInitialized = false;
     BOOL mIsTearingSupported = false;
-    DescriptorHeap m_ClearHeap;
+
     ComPtr<ID3D12Device5> m_Device;
     ComPtr<IDXGIAdapter1> m_Adapter;
     ComPtr<ID3D12CommandQueue> m_CopyQueue;
@@ -121,42 +121,15 @@ private:
     ComPtr<ID3D12CommandQueue> m_GraphicsQueue;
     ComPtr<D3D12MA::Allocator> m_Allocator;
     ComPtr<ID3D12RootSignature> m_GlobalRootSignature;
-    std::array<DescriptorHeap, D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES> m_Heaps;
-    std::array <ComPtr<ID3D12CommandSignature>, COMMAND_SIGNATURE_COUNT> m_CommandSignatures;
+
+    DescriptorHeap m_ClearHeap;
+    Array<UploadBuffer> m_UploadBuffers;
+    StaticArray<DescriptorHeap, D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES> m_Heaps;
+    StaticArray<ComPtr<ID3D12CommandSignature>, COMMAND_SIGNATURE_COUNT> m_CommandSignatures;
 
 private:
-    uint32_t m_NumFrames;
     Buffer::Pool m_Buffers;
     Texture::Pool m_Textures;
-};
-
-
-class StagingHeap
-{
-private:
-    struct StagingBuffer
-    {
-        bool mRetired = true;
-        uint32_t mFrameIndex = 0;
-        BufferID mBufferID = BufferID();
-        size_t mSize = 0;
-        size_t mCapacity = 0;
-        uint8_t* mPtr = nullptr;
-    };
-
-public:
-    StagingHeap(Device& inDevice) : m_Device(inDevice) {}
-    ~StagingHeap();
-
-    void StageBuffer(CommandList& inCmdList, const Buffer& inBuffer, uint32_t inOffset, const void* inData, uint32_t inSize);
-    void StageTexture(CommandList& inCmdList, const Texture& inTexture, uint32_t inSubResource, const void* inData);
-    void StageTexture(CommandList& inCmdList, const Texture& inTexture, Slice<D3D12_SUBRESOURCE_DATA> inData);
-
-    void RetireBuffers(CommandList& inCmdList);
-
-private:
-    Device& m_Device;
-    Array<StagingBuffer> m_Buffers;
 };
 
 
@@ -165,26 +138,13 @@ class RingAllocator
 public:
     void CreateBuffer(Device& inDevice, uint32_t inCapacity);
     void DestroyBuffer(Device& inDevice);
-
     /*
         Allocates memory and memcpy's inData to the mapped buffer. ioOffset contains the offset from the starting pointer.
         This function default aligns to 4, so the offset can be used with HLSL byte address buffers directly:
         ByteAddressBuffer buffer;
         T data = buffer.Load<T>(ioOffset);
     */
-    void AllocAndCopy(uint32_t inSize, const void* inData, uint32_t& ioOffset, uint32_t inAlignment = sByteAddressBufferAlignment)
-    {
-        const auto size = gAlignUp(inSize, inAlignment);
-        //assert(m_Size + size <= m_TotalCapacity);
-        m_Size += size;
-
-        if (m_Size >= m_TotalCapacity)
-            m_Size = 0;
-
-        memcpy(m_DataPtr + m_Size, inData, inSize);
-        ioOffset = m_Size;
-    }
-
+    void AllocAndCopy(uint32_t inSize, const void* inData, uint32_t& ioOffset, uint32_t inAlignment = sByteAddressBufferAlignment);
 
     template<typename T>
     void AllocAndCopy(const T& inStruct, uint32_t& ioOffset, uint32_t inAlignment = sByteAddressBufferAlignment)
@@ -192,7 +152,7 @@ public:
         AllocAndCopy(sizeof(T), (void*)&inStruct, ioOffset, inAlignment);
     }
 
-    inline BufferID GetBuffer() const { return m_Buffer; }
+    BufferID GetBuffer() const { return m_Buffer; }
 
 private:
     BufferID m_Buffer;
@@ -213,7 +173,7 @@ public:
         memcpy(m_DataPtr, &inGlobalConstants, sizeof(GlobalConstants));
     }
 
-    inline BufferID GetBuffer() const { return m_Buffer; }
+    BufferID GetBuffer() const { return m_Buffer; }
 
 private:
     BufferID m_Buffer;

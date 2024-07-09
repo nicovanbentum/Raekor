@@ -32,6 +32,8 @@ SamplerState SamplerLinearClamp       : register(s4);
 SamplerState SamplerAnisoWrap         : register(s5);
 SamplerState SamplerAnisoClamp        : register(s6);
 
+CBV0(GlobalConstants, GlobalConstantsBuffer)
+
 SRV0(FrameConstantsBuffer)
 SRV1(PassConstantsBuffer)
 

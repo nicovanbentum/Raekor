@@ -48,10 +48,6 @@
 #define LIGHT_CULL_TILE_SIZE 16 // Light culling uses 16x16 pixel screen tiles
 #define LIGHT_CULL_MAX_LIGHTS 1024 // Max lights per tile for light culling
 
-#define BINDLESS_BLUE_NOISE_TEXTURE_INDEX 2
-#define BINDLESS_SKY_CUBE_TEXTURE_INDEX 3
-#define BINDLESS_SKY_CUBE_DIFFUSE_TEXTURE_INDEX 4
-
 struct LineVertex
 {
     float4 mPosition;
@@ -114,6 +110,7 @@ struct RTVertex
 
 struct GlobalConstants
 {
+    uint mBlueNoiseTexture;
     uint mSkyCubeTexture;
     uint mConvolvedSkyCubeTexture;
     uint mDebugLinesVertexBuffer;

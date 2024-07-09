@@ -29,6 +29,7 @@ RTTI_DEFINE_TYPE(ImGuiData)                 {}
 RTTI_DEFINE_TYPE(DefaultTexturesData)       {}
 RTTI_DEFINE_TYPE(ClearBufferData)           {}
 RTTI_DEFINE_TYPE(ClearTextureFloatData)     {}
+RTTI_DEFINE_TYPE(TransitionResourceData)    {}
 RTTI_DEFINE_TYPE(LuminanceHistogramData)    {}
 
 /*
@@ -108,12 +109,21 @@ const ClearTextureFloatData& AddClearTextureFloatPass(RenderGraph& inRenderGraph
 
 
 
-const SkyCubeData& AddSkyCubePass(RenderGraph& inRenderGraph, Device& inDevice, const Scene& inScene, TextureID inSkyCubeTexture)
+const TransitionResourceData& AddTransitionResourcePass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphBuilderFunction inFunction, RenderGraphResourceID inResource)
+{
+    return inRenderGraph.AddGraphicsPass<TransitionResourceData>(std::format("EXPLICIT RESOURCE TRANSITION"),
+    [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, TransitionResourceData& inData) { inData.mResourceView = (ioRGBuilder.*inFunction)(inResource); },
+    [&inDevice](TransitionResourceData& inData, const RenderGraphResources& inResources, CommandList& inCmdList) {});
+}
+
+
+
+const SkyCubeData& AddSkyCubePass(RenderGraph& inRenderGraph, Device& inDevice, const Scene& inScene, const GlobalConstants& inGlobalConstants)
 {
     return inRenderGraph.AddComputePass<SkyCubeData>("SKY CUBE PASS",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, SkyCubeData& inData)
     {  
-        inData.mSkyCubeTexture = ioRGBuilder.Create(Texture::DescCube(DXGI_FORMAT_R32G32B32A32_FLOAT, 64, 64, Texture::SHADER_READ_WRITE));
+        inData.mSkyCubeTexture = ioRGBuilder.Import(inDevice, TextureID(inGlobalConstants.mSkyCubeTexture));
         inData.mSkyCubeTextureUAV = ioRGBuilder.Write(inData.mSkyCubeTexture);
     },
     [&inDevice, &inScene](SkyCubeData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
@@ -138,22 +148,25 @@ const SkyCubeData& AddSkyCubePass(RenderGraph& inRenderGraph, Device& inDevice, 
 
 
 
-const ConvolveCubeData& AddConvolveCubePass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inCubeTexture)
+const ConvolveCubeData& AddConvolveSkyCubePass(RenderGraph& inRenderGraph, Device& inDevice, const GlobalConstants& inGlobalConstants, RenderGraphResourceID inSkyCubeTexture)
 {
-    return inRenderGraph.AddGraphicsPass<ConvolveCubeData>("CONVOLVE CUBEMAP PASS",
+    return inRenderGraph.AddGraphicsPass<ConvolveCubeData>("CONVOLVE SKYCUBE PASS",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ConvolveCubeData& inData)
     {
-        inData.mCubeTexture = ioRGBuilder.Read(inCubeTexture);
-        inData.mConvolvedCubeTexture = ioRGBuilder.Create(Texture::DescCube(DXGI_FORMAT_R32G32B32A32_FLOAT, 16, 16, Texture::SHADER_READ_WRITE));
+        inData.mCubeTextureSRV = ioRGBuilder.Read(inSkyCubeTexture);
+        inData.mConvolvedCubeTexture = ioRGBuilder.Import(inDevice, TextureID(inGlobalConstants.mConvolvedSkyCubeTexture));
         inData.mConvolvedCubeTextureUAV = ioRGBuilder.Write(inData.mConvolvedCubeTexture);
+
+        // explicitly transition to a Read state so it's in the correct state for the rest of the frame
+        AddTransitionResourcePass(inRenderGraph, inDevice, &RenderGraphBuilder::Read, inData.mConvolvedCubeTexture);
     },
 
     [&inDevice](ConvolveCubeData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
         inCmdList.PushComputeConstants(ConvolveCubeRootConstants
         {
-            .mCubeTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mCubeTexture)),
-            .mConvolvedCubeTexture = inDevice.GetBindlessHeapIndex(inResources.GetTexture(inData.mConvolvedCubeTexture))
+            .mCubeTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mCubeTextureSRV)),
+            .mConvolvedCubeTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mConvolvedCubeTextureUAV))
         });
 
         inCmdList->SetPipelineState(g_SystemShaders.mConvolveCubeShader.GetComputePSO());
@@ -166,13 +179,13 @@ const ConvolveCubeData& AddConvolveCubePass(RenderGraph& inRenderGraph, Device& 
 
 
 
-const SkinningData& AddSkinningPass(RenderGraph& inRenderGraph, Device& inDevice, const Scene& inScene, StagingHeap& inStagingHeap)
+const SkinningData& AddSkinningPass(RenderGraph& inRenderGraph, Device& inDevice, const Scene& inScene)
 {
     return inRenderGraph.AddComputePass<SkinningData>("SKINNING PASS",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, SkinningData& inData) 
     {
     },
-    [&inDevice, &inScene, &inStagingHeap](SkinningData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+    [&inDevice, &inScene](SkinningData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
         inCmdList->SetPipelineState(g_SystemShaders.mSkinningShader.GetComputePSO());
 
@@ -186,15 +199,15 @@ const SkinningData& AddSkinningPass(RenderGraph& inRenderGraph, Device& inDevice
 
             const Buffer& bone_matrix_buffer = inDevice.GetBuffer(TextureID(skeleton.boneTransformsBuffer));
         
-            auto uav_to_copy_barrier = CD3DX12_RESOURCE_BARRIER::Transition(bone_matrix_buffer.GetD3D12Resource().Get(), gGetResourceStates(Texture::SHADER_READ_ONLY), D3D12_RESOURCE_STATE_COPY_DEST);
+            auto uav_to_copy_barrier = CD3DX12_RESOURCE_BARRIER::Transition(bone_matrix_buffer.GetD3D12Resource().Get(), GetD3D12ResourceStates(Texture::SHADER_READ_ONLY), D3D12_RESOURCE_STATE_COPY_DEST);
             inCmdList->ResourceBarrier(1, &uav_to_copy_barrier);
 
             const Mat4x4* bone_matrices_data = skeleton.boneTransformMatrices.data();
             const size_t bone_matrices_size = skeleton.boneTransformMatrices.size() * sizeof(Mat4x4);
 
-            inStagingHeap.StageBuffer(inCmdList, bone_matrix_buffer, 0, bone_matrices_data, bone_matrices_size);
+            inDevice.UploadBufferData(inCmdList, bone_matrix_buffer, 0, bone_matrices_data, bone_matrices_size);
 
-            auto copy_to_uav_barrier = CD3DX12_RESOURCE_BARRIER::Transition(bone_matrix_buffer.GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_COPY_DEST, gGetResourceStates(Texture::SHADER_READ_ONLY));
+            auto copy_to_uav_barrier = CD3DX12_RESOURCE_BARRIER::Transition(bone_matrix_buffer.GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_COPY_DEST, GetD3D12ResourceStates(Texture::SHADER_READ_ONLY));
             inCmdList->ResourceBarrier(1, &copy_to_uav_barrier);
 
             inCmdList.PushComputeConstants(SkinningRootConstants 
@@ -835,8 +848,8 @@ const TAAResolveData& AddTAAResolvePass(RenderGraph& inRenderGraph, Device& inDe
 
         std::array barriers =
         {
-            D3D12_RESOURCE_BARRIER(CD3DX12_RESOURCE_BARRIER::Transition(result_texture_resource, gGetResourceStates(Texture::RENDER_TARGET), D3D12_RESOURCE_STATE_COPY_SOURCE)),
-            D3D12_RESOURCE_BARRIER(CD3DX12_RESOURCE_BARRIER::Transition(history_texture_resource, gGetResourceStates(Texture::SHADER_READ_ONLY), D3D12_RESOURCE_STATE_COPY_DEST))
+            D3D12_RESOURCE_BARRIER(CD3DX12_RESOURCE_BARRIER::Transition(result_texture_resource, GetD3D12ResourceStates(Texture::RENDER_TARGET), D3D12_RESOURCE_STATE_COPY_SOURCE)),
+            D3D12_RESOURCE_BARRIER(CD3DX12_RESOURCE_BARRIER::Transition(history_texture_resource, GetD3D12ResourceStates(Texture::SHADER_READ_ONLY), D3D12_RESOURCE_STATE_COPY_DEST))
         };
         inCmdList->ResourceBarrier(barriers.size(), barriers.data());
 
@@ -1158,7 +1171,7 @@ static void ImGui_ImplDX12_SetupRenderState(ImDrawData* draw_data, CommandList& 
 
 
 
-const ImGuiData& AddImGuiPass(RenderGraph& inRenderGraph, Device& inDevice, StagingHeap& inStagingHeap, RenderGraphResourceID inInputTexture, TextureID inBackBuffer)
+const ImGuiData& AddImGuiPass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inInputTexture, TextureID inBackBuffer)
 {
     return inRenderGraph.AddGraphicsPass<ImGuiData>("IMGUI PASS",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ImGuiData& inData)
@@ -1210,7 +1223,7 @@ const ImGuiData& AddImGuiPass(RenderGraph& inRenderGraph, Device& inDevice, Stag
         inData.mPipeline->SetName(L"PSO_IMGUI");
     },
 
-    [&inRenderGraph, &inDevice, &inStagingHeap, inBackBuffer](ImGuiData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
+    [&inRenderGraph, &inDevice, inBackBuffer](ImGuiData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
     {
         {   // manual barriers around the imported backbuffer resource, the rendergraph doesn't handle this kind of state
             auto backbuffer_barrier = CD3DX12_RESOURCE_BARRIER::Transition(inDevice.GetD3D12Resource(inBackBuffer), D3D12_RESOURCE_STATE_PRESENT | D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_RENDER_TARGET);
@@ -1251,10 +1264,10 @@ const ImGuiData& AddImGuiPass(RenderGraph& inRenderGraph, Device& inDevice, Stag
             inCmdList->ResourceBarrier(nr_of_barriers, barriers.data());
 
         if (vertex_buffer_size)
-            inStagingHeap.StageBuffer(inCmdList, inDevice.GetBuffer(inData.mVertexBuffer), 0, inData.mVertexScratchBuffer.data(), vertex_buffer_size);
+            inDevice.UploadBufferData(inCmdList, inDevice.GetBuffer(inData.mVertexBuffer), 0, inData.mVertexScratchBuffer.data(), vertex_buffer_size);
 
         if (index_buffer_size)
-            inStagingHeap.StageBuffer(inCmdList, inDevice.GetBuffer(inData.mIndexBuffer), 0, inData.mIndexScratchBuffer.data(), index_buffer_size);
+            inDevice.UploadBufferData(inCmdList, inDevice.GetBuffer(inData.mIndexBuffer), 0, inData.mIndexScratchBuffer.data(), index_buffer_size);
 
         if (nr_of_barriers)
         {

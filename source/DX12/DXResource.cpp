@@ -4,7 +4,7 @@
 
 namespace RK::DX12 {
 
-D3D12_RESOURCE_STATES gGetResourceStates(Buffer::Usage inUsage)
+D3D12_RESOURCE_STATES GetD3D12ResourceStates(Buffer::Usage inUsage)
 {
     switch (inUsage)
     {
@@ -34,7 +34,7 @@ D3D12_RESOURCE_STATES gGetResourceStates(Buffer::Usage inUsage)
 }
 
 
-D3D12_RESOURCE_STATES gGetResourceStates(Texture::Usage inUsage)
+D3D12_RESOURCE_STATES GetD3D12ResourceStates(Texture::Usage inUsage)
 {
     switch (inUsage)
     {
@@ -56,9 +56,9 @@ D3D12_RESOURCE_STATES gGetResourceStates(Texture::Usage inUsage)
 }
 
 
-D3D12_RESOURCE_STATES gGetInitialResourceState(Buffer::Usage inUsage)
+D3D12_RESOURCE_STATES GetD3D12InitialResourceStates(Buffer::Usage inUsage)
 {
-    D3D12_RESOURCE_STATES initial_state = gGetResourceStates(inUsage);
+    D3D12_RESOURCE_STATES initial_state = GetD3D12ResourceStates(inUsage);
     if (inUsage == Buffer::SHADER_READ_ONLY)
         initial_state = D3D12_RESOURCE_STATE_COMMON;
 
@@ -66,7 +66,7 @@ D3D12_RESOURCE_STATES gGetInitialResourceState(Buffer::Usage inUsage)
 }
 
 
-D3D12_RESOURCE_STATES gGetInitialResourceState(Texture::Usage inUsage)
+D3D12_RESOURCE_STATES GetD3D12InitialResourceStates(Texture::Usage inUsage)
 {
     D3D12_RESOURCE_STATES initial_state = D3D12_RESOURCE_STATE_COMMON;
 
@@ -92,13 +92,13 @@ D3D12_RESOURCE_STATES gGetInitialResourceState(Texture::Usage inUsage)
 }
 
 
-D3D12_DESCRIPTOR_HEAP_TYPE gGetHeapType(Buffer::Usage inUsage)
+D3D12_DESCRIPTOR_HEAP_TYPE GetD3D12HeapType(Buffer::Usage inUsage)
 {
     return D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 }
 
 
-D3D12_DESCRIPTOR_HEAP_TYPE gGetHeapType(Texture::Usage inUsage)
+D3D12_DESCRIPTOR_HEAP_TYPE GetD3D12HeapType(Texture::Usage inUsage)
 {
     switch (inUsage)
     {
@@ -336,6 +336,15 @@ D3D12_UNORDERED_ACCESS_VIEW_DESC Texture::Desc::ToUAVDesc() const
     uav_desc.Format = format;
     uav_desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
     uav_desc.Texture2D.MipSlice = baseMip;
+
+    switch (dimension)
+    {
+        case Texture::TEX_DIM_CUBE:
+        {
+            uav_desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2DARRAY;
+            uav_desc.Texture2DArray.ArraySize = 6;
+        } break;
+    }
 
     return uav_desc;
 }

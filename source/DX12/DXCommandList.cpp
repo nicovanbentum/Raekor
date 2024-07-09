@@ -76,6 +76,24 @@ void CommandList::ClearTexture(Device& inDevice, TextureID inTexture, Vec4 inVal
 }
 
 
+void CommandList::BindDefaults(Device& inDevice)
+{
+    auto& command_list = m_CommandLists[m_CurrentCmdListIndex];
+
+    command_list->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+    const std::array heaps =
+    {
+        *inDevice.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER),
+        *inDevice.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV)
+    };
+
+    command_list->SetDescriptorHeaps(heaps.size(), heaps.data());
+    command_list->SetComputeRootSignature(inDevice.GetGlobalRootSignature());
+    command_list->SetGraphicsRootSignature(inDevice.GetGlobalRootSignature());
+}
+
+
 void CommandList::BindToSlot(Buffer& inBuffer, EBindSlot inSlot, uint32_t inOffset)
 {
     auto& command_list = m_CommandLists[m_CurrentCmdListIndex];
@@ -84,6 +102,7 @@ void CommandList::BindToSlot(Buffer& inBuffer, EBindSlot inSlot, uint32_t inOffs
     {
         case EBindSlot::CBV0:
             command_list->SetGraphicsRootConstantBufferView(inSlot, inBuffer->GetGPUVirtualAddress());
+            command_list->SetComputeRootConstantBufferView(inSlot, inBuffer->GetGPUVirtualAddress());
             break;
         case EBindSlot::SRV0: case EBindSlot::SRV1:
             command_list->SetGraphicsRootShaderResourceView(inSlot, inBuffer->GetGPUVirtualAddress() + inOffset);
