@@ -23,6 +23,8 @@ void main(uint3 threadID : SV_DispatchThreadID)
     StructuredBuffer<RTLight> lights        = ResourceDescriptorHeap[rc.mLightsBuffer];
     StructuredBuffer<RTGeometry> geometries = ResourceDescriptorHeap[rc.mInstancesBuffer];
     StructuredBuffer<RTMaterial> materials  = ResourceDescriptorHeap[rc.mMaterialsBuffer];
+
+    TextureCube<float3> skycube_texture    = ResourceDescriptorHeap[rc.mSkyCubeTexture];
     
     const FrameConstants fc = gGetFrameConstants();
     
@@ -160,10 +162,8 @@ void main(uint3 threadID : SV_DispatchThreadID)
         else // Handle miss case 
         {
             // Calculate sky
-            float3 transmittance;
-            float3 inscattering = IntegrateScattering(ray.Origin, -ray.Direction, 1.#INF, fc.mSunDirection.xyz, fc.mSunColor.rgb, transmittance);
-            
-            irradiance = max(inscattering, 0.0.xxx) * fc.mSunColor.a;
+            irradiance = skycube_texture.SampleLevel(SamplerLinearClamp, -ray.Direction, 0);
+            irradiance = max(irradiance, 0.0.xxx) * fc.mSunColor.a;
             
             // Stop tracing
             bounce = rc.mBounces + 1;

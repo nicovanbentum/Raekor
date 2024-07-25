@@ -516,6 +516,8 @@ void Scene::SaveToFile(const String& inFile, Assets& ioAssets, Application* inAp
 
 void Scene::OpenFromFile(const String& inFilePath, Assets& ioAssets, Application* inApp)
 {
+	PROFILE_FUNCTION_CPU();
+
 	// set file path properties
 	m_ActiveSceneFilePath = inFilePath;
 	assert(fs::is_regular_file(inFilePath));
@@ -575,13 +577,12 @@ void Scene::OpenFromFile(const String& inFilePath, Assets& ioAssets, Application
 
 	// load material texture data to vram
 	LoadMaterialTextures(ioAssets, GetEntities<Material>());
+
 	timer.Restart();
 
 	// load mesh data to vram
 	for (const auto& [entity, mesh] : Each<Mesh>())
 	{
-		mesh.CalculateBoundingBox();
-
 		if (m_Renderer)
 			m_Renderer->UploadMeshBuffers(entity, mesh);
 

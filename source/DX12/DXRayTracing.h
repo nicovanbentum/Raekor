@@ -2,6 +2,7 @@
 
 #include "DXScene.h"
 #include "DXRenderGraph.h"
+#include "DXRenderPasses.h"
 
 namespace RK::DX12 {
 
@@ -103,13 +104,15 @@ struct ReflectionsData
     RTTI_DECLARE_TYPE(ReflectionsData);
 
     RenderGraphResourceID mOutputTexture;
+    RenderGraphResourceViewID mSkyCubeTextureSRV;
     RenderGraphResourceViewID mGBufferDepthTextureSRV;
     RenderGraphResourceViewID mGbufferRenderTextureSRV;
 };
 
 const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& inDevice,
     const RayTracedScene& inScene,
-    const GBufferData& inGBufferData
+    const GBufferData& inGBufferData,
+    const SkyCubeData& inSkyCubeData
 );
 
 
@@ -125,10 +128,12 @@ struct PathTraceData
     static inline uint32_t mBounces = 2;
     RenderGraphResourceID mOutputTexture;
     RenderGraphResourceID mAccumulationTexture;
+    RenderGraphResourceViewID mSkyCubeTextureSRV;
 };
 
 const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevice,
-    const RayTracedScene& inScene
+    const RayTracedScene& inScene,
+    const SkyCubeData& inSkyCubeData
 );
 
 
@@ -154,10 +159,12 @@ struct ProbeTraceData
     RenderGraphResourceID mProbesIrradianceTexture;
     RenderGraphResourceID mRaysDepthTexture;
     RenderGraphResourceID mRaysIrradianceTexture;
+    RenderGraphResourceViewID mSkyCubeTextureSRV;
 };
 
 const ProbeTraceData& AddProbeTracePass(RenderGraph& inRenderGraph, Device& inDevice,
-    const RayTracedScene& inScene
+    const RayTracedScene& inScene,
+    const SkyCubeData& inSkyCubeData
 );
 
 

@@ -18,6 +18,8 @@ void main(uint3 threadID : SV_DispatchThreadID) {
     RWTexture2D<float> depth_texture       = ResourceDescriptorHeap[rc.mDDGIData.mRaysDepthTexture];
     RWTexture2D<float3> irradiance_texture = ResourceDescriptorHeap[rc.mDDGIData.mRaysIrradianceTexture];
 
+    TextureCube<float3> skycube_texture    = ResourceDescriptorHeap[rc.mSkyCubeTexture];
+
     FrameConstants fc = gGetFrameConstants();
 
     uint ray_index = threadID.x;
@@ -94,11 +96,8 @@ void main(uint3 threadID : SV_DispatchThreadID) {
     }
     else
     {
-        //float3 transmittance;
-        float3 transmittance;
-        float3 inscattering = IntegrateScattering(ray.Origin, -ray.Direction, 1.#INF, fc.mSunDirection.xyz, fc.mSunColor.rgb, transmittance);
-        
-        irradiance = max(inscattering, 0.0.xxx) * fc.mSunColor.a;
+        irradiance = skycube_texture.SampleLevel(SamplerLinearClamp, -ray.Direction, 0);
+        irradiance = max(irradiance, 0.0.xxx) * fc.mSunColor.a;
         
         hitT = ray.TMax;
     }

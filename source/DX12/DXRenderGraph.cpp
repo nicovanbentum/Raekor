@@ -878,15 +878,7 @@ bool RenderGraph::Compile(Device& inDevice, const GlobalConstants& inGlobalConst
 
     m_PerFrameAllocatorOffset = 0;
 
-    m_GlobalConstantsAllocator.Copy(GlobalConstants
-    {
-        .mBlueNoiseTexture = inDevice.GetBindlessHeapIndex(TextureID(inGlobalConstants.mBlueNoiseTexture)),
-        .mSkyCubeTexture = inDevice.GetBindlessHeapIndex(TextureID(inGlobalConstants.mSkyCubeTexture)),
-        .mConvolvedSkyCubeTexture = inDevice.GetBindlessHeapIndex(TextureID(inGlobalConstants.mConvolvedSkyCubeTexture))
-
-        //.mDebugLinesVertexBuffer = inDevice.GetBindlessHeapIndex(BufferID(m_GlobalConstants.mDebugLinesVertexBuffer)),
-        //.mDebugLinesIndirectArgsBuffer = inDevice.GetBindlessHeapIndex(BufferID(m_GlobalConstants.mDebugLinesIndirectArgsBuffer))
-    });
+    m_GlobalConstantsAllocator.Copy(GlobalConstants {});
 
     D3D12_QUERY_HEAP_DESC query_heap_desc = {};
     query_heap_desc.Type = D3D12_QUERY_HEAP_TYPE_TIMESTAMP;

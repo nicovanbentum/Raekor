@@ -14,6 +14,7 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
     Texture2D<float4>   reflections_texture       = ResourceDescriptorHeap[rc.mReflectionsTexture];
     Texture2D<float4>   indirect_diffuse_texture  = ResourceDescriptorHeap[rc.mIndirectDiffuseTexture];
     // Texture2D<float4>   diffuse_gi_texture        = ResourceDescriptorHeap[rc.mIndirectDiffuseTexture];
+    TextureCube<float3> skycube_texture           = ResourceDescriptorHeap[rc.mSkyCubeTexture];
     StructuredBuffer<RTLight> lights              = ResourceDescriptorHeap[rc.mLightsBuffer];
 
     BRDF brdf;
@@ -24,13 +25,9 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
     const float3 ws_pos = ReconstructWorldPosition(inParams.mScreenUV, depth, fc.mInvViewProjectionMatrix);
     
     if (depth == 1.0) 
-    {
-        // output Sky color 
-        // TODO: should really just sample a cubemap..
-        float3 transmittance;
-        float3 inscattering = IntegrateScattering(ws_pos, normalize(fc.mCameraPosition.xyz - ws_pos), 1.#INF, fc.mSunDirection.xyz, fc.mSunColor.rgb, transmittance);
-
-        return float4(max(inscattering, 0.0.xxx), 1.0);
+    {    
+        float3 sky_color = skycube_texture.SampleLevel(SamplerLinearClamp, -ws_pos, 0);
+        return float4(max(sky_color, 0.0.xxx), 1.0);
     }
 
     const float3 Wo = normalize(fc.mCameraPosition.xyz - ws_pos.xyz);

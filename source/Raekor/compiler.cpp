@@ -60,7 +60,14 @@ CompilerApp::CompilerApp(WindowFlags inFlags) : Application(inFlags | WindowFlag
 	nid.hIcon = (HICON)GetClassLongPtr(wminfo.info.win.window, -14);
 	strcpy(nid.szTip, "RK Compiler App");
 
-	Shell_NotifyIcon(NIM_ADD, &nid);
+	bool ret = Shell_NotifyIcon(NIM_ADD, &nid);
+
+	if (!ret)
+	{
+		ret = Shell_NotifyIcon(NIM_DELETE, &nid);
+		assert(ret);
+		ret = Shell_NotifyIcon(NIM_ADD, &nid);
+	}
 
 	SDL_EventState(SDL_SYSWMEVENT, SDL_ENABLE);
 

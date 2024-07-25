@@ -21,6 +21,8 @@ void main(uint3 threadID : SV_DispatchThreadID)
     RaytracingAccelerationStructure TLAS = ResourceDescriptorHeap[rc.mTLAS];
     StructuredBuffer<RTGeometry> geometries = ResourceDescriptorHeap[rc.mInstancesBuffer];
     StructuredBuffer<RTMaterial> materials  = ResourceDescriptorHeap[rc.mMaterialsBuffer];
+
+    TextureCube<float3> skycube_texture    = ResourceDescriptorHeap[rc.mSkyCubeTexture];
     
     const FrameConstants fc = gGetFrameConstants();
 
@@ -99,11 +101,8 @@ void main(uint3 threadID : SV_DispatchThreadID)
     }
     else
     {
-        // Calculate sky
-        float3 transmittance;
-        float3 inscattering = IntegrateScattering(ray.Origin, -ray.Direction, 1.#INF, fc.mSunDirection.xyz, fc.mSunColor.rgb, transmittance);
-            
-        irradiance += max(inscattering, 0.0.xxx) * fc.mSunColor.a;
+        float3 sky_color = skycube_texture.SampleLevel(SamplerLinearClamp, -ray.Direction, 0);
+        irradiance += max(sky_color, 0.0.xxx) * fc.mSunColor.a;
     }
     
     result_texture[threadID.xy] = float4(irradiance, 1.0);

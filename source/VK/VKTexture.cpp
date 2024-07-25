@@ -3,6 +3,7 @@
 
 #include "VKDevice.h"
 #include "VKUtil.h"
+#include "Raekor/rmath.h"
 
 namespace RK::VK {
 

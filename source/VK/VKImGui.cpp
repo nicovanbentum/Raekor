@@ -7,6 +7,7 @@
 #include "VKPass.h"
 #include "VKSwapchain.h"
 #include "VKPipeline.h"
+#include "Raekor/rmath.h"
 
 namespace RK::VK {
 

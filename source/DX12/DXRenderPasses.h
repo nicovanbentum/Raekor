@@ -102,13 +102,11 @@ struct SkyCubeData
     RTTI_DECLARE_TYPE(SkyCubeData);
 
     RenderGraphResourceID mSkyCubeTexture;
-    RenderGraphResourceViewID mSkyCubeTextureUAV;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
 
 const SkyCubeData& AddSkyCubePass(RenderGraph& inRenderGraph, Device& inDevice,
-    const Scene& inScene,
-    const GlobalConstants& inGlobalConstants
+    const Scene& inScene
 );
 
 
@@ -122,13 +120,11 @@ struct ConvolveCubeData
 
     RenderGraphResourceViewID mCubeTextureSRV;
     RenderGraphResourceID mConvolvedCubeTexture;
-    RenderGraphResourceViewID mConvolvedCubeTextureUAV;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
 
 const ConvolveCubeData& AddConvolveSkyCubePass(RenderGraph& inRenderGraph, Device& inDevice,
-    const GlobalConstants& inGlobalConstants,
-    RenderGraphResourceID inSkyCubeTexture
+    const SkyCubeData& inSkyCubeData
 );
 
 
@@ -258,6 +254,7 @@ struct LightingData
 
     DDGIData        mDDGIData;
     RenderGraphResourceID mOutputTexture;
+    RenderGraphResourceViewID mSkyCubeTextureSRV;
     RenderGraphResourceViewID mShadowMaskTextureSRV;
     RenderGraphResourceViewID mReflectionsTextureSRV;
     RenderGraphResourceViewID mGBufferDepthTextureSRV;
@@ -271,6 +268,7 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
     const RayTracedScene& inScene,
     const GBufferData& inGBufferData, 
     const TiledLightCullingData& inLightData,
+    RenderGraphResourceID inSkyCubeTexture,
     RenderGraphResourceID inShadowTexture, 
     RenderGraphResourceID inReflectionsTexture, 
     RenderGraphResourceID inAOTexture, 

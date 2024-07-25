@@ -243,7 +243,7 @@ D3D12_RESOURCE_DESC Texture::Desc::ToResourceDesc() const
             resource_desc = CD3DX12_RESOURCE_DESC::Tex3D(format, width, height, depthOrArrayLayers, mipLevels);
             break;
         case Texture::TEX_DIM_CUBE:
-            resource_desc = CD3DX12_RESOURCE_DESC::Tex2D(format, width, height, depthOrArrayLayers * 6, mipLevels, 1u, 0);
+            resource_desc = CD3DX12_RESOURCE_DESC::Tex2D(format, width, height, depthOrArrayLayers, mipLevels, 1u, 0);
             break;
         default:
             assert(false);
@@ -256,7 +256,7 @@ D3D12_RESOURCE_DESC Texture::Desc::ToResourceDesc() const
         case Texture::DEPTH_STENCIL_TARGET: 
             resource_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL; break;
         case Texture::SHADER_READ_WRITE: 
-            resource_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS | D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET; break;
+            resource_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS; break;
     }
 
     return resource_desc;

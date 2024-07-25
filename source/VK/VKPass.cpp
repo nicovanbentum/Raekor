@@ -7,6 +7,7 @@
 #include "VKExtensions.h"
 
 #include "Raekor/async.h"
+#include "Raekor/rmath.h"
 #include "Raekor/camera.h"
 
 namespace RK::VK {

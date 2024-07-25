@@ -36,7 +36,6 @@ private:
     TextureID  m_DefaultBlackTexture;
     TextureID  m_DefaultNormalTexture;
 
-    ComPtr<IDXGISwapChain3> m_Swapchain;
     ComPtr<IDStorageQueue>  m_FileStorageQueue;
     ComPtr<IDStorageQueue>  m_MemoryStorageQueue;
 

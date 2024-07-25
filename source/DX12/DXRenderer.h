@@ -79,6 +79,7 @@ public:
     void WaitForIdle(Device& inDevice);
 
     void SetShouldResize(bool inValue) { m_ShouldResize = inValue; }
+    void SetShouldRecompile(bool inValue) { m_ShouldRecompile = inValue; }
     void SetShouldCaptureNextFrame(bool inValue) { m_ShouldCaptureNextFrame = inValue; }
 
     void QueueBlasUpdate(Entity inEntity) { m_PendingBlasUpdates.push_back(inEntity); }
@@ -116,6 +117,7 @@ private:
     HANDLE                  m_FenceEvent;
     ComPtr<IDXGISwapChain3> m_Swapchain;
     bool                    m_ShouldResize = false;
+    bool                    m_ShouldRecompile = false;
     bool                    m_ShouldCaptureNextFrame = false;
     BackBufferData          m_BackBufferData[sFrameCount];
     FrameConstants          m_FrameConstants = {};

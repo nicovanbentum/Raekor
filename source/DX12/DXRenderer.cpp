@@ -18,8 +18,6 @@
 #include "Raekor/primitives.h"
 #include "Raekor/application.h"
 
-extern float samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d_1spp(int pixel_i, int pixel_j, int sampleIndex, int sampleDimension);
-
 namespace RK::DX12 {
 
 Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inWindow) :
@@ -106,43 +104,6 @@ Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inW
         SetShouldResize(true);
         g_ThreadPool.WaitForJobs();
     });
-
-    static Array<Vec4> blue_noise_samples;
-    blue_noise_samples.reserve(128 * 128);
-
-    for (int y = 0; y < 128; y++)
-    {
-        for (int x = 0; x < 128; x++)
-        {
-            Vec4& sample = blue_noise_samples.emplace_back();
-
-            for (int i = 0; i < sample.length(); i++)
-                sample[i] = samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d_1spp(x, y, 0, i);
-        }
-    }
-
-    m_GlobalConstants.mBlueNoiseTexture = uint32_t(inDevice.CreateTexture(Texture::Desc
-    {
-        .format = DXGI_FORMAT_R32G32B32A32_FLOAT,
-        .width  = 128,
-        .height = 128,
-        .usage  = Texture::Usage::SHADER_READ_ONLY,
-        .debugName = "BlueNoise128x1spp"
-    }));
-
-    QueueTextureUpload(m_GlobalConstants.mBlueNoiseTexture, 0, Slice<char>((const char*)blue_noise_samples.data(), blue_noise_samples.size() / sizeof(blue_noise_samples[0])));
-
-    Texture::Desc sky_cube_texture_desc = Texture::DescCube(DXGI_FORMAT_R32G32B32A32_FLOAT, 64, 64, Texture::SHADER_READ_WRITE);
-    Texture::Desc convolved_sky_cube_texture_desc = Texture::DescCube(DXGI_FORMAT_R32G32B32A32_FLOAT, 16, 16, Texture::SHADER_READ_WRITE);
-    
-    sky_cube_texture_desc.debugName = "SkyCubeTexture";
-    convolved_sky_cube_texture_desc.debugName = "ConvolvedSkyCubeTexture";
-
-    m_GlobalConstants.mSkyCubeTexture = uint32_t(inDevice.CreateTexture(sky_cube_texture_desc));
-    m_GlobalConstants.mConvolvedSkyCubeTexture = uint32_t(inDevice.CreateTexture(convolved_sky_cube_texture_desc));
-    
-    //m_GlobalConstants.mDebugLinesVertexBuffer = uint32_t(inDevice.CreateBuffer(Buffer::RWStructuredBuffer(sizeof(Vec4) * UINT16_MAX, sizeof(Vec4), "DebugLinesVertexBuffer")));
-    //m_GlobalConstants.mDebugLinesIndirectArgsBuffer = uint32_t(inDevice.CreateBuffer(Buffer::Describe(sizeof(D3D12_DRAW_ARGUMENTS), Buffer::SHADER_READ_WRITE, "DebugLinesIndirectArgsBuffer")));
 }
 
 
@@ -246,13 +207,14 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
 
     bool recompiled = false;
 
-    if (m_ShouldResize || need_recompile || (do_stress_test && m_FrameCounter > 60))
+    if (m_ShouldResize || m_ShouldRecompile || need_recompile || (do_stress_test && m_FrameCounter > 60))
     {
         // Make sure nothing is using render targets anymore
         WaitForIdle(inDevice);
 
         // Resize the renderer, which recreates the swapchain backbuffers and re-inits upscalers
-        OnResize(inDevice, inViewport, inApp->IsWindowExclusiveFullscreen());
+        if (m_ShouldResize)
+            OnResize(inDevice, inViewport, inApp->IsWindowExclusiveFullscreen());
 
         // Recompile the renderer, super overkill. TODO: pls fix
         Recompile(inDevice, inScene, inRenderInterface);
@@ -260,6 +222,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
         // Flag / Unflag
         recompiled = true;
         m_ShouldResize = false;
+        m_ShouldRecompile = false;
     }
 
     // At this point in the frame we really need the previous frame's present job to have finished
@@ -358,6 +321,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     static const int& update_skinning = g_CVars.Create("update_skinning", 1, true);
     // Start recording pending scene changes to the copy cmd list
     CommandList& copy_cmd_list = GetBackBufferData().mCopyCmdList;
+
     copy_cmd_list.Reset();
 
     // upload vertex buffers, index buffers, and BLAS for meshes
@@ -480,13 +444,13 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
 
     const SkinningData& skinning_data = AddSkinningPass(m_RenderGraph, inDevice, inScene);
 
-    const SkyCubeData& sky_cube_data = AddSkyCubePass(m_RenderGraph, inDevice, inScene, m_GlobalConstants);
+    const SkyCubeData& sky_cube_data = AddSkyCubePass(m_RenderGraph, inDevice, inScene);
 
-    const ConvolveCubeData& convolved_cube_data = AddConvolveSkyCubePass(m_RenderGraph, inDevice,  m_GlobalConstants, sky_cube_data.mSkyCubeTexture);
+    const ConvolveCubeData& convolved_cube_data = AddConvolveSkyCubePass(m_RenderGraph, inDevice, sky_cube_data);
 
     if (m_Settings.mDoPathTrace)
     {
-        compose_input = AddPathTracePass(m_RenderGraph, inDevice, inScene).mOutputTexture;
+        compose_input = AddPathTracePass(m_RenderGraph, inDevice, inScene, sky_cube_data).mOutputTexture;
     }
     else
     {
@@ -511,7 +475,7 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
         RenderGraphResourceID reflections_texture = default_textures.mBlackTexture;
 
         if (m_Settings.mEnableReflections)
-            reflections_texture = AddReflectionsPass(m_RenderGraph, inDevice, inScene, gbuffer_data).mOutputTexture;
+            reflections_texture = AddReflectionsPass(m_RenderGraph, inDevice, inScene, gbuffer_data, sky_cube_data).mOutputTexture;
 
         // const auto& downsample_data = AddDownsamplePass(m_RenderGraph, inDevice, reflection_data.mOutputTexture);
 
@@ -519,7 +483,7 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
 
         if (m_Settings.mEnableDDGI)
         {
-            const ProbeTraceData& ddgi_trace_data = AddProbeTracePass(m_RenderGraph, inDevice, inScene);
+            const ProbeTraceData& ddgi_trace_data = AddProbeTracePass(m_RenderGraph, inDevice, inScene, sky_cube_data);
 
             const ProbeUpdateData& ddgi_update_data = AddProbeUpdatePass(m_RenderGraph, inDevice, inScene, ddgi_trace_data);
         
@@ -530,7 +494,7 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
         
         const TiledLightCullingData& light_cull_data = AddTiledLightCullingPass(m_RenderGraph, inDevice, inScene);
 
-        const LightingData& light_data = AddLightingPass(m_RenderGraph, inDevice, inScene, gbuffer_data, light_cull_data, shadow_texture, reflections_texture, rtao_texture, indirect_diffuse_texture);
+        const LightingData& light_data = AddLightingPass(m_RenderGraph, inDevice, inScene, gbuffer_data, light_cull_data, sky_cube_data.mSkyCubeTexture, shadow_texture, reflections_texture, rtao_texture, indirect_diffuse_texture);
         
         compose_input = light_data.mOutputTexture;
         
@@ -1409,7 +1373,7 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
     }
 
     if (need_recompile)
-        m_Renderer.SetShouldResize(true); // call for a resize so the rendergraph gets recompiled (hacky, TODO: FIXME: pls fix)
+        m_Renderer.SetShouldRecompile(true); // call for a resize so the rendergraph gets recompiled (hacky, TODO: FIXME: pls fix)
 }
 
 

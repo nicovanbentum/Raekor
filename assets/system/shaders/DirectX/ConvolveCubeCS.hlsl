@@ -34,7 +34,8 @@ void main(uint3 gid : SV_DispatchThreadID)
     uint width, height, layers;
     convolved_texture.GetDimensions(width, height, layers);
     
-    float3 dir = GetCubemapDirection(float2(gid.xy) / float2(width, height), gid.z);
+    float2 uv = (float2(gid.xy) + 0.5) / float2(width, height);
+    float3 dir = normalize(GetCubemapDirection(uv, gid.z));
     
     float3 irradiance = 0.xxx;
     

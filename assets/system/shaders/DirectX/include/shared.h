@@ -48,6 +48,8 @@
 #define LIGHT_CULL_TILE_SIZE 16 // Light culling uses 16x16 pixel screen tiles
 #define LIGHT_CULL_MAX_LIGHTS 1024 // Max lights per tile for light culling
 
+#define BINDLESS_BLUE_NOISE_TEXTURE_INDEX 2
+
 struct LineVertex
 {
     float4 mPosition;
@@ -257,8 +259,10 @@ struct ReflectionsRootConstants
     uint  mInstancesBuffer;
     uint  mMaterialsBuffer;
     uint  mResultTexture;
+    uint  mSkyCubeTexture;
     uint  mGbufferDepthTexture;
     uint  mGbufferRenderTexture;
+    uint  mPad0;
     uint2 mDispatchSize;
 };
 
@@ -272,7 +276,7 @@ struct PathTraceRootConstants
     uint  mMaterialsBuffer;
     uint  mResultTexture;
     uint  mAccumulationTexture;
-    uint  mPad0;
+    uint  mSkyCubeTexture;
     uint2 mDispatchSize;
     uint  mReset;
     uint mLightsCount;
@@ -351,13 +355,13 @@ struct LightingRootConstants
 {
     uint  mLightsCount;
     uint  mLightsBuffer;
+    uint  mSkyCubeTexture;
     uint  mShadowMaskTexture;
     uint  mReflectionsTexture;
     uint  mGbufferDepthTexture;
     uint  mGbufferRenderTexture;
     uint  mIndirectDiffuseTexture;
     uint  mAmbientOcclusionTexture;
-    uint  mPad0;
     uint  mPad1;
     TiledLightCullingRootConstants mLights;
 };
@@ -386,8 +390,8 @@ struct ProbeTraceRootConstants
     uint     mDebugProbeIndex;
     uint     mLightsBuffer;
     uint     mLightsCount;
-    uint     mPad0;
-    uint     mPad1;
+    uint     mSkyCubeTexture;
+    uint     mConvolvedSkyCubeTexture;
     float4x4 mRandomRotationMatrix;
     DDGIData mDDGIData;
 };

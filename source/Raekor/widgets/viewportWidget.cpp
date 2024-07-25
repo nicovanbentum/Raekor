@@ -238,15 +238,34 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 		ImGuizmo::SetDrawlist();
 		ImGuizmo::SetRect(viewportMin.x, viewportMin.y, viewportMax.x - viewportMin.x, viewportMax.y - viewportMin.y);
 
-		// temporarily transform to mesh space for gizmo use
-		Transform& transform = scene.Get<Transform>(GetActiveEntity());
-		const Mesh* mesh = scene.GetPtr<Mesh>(GetActiveEntity());
+		Mat4x4 local_to_world_transform = Mat4x4(1.0f);
+		Mat4x4 world_to_local_transform = Mat4x4(1.0f);
 
-		if (mesh)
+		Entity parent = scene.GetParent(GetActiveEntity());
+
+		if (parent != Entity::Null && parent != scene.GetRootEntity())
 		{
-			const BBox3D bounds = mesh->bbox.Scaled(transform.GetScaleWorldSpace());
-			transform.localTransform = glm::translate(transform.localTransform, bounds.GetCenter());
+			if (scene.Has<Transform>(parent))
+			{
+				const Transform& parent_transform = scene.Get<Transform>(parent);
+				local_to_world_transform = parent_transform.worldTransform;
+				world_to_local_transform = glm::inverse(parent_transform.worldTransform);
+			}
 		}
+
+		Transform& transform = scene.Get<Transform>(GetActiveEntity());
+		Mat4x4 world_space_transform = local_to_world_transform * transform.localTransform;
+		
+		Vec3 additional_translation = Vec3(0.0f);
+
+		if (scene.Has<Mesh>(GetActiveEntity()))
+		{
+			const Mesh& mesh = scene.Get<Mesh>(GetActiveEntity());
+			const BBox3D world_space_bounds = mesh.bbox.Transformed(transform.worldTransform);
+			additional_translation = world_space_bounds.GetCenter() - transform.GetPositionWorldSpace();
+		}
+		
+		world_space_transform = glm::translate(world_space_transform, additional_translation);
 
 		// prevent the gizmo from going outside of the viewport
 		ImGui::GetWindowDrawList()->PushClipRect(viewportMin, viewportMax);
@@ -257,20 +276,16 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			glm::value_ptr(viewport.GetCamera().GetProjection()),
 			operation, 
 			ImGuizmo::MODE::WORLD,
-			glm::value_ptr(transform.localTransform)
+			glm::value_ptr(world_space_transform)
 		);
 
-		// transform back to world space
-		if (mesh)
-		{
-			const BBox3D bounds = mesh->bbox.Scaled(transform.GetScaleWorldSpace());
-			transform.localTransform = glm::translate(transform.localTransform, -bounds.GetCenter());
-		}
+		world_space_transform = glm::translate(world_space_transform, -additional_translation);
 
 		m_Changed = false;
 
 		if (manipulated)
 		{
+			transform.localTransform = world_to_local_transform *  world_space_transform;
 			transform.Decompose();
 			m_Changed = true;
 		}

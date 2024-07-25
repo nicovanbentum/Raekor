@@ -1,7 +1,6 @@
 #pragma once
 
 #include "slice.h"
-#include "rmath.h"
 
 namespace RK {
 

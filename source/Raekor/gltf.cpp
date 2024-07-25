@@ -207,20 +207,13 @@ void GltfImporter::ParseNode(const cgltf_node& inNode, Entity inParent, glm::mat
 	if (has_transform)
 	{
 		Transform& mesh_transform = m_Scene.Get<Transform>(entity);
-		mesh_transform.localTransform = inTransform;
+		mesh_transform.localTransform = local_transform;
 		mesh_transform.Decompose();
 	}
 	
-
 	if (inNode.mesh)
 	{
 		Name& name = m_Scene.Get<Name>(entity);
-
-		// name it after the mesh
-		//if (inNode.mesh && inNode.mesh->name)
-		//	name.name = inNode.mesh->name;
-		//else
-		//	name.name = "Mesh " + std::to_string(uint32_t(entity));
 
 		if (inNode.mesh->primitives_count == 1)
 		{
@@ -246,13 +239,7 @@ void GltfImporter::ParseNode(const cgltf_node& inNode, Entity inParent, glm::mat
 	}
 
 	if (inNode.light)
-	{
-		Transform& transform = m_Scene.Get<Transform>(entity);
-		transform.localTransform = inTransform;
-		transform.Decompose();
-
 		ConvertLight(entity, *inNode.light);
-	}
 
 	for (cgltf_node* child : Slice(inNode.children, inNode.children_count))
 		ParseNode(*child, entity, inTransform);

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "rtti.h"
+
 namespace RK {
 
 class Viewport;
@@ -34,6 +36,8 @@ inline std::tuple<uint8_t, uint8_t, uint8_t, uint8_t> gUnswizzle(uint8_t swizzle
 
 struct BBox3D
 {
+	RTTI_DECLARE_TYPE(BBox3D);
+
 	BBox3D() = default;
 	BBox3D(const Vec3& inMin, const Vec3& inMax) : mMin(inMin), mMax(inMax) {}
 

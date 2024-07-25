@@ -118,13 +118,12 @@ const TransitionResourceData& AddTransitionResourcePass(RenderGraph& inRenderGra
 
 
 
-const SkyCubeData& AddSkyCubePass(RenderGraph& inRenderGraph, Device& inDevice, const Scene& inScene, const GlobalConstants& inGlobalConstants)
+const SkyCubeData& AddSkyCubePass(RenderGraph& inRenderGraph, Device& inDevice, const Scene& inScene)
 {
     return inRenderGraph.AddComputePass<SkyCubeData>("SKY CUBE PASS",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, SkyCubeData& inData)
     {  
-        inData.mSkyCubeTexture = ioRGBuilder.Import(inDevice, TextureID(inGlobalConstants.mSkyCubeTexture));
-        inData.mSkyCubeTextureUAV = ioRGBuilder.Write(inData.mSkyCubeTexture);
+        inData.mSkyCubeTexture = ioRGBuilder.Create(Texture::DescCube(DXGI_FORMAT_R32G32B32A32_FLOAT, 64, 64, Texture::SHADER_READ_WRITE));
     },
     [&inDevice, &inScene](SkyCubeData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {   
@@ -132,7 +131,7 @@ const SkyCubeData& AddSkyCubePass(RenderGraph& inRenderGraph, Device& inDevice, 
         {
             inCmdList.PushComputeConstants(SkyCubeRootConstants
             {
-                .mSkyCubeTexture    = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mSkyCubeTextureUAV)),
+                .mSkyCubeTexture    = inDevice.GetBindlessHeapIndex(inResources.GetTexture(inData.mSkyCubeTexture)),
                 .mSunLightDirection = sun_light->GetDirection(),
                 .mSunLightColor     = sun_light->GetColor()
             });
@@ -148,17 +147,13 @@ const SkyCubeData& AddSkyCubePass(RenderGraph& inRenderGraph, Device& inDevice, 
 
 
 
-const ConvolveCubeData& AddConvolveSkyCubePass(RenderGraph& inRenderGraph, Device& inDevice, const GlobalConstants& inGlobalConstants, RenderGraphResourceID inSkyCubeTexture)
+const ConvolveCubeData& AddConvolveSkyCubePass(RenderGraph& inRenderGraph, Device& inDevice, const SkyCubeData& inSkyCubeData)
 {
     return inRenderGraph.AddGraphicsPass<ConvolveCubeData>("CONVOLVE SKYCUBE PASS",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ConvolveCubeData& inData)
     {
-        inData.mCubeTextureSRV = ioRGBuilder.Read(inSkyCubeTexture);
-        inData.mConvolvedCubeTexture = ioRGBuilder.Import(inDevice, TextureID(inGlobalConstants.mConvolvedSkyCubeTexture));
-        inData.mConvolvedCubeTextureUAV = ioRGBuilder.Write(inData.mConvolvedCubeTexture);
-
-        // explicitly transition to a Read state so it's in the correct state for the rest of the frame
-        AddTransitionResourcePass(inRenderGraph, inDevice, &RenderGraphBuilder::Read, inData.mConvolvedCubeTexture);
+        inData.mCubeTextureSRV = ioRGBuilder.Read(inSkyCubeData.mSkyCubeTexture);
+        inData.mConvolvedCubeTexture = ioRGBuilder.Create(Texture::DescCube(DXGI_FORMAT_R32G32B32A32_FLOAT, 16, 16, Texture::SHADER_READ_WRITE));
     },
 
     [&inDevice](ConvolveCubeData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
@@ -166,7 +161,7 @@ const ConvolveCubeData& AddConvolveSkyCubePass(RenderGraph& inRenderGraph, Devic
         inCmdList.PushComputeConstants(ConvolveCubeRootConstants
         {
             .mCubeTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mCubeTextureSRV)),
-            .mConvolvedCubeTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mConvolvedCubeTextureUAV))
+            .mConvolvedCubeTexture = inDevice.GetBindlessHeapIndex(inResources.GetTexture(inData.mConvolvedCubeTexture))
         });
 
         inCmdList->SetPipelineState(g_SystemShaders.mConvolveCubeShader.GetComputePSO());
@@ -714,7 +709,7 @@ const TiledLightCullingData& AddTiledLightCullingPass(RenderGraph& inRenderGraph
 
 
 
-const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferData& inGBufferData, const TiledLightCullingData& inLightData, RenderGraphResourceID inShadowTexture, RenderGraphResourceID inReflectionsTexture, RenderGraphResourceID inAOTexture, RenderGraphResourceID inIndirectDiffuseTexture)
+const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferData& inGBufferData, const TiledLightCullingData& inLightData, RenderGraphResourceID inSkyCubeTexture, RenderGraphResourceID inShadowTexture, RenderGraphResourceID inReflectionsTexture, RenderGraphResourceID inAOTexture, RenderGraphResourceID inIndirectDiffuseTexture)
 {
     return inRenderGraph.AddGraphicsPass<LightingData>("DEFERRED LIGHTING PASS",
 
@@ -734,6 +729,7 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
         ioRGBuilder.Write(inLightData.mLightGridBuffer);
         ioRGBuilder.Write(inLightData.mLightIndicesBuffer);
 
+        inData.mSkyCubeTextureSRV           = ioRGBuilder.Read(inSkyCubeTexture);
         inData.mAmbientOcclusionTextureSRV  = ioRGBuilder.Read(inAOTexture);
         inData.mShadowMaskTextureSRV        = ioRGBuilder.Read(inShadowTexture);
         inData.mReflectionsTextureSRV       = ioRGBuilder.Read(inReflectionsTexture);
@@ -758,6 +754,7 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
     {
         LightingRootConstants root_constants =
         {
+            .mSkyCubeTexture          = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mSkyCubeTextureSRV)),
             .mShadowMaskTexture       = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mShadowMaskTextureSRV)),
             .mReflectionsTexture      = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mReflectionsTextureSRV)),
             .mGbufferDepthTexture     = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mGBufferDepthTextureSRV)),

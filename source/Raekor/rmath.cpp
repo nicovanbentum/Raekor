@@ -1,8 +1,15 @@
 #include "pch.h"
 #include "rmath.h"
 #include "camera.h"
+#include "member.h"
 
 namespace RK {
+
+RTTI_DEFINE_TYPE(BBox3D)
+{
+	RTTI_DEFINE_MEMBER(BBox3D, SERIALIZE_ALL, "Min", mMin);
+	RTTI_DEFINE_MEMBER(BBox3D, SERIALIZE_ALL, "Max", mMax);
+}
 
 static std::default_random_engine sDefaultRandomEngine;
 static std::uniform_real_distribution<float> sUniformDistributionZO(0.0, 1.0);
