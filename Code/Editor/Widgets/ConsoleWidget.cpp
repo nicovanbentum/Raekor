@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "consoleWidget.h"
 #include "iter.h"
-#include "application.h"
+#include "Application.h"
 
 namespace RK {
 

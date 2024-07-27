@@ -1,9 +1,9 @@
-#include "pch.h"
+#include "PCH.h"
 #include "ProfileWidget.h"
 
-#include "timer.h"
-#include "profile.h"
-#include "application.h"
+#include "Timer.h"
+#include "Profiler.h"
+#include "Application.h"
 
 namespace RK {
 

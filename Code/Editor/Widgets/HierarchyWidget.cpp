@@ -1,6 +1,6 @@
 #include "pch.h"
 #include "hierarchyWidget.h"
-#include "application.h"
+#include "Application.h"
 #include "components.h"
 #include "scene.h"
 #include "input.h"

@@ -4,7 +4,7 @@
 #include "iter.h"
 #include "scene.h"
 #include "components.h"
-#include "application.h"
+#include "Application.h"
 #include "IconsFontAwesome5.h"
 
 namespace RK {

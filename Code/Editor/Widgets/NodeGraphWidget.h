@@ -1,12 +1,7 @@
 #pragma once
 
-#include "widget.h"
-#include "json.h"
-#include "iter.h"
-#include "shader.h"
-#include "serial.h"
-#include "defines.h"
-#include "components.h"
+#include "Widget.h"
+#include "ShaderGraph.h"
 
 namespace RK {
 
