@@ -32,7 +32,7 @@ CompilerApp::CompilerApp(WindowFlags inFlags) : Application(inFlags | WindowFlag
 	if (!m_Settings.mFontFile.empty())
 		GUI::SetFont(m_Settings.mFontFile.string());
 
-	GUI::SetTheme();
+	GUI::SetDarkTheme();
 	ImGui::GetStyle().ScaleAllSizes(1.33333333f);
 
 	m_Renderer = SDL_CreateRenderer(m_Window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);

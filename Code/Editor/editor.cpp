@@ -43,7 +43,7 @@ IEditor::IEditor(WindowFlags inWindowFlags, IRenderInterface* inRenderInterface)
 	io.ConfigWindowsMoveFromTitleBarOnly = true;
 	io.ConfigDockingWithShift = true;
 
-	GUI::SetTheme();
+	GUI::SetDarkTheme();
 	ImGui::GetStyle().ScaleAllSizes(1.33333333f);
 	ImNodes::StyleColorsDark();
 
@@ -188,13 +188,14 @@ void IEditor::OnUpdate(float inDeltaTime)
 
 	if (GetSettings().mShowUI)
 	{
-		GUI::BeginDockSpace(ImGuiWindowFlags_MenuBar);
+		if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_DockingEnable)
+			BeginImGuiDockSpace();
 
 		// draw widgets
 		m_Widgets.Draw(inDeltaTime);
 
-		// end ImGui
-		GUI::EndDockSpace();
+		if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_DockingEnable)
+			EndImGuiDockSpace();
 	}
 
 	// detect any changes to the viewport (mainly used to reset path tracers)
@@ -425,5 +426,79 @@ void IEditor::LogMessage(const String& inMessage)
 		m_Messages.push_back(inMessage);
 	}
 }
+
+
+void IEditor::BeginImGuiDockSpace()
+{
+	ImGuiWindowFlags flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
+	flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize |
+		ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+
+	//ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_PassthruCentralNode;
+	ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
+
+	ImGuiViewport* imGuiViewport = ImGui::GetMainViewport();
+	ImGui::SetNextWindowPos(imGuiViewport->Pos);
+	ImGui::SetNextWindowSize(imGuiViewport->Size);
+	ImGui::SetNextWindowViewport(imGuiViewport->ID);
+
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+
+	ImGuiWindowClass window_class = {};
+	window_class.DockNodeFlagsOverrideSet = ImGuiDockNodeFlags_NoCloseButton;
+	ImGui::SetNextWindowClass(&window_class);
+
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+	ImGui::Begin("DockSpace", (bool*)true, flags);
+	ImGui::PopStyleVar();
+	ImGui::PopStyleVar(2);
+
+	ImGuiViewport* viewport = ImGui::GetMainViewport();
+
+	ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
+	ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags, &window_class);
+
+	if (m_DockSpaceID != dockspace_id && !fs::exists("imgui.ini"))
+	{
+		ImGui::DockBuilderRemoveNode(dockspace_id); // clear any previous layout
+		ImGui::DockBuilderSetNodeSize(dockspace_id, viewport->Size);
+
+		ImGuiID main_node = ImGui::DockBuilderAddNode(dockspace_id, dockspace_flags | ImGuiDockNodeFlags_DockSpace);
+		ImGui::DockBuilderSetNodeSize(main_node, viewport->Size);
+
+		ImGui::DockBuilderDockWindow(m_Widgets.GetWidget<ShaderGraphWidget>()->GetTitle().c_str(), main_node);
+		ImGui::DockBuilderDockWindow(m_Widgets.GetWidget<ViewportWidget>()->GetTitle().c_str(), main_node);
+
+		ImGuiID SplitA, SplitB;
+		ImGui::DockBuilderSplitNode(main_node, ImGuiDir_Right, 0.15f, &SplitA, &SplitB);
+		ImGui::DockBuilderDockWindow(m_Widgets.GetWidget<HierarchyWidget>()->GetTitle().c_str(), SplitA);
+
+		ImGuiID viewport_node_id = SplitB;
+		ImGuiID hierarchy_node_id = SplitA;
+
+		ImGui::DockBuilderSplitNode(SplitB, ImGuiDir_Down, 0.10f, &SplitA, &SplitB);
+		ImGui::DockBuilderDockWindow(m_Widgets.GetWidget<SequenceWidget>()->GetTitle().c_str(), SplitA);
+		ImGui::DockBuilderDockWindow(m_Widgets.GetWidget<ComponentsWidget>()->GetTitle().c_str(), SplitA);
+
+		ImGui::DockBuilderSplitNode(hierarchy_node_id, ImGuiDir_Down, 0.75f, &SplitA, &SplitB);
+		ImGui::DockBuilderDockWindow(m_Widgets.GetWidget<InspectorWidget>()->GetTitle().c_str(), SplitA);
+		ImGui::DockBuilderDockWindow(m_Widgets.GetWidget<ProfileWidget>()->GetTitle().c_str(), SplitA);
+
+		ImGui::DockBuilderSplitNode(SplitA, ImGuiDir_Down, 0.20f, &SplitA, &SplitB);
+		ImGui::DockBuilderDockWindow(m_Widgets.GetWidget<ConsoleWidget>()->GetTitle().c_str(), SplitA);
+
+		ImGui::DockBuilderFinish(main_node);
+	}
+
+	m_DockSpaceID = dockspace_id;
+}
+
+
+void IEditor::EndImGuiDockSpace()
+{
+	ImGui::End();
+}
+
 
 } // Raekor 

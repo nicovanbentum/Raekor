@@ -151,11 +151,11 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	viewport.offset = { pos.x, pos.y };
 
 	bool can_select_entity = mouseInViewport;
-	can_select_entity &= !ImGui::IsAnyItemHovered();
-	can_select_entity &= g_Input->IsButtonPressed(1);
+	can_select_entity &= ImGui::IsMouseClicked(ImGuiMouseButton_Left);
 	can_select_entity &= SDL_GetModState() == KMOD_NONE;
+	can_select_entity &= !ImGui::IsAnyItemHovered();
 	can_select_entity &= !g_Input->IsKeyPressed(SDL_SCANCODE_LSHIFT);
-	can_select_entity &= !( GetActiveEntity() != Entity::Null && ImGuizmo::IsOver(operation) );
+	can_select_entity &= !ImGuizmo::IsOver(operation);
 
 	if (can_select_entity)
 	{

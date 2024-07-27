@@ -13,7 +13,7 @@
 #include "Engine/archive.h"
 #include "Engine/profile.h"
 
-#include "shared.h"
+#include "Engine/Renderer/Shared.h"
 #include "Engine/Renderer/DXUtil.h"
 #include "Engine/Renderer/DXShader.h"
 #include "Engine/Renderer/DXRenderer.h"
@@ -240,91 +240,6 @@ void DXApp::OnEvent(const SDL_Event& inEvent)
     if (inEvent.window.event == SDL_WINDOWEVENT_RESIZED)
         m_Renderer.SetShouldResize(true);
 }
-
-
-DescriptorID DXApp::UploadTextureDirectStorage(const TextureAsset::Ptr& inAsset, DXGI_FORMAT inFormat)
-{
-    ComPtr<IDStorageFactory> factory = nullptr;
-    gThrowIfFailed(DStorageGetFactory(IID_PPV_ARGS(&factory)));
-
-    const char* data_ptr = inAsset->GetData();
-    const DDS_HEADER* header_ptr = inAsset->GetHeader();
-
-    // I think DirectStorage doesnt do proper texture data alignment for its upload buffers as we get garbage past the 4th mip
-    // const uint32_t mipmap_levels = header->dwMipMapCount;
-    const uint32_t mipmap_levels = std::min(header_ptr->dwMipMapCount, 4ul);
-
-    const String debug_name = inAsset->GetPath().string();
-
-    Texture& texture = m_Device.GetTexture(m_Device.CreateTexture(Texture::Desc {
-        .format     = inFormat,
-        .width      = header_ptr->dwWidth,
-        .height     = header_ptr->dwHeight,
-        .mipLevels  = mipmap_levels,
-        .usage      = Texture::SHADER_READ_ONLY,
-        .debugName  = debug_name.c_str()
-    }));
-
-    Array<DSTORAGE_REQUEST> requests(mipmap_levels);
-    for (auto [mip, request] : gEnumerate(requests))
-    {
-        const UVec2 dimensions = UVec2(std::max(header_ptr->dwWidth >> mip, 1ul), std::max(header_ptr->dwHeight >> mip, 1ul));
-        const uint32_t data_size = std::max(1u, ( ( dimensions.x + 3u ) / 4u )) * std::max(1u, ( ( dimensions.y + 3u ) / 4u )) * 16u;
-
-        request = DSTORAGE_REQUEST 
-        {
-            .Options = DSTORAGE_REQUEST_OPTIONS 
-            {
-                .SourceType = DSTORAGE_REQUEST_SOURCE_MEMORY,
-                .DestinationType = DSTORAGE_REQUEST_DESTINATION_TEXTURE_REGION,
-            },
-
-            .Source = DSTORAGE_SOURCE 
-            {
-                DSTORAGE_SOURCE_MEMORY 
-                {
-                    .Source = data_ptr,
-                    .Size = data_size
-                }
-            },
-
-            .Destination = DSTORAGE_DESTINATION 
-            {
-                .Texture = DSTORAGE_DESTINATION_TEXTURE_REGION 
-                {
-                    .Resource = texture.GetD3D12Resource().Get(),
-                    .SubresourceIndex = uint32_t(mip),
-                    .Region = CD3DX12_BOX(0, 0, dimensions.x, dimensions.y),
-                }
-            },
-
-            .Name = inAsset->GetPath().string().c_str()
-        };
-
-        data_ptr += dimensions.x * dimensions.y;
-
-        m_MemoryStorageQueue->EnqueueRequest(&request);
-    }
-
-     ComPtr<ID3D12Fence> fence = nullptr;
-    gThrowIfFailed(m_Device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(fence.GetAddressOf())));
-
-    HANDLE fence_event = CreateEventA(nullptr, FALSE, FALSE, nullptr);
-    constexpr int fence_value = 1ul;
-    gThrowIfFailed(fence->SetEventOnCompletion(fence_value, fence_event));
-    m_MemoryStorageQueue->EnqueueSignal(fence.Get(), fence_value);
-
-    // Tell DirectStorage to start executing all queued items.
-    m_MemoryStorageQueue->Submit();
-
-    // Wait for the submitted work to complete
-    std::cout << "Waiting for the DirectStorage request to complete...\n";
-    WaitForSingleObject(fence_event, INFINITE);
-    CloseHandle(fence_event);
-
-    return texture.GetView();
-}
-
 
 
 void DeviceResourcesWidget::Draw(Widgets* inWidgets, float inDeltaTime)

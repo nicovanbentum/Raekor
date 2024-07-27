@@ -13,17 +13,11 @@ typedef unsigned int ImU32;
 
 namespace RK::GUI {
 
-void BeginDockSpace(ImGuiWindowFlags inFlags);
-void EndDockSpace();
-
-
 void BeginFrame();
 void EndFrame();
 
-
 void SetFont(const String& inFilePath);
-void SetTheme();
-
+void SetDarkTheme();
 
 glm::ivec2 GetMousePosWindow(const Viewport& viewport, ImVec2 windowPos);
 

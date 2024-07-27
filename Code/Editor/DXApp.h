@@ -28,9 +28,6 @@ public:
     IRenderInterface* GetRenderInterface() { return &m_RenderInterface; }
 
 private:
-    DescriptorID UploadTextureDirectStorage(const TextureAsset::Ptr& inAsset, DXGI_FORMAT inFormat); // unused for now
-
-private:
     TextureID  m_ImGuiFontTextureID;
     TextureID  m_DefaultWhiteTexture;
     TextureID  m_DefaultBlackTexture;

@@ -30,7 +30,8 @@ public:
 	void SetActiveEntity(Entity inEntity) final { m_ActiveEntity.store(inEntity); }
 	Entity GetActiveEntity() final { return m_ActiveEntity.load(); }
 
-
+	void BeginImGuiDockSpace();
+	void EndImGuiDockSpace();
 
 protected:
 	Scene m_Scene;
@@ -43,7 +44,9 @@ protected:
 	bool m_ViewportFullscreen = false;
 	void* m_CompilerWindow = nullptr;
 	void* m_CompilerProcess = nullptr;
+	
 	ImGuiID m_DockSpaceID;
+	bool m_DockSpaceBuilt = false;
 
 	Array<String> m_Messages;
 	Atomic<Entity> m_ActiveEntity = Entity::Null;

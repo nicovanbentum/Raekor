@@ -59,7 +59,7 @@ Launcher::Launcher() : Application(WindowFlag::HIDDEN)
 
 	if (!m_Settings.mFontFile.empty())
 		GUI::SetFont(m_Settings.mFontFile.string());
-	GUI::SetTheme();
+	GUI::SetDarkTheme();
 
 	m_Renderer = SDL_CreateRenderer(m_Window, -1, SDL_RENDERER_PRESENTVSYNC);
 

@@ -6,63 +6,6 @@
 
 namespace RK::GUI {
 
-void BeginDockSpace(ImGuiWindowFlags inFlags)
-{
-	ImGuiWindowFlags flags = inFlags | ImGuiWindowFlags_NoDocking;
-	flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize |
-		ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
-
-	//ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_PassthruCentralNode;
-	ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
-
-	ImGuiViewport* imGuiViewport = ImGui::GetMainViewport();
-	ImGui::SetNextWindowPos(imGuiViewport->Pos);
-	ImGui::SetNextWindowSize(imGuiViewport->Size);
-	ImGui::SetNextWindowViewport(imGuiViewport->ID);
-
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-
-	ImGuiWindowClass window_class = {};
-	window_class.DockNodeFlagsOverrideSet = ImGuiDockNodeFlags_NoCloseButton;
-	ImGui::SetNextWindowClass(&window_class);
-
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-	ImGui::Begin("DockSpace", (bool*)true, flags);
-	ImGui::PopStyleVar();
-	ImGui::PopStyleVar(2);
-
-	ImGuiViewport* viewport = ImGui::GetMainViewport();
-
-	if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_DockingEnable)
-	{
-		ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
-		ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags, &window_class);
-
-		static bool should_build_dockspace = true;
-
-		if (should_build_dockspace)
-		{
-			//ImGui::DockBuilderRemoveNode(dockspace_id); // clear any previous layout
-			//ImGui::DockBuilderAddNode(dockspace_id, dockspace_flags | ImGuiDockNodeFlags_DockSpace);
-			ImGui::DockBuilderSetNodeSize(dockspace_id, viewport->Size);
-		}
-
-		should_build_dockspace = false;
-	}
-
-	ImGui::SetNextWindowClass(&window_class);
-
-
-}
-
-
-void EndDockSpace()
-{
-	ImGui::End();
-}
-
-
 void BeginFrame()
 {
 	ImGui_ImplSDL2_NewFrame();
@@ -99,7 +42,7 @@ void SetFont(const std::string& inPath)
 }
 
 
-void SetTheme()
+void SetDarkTheme()
 {
 	ImVec4* colors = ImGui::GetStyle().Colors;
 	colors[ImGuiCol_Text] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
