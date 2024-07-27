@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.15)
 
-set(CMAKE_TOOLCHAIN_FILE "dependencies/vcpkg/scripts/buildsystems/vcpkg.cmake")
+set(CMAKE_TOOLCHAIN_FILE "ThirdParty/vcpkg/scripts/buildsystems/vcpkg.cmake")
 set(VCPKG_TARGET_TRIPLET x64-windows-static)
 set(CMAKE_CONFIGURATION_TYPES "Debug;RelWithDebInfo;Release" CACHE STRING "" FORCE)
 
@@ -16,12 +16,6 @@ find_package(directx-headers REQUIRED)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /MP")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
 
-add_subdirectory(source/VK)
-add_subdirectory(source/DX11)
-add_subdirectory(source/DX12)
-add_subdirectory(source/OpenGL)
-add_subdirectory(source/Raekor)
-add_subdirectory(source/Scripts)
-
-
-
+add_subdirectory(Code/Engine)
+add_subdirectory(Code/Editor)
+# add_subdirectory(Code/Scripts)

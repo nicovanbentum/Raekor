@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?> 
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+	<Type Name="RK::Slice&lt;*&gt;">
+		<DisplayString>{{ length={length} }}</DisplayString>
+		<Expand>
+			<Item Name="[length]" ExcludeView="simple">length</Item>
+			<ArrayItems>
+				<Size>length</Size>
+				<ValuePointer>start</ValuePointer>
+			</ArrayItems>
+		</Expand>
+	</Type>
+
+	<Type Name="RK::RTTI">
+		<DisplayString>{{ Name = {m_Name}, Members : {m_Members.size()} }}</DisplayString>
+	</Type>
+
+	<Type Name="RK::Member">
+		<DisplayString>{{ Name = {m_Name} }}</DisplayString>
+	</Type>
+
+</AutoVisualizer>

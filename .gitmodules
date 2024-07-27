@@ -1,45 +1,45 @@
 [submodule "dependencies/stb"]
-	path = dependencies/stb
+	path = ThirdParty/stb
 	url = https://github.com/nothings/stb
 [submodule "dependencies/glm"]
-	path = dependencies/glm
+	path = ThirdParty/glm
 	url = https://github.com/g-truc/glm
 [submodule "dependencies/imgui"]
 	path = dependencies/imgui
 	url = https://github.com/ocornut/imgui
 [submodule "dependencies/ImGuizmo"]
-	path = dependencies/ImGuizmo
+	path = ThirdParty/ImGuizmo
 	url = https://github.com/nicovanbentum/ImGuizmo/
 [submodule "dependencies/VulkanMemoryAllocator"]
-	path = dependencies/VulkanMemoryAllocator
+	path = ThirdParty/VulkanMemoryAllocator
 	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator
 [submodule "dependencies/IconFontCppHeaders"]
-	path = dependencies/IconFontCppHeaders
+	path = ThirdParty/IconFontCppHeaders
 	url = https://github.com/juliettef/IconFontCppHeaders
 [submodule "dependencies/vcpkg"]
-	path = dependencies/vcpkg
+	path = ThirdParty/vcpkg
 	url = https://github.com/microsoft/vcpkg
 [submodule "dependencies/imnodes"]
-	path = dependencies/imnodes
+	path = ThirdParty/imnodes
 	url = https://github.com/nicovanbentum/imnodes
 [submodule "dependencies/JoltPhysics"]
-	path = dependencies/JoltPhysics
+	path = ThirdParty/JoltPhysics
 	url = https://github.com/jrouwe/JoltPhysics
 [submodule "dependencies/D3D12MemoryAllocator"]
-	path = dependencies/D3D12MemoryAllocator
+	path = ThirdParty/D3D12MemoryAllocator
 	url = https://github.com/GPUOpen-LibrariesAndSDKs/D3D12MemoryAllocator
 [submodule "dependencies/ufbx"]
-	path = dependencies/ufbx
+	path = ThirdParty/ufbx
 	url = https://github.com/ufbx/ufbx
 [submodule "dependencies/DLSS"]
-	path = dependencies/DLSS
+	path = ThirdParty/DLSS
 	url = https://github.com/NVIDIA/DLSS
 [submodule "dependencies/xess"]
-	path = dependencies/xess
+	path = ThirdParty/xess
 	url = https://github.com/intel/xess
 [submodule "dependencies/BinaryRelations"]
-	path = dependencies/BinaryRelations
+	path = ThirdParty/BinaryRelations
 	url = https://github.com/RonPieket/BinaryRelations/
 [submodule "dependencies/meshoptimizer"]
-	path = dependencies/meshoptimizer
+	path = ThirdParty/meshoptimizer
 	url = https://github.com/zeux/meshoptimizer/
