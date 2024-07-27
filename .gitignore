@@ -17,7 +17,7 @@
 test.*
 CmakeCache.txt
 Raekor.dir/
-build/
+Build/
 CMakeFiles/
 /vcpkg_installed
 Debug/
@@ -25,11 +25,8 @@ Release/
 RelWithDebInfo/
 .vs/
 .vscode/
-x64/Linux/GE
 .clang-format
-/screenshots
-fake.hlsl
-cached/
+Cached/
 Assets/Models
 !Assets/Models/DancingStormtrooper
 !Assets/Models/Homer

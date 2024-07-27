@@ -1,0 +1,219 @@
+{
+	"SystemShadersDX12":
+    {
+        "Clear Buffer Shader":
+        {
+            "Compute Shader File": "Assets/Shaders/Backend/ClearBufferUAV.hlsl"
+        },
+
+        "Clear Texture Shader":
+        {
+            "Compute Shader File": "Assets/Shaders/Backend/ClearTextureUAV.hlsl"
+        },
+
+        "Sky Cube Shader":
+        {
+            "Compute Shader File": "Assets/Shaders/Backend/SkyCubeCS.hlsl"
+        },
+
+        "Convolve Cube Shader":
+        {
+            "Compute Shader File": "Assets/Shaders/Backend/ConvolveCubeCS.hlsl"
+        },
+
+        "ImGui Shader":
+        {
+            "Vertex Shader File": "Assets/Shaders/Backend/ImGuiVS.hlsl",
+            "Pixel Shader File": "Assets/Shaders/Backend/ImGuiPS.hlsl"
+        },
+
+        "Grass Shader":
+        {
+            "Vertex Shader File": "Assets/Shaders/Backend/GrassRenderVS.hlsl",
+            "Pixel Shader File": "Assets/Shaders/Backend/GrassRenderPS.hlsl"
+        },
+        
+        "GBuffer Shader":
+        {
+            "Vertex Shader File": "Assets/Shaders/Backend/GBufferVS.hlsl",
+            "Pixel Shader File": "Assets/Shaders/Backend/GBufferPS.hlsl"
+        },
+
+        "Skinning Shader":
+        {
+            "Compute Shader File": "Assets/Shaders/Backend/SkinningCS.hlsl"
+        },
+
+        "Lighting Shader":
+        {
+            "Vertex Shader File": "Assets/Shaders/Backend/FullScreenTriangleVS.hlsl",
+            "Pixel Shader File": "Assets/Shaders/Backend/LightingPS.hlsl"
+        },
+
+        "Light Cull Shader":
+        {
+            "Compute Shader File": "Assets/Shaders/Backend/LightCullTiledCS.hlsl"
+        },
+
+        "Downsample Shader":
+        {
+            "Compute Shader File": "Assets/Shaders/Backend/DownsampleCS.hlsl"
+        },
+
+        "TAA Resolve Shader":
+        {
+            "Vertex Shader File": "Assets/Shaders/Backend/FullScreenTriangleVS.hlsl",
+            "Pixel Shader File": "Assets/Shaders/Backend/TAAResolvePS.hlsl"
+        },
+
+        "Final Compose Shader":
+        {
+            "Vertex Shader File": "Assets/Shaders/Backend/FullScreenTriangleVS.hlsl",
+            "Pixel Shader File": "Assets/Shaders/Backend/FinalComposePS.hlsl"
+        },
+
+        "Debug Primitives Shader":
+        {
+            "Vertex Shader File": "Assets/Shaders/Backend/DebugLinesVS.hlsl",
+            "Pixel Shader File": "Assets/Shaders/Backend/DebugLinesPS.hlsl"
+        },
+
+        "Probe Debug Shader":
+        {
+            "Vertex Shader File": "Assets/Shaders/Backend/ProbeDebugVS.hlsl",
+            "Pixel Shader File": "Assets/Shaders/Backend/ProbeDebugPS.hlsl"
+        },
+
+        "Probe Debug Rays Shader":
+        {
+            "Defines": "#define DEBUG_PROBE_RAYS",
+            "Vertex Shader File": "Assets/Shaders/Backend/DebugLinesVS.hlsl",
+            "Pixel Shader File": "Assets/Shaders/Backend/DebugLinesPS.hlsl"
+        },
+
+        "Probe Trace Shader":
+        {
+            "Compute Shader File": "Assets/Shaders/Backend/ProbeTraceCS.hlsl"
+        },
+
+        "Probe Sample Shader":
+        {
+            "Compute Shader File": "Assets/Shaders/Backend/ProbeSampleCS.hlsl"
+        },
+
+        "Probe Update Depth Shader":
+        {
+            "Compute Shader File": "Assets/Shaders/Backend/ProbeUpdateDepthCS.hlsl"
+        },
+
+        "Probe Update Irradiance Shader":
+        {
+            "Compute Shader File": "Assets/Shaders/Backend/ProbeUpdateIrradianceCS.hlsl"
+        },
+        
+        "RT Reflections Shader":
+        {
+            "Compute Shader File": "Assets/Shaders/Backend/RTReflectionsCS.hlsl"
+        },
+
+        "RT Path Trace Shader":
+        {
+            "Compute Shader File": "Assets/Shaders/Backend/PathTraceCS.hlsl"
+        },
+
+        "RT Ambient Occlusion Shader":
+        {
+            "Compute Shader File": "Assets/Shaders/Backend/RTAmbientOcclusionCS.hlsl"
+        },
+
+        
+        "Trace Shadow Rays Shader":
+        {
+            "Compute Shader File": "Assets/Shaders/Backend/RTShadowsTraceCS.hlsl"
+        },
+
+        "Clear Shadow Tiles Shader":
+        {
+            "Compute Shader File": "Assets/Shaders/Backend/RTShadowsClearTilesCS.hlsl"
+        },
+        
+        "Classify Shadow Tiles Shader":
+        {
+            "Compute Shader File": "Assets/Shaders/Backend/RTShadowsClassifyCS.hlsl"
+        },
+
+        "Denoise Shadow Tiles Shader":
+        {
+            "Compute Shader File": "Assets/Shaders/Backend/RTShadowsDenoiseCS.hlsl"
+        },
+
+        
+        "GBuffer Debug Depth Shader": 
+        { 
+            "Defines": "#define DEBUG_TEXTURE_GBUFFER_DEPTH",
+            "Vertex Shader File": "Assets/Shaders/Backend/FullScreenTriangleVS.hlsl",
+            "Pixel Shader File": "Assets/Shaders/Backend/GBufferDebugPS.hlsl"
+        },
+
+        "GBuffer Debug Albedo Shader": 
+        { 
+            "Defines": "#define DEBUG_TEXTURE_GBUFFER_ALBEDO",
+            "Vertex Shader File": "Assets/Shaders/Backend/FullScreenTriangleVS.hlsl",
+            "Pixel Shader File": "Assets/Shaders/Backend/GBufferDebugPS.hlsl"
+        },
+
+        "GBuffer Debug Normals Shader": 
+        { 
+            "Defines": "#define DEBUG_TEXTURE_GBUFFER_NORMALS",
+            "Vertex Shader File": "Assets/Shaders/Backend/FullScreenTriangleVS.hlsl",
+            "Pixel Shader File": "Assets/Shaders/Backend/GBufferDebugPS.hlsl"
+        },
+
+        "GBuffer Debug Emissive Shader": 
+        { 
+            "Defines": "#define DEBUG_TEXTURE_GBUFFER_EMISSIVE",
+            "Vertex Shader File": "Assets/Shaders/Backend/FullScreenTriangleVS.hlsl",
+            "Pixel Shader File": "Assets/Shaders/Backend/GBufferDebugPS.hlsl"
+        },
+
+        "GBuffer Debug Metallic Shader": 
+        { 
+            "Defines": "#define DEBUG_TEXTURE_GBUFFER_METALLIC",
+            "Vertex Shader File": "Assets/Shaders/Backend/FullScreenTriangleVS.hlsl",
+            "Pixel Shader File": "Assets/Shaders/Backend/GBufferDebugPS.hlsl"
+        },
+
+        "GBuffer Debug Roughness Shader": 
+        { 
+            "Defines": "#define DEBUG_TEXTURE_GBUFFER_ROUGHNESS",
+            "Vertex Shader File": "Assets/Shaders/Backend/FullScreenTriangleVS.hlsl",
+            "Pixel Shader File": "Assets/Shaders/Backend/GBufferDebugPS.hlsl"
+        },
+
+        "GBuffer Debug Velocity Shader": 
+        { 
+            "Defines": "#define DEBUG_TEXTURE_GBUFFER_VELOCITY",
+            "Vertex Shader File": "Assets/Shaders/Backend/FullScreenTriangleVS.hlsl",
+            "Pixel Shader File": "Assets/Shaders/Backend/GBufferDebugPS.hlsl"
+        },
+
+        "Bloom Upscale Shader": 
+        { 
+            "Defines": "#define DO_UPSCALE",
+            "Compute Shader File": "Assets/Shaders/Backend/BloomCS.hlsl"
+        },
+
+        "Bloom Downscale Shader": 
+        { 
+            "Defines": "#define DO_DOWNSCALE",
+            "Compute Shader File": "Assets/Shaders/Backend/BloomCS.hlsl"
+        },
+
+        "Depth of Field Shader":
+        {
+            "Defines": "",
+            "Compute Shader File": "Assets/Shaders/Backend/DepthOfFieldCS.hlsl"
+        }
+    }
+}
+
