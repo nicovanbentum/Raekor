@@ -110,11 +110,11 @@ DXApp::DXApp() :
     LogMessage(std::format("[CPU] Blue noise texture took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
 
     // Create default textures / assets
-    const String black_texture_file  = "Assets/black4x4.dds";
-    const String white_texture_file  = "Assets/white4x4.dds";
+    const String black_texture_file = "Assets/black4x4.dds";
+    const String white_texture_file = "Assets/white4x4.dds";
     const String normal_texture_file = "Assets/normal4x4.dds";
-    m_DefaultBlackTexture  = TextureID(m_RenderInterface.UploadTextureFromAsset(m_Assets.GetAsset<TextureAsset>(black_texture_file)));
-    m_DefaultWhiteTexture  = TextureID(m_RenderInterface.UploadTextureFromAsset(m_Assets.GetAsset<TextureAsset>(white_texture_file)));
+    m_DefaultBlackTexture = TextureID(m_RenderInterface.UploadTextureFromAsset(m_Assets.GetAsset<TextureAsset>(black_texture_file)));
+    m_DefaultWhiteTexture = TextureID(m_RenderInterface.UploadTextureFromAsset(m_Assets.GetAsset<TextureAsset>(white_texture_file)));
     m_DefaultNormalTexture = TextureID(m_RenderInterface.UploadTextureFromAsset(m_Assets.GetAsset<TextureAsset>(normal_texture_file)));
 
     m_Renderer.QueueTextureUpload(m_DefaultBlackTexture, 0, m_Assets.GetAsset<TextureAsset>(black_texture_file));
@@ -125,10 +125,10 @@ DXApp::DXApp() :
     assert(m_DefaultWhiteTexture.IsValid() && m_DefaultWhiteTexture.GetIndex() != 0);
     assert(m_DefaultNormalTexture.IsValid() && m_DefaultNormalTexture.GetIndex() != 0);
 
-    Material::Default.gpuAlbedoMap    = m_DefaultWhiteTexture.GetValue();
-    Material::Default.gpuNormalMap    = m_DefaultNormalTexture.GetValue();
-    Material::Default.gpuEmissiveMap  = m_DefaultWhiteTexture.GetValue();
-    Material::Default.gpuMetallicMap  = m_DefaultWhiteTexture.GetValue();
+    Material::Default.gpuAlbedoMap = m_DefaultWhiteTexture.GetValue();
+    Material::Default.gpuNormalMap = m_DefaultNormalTexture.GetValue();
+    Material::Default.gpuEmissiveMap = m_DefaultWhiteTexture.GetValue();
+    Material::Default.gpuMetallicMap = m_DefaultWhiteTexture.GetValue();
     Material::Default.gpuRoughnessMap = m_DefaultWhiteTexture.GetValue();
 
     m_RenderInterface.SetBlackTexture(m_DefaultBlackTexture.GetValue());
@@ -201,6 +201,12 @@ void DXApp::OnUpdate(float inDeltaTime)
 
     if (m_ViewportChanged || m_Viewport.GetCamera().Changed() || m_Physics.GetState() == Physics::EState::Stepping)
         PathTraceData::mReset = true;
+
+    for (const Animation& animation : m_Scene.GetComponents<Animation>())
+    {
+        if (animation.IsPlaying())
+            PathTraceData::mReset = true;
+    }
     
     m_RenderInterface.UpdateGPUStats(m_Device);
 

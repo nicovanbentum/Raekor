@@ -308,6 +308,14 @@ public:
 		return m_Components.at(gGetTypeHash<Component>())->GetDerived<Component>();
 	}
 
+	template<typename Component>
+	Slice<Component> GetComponents() const
+	{
+		if (ComponentStorage<Component>* storage = GetComponentStorage<Component>())
+			return storage->GetComponents();
+		return {};
+	}
+
 	Entity Create()
 	{
 		return m_Entities.emplace_back(Entity(m_Entities.size()));

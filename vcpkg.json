@@ -7,13 +7,8 @@
             "platform": "windows & static"
         },
         {
-            "name": "glad",
-            "features": [ "extensions" ],
-            "platform": "windows & static"
-        },
-        {
             "name": "sdl2",
-            "features": [ "vulkan" ],
+            "features": [],
             "platform": "windows & static"
         },
         {
@@ -21,9 +16,7 @@
             "features": [
                             "sdl2-binding", 
                             "sdl2-renderer-binding",
-                            "dx11-binding",
                             "dx12-binding",
-                            "opengl3-binding", 
                             "docking-experimental"
                         ],
             "platform": "windows & static"
@@ -36,7 +29,6 @@
     "builtin-baseline": "217194cea7e3491c14779c763beec50b6a4575d6",
     "overrides": [
         { "name": "lz4", "version": "1.9.4#1" },
-        { "name": "glad", "version": "0.1.36" },
         { "name": "sdl2", "version": "2.26.5" },
         { "name": "imgui", "version": "1.89.4" },
         { "name": "directx-headers", "version": "1.608.2#1" }
