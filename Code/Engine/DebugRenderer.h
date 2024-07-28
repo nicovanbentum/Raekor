@@ -1,7 +1,5 @@
 #pragma once
 
-#include "slice.h"
-
 namespace RK {
 
 class DebugRenderer
@@ -28,8 +26,8 @@ public:
 
     void Reset(); // call once per frame as early as possible, will clear data!!
 
-    Slice<Vec4> GetLinesToRender() const { return Slice(m_RenderLines); }
-    Slice<Vec4> GetTrianglesToRender() const { return Slice(m_RenderTriangles); }
+    Slice<const Vec4> GetLinesToRender() const { return Slice(m_RenderLines); }
+    Slice<const Vec4> GetTrianglesToRender() const { return Slice(m_RenderTriangles); }
 
 private:
     Array<Vec4> m_RenderLines; // xyz = pos, w = packed color

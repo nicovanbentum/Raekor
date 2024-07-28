@@ -549,8 +549,8 @@ bool IRenderPass::IsWritten(RenderGraphResourceViewID inResource) const
 
 void IRenderPass::FlushBarriers(Device& inDevice, CommandList& inCmdList, const Slice<D3D12_RESOURCE_BARRIER>& inBarriers) const
 {
-    if (!inBarriers.IsEmpty())
-        inCmdList->ResourceBarrier(inBarriers.Length(), inBarriers.GetPtr());
+    if (!inBarriers.empty())
+        inCmdList->ResourceBarrier(inBarriers.size(), inBarriers.data());
 }
 
 

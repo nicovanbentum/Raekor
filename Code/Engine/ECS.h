@@ -1,7 +1,6 @@
 #pragma once
 
 #include "rtti.h"
-#include "slice.h"
 #include "archive.h"
 
 namespace RK {
@@ -654,7 +653,7 @@ public:
 		return GetComponentStorage<Component>()->Contains(inEntity);
 	}
 
-	Slice<Entity> GetEntities() const { return Slice(m_Entities); }
+	const Array<Entity>& GetEntities() const { return m_Entities; }
 
 	bool IsEmpty() const { return m_Entities.empty(); }
 

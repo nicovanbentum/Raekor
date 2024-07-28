@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Engine/rtti.h"
-#include "Engine/slice.h"
 #include "Engine/archive.h"
 
 namespace RK {
@@ -24,11 +23,11 @@ public:
 	static constexpr ImU32 sVertexShaderColor = IM_COL32(201, 181, 15, 255);
 
 public:
-	ShaderNodePin* GetInputPin(int inIndex) { return inIndex >= GetInputPins().Length() ? nullptr : &GetInputPins()[inIndex]; }
-	ShaderNodePin* GetOutputPin(int inIndex) { return inIndex >= GetOutputPins().Length() ? nullptr : &GetOutputPins()[inIndex]; }
+	ShaderNodePin* GetInputPin(int inIndex) { return inIndex >= GetInputPins().size() ? nullptr : &GetInputPins()[inIndex]; }
+	ShaderNodePin* GetOutputPin(int inIndex) { return inIndex >= GetOutputPins().size() ? nullptr : &GetOutputPins()[inIndex]; }
 
-	virtual MutSlice<ShaderNodePin> GetInputPins() { return MutSlice<ShaderNodePin>(); }
-	virtual MutSlice<ShaderNodePin> GetOutputPins() { return MutSlice<ShaderNodePin>(); }
+	virtual Slice<ShaderNodePin> GetInputPins() { return Slice<ShaderNodePin>(); }
+	virtual Slice<ShaderNodePin> GetOutputPins() { return Slice<ShaderNodePin>(); }
 
 	virtual void DrawImNode(ShaderGraphBuilder& inBuilder) {}
 	virtual String GenerateCode(ShaderGraphBuilder& inBuilder) { return ""; }
@@ -145,7 +144,7 @@ public:
 	const ShaderNodePin* GetOutputPin(int inIndex) { return GetShaderNode(M_ShaderNodePins[inIndex].first)->GetOutputPin(M_ShaderNodePins[inIndex].second); }
 
 	int GetIncomingPin(int inIndex) const { return m_IncomingLinks.at(inIndex); }
-	Slice<int> GetOutgoingPins(int inIndex) const { return m_OutgoingLinks.at(inIndex); }
+	Slice<const int> GetOutgoingPins(int inIndex) const { return m_OutgoingLinks.at(inIndex); }
 
 	bool HasIncomingPin(int inIndex) const { return m_IncomingLinks.contains(inIndex); }
 	bool HasOutgoingPins(int inIndex) const { return m_OutgoingLinks.contains(inIndex) && !m_OutgoingLinks.at(inIndex).empty(); }
@@ -155,7 +154,7 @@ public:
 
 	const ShaderNodePin* GetIncomingPin(const ShaderNodePin& inPin) { return HasIncomingPin(inPin.GetIndex()) ? GetOutputPin(GetIncomingPin(inPin.GetIndex())) : nullptr; }
 
-	Slice<std::shared_ptr<ShaderNode>> GetShaderNodes() const { return m_ShaderNodes; }
+	Slice<const std::shared_ptr<ShaderNode>> GetShaderNodes() const { return m_ShaderNodes; }
 
 	void RequestPassConstants() { m_RequiresPassConstants = true; }
 	void RequestFrameConstants() { m_RequiresFrameConstants = true; }
@@ -180,7 +179,7 @@ public:
 	void BeginDraw();
 	void EndDraw() {}
 
-	Slice<Pair<int, int>> GetLinks() const { return Slice(m_Links); }
+	Slice<const Pair<int, int>> GetLinks() const { return Slice(m_Links); }
 
 	bool GetShowNodeIndices() const { return m_ShowNodeIndices; }
 	void SetShowNodeIndices(bool inValue) { m_ShowNodeIndices = inValue; }
@@ -195,7 +194,7 @@ public:
 	void SetErrorMessage(StringView inMessage) { m_ErrorMessage = inMessage; }
 	StringView GetErrorMessage() const { return m_ErrorMessage; }
 
-	Slice<String> GetFunctions() const { return m_Functions; }
+	Slice<const String> GetFunctions() const { return m_Functions; }
 	void AddFunction(const String& inFunction) { m_Functions.push_back(inFunction); }
 
 	void StoreSnapshot();

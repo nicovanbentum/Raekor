@@ -87,8 +87,9 @@ public:
     void QueueSkeletonUpload(Entity inEntity) { m_PendingSkeletonUploads.push_back(inEntity); }
     void QueueMaterialUpload(Entity inEntity) { m_PendingMaterialUploads.push_back(inEntity); }
 
-    void QueueTextureUpload(TextureID inTexture, uint32_t inMip, const Slice<char>& inData) { m_PendingTextureUploads.emplace_back(TextureUpload{ inMip, inTexture, inData }); }
-    void QueueTextureUpload(TextureID inTexture, uint32_t inMip, const TextureAsset::Ptr& inData) { m_PendingTextureUploads.emplace_back(TextureUpload{ inMip, inTexture, Slice(inData->GetData(), inData->GetDataSize()) }); }
+    void QueueTextureUpload(TextureID inTexture, uint32_t inMip, const ByteSlice& inData) { m_PendingTextureUploads.emplace_back(TextureUpload { inMip, inTexture, inData }); }
+    void QueueTextureUpload(TextureID inTexture, uint32_t inMip, const TextureAsset::Ptr& inAsset) { m_PendingTextureUploads.emplace_back(TextureUpload{ inMip, inTexture, inAsset->GetDataSlice() }); }
+    void QueueTextureUpload(TextureID inTexture, uint32_t inMip, const void* inData, size_t inSize) { m_PendingTextureUploads.emplace_back(TextureUpload { inMip, inTexture, {(uint8_t*)inData, inSize} }); }
 
     SDL_Window*         GetWindow() const       { return m_Window; }
     Settings&           GetSettings()           { return m_Settings; }

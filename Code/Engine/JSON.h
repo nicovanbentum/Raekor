@@ -16,7 +16,7 @@ public:
 	uint32_t SkipToken(uint32_t inTokenIdx) const;
 
 	uint32_t GetTokenCount() const { return m_Tokens.size(); }
-	Slice<jsmntok_t> GetTokens() const { return Slice(m_Tokens); }
+	Slice<const jsmntok_t> GetTokens() const { return Slice(m_Tokens); }
 
 	bool IsEmpty() const { return m_StrBuffer.empty() || m_Tokens.empty(); }
 	bool HasRootObject() const { return m_Tokens.size() > 0 && m_Tokens[0].type == JSMN_OBJECT; }

@@ -16,7 +16,7 @@ public:
 	void DrawImNode(ShaderGraphBuilder& inBuilder) override;
 	String GenerateCode(ShaderGraphBuilder& inBuilder) override;
 
-	MutSlice<ShaderNodePin> GetOutputPins() override { return MutSlice(&m_OutputPin); }
+	Slice<ShaderNodePin> GetOutputPins() override { return Slice(&m_OutputPin, 1); }
 
 private:
 	float m_Float = 0.0f;
@@ -57,8 +57,8 @@ public:
 	void DrawImNode(ShaderGraphBuilder& inBuilder) override;
 	String GenerateCode(ShaderGraphBuilder& inBuilder) override;
 
-	MutSlice<ShaderNodePin> GetInputPins() { return MutSlice(m_InputPins); }
-	MutSlice<ShaderNodePin> GetOutputPins() { return MutSlice(m_OutputPins); }
+	Slice<ShaderNodePin> GetInputPins() { return Slice(m_InputPins); }
+	Slice<ShaderNodePin> GetOutputPins() { return Slice(m_OutputPins); }
 
 private:
 	StaticArray<ShaderNodePin, 2> m_InputPins = { ShaderNodePin::FLOAT,  ShaderNodePin::FLOAT };
@@ -110,8 +110,8 @@ public:
 	void DrawImNode(ShaderGraphBuilder& ioBuilder) override;
 	String GenerateCode(ShaderGraphBuilder& inBuilder) override;
 
-	MutSlice<ShaderNodePin> GetInputPins() override { return MutSlice(&m_InputPin, 1); }
-	MutSlice<ShaderNodePin> GetOutputPins() override { return MutSlice(&m_OutputPin, 1); }
+	Slice<ShaderNodePin> GetInputPins() override { return Slice(&m_InputPin, 1); }
+	Slice<ShaderNodePin> GetOutputPins() override { return Slice(&m_OutputPin, 1); }
 
 private:
 	EFunction m_Function = FLOAT_FUNCTION_SIN;
@@ -128,8 +128,8 @@ public:
 	void DrawImNode(ShaderGraphBuilder& inBuilder) override;
 	String GenerateCode(ShaderGraphBuilder& inBuilder) override;
 
-	MutSlice<ShaderNodePin> GetInputPins() override { return MutSlice(m_InputPins); }
-	MutSlice<ShaderNodePin> GetOutputPins() override { return MutSlice(m_OutputPins); }
+	Slice<ShaderNodePin> GetInputPins() override { return Slice(m_InputPins); }
+	Slice<ShaderNodePin> GetOutputPins() override { return Slice(m_OutputPins); }
 
 private:
 	Vec3 m_Vector = Vec3(0.0f, 0.0f, 0.0f);
@@ -172,8 +172,8 @@ public:
 	void DrawImNode(ShaderGraphBuilder& inBuilder) override;
 	String GenerateCode(ShaderGraphBuilder& inBuilder) override;
 
-	MutSlice<ShaderNodePin> GetInputPins() { return MutSlice(m_InputPins); }
-	MutSlice<ShaderNodePin> GetOutputPins() { return MutSlice(m_OutputPins); }
+	Slice<ShaderNodePin> GetInputPins() { return Slice(m_InputPins); }
+	Slice<ShaderNodePin> GetOutputPins() { return Slice(m_OutputPins); }
 
 private:
 	StaticArray<ShaderNodePin, 2> m_InputPins = { ShaderNodePin::VECTOR, ShaderNodePin::VECTOR };
@@ -215,8 +215,8 @@ public:
 	void DrawImNode(ShaderGraphBuilder& ioBuilder) override;
 	String GenerateCode(ShaderGraphBuilder& inBuilder) override;
 
-	MutSlice<ShaderNodePin> GetInputPins() override { return MutSlice(&m_InputPin, 1); }
-	MutSlice<ShaderNodePin> GetOutputPins() override { return MutSlice(&m_OutputPin, 1); }
+	Slice<ShaderNodePin> GetInputPins() override { return Slice(&m_InputPin, 1); }
+	Slice<ShaderNodePin> GetOutputPins() override { return Slice(&m_OutputPin, 1); }
 
 private:
 	EFunction m_Function = VECTOR_FUNCTION_SATURATE;
@@ -240,8 +240,8 @@ public:
 	void DrawImNode(ShaderGraphBuilder& ioBuilder) override;
 	String GenerateCode(ShaderGraphBuilder& inBuilder) override;
 
-	MutSlice<ShaderNodePin> GetInputPins() override { return MutSlice(&m_InputPin, 1); }
-	MutSlice<ShaderNodePin> GetOutputPins() override { return MutSlice(m_OutputPins); }
+	Slice<ShaderNodePin> GetInputPins() override { return Slice(&m_InputPin, 1); }
+	Slice<ShaderNodePin> GetOutputPins() override { return Slice(m_OutputPins); }
 
 private:
 
@@ -261,7 +261,7 @@ public:
 	void DrawImNode(ShaderGraphBuilder& inBuilder) override;
 	String GenerateCode(ShaderGraphBuilder& inBuilder) override;
 
-	MutSlice<ShaderNodePin> GetOutputPins() { return MutSlice(&m_OutputPin, 1); }
+	Slice<ShaderNodePin> GetOutputPins() { return Slice(&m_OutputPin, 1); }
 
 private:
 	String m_Title;
@@ -281,8 +281,8 @@ public:
 	void AddInputVariable(const String& inName, ShaderNodePin::EKind inKind) { m_InputNames.push_back(inName); m_InputPins.push_back(inKind); }
 	void AddOutputVariable(const String& inName, ShaderNodePin::EKind inKind) { m_OutputNames.push_back(inName); m_OutputPins.push_back(inKind); }
 
-	MutSlice<ShaderNodePin> GetInputPins() override { return MutSlice(m_InputPins); }
-	MutSlice<ShaderNodePin> GetOutputPins() override { return MutSlice(m_OutputPins); }
+	Slice<ShaderNodePin> GetInputPins() override { return Slice(m_InputPins); }
+	Slice<ShaderNodePin> GetOutputPins() override { return Slice(m_OutputPins); }
 
 protected:
 	String m_Title = "Procedure";
@@ -411,8 +411,8 @@ public:
 	void DrawImNode(ShaderGraphBuilder& inBuilder) override;
 	String GenerateCode(ShaderGraphBuilder& inBuilder) override;
 
-	MutSlice<ShaderNodePin> GetInputPins() override { return MutSlice(m_InputPins); }
-	MutSlice<ShaderNodePin> GetOutputPins() override { return MutSlice(&m_OutputPin); }
+	Slice<ShaderNodePin> GetInputPins() override { return Slice(m_InputPins); }
+	Slice<ShaderNodePin> GetOutputPins() override { return Slice(&m_OutputPin, 1); }
 
 private:
 	Op m_Op = OP_EQUAL;
@@ -440,7 +440,7 @@ public:
 	void DrawImNode(ShaderGraphBuilder& inBuilder) override;
 	String GenerateCode(ShaderGraphBuilder& inBuilder) override;
 
-	MutSlice<ShaderNodePin> GetInputPins() override { return MutSlice(m_InputPins); }
+	Slice<ShaderNodePin> GetInputPins() override { return Slice(m_InputPins); }
 
 private:
 	StaticArray<ShaderNodePin, 7> m_InputPins
@@ -488,7 +488,7 @@ public:
 	void DrawImNode(ShaderGraphBuilder& inBuilder) override;
 	String GenerateCode(ShaderGraphBuilder& inBuilder) override;
 
-	MutSlice<ShaderNodePin> GetInputPins() override { return MutSlice(m_InputPins); }
+	Slice<ShaderNodePin> GetInputPins() override { return Slice(m_InputPins); }
 
 private:
 	StaticArray<ShaderNodePin, 7> m_InputPins

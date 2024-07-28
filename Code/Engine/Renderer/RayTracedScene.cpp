@@ -166,10 +166,10 @@ void RayTracedScene::UploadSkeleton(Application* inApp, Device& inDevice, Skelet
 
 void RayTracedScene::UploadTexture(Application* inApp, Device& inDevice, TextureUpload& inUpload, CommandList& inCmdList)
 {
-    if (inUpload.mTexture.IsValid() && !inUpload.mData.IsEmpty())
+    if (inUpload.mTexture.IsValid() && !inUpload.mData.empty())
     {
         const Texture& texture = inDevice.GetTexture(inUpload.mTexture);
-        inDevice.UploadTextureData(inCmdList, texture, inUpload.mMip, inUpload.mData.GetPtr());
+        inDevice.UploadTextureData(inCmdList, texture, inUpload.mMip, inUpload.mData.data());
     }
 }
 
@@ -180,7 +180,7 @@ void RayTracedScene::UploadMaterial(Application* inApp, Device& inDevice, Materi
     {
         if (inAsset)
         {
-            const char* data_ptr = inAsset->GetData();
+            const uint8_t* data_ptr = inAsset->GetData();
             const DDS_HEADER* header_ptr = inAsset->GetHeader();
 
             const uint32_t mipmap_levels = header_ptr->dwMipMapCount;
@@ -304,11 +304,11 @@ void RayTracedScene::UploadLights(Application* inApp, Device& inDevice, CommandL
     if (!m_Scene.Count<Light>())
         return;
 
-    const Slice<Light> lights = m_Scene.GetComponentStorage<Light>()->GetComponents();
+    Slice<const Light> lights = m_Scene.GetComponentStorage<Light>()->GetComponents();
 
     m_LightsBuffer = GrowBuffer(inDevice, m_LightsBuffer, Buffer::Desc
     {
-        .size   = sizeof(lights[0]) * lights.Length(),
+        .size   = sizeof(lights[0]) * lights.size(),
         .stride = sizeof(lights[0]),
         .usage  = Buffer::Usage::SHADER_READ_ONLY,
         .debugName = "RT_LIGHTS_BUFFER"
@@ -316,7 +316,7 @@ void RayTracedScene::UploadLights(Application* inApp, Device& inDevice, CommandL
 
     const Buffer& lights_buffer = inDevice.GetBuffer(m_LightsBuffer);
     
-    inDevice.UploadBufferData(inCmdList, lights_buffer, 0, lights.GetPtr(), lights_buffer.GetSize());
+    inDevice.UploadBufferData(inCmdList, lights_buffer, 0, lights.data(), lights_buffer.GetSize());
 }
 
 
@@ -375,13 +375,13 @@ void RayTracedScene::UploadMaterials(Application* inApp, Device& inDevice, Comma
 {
     PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( inCmdList ), PIX_COLOR(0, 255, 0), "UPLOAD MATERIALS");
 
-    Slice<Material> materials = m_Scene.GetComponentStorage<Material>()->GetComponents();
+    Slice<const Material> materials = m_Scene.GetComponentStorage<Material>()->GetComponents();
 
-    if (materials.IsEmpty())
-        materials = Slice(&Material::Default);
+    if (materials.empty())
+        materials = Slice(&Material::Default, 1);
 
     Array<RTMaterial> rt_materials;
-    rt_materials.resize(materials.Length());
+    rt_materials.resize(materials.size());
 
     for (const auto& [index, material] : gEnumerate(materials))
     {

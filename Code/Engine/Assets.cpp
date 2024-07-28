@@ -142,7 +142,7 @@ bool TextureAsset::Save()
 	if (!file.is_open())
 		return false;
 
-	file.write(m_Data.data(), m_Data.size());
+	file.write((const char*)m_Data.data(), m_Data.size());
 
 	return true;
 }
@@ -157,7 +157,7 @@ bool TextureAsset::Load()
 	//file.rdbuf()->pubsetbuf(scratch.data(), scratch.size());
 
 	m_Data.resize(fs::file_size(m_Path));
-	file.read(m_Data.data(), m_Data.size());
+	file.read((char*)m_Data.data(), m_Data.size());
 
 	DWORD magic_number;
 	memcpy(&magic_number, m_Data.data(), sizeof(DWORD));

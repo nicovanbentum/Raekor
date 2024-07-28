@@ -2,7 +2,6 @@
 
 #include "RenderUtil.h"
 #include "Defines.h"
-#include "Slice.h"
 
 namespace RK::DX12 {
 
@@ -365,14 +364,14 @@ using TextureID = Texture::Pool::TypedID;
 struct BufferUpload
 {
     BufferID mBuffer;
-    Slice<char> mData;
+    ByteSlice mData;
 };
 
 struct TextureUpload
 {
     uint32_t mMip = 0;
     TextureID mTexture;
-    Slice<char> mData;
+    ByteSlice mData;
 };
 
 struct UploadBuffer

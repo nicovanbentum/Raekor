@@ -260,7 +260,7 @@ void ShaderGraphWidget::Draw(Widgets* inWidgets, float dt)
 		if (ImGui::MenuItem(inName))
 		{
 			GetBuilder().CreateShaderNode<T>();
-			ImNodes::SetNodeScreenSpacePos(GetBuilder().GetShaderNodes().Length() - 1, m_ClickedMousePos);
+			ImNodes::SetNodeScreenSpacePos(GetBuilder().GetShaderNodes().size() - 1, m_ClickedMousePos);
 
 			return true;
 		}
@@ -443,7 +443,7 @@ void ShaderGraphWidget::Draw(Widgets* inWidgets, float dt)
 	int deleted_node_id;
 	if (ImNodes::IsLinkDestroyed(&deleted_node_id))
 	{
-		const Slice<Pair<int, int>>& links = GetBuilder().GetLinks();
+		const Slice<const Pair<int, int>>& links = GetBuilder().GetLinks();
 		const Pair<int, int>& link = links[deleted_node_id];
 		GetBuilder().DisconnectPins(link.first, link.second);
 	}
@@ -474,7 +474,7 @@ void ShaderGraphWidget::OnEvent(Widgets* inWidgets, const SDL_Event& ev)
 
 				for (int selected_link : GetContext().SelectedLinks)
 				{
-					Slice<Pair<int,int>> links = GetBuilder().GetLinks();
+					Slice<const Pair<int,int>> links = GetBuilder().GetLinks();
 					const Pair<int, int> link = links[selected_link];
 					GetBuilder().DisconnectPins(link.first, link.second);
 				}

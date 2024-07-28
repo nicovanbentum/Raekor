@@ -382,8 +382,8 @@ D3D12_GRAPHICS_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* 
     D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state =
     {
         .pRootSignature = m_GlobalRootSignature.Get(),
-        .VS = CD3DX12_SHADER_BYTECODE(inVertexShader.GetPtr(), inVertexShader.Length()),
-        .PS = CD3DX12_SHADER_BYTECODE(inPixelShader.GetPtr(), inPixelShader.Length()),
+        .VS = CD3DX12_SHADER_BYTECODE(inVertexShader.data(), inVertexShader.size()),
+        .PS = CD3DX12_SHADER_BYTECODE(inPixelShader.data(), inPixelShader.size()),
         .BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT),
         .SampleMask = UINT_MAX,
         .RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT),
@@ -412,7 +412,7 @@ D3D12_GRAPHICS_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* 
 D3D12_COMPUTE_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* inRenderPass, const ByteSlice& inComputeShader)
 {
     assert(inRenderPass ? inRenderPass->IsCompute() : true && "Cannot create a Compute PSO description for a GraphicsRenderPass");
-    D3D12_SHADER_BYTECODE cs_bytecode = CD3DX12_SHADER_BYTECODE(inComputeShader.GetPtr(), inComputeShader.Length());
+    D3D12_SHADER_BYTECODE cs_bytecode = CD3DX12_SHADER_BYTECODE(inComputeShader.data(), inComputeShader.size());
     return D3D12_COMPUTE_PIPELINE_STATE_DESC { .pRootSignature = m_GlobalRootSignature.Get(), .CS = cs_bytecode };
 }
 

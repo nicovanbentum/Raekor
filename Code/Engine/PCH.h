@@ -189,6 +189,10 @@ using StringView = std::string_view;
 using StringBuilder = std::stringstream;
 
 template<typename T>
+using Slice = std::span<T>;
+using ByteSlice = Slice<const uint8_t>;
+
+template<typename T>
 using SharedPtr = std::shared_ptr<T>;
 
 template<typename T>

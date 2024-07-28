@@ -834,7 +834,7 @@ void RenderInterface::ReleaseMaterialShaders(Entity inEntity, Material& inMateri
 
 uint32_t RenderInterface::UploadTextureFromAsset(const TextureAsset::Ptr& inAsset, bool inIsSRGB, uint8_t inSwizzle)
 {
-    const char* data_ptr = inAsset->GetData();
+    const uint8_t* data_ptr = inAsset->GetData();
     const DDS_HEADER* header_ptr = inAsset->GetHeader();
 
     const uint32_t mipmap_levels = header_ptr->dwMipMapCount;

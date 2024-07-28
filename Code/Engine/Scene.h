@@ -53,7 +53,7 @@ public:
 	Entity GetRootEntity() const { return m_RootEntity; }
 
 	bool HasChildren(Entity inEntity) const { return !m_Hierarchy.findRight(inEntity)->empty(); }
-	Slice<Entity> GetChildren(Entity inEntity) { return *m_Hierarchy.findRight(inEntity); }
+	Slice<const Entity> GetChildren(Entity inEntity) { return *m_Hierarchy.findRight(inEntity); }
 	
 	bool HasParent(Entity inEntity) const { return GetParent(inEntity) != Entity::Null; }
 	Entity GetParent(Entity inEntity) const { return m_Hierarchy.findLeft(inEntity, Entity::Null); }
@@ -66,7 +66,7 @@ public:
 	void Destroy(Entity inEntity);
 
 	// load materials from disk in parallel, is used for both importing and scene loading.
-	void LoadMaterialTextures(Assets& ioAssets, const Slice<Entity>& inMaterials);
+	void LoadMaterialTextures(Assets& ioAssets, Slice<const Entity> inMaterials);
 
 	// save Scene to disk
 	void SaveToFile(const String& inFile, Assets& ioAssets, Application* inApp = nullptr);

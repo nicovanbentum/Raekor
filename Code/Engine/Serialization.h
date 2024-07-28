@@ -1,7 +1,5 @@
 #pragma once
 
-#include "slice.h"
-
 namespace RK {
 
 enum ESerializeType
@@ -45,9 +43,9 @@ inline void WriteFileData(File& ioFile, const T& inData) { ioFile.write((const c
 
 
 template<typename T>
-void WriteFileSlice(File& ioFile, Slice<T> inData) { ioFile.write((const char*)inData.GetPtr(), inData.Length() * sizeof(T)); }
+void WriteFileSlice(File& ioFile, Slice<T> inData) { ioFile.write((const char*)inData.data(), inData.size() * sizeof(T)); }
 template<typename T>
-void ReadFileSlice(File& ioFile, Slice<T> inData) { ioFile.read((char*)inData.GetPtr(), inData.Length() * sizeof(T)); }
+void ReadFileSlice(File& ioFile, Slice<T> inData) { ioFile.read((char*)inData.data(), inData.size() * sizeof(T)); }
 
 
 template<typename T>
@@ -78,7 +76,7 @@ inline void ReadFileBinary(File& ioFile, std::string& ioData)
 inline void WriteFileBinary(File& ioFile, const std::string& inData)
 {
 	WriteFileData(ioFile, inData.size());
-	WriteFileSlice(ioFile, Slice<char>(inData));
+	WriteFileSlice(ioFile, std::as_bytes(Slice(inData)));
 }
 
 

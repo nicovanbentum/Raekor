@@ -400,7 +400,7 @@ Entity Scene::Clone(Entity inEntity)
 	{
 		ParentTo(copy, GetParent(inEntity));
 		
-		Slice<Entity> children = GetChildren(inEntity);
+		Slice<const Entity> children = GetChildren(inEntity);
 		for (Entity child : children)
 			Clone(child);
 	}
@@ -427,7 +427,7 @@ void Scene::Destroy(Entity inEntity)
 
 
 
-void Scene::LoadMaterialTextures(Assets& assets, const Slice<Entity>& inMaterialEntities)
+void Scene::LoadMaterialTextures(Assets& assets, Slice<const Entity> inMaterialEntities)
 {
 	Timer timer;
 

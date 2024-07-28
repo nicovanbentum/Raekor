@@ -78,9 +78,9 @@ private:
     uint64_t mVertexShaderHash;
     uint64_t mPixelShaderHash;
     uint64_t mComputeShaderHash;
-    Array<unsigned char> mVertexShader;
-    Array<unsigned char> mPixelShader;
-    Array<unsigned char> mComputeShader;
+    Array<uint8_t> mVertexShader;
+    Array<uint8_t> mPixelShader;
+    Array<uint8_t> mComputeShader;
 
     // runtime fields
     fs::file_time_type mVertexShaderFileTime;

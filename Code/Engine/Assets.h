@@ -2,7 +2,6 @@
 
 #include "dds.h"
 #include "rtti.h"
-#include "slice.h"
 
 namespace RK {
 
@@ -76,7 +75,9 @@ public:
 	bool IsExtendedDX10() const { return m_IsExtendedDX10; }
 
 	uint32_t GetDataSize() const { return m_Data.size() - m_IsExtendedDX10 ? sizeof(DDSFileInfoExtended) : sizeof(DDSFileInfo); }
-	const char* const GetData() const { return m_Data.data() + int(m_IsExtendedDX10 ? sizeof(DDSFileInfoExtended) : sizeof(DDSFileInfo)); }
+	const uint8_t* const GetData() const { return m_Data.data() + int(m_IsExtendedDX10 ? sizeof(DDSFileInfoExtended) : sizeof(DDSFileInfo)); }
+	
+	ByteSlice GetDataSlice() const { return ByteSlice(GetData(), GetDataSize()); }
 
 	DDS_HEADER* GetHeader() { return reinterpret_cast<DDS_HEADER*>( m_Data.data() + sizeof(uint32_t) ); }
 	const DDS_HEADER* GetHeader() const { return reinterpret_cast<const DDS_HEADER*>( m_Data.data() + sizeof(uint32_t) ); }
@@ -85,7 +86,7 @@ public:
 	const DDS_HEADER_DXT10* GetHeaderDXT10() const { return reinterpret_cast<const DDS_HEADER_DXT10*>( m_Data.data() + sizeof(uint32_t) + sizeof(DDS_HEADER) ); }
 
 private:
-	Array<char> m_Data;
+	Array<uint8_t> m_Data;
 	uint32_t m_Texture = 0;
 	bool m_IsExtendedDX10 = false;
 };
@@ -108,7 +109,7 @@ public:
 	static String GetCachedPath(const String& inPath) { return Asset::GetCachedPath(inPath, ".dll"); }
 
 	void EnumerateSymbols();
-	Slice<String> GetRegisteredTypes() const { return Slice(m_RegisteredTypes); }
+	const Array<String>& GetRegisteredTypes() const { return m_RegisteredTypes; }
 
 private:
 	Path m_TempPath;

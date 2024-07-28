@@ -423,6 +423,7 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
 
         for (const auto& [entity, mesh] : inScene->Each<Mesh>())
         {
+            const Name& name = inScene->Get<Name>(entity);
             const Transform* transform = inScene->GetPtr<Transform>(entity);
 
             if (!transform)
@@ -449,6 +450,9 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
                 inCmdList->SetPipelineState(pipeline_state);
             else
                 continue;
+
+            const char* debug_name = mesh.name.empty() ? name.name.c_str() : mesh.name.c_str();
+            PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( inCmdList ), PIX_COLOR(0, 255, 0), debug_name);
 
             const int instance_index = inScene->GetPackedIndex<Mesh>(entity);
             assert(instance_index != -1);
@@ -1040,18 +1044,18 @@ const DebugPrimitivesData& AddDebugOverlayPass(RenderGraph& inRenderGraph, Devic
     },
     [&inRenderGraph](DebugPrimitivesData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
-        const Slice<Vec4> line_vertices = g_DebugRenderer.GetLinesToRender();
+        Slice<const Vec4> line_vertices = g_DebugRenderer.GetLinesToRender();
 
-        if (line_vertices.IsEmpty())
+        if (line_vertices.empty())
             return;
 
-        inRenderGraph.GetPerPassAllocator().AllocAndCopy(line_vertices.SizeInBytes(), line_vertices.GetPtr(), inData.mLineVertexDataOffset);
+        inRenderGraph.GetPerPassAllocator().AllocAndCopy(line_vertices.size_bytes(), line_vertices.data(), inData.mLineVertexDataOffset);
 
         inCmdList->SetPipelineState(inData.mPipeline.Get());
         inCmdList.PushGraphicsConstants(DebugPrimitivesRootConstants { .mBufferOffset = inData.mLineVertexDataOffset });
 
         inCmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
-        inCmdList->DrawInstanced(line_vertices.Length(), 1, 0, 0);
+        inCmdList->DrawInstanced(line_vertices.size(), 1, 0, 0);
 
         // restore triangle state for other passes
         inCmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);

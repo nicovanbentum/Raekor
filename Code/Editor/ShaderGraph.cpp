@@ -167,15 +167,15 @@ bool ShaderGraphBuilder::GenerateCodeFromTemplate(String& ioCode)
 
 	Array<int> pin_indegree;
 	Array<int> pin_outdegree;
-	pin_indegree.resize(local_builder.GetShaderNodes().Length());
-	pin_outdegree.resize(local_builder.GetShaderNodes().Length());
+	pin_indegree.resize(local_builder.GetShaderNodes().size());
+	pin_outdegree.resize(local_builder.GetShaderNodes().size());
 
 	for (const auto& [index, shader_node] : gEnumerate(local_builder.GetShaderNodes()))
 	{
 		for (const ShaderNodePin& output_pin : shader_node->GetOutputPins())
 		{
 			if (local_builder.HasOutgoingPins(output_pin.GetIndex()))
-				pin_indegree[index] += local_builder.GetOutgoingPins(output_pin.GetIndex()).Length();
+				pin_indegree[index] += local_builder.GetOutgoingPins(output_pin.GetIndex()).size();
 		}
 
 		for (const ShaderNodePin& input_pin : shader_node->GetInputPins())
@@ -193,7 +193,7 @@ bool ShaderGraphBuilder::GenerateCodeFromTemplate(String& ioCode)
 		{
 			ShaderNode* node = local_builder.GetShaderNode(i);
 
-			if (!node->GetOutputPins().IsEmpty())
+			if (!node->GetOutputPins().empty())
 				local_builder.DestroyShaderNode(i);
 		}
 	}
