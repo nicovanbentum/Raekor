@@ -1005,6 +1005,16 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
             }
         }
 
+        if (ImGui::Button("Re-calculate Normals"))
+        {
+            for (const auto& [entity, mesh] : inScene.Each<Mesh>())
+            {
+                mesh.CalculateNormals();
+                mesh.CalculateTangents();
+                mesh.CalculateVertices();
+            }
+        }
+
         if (ImGui::Button("Material albedo 1"))
         {
             for (const auto& [entity, material] : inScene.Each<Material>())

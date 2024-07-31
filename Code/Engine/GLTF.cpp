@@ -135,7 +135,7 @@ bool GltfImporter::LoadFromFile(const std::string& inFile, Assets* inAssets)
 	for (const cgltf_scene& scene : Slice(m_GltfData->scenes, m_GltfData->scenes_count))
 		for (const cgltf_node* node : Slice(scene.nodes, scene.nodes_count))
 			if (!node->parent)
-				ParseNode(*node, m_Scene.GetRootEntity(), glm::mat4(1.0f));
+				ParseNode(*node, m_Scene.GetRootEntity(), Mat4x4(1.0f));
 
 	Entity root_entity = m_Scene.CreateSpatialEntity(Path(inFile).filename().string());
 
@@ -212,7 +212,7 @@ void GltfImporter::ParseNode(const cgltf_node& inNode, Entity inParent, glm::mat
 	
 	if (inNode.mesh)
 	{
-		Name& name = m_Scene.Get<Name>(entity);
+		String name = m_Scene.Has<Name>(entity) ? m_Scene.Get<Name>(entity).name : "Mesh";
 
 		if (inNode.mesh->primitives_count == 1)
 		{
@@ -226,7 +226,7 @@ void GltfImporter::ParseNode(const cgltf_node& inNode, Entity inParent, glm::mat
 				ConvertMesh(sub_entity, primitive);
 
 				Name& sub_name = m_Scene.Get<Name>(sub_entity);
-				sub_name.name = m_Scene.Get<Name>(entity).name + "-" + std::to_string(index);
+				sub_name.name = name + "-" + std::to_string(index);
 
 				m_Scene.ParentTo(sub_entity, entity);
 				m_CreatedNodeEntities.emplace_back(sub_entity);

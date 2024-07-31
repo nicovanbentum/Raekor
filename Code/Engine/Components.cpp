@@ -469,19 +469,27 @@ void Mesh::CalculateNormals()
 
 	for (int i = 0; i < indices.size(); i += 3)
 	{
-		const Vec3 p0 = positions[indices[i]];
-		const Vec3 p1 = positions[indices[i + 1]];
-		const Vec3 p2 = positions[indices[i + 2]];
+		const uint32_t i0 = indices[i];
+		const uint32_t i1 = indices[i + 1];
+		const uint32_t i2 = indices[i + 2];
 
-		const Vec3 normal = glm::normalize(glm::cross(p0 - p1, p1 - p2));
+		const Vec3 p0 = positions[i0];
+		const Vec3 p1 = positions[i1];
+		const Vec3 p2 = positions[i2];
 
-		normals[indices[i]] += normal;
-		normals[indices[i + 1]] += normal;
-		normals[indices[i + 2]] += normal;
+		const Vec3 v0 = p0 - p1;
+		const Vec3 v1 = p1 - p2;
+
+		Vec3 normal = glm::cross(v0, v1);
+		normal = glm::normalize(normal);
+
+		normals[indices[i]] = normal;
+		normals[indices[i + 1]] = normal;
+		normals[indices[i + 2]] = normal;
+
+		for (int i = 0; i < 3; i++)
+			assert(!glm::isnan(normal[i]));
 	}
-
-	for (Vec3& normal : normals)
-		normal = glm::normalize(normal / 3.0f);
 }
 
 

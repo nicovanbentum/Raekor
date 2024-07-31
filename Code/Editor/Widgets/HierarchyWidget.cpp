@@ -59,7 +59,7 @@ void HierarchyWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 bool HierarchyWidget::DrawFamilyNode(Scene& inScene, Entity inEntity)
 {
-	const Name& name = inScene.Get<Name>(inEntity);
+	const String name = inScene.Has<Name>(inEntity) ? inScene.Get<Name>(inEntity).name : "N/A";
 	const Entity active = m_Editor->GetActiveEntity();
 
 	const ImGuiTreeNodeFlags selected = active == inEntity ? ImGuiTreeNodeFlags_Selected : 0;
@@ -71,7 +71,7 @@ bool HierarchyWidget::DrawFamilyNode(Scene& inScene, Entity inEntity)
 
 	ImGui::SameLine();
 
-	const bool opened = ImGui::TreeNodeEx(name.name.c_str(), tree_flags);
+	const bool opened = ImGui::TreeNodeEx(name.c_str(), tree_flags);
 
 	if (ImGui::BeginPopupContextItem())
 	{
@@ -110,9 +110,9 @@ void HierarchyWidget::DrawChildlessNode(Scene& inScene, Entity inEntity)
 
 	ImGui::SameLine();
 
-	Name& name = inScene.Get<Name>(inEntity);
+	String name = inScene.Has<Name>(inEntity) ? inScene.Get<Name>(inEntity).name : "N/A";
 
-	if (ImGui::Selectable(name.name.c_str(), inEntity == active_entity))
+	if (ImGui::Selectable(name.c_str(), inEntity == active_entity))
 		m_Editor->SetActiveEntity(active_entity == inEntity ? Entity::Null : inEntity);
 
 	if (ImGui::BeginPopupContextItem())

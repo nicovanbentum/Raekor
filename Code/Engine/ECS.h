@@ -309,7 +309,7 @@ public:
 	}
 
 	template<typename Component>
-	Slice<Component> GetComponents() const
+	Slice<const Component> GetComponents()
 	{
 		if (ComponentStorage<Component>* storage = GetComponentStorage<Component>())
 			return storage->GetComponents();

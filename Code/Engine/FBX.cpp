@@ -101,6 +101,8 @@ void FBXImporter::ParseNode(const ufbx_node* inNode, Entity inParent, Entity inE
 	
 	if (inNode->mesh)
 	{
+		String name = m_Scene.Has<Name>(inEntity) ? m_Scene.Get<Name>(inEntity).name : "Mesh";
+
 		if (inNode->mesh->materials.count == 1)
 		{
 			ConvertMesh(inEntity, inNode->mesh, inNode->mesh->materials[0]);
@@ -113,7 +115,7 @@ void FBXImporter::ParseNode(const ufbx_node* inNode, Entity inParent, Entity inE
 				ConvertMesh(sub_entity, inNode->mesh, material);
 
 				Name& sub_name = m_Scene.Get<Name>(sub_entity);
-				sub_name.name = m_Scene.Get<Name>(inEntity).name + "-" + std::to_string(index);
+				sub_name.name = name + "-" + std::to_string(index);
 
 				m_Scene.ParentTo(sub_entity, inEntity);
 				m_CreatedNodeEntities.emplace_back(sub_entity);

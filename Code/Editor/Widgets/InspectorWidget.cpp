@@ -256,9 +256,11 @@ void InspectorWidget::DrawComponent(Entity inEntity, Mesh& ioMesh)
 	ImGui::Text("%.1f Kb", float(byte_size) / 1024);
 
 	ImGui::Text("%i Meshlets", ioMesh.meshlets.size());
-	ImGui::Text("%i Vertices", ioMesh.positions.size());
+	ImGui::Text("%i Positions", ioMesh.positions.size());
+	ImGui::Text("%i TexCoords", ioMesh.uvs.size());
+	ImGui::Text("%i Normals", ioMesh.normals.size());
+	ImGui::Text("%i Tangents", ioMesh.tangents.size());
 	ImGui::Text("%i Triangles", ioMesh.indices.size() / 3);
-
 
 	Scene& scene = GetScene();
 	if (scene.Has<Material>(ioMesh.material) && scene.Has<Material, Name>(ioMesh.material))
