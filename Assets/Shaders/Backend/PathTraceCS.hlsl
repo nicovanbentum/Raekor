@@ -87,6 +87,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
             irradiance = brdf.mEmissive;
             
             const float3 Wo = -ray.Direction;
+            const float3x3 tangent_to_world_matrix = vertex.GetTangentToWorldMatrix();
 
             {
                 // sample a ray direction towards the sun disk
@@ -139,10 +140,13 @@ void main(uint3 threadID : SV_DispatchThreadID)
                         break;
                 }
             }
-            
+
             { // sample the BRDF to get new outgoing direction , update ray dir and pos
-                brdf.Sample(rng, Wo, ray.Direction, throughput);
+                float3 Wi;
+                brdf.Sample(rng, Wo, Wi, throughput);
+                
                 ray.Origin = vertex.mPos + vertex.mNormal * 0.01; // TODO: find a more robust method?
+                ray.Direction = mul(tangent_to_world_matrix, Wi);
             }
             
             // // Russian roulette
@@ -163,7 +167,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
         {
             // Calculate sky
             irradiance = skycube_texture.SampleLevel(SamplerLinearClamp, -ray.Direction, 0);
-            irradiance = max(irradiance, 0.0.xxx) * fc.mSunColor.a;
+            irradiance = max(irradiance, 0.0.xxx);
             
             // Stop tracing
             bounce = rc.mBounces + 1;

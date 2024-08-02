@@ -147,7 +147,8 @@ struct BRDF {
     
     void SampleDiffuse(inout uint rng, float3 Wo, out float3 Wi)
     {
-        Wi = normalize(mNormal + SampleCosineWeightedHemisphere(pcg_float2(rng)));
+        float2 rand = pcg_float2(rng);
+        Wi = SampleCosineWeightedHemisphere(rand);
     }
     
     // Sample specular lobe
@@ -171,7 +172,7 @@ struct BRDF {
         const float rand = pcg_float(rng);
 
         // randomly decide to specular bounce
-        if (rand > 0.5) {
+        if (mRoughness < 1.0 && rand > 0.5) {
             float3 Wh;
             SampleSpecular(rng, Wo, Wi, Wh);
 
@@ -182,8 +183,9 @@ struct BRDF {
             float3 F0 = lerp(0.04.xxx, mAlbedo.rgb, mMetallic);
             weight = F_Schlick(VdotH, F0) * Smith_G1_GGX(alpha, NdotL, alpha * alpha, NdotL * NdotL);
         }
-        else {
-        // importance sample the hemisphere around the normal for diffuse
+        else 
+        {
+            // importance sample the hemisphere around the normal for diffuse
             SampleDiffuse(rng, Wo, Wi);
             weight = ((1.0 - mMetallic) * mAlbedo.rgb);
         }

@@ -107,6 +107,12 @@ struct RTVertex
     float2 mTexCoord;
     float3 mNormal;
     float3 mTangent;
+
+    float3x3 GetTangentToWorldMatrix()
+    {
+        float3 bitangent = normalize(cross(mNormal, mTangent));
+        return transpose(float3x3(mTangent, bitangent, mNormal));
+    }
 };
 
 

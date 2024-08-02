@@ -33,10 +33,14 @@ float3 offsetRay(float3 p, float3 n) {
 }
 
 float3 SampleCosineWeightedHemisphere(float2 rng) {
-    const float theta = 6.2831853 * rng.x;
-    const float u = 2.0 * rng.y - 1.0;
-    const float r = sqrt(1.0 - u * u);
-    return float3(r * cos(theta), r * sin(theta), u);
+    float phi = rng.x * M_PI * 2.0;
+    float cos_theta = sqrt(max(0.0, 1.0 - rng.y));
+    float sin_theta = sqrt(max(0.0, 1.0 - cos_theta * cos_theta));
+
+    float sin_phi = sin(phi);
+    float cos_phi = cos(phi);
+
+    return float3(cos_phi * sin_theta, sin_phi * sin_theta, cos_theta);
 }
 
 float2 uniformSampleDisk(float2 u) {

@@ -130,6 +130,9 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 					for (const Path& scene_path : m_Editor->GetSettings().mRecentScenes)
 					{
 						const String& scene_str = scene_path.string();
+
+						if (scene_str.empty())
+							continue;
 					
 						if (ImGui::MenuItem(scene_str.c_str()))
 						{

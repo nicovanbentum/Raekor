@@ -204,6 +204,9 @@ void Application::AddRecentScene(const Path& inPath)
 		if (path == inPath)
 			continue;
 
+		if (path.empty())
+			continue;
+
 		new_paths.push_back(path);
 	}
 
