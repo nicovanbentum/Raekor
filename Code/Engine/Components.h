@@ -25,6 +25,7 @@ struct Name : public Component
 	RTTI_DECLARE_TYPE(Name);
 
 	Name() = default;
+	Name(StringView inName) : name(inName) {}
 	Name(const char* inName) : name(inName) {}
 
 	String name;

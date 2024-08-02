@@ -397,9 +397,9 @@ void Mesh::CalculateTangents()
 	//// calculate the tangent and bitangent for every face
 	for (size_t i = 0; i < indices.size(); i += 3)
 	{
-		uint32_t p0 = indices[i];
-		uint32_t p1 = indices[i + 1];
-		uint32_t p2 = indices[i + 2];
+		uint32_t p0 = indices[glm::min(i + 0, indices.size() - 1)];
+		uint32_t p1 = indices[glm::min(i + 1, indices.size() - 1)];
+		uint32_t p2 = indices[glm::min(i + 2, indices.size() - 1)];
 
 		// position differences p1->p2 and p1->p3
 		Vec3 v = positions[p1] - positions[p0], w = positions[p2] - positions[p0];
@@ -430,7 +430,7 @@ void Mesh::CalculateTangents()
 		// store for every vertex of that face
 		for (unsigned int b = 0; b < 3; ++b)
 		{
-			uint32_t p = indices[i + b];
+			uint32_t p = indices[glm::min(i + b, indices.size() - 1)];
 
 			// project tangent and bitangent into the plane formed by the vertex' normal
 			Vec3 localTangent = tangent - normals[p] * ( tangent * normals[p] );
@@ -477,11 +477,13 @@ void Mesh::CalculateNormals()
 		const Vec3 p1 = positions[i1];
 		const Vec3 p2 = positions[i2];
 
-		const Vec3 v0 = p0 - p1;
-		const Vec3 v1 = p1 - p2;
+		const Vec3 v0 = glm::normalize(p0 - p1);
+		const Vec3 v1 = glm::normalize(p1 - p2);
 
 		Vec3 normal = glm::cross(v0, v1);
-		normal = glm::normalize(normal);
+
+		if (glm::length(normal) > 0.0f)
+			normal = glm::normalize(normal);
 
 		normals[indices[i]] = normal;
 		normals[indices[i + 1]] = normal;

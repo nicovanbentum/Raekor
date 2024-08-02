@@ -43,7 +43,7 @@ GltfImporter::~GltfImporter()
 }
 
 
-bool GltfImporter::LoadFromFile(const std::string& inFile, Assets* inAssets)
+bool GltfImporter::LoadFromFile(const String& inFile, Assets* inAssets)
 {
 	/*
 	* LOAD GLTF FROM DISK

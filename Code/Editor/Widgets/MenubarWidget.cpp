@@ -2,6 +2,7 @@
 #include "MenubarWidget.h"
 
 #include "OS.h"
+#include "OBJ.h"
 #include "Fbx.h"
 #include "Gltf.h"
 #include "Scene.h"
@@ -92,7 +93,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 			if (ImGui::MenuItem("Import scene.."))
 			{
-				std::string filepath = OS::sOpenFileDialog("Scene Files(*.scene, *.gltf, *.glb, *.fbx)\0*.scene;*.gltf;*.glb;*.fbx\0");
+				std::string filepath = OS::sOpenFileDialog("Scene Files(*.scene, *.gltf, *.glb, *.fbx, *.obj)\0*.scene;*.gltf;*.glb;*.fbx;*.obj\0");
 
 				if (!filepath.empty())
 				{
@@ -108,6 +109,8 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 						importer = new GltfImporter(GetScene(), &GetRenderInterface());
 					else if (extension == ".fbx")
 						importer = new FBXImporter(GetScene(), &GetRenderInterface());
+					else if (extension == ".obj")
+						importer = new OBJImporter(GetScene(), &GetRenderInterface());
 					else if (extension == ".scene")
 						importer = new SceneImporter(GetScene(), &GetRenderInterface());
 

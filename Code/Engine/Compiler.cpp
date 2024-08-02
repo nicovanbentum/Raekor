@@ -3,6 +3,7 @@
 
 #include "OS.h"
 #include "GUI.h"
+#include "OBJ.h"
 #include "FBX.h"
 #include "GLTF.h"
 #include "Iter.h"
@@ -467,6 +468,11 @@ void CompilerApp::OnUpdate(float inDeltaTime)
 				else if (extension == ".gltf")
 				{
 					GltfImporter importer(scene, nullptr);
+					importer.LoadFromFile(file.mAssetPath, nullptr);
+				}
+				else if (extension == ".obj")
+				{
+					OBJImporter importer(scene, nullptr);
 					importer.LoadFromFile(file.mAssetPath, nullptr);
 				}
 #ifndef DEPRECATE_ASSIMP

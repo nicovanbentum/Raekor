@@ -1,6 +1,6 @@
 #pragma once
 
-#include "scene.h"
+#include "Scene.h"
 
 namespace RK {
 
@@ -17,7 +17,7 @@ public:
 	GltfImporter(Scene& inScene, IRenderInterface* inRenderer) : Importer(inScene, inRenderer) {}
 	~GltfImporter();
 
-	bool LoadFromFile(const std::string& inFile, Assets* inAssets) override;
+	bool LoadFromFile(const String& inFile, Assets* inAssets) override;
 
 private:
 	void ParseNode(const cgltf_node& gltfNode, Entity parent, glm::mat4 transform);

@@ -1,5 +1,5 @@
-#include "pch.h"
-#include "scene.h"
+#include "PCH.h"
+#include "Scene.h"
 #include "Math.h"
 #include "Iter.h"
 #include "Input.h"
@@ -45,7 +45,6 @@ Scene::Scene(IRenderInterface* inRenderer) : m_Renderer(inRenderer), m_RootEntit
 		}
 	}
 }
-
 
 
 Entity Scene::PickSpatialEntity(const Ray& inRay) const
@@ -426,7 +425,6 @@ void Scene::Destroy(Entity inEntity)
 }
 
 
-
 void Scene::LoadMaterialTextures(Assets& assets, Slice<const Entity> inMaterialEntities)
 {
 	Timer timer;
@@ -794,6 +792,4 @@ void SceneImporter::ConvertMaterial(Entity inEntity, const Material& inMaterial)
 	material.gpuRoughnessMap = 0;
 }
 
-
-
-} // Raekor
+} // RK
