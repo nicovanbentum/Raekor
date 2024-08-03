@@ -2,7 +2,6 @@
 
 #include "rtti.h"
 #include "json.h"
-#include "gui.h"
 
 namespace RK {
 

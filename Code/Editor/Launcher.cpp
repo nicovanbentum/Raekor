@@ -68,7 +68,7 @@ Launcher::Launcher() : Application(WindowFlag::HIDDEN)
 	std::cout << "Created SDL_Renderer with name: \"" << renderer_info.name << "\"\n";
 
 	ImGui_ImplSDL2_InitForSDLRenderer(m_Window, m_Renderer);
-	ImGui_ImplSDLRenderer_Init(m_Renderer);
+	ImGui_ImplSDLRenderer2_Init(m_Renderer);
 	SDL_SetWindowTitle(m_Window, "Launcher");
 	SDL_SetWindowMinimumSize(m_Window, 420, 90);
 
@@ -86,7 +86,7 @@ Launcher::Launcher() : Application(WindowFlag::HIDDEN)
 Launcher::~Launcher()
 {
 	ImGui_ImplSDL2_Shutdown();
-	ImGui_ImplSDLRenderer_Shutdown();
+	ImGui_ImplSDLRenderer2_Shutdown();
 	SDL_DestroyRenderer(m_Renderer);
 	ImGui::DestroyContext();
 }
@@ -96,7 +96,7 @@ Launcher::~Launcher()
 void Launcher::OnUpdate(float inDeltaTime)
 {
 	ImGui_ImplSDL2_NewFrame();
-	ImGui_ImplSDLRenderer_NewFrame();
+	ImGui_ImplSDLRenderer2_NewFrame();
 	ImGui::NewFrame();
 
 	ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f));
@@ -171,7 +171,7 @@ void Launcher::OnUpdate(float inDeltaTime)
 		SDL_RenderCopy(m_Renderer, m_BgImage.GetTexture(), NULL, NULL);
 
 	ImGui::Render();
-	ImGui_ImplSDLRenderer_RenderDrawData(ImGui::GetDrawData());
+	ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), m_Renderer);
 
 	SDL_RenderPresent(m_Renderer);
 

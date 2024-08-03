@@ -1238,7 +1238,7 @@ const ImGuiData& AddImGuiPass(RenderGraph& inRenderGraph, Device& inDevice, Rend
         ImDrawIdx* idx_dst = (ImDrawIdx*)inData.mIndexScratchBuffer.data();
         ImDrawVert* vtx_dst = (ImDrawVert*)inData.mVertexScratchBuffer.data();
 
-        for (const ImDrawList* cmd_list : Slice(draw_data->CmdLists, draw_data->CmdListsCount))
+        for (const ImDrawList* cmd_list : draw_data->CmdLists)
         {
             memcpy(vtx_dst, cmd_list->VtxBuffer.Data, cmd_list->VtxBuffer.Size * sizeof(ImDrawVert));
             memcpy(idx_dst, cmd_list->IdxBuffer.Data, cmd_list->IdxBuffer.Size * sizeof(ImDrawIdx));
@@ -1286,7 +1286,7 @@ const ImGuiData& AddImGuiPass(RenderGraph& inRenderGraph, Device& inDevice, Rend
         int global_idx_offset = 0;
         ImVec2 clip_off = draw_data->DisplayPos;
 
-        for (const ImDrawList* cmd_list : Slice(draw_data->CmdLists, draw_data->CmdListsCount))
+        for (const ImDrawList* cmd_list : draw_data->CmdLists)
         {
             for (const ImDrawCmd& cmd : cmd_list->CmdBuffer)
             {

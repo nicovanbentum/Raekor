@@ -5,7 +5,6 @@
 #include <codecvt>
 
 #include "Engine/OS.h"
-#include "Engine/GUI.h"
 #include "Engine/Iter.h"
 #include "Engine/Timer.h"
 #include "Engine/Input.h"

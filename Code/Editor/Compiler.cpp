@@ -43,7 +43,7 @@ CompilerApp::CompilerApp(WindowFlags inFlags) : Application(inFlags | WindowFlag
 	std::cout << "Created SDL_Renderer with name: \"" << renderer_info.name << "\"\n";
 
 	ImGui_ImplSDL2_InitForSDLRenderer(m_Window, m_Renderer);
-	ImGui_ImplSDLRenderer_Init(m_Renderer);
+	ImGui_ImplSDLRenderer2_Init(m_Renderer);
 	SDL_SetWindowTitle(m_Window, "RK Compiler App");
 
 	SDL_SysWMinfo wminfo;
@@ -137,7 +137,7 @@ void CompilerApp::OnUpdate(float inDeltaTime)
 	// SDL_SetWindowTitle(m_Window, std::string(std::to_string(Timer::sToMilliseconds(inDeltaTime)) + " ms.").c_str());
 
 	ImGui_ImplSDL2_NewFrame();
-	ImGui_ImplSDLRenderer_NewFrame();
+	ImGui_ImplSDLRenderer2_NewFrame();
 	ImGui::NewFrame();
 
 	if (ImGui::BeginMainMenuBar())
@@ -381,8 +381,6 @@ void CompilerApp::OnUpdate(float inDeltaTime)
 	ImGui::PopStyleVar(1); // ImGuiStyleVar_WindowRounding 0.0f
 	ImGui::PopStyleVar(1); // ImGuiStyleVar_WindowRounding 0.0f
 
-	ImGui::ShowStyleEditor();
-
 	ImGui::EndFrame();
 	ImGui::Render();
 
@@ -390,7 +388,7 @@ void CompilerApp::OnUpdate(float inDeltaTime)
 	SDL_RenderClear(m_Renderer);
 
 	ImGui::Render();
-	ImGui_ImplSDLRenderer_RenderDrawData(ImGui::GetDrawData());
+	ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), m_Renderer);
 
 	SDL_RenderPresent(m_Renderer);
 

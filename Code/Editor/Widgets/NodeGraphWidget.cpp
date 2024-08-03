@@ -230,7 +230,7 @@ void ShaderGraphWidget::Draw(Widgets* inWidgets, float dt)
 
 	if (ImGui::BeginCombo("##template", m_OpenTemplateFilePath.stem().string().c_str()))
 	{
-		for (fs::directory_entry entry : fs::directory_iterator("assets\\system\\shaders\\DirectX\\ShaderNodes"))
+		for (fs::directory_entry entry : fs::directory_iterator("Assets\\Shaders\\Backend\\Materials"))
 		{
 			Path path = entry.path();
 			String stem = path.stem().string();

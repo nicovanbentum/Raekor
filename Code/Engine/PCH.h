@@ -38,15 +38,16 @@
 #ifndef IMGUI_DEFINE_MATH_OPERATORS
 #define IMGUI_DEFINE_MATH_OPERATORS
 #endif
-#include "imconfig.h"
-#include "imgui.h"
-#include "imnodes.h"
-#include "imnodes_internal.h"
-#include "imgui_impl_sdl2.h"
-#include "imgui_impl_sdlrenderer.h"
-#include "ImGuizmo.h"
-#include "imgui_stdlib.h"
-#include "imgui_internal.h"
+#include "imgui/imconfig.h"
+#include "imgui/imgui.h"
+#include "imgui/imgui_internal.h"
+#include "imgui/misc/cpp/imgui_stdlib.h"
+#include "imgui/backends/imgui_impl_sdl2.h"
+#include "imgui/backends/imgui_impl_dx12.h"
+#include "imgui/backends/imgui_impl_sdlrenderer2.h"
+
+/////////////////
+// Icons font awesome 5 library
 #include "IconsFontAwesome5.h"
 
 // DirectX-Headers helper library
@@ -73,9 +74,6 @@
 // DirectStorage Library
 #include "dstorage.h"
 #include "dstorageerr.h"
-
-// ImGui DX12 backend
-#include "imgui_impl_dx12.h"
 
 // AMD Fidelity-FX Super Resolution 2.1
 #include "ffx_fsr2.h"

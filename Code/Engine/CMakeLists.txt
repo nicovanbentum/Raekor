@@ -19,6 +19,21 @@ list(APPEND CppFiles ${CMAKE_SOURCE_DIR}/ThirdParty/ufbx/ufbx.c)
 set_source_files_properties(${CMAKE_SOURCE_DIR}/ThirdParty/meshoptimizer/src/clusterizer.cpp PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
 list(APPEND CppFiles ${CMAKE_SOURCE_DIR}/ThirdParty/meshoptimizer/src/clusterizer.cpp)
 
+# Add ImGui
+set(IMGUI_DIR ${CMAKE_SOURCE_DIR}/ThirdParty/imgui)
+list(APPEND ImGuiFiles ${IMGUI_DIR}/imgui.cpp)
+list(APPEND ImGuiFiles ${IMGUI_DIR}/imgui_draw.cpp)
+list(APPEND ImGuiFiles ${IMGUI_DIR}/imgui_tables.cpp)
+list(APPEND ImGuiFiles ${IMGUI_DIR}/imgui_widgets.cpp)
+list(APPEND ImGuiFiles ${IMGUI_DIR}/misc/cpp/imgui_stdlib.cpp)
+list(APPEND ImGuiFiles ${IMGUI_DIR}/backends/imgui_impl_sdl2.cpp)
+list(APPEND ImGuiFiles ${IMGUI_DIR}/backends/imgui_impl_dx12.cpp)
+list(APPEND ImGuiFiles ${IMGUI_DIR}/backends/imgui_impl_sdlrenderer2.cpp)
+set_source_files_properties(ImGuiFiles PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+
+# Append library cpp's
+list(APPEND CppFiles ${ImGuiFiles})
+
 # Rule to build the actual exectuable and enable c++20
 add_library(${PROJECT_NAME} ${CppFiles} ${HppFiles} ../Core.natvis)
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_20)
@@ -64,7 +79,6 @@ target_compile_definitions(Jolt PUBLIC "$<$<CONFIG:RelWithDebInfo>:JPH_DEBUG_REN
 target_link_libraries(${PROJECT_NAME} PRIVATE Jolt)
 target_link_libraries(${PROJECT_NAME} PRIVATE Dwmapi)
 target_link_libraries(${PROJECT_NAME} PRIVATE lz4::lz4)
-target_link_libraries(${PROJECT_NAME} PRIVATE imgui::imgui)
 target_link_libraries(${PROJECT_NAME} PRIVATE SDL2::SDL2-static)
 
 # include dependency directories 
@@ -74,6 +88,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC
     ${CMAKE_SOURCE_DIR}/ThirdParty/stb
     ${CMAKE_SOURCE_DIR}/ThirdParty/ufbx
     ${CMAKE_SOURCE_DIR}/ThirdParty/cgltf
+    ${CMAKE_SOURCE_DIR}/ThirdParty/imgui
     ${CMAKE_SOURCE_DIR}/ThirdParty/imnodes
     ${CMAKE_SOURCE_DIR}/ThirdParty/glm/glm
     ${CMAKE_SOURCE_DIR}/ThirdParty/ImGuizmo

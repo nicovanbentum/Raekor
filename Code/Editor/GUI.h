@@ -1,6 +1,6 @@
 #pragma once
 
-#include "scene.h"
+#include "Engine/Scene.h"
 
 namespace RK {
 class Widgets;

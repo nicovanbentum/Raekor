@@ -207,7 +207,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 		if (ImGui::BeginMenu("Window"))
 		{
-			ImGui::PushItemFlag(ImGuiItemFlags_SelectableDontClosePopup, true);
+			ImGui::PushItemFlag(ImGuiItemFlags_None, true);
 
 			constexpr const char* subtext = "CTRL+Click";
 

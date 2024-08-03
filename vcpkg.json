@@ -12,16 +12,6 @@
             "platform": "windows & static"
         },
         {
-            "name": "imgui",
-            "features": [
-                            "sdl2-binding", 
-                            "sdl2-renderer-binding",
-                            "dx12-binding",
-                            "docking-experimental"
-                        ],
-            "platform": "windows & static"
-        },
-        {
             "name": "directx-headers",
             "platform": "windows & static"
         }

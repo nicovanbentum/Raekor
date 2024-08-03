@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "ShaderGraphNodes.h"
 #include "ShaderGraph.h"
-#include "Engine/gui.h"
+#include "Editor/GUI.h"
 #include "Engine/iter.h"
 #include "Engine/member.h"
 
@@ -651,7 +651,7 @@ void ProcedureShaderNode::DrawImNode(ShaderGraphBuilder& inBuilder)
 {
 	inBuilder.BeginNode(m_Title, ShaderNode::sTextureColor);
 
-	const float text_box_width = ImGui::GetWindowContentRegionWidth() / 6.0f;
+	const float text_box_width = ImGui::GetWindowContentRegionMax().x / 6.0f;
 	const float combo_box_width = ImGui::CalcTextSize("float4").x * 1.75f;
 	const float input_text_width = text_box_width / 4.0f;
 

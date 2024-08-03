@@ -10,7 +10,6 @@
 #include "RenderPasses.h"
 
 #include "OS.h"
-#include "Gui.h"
 #include "Iter.h"
 #include "Timer.h"
 #include "Profiler.h"
@@ -1328,6 +1327,8 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
 
     ImGui::AlignTextToFramePadding();
 
+    ImGui::PushItemFlag(ImGuiItemFlags_NoWindowHoverableCheck | ImGuiItemFlags_AllowOverlap, true);
+
     if (ImGui::BeginMenu("Post Process Settings"))
     {
         ImGui::SeparatorText("Post Processing");
@@ -1384,6 +1385,8 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
 
         ImGui::EndMenu();
     }
+
+    ImGui::PopItemFlag();
 
     if (need_recompile)
         m_Renderer.SetShouldRecompile(true); // call for a resize so the rendergraph gets recompiled (hacky, TODO: FIXME: pls fix)

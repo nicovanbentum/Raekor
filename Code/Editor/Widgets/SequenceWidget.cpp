@@ -173,8 +173,8 @@ bool SequenceWidget::DrawTimeline(const char* inLabel, float& inTime, const floa
     if (!ImGui::ItemAdd(total_bb, id, &frame_bb, temp_input_allowed ? ImGuiItemFlags_Inputable : 0))
         return false;
 
-    const bool is_hovered  = ImGui::ItemHoverable(frame_bb, id);
-    const bool is_clicked  = is_hovered && ImGui::IsMouseClicked(0, id);
+    const bool is_hovered  = ImGui::ItemHoverable(frame_bb, id, ImGuiItemFlags_None);
+    const bool is_clicked  = is_hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
     const bool make_active = (is_clicked || imgui.NavActivateId == id);
 
     if (make_active)

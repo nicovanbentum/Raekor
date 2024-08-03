@@ -1,6 +1,6 @@
-#include "pch.h"
-#include "gui.h"
-#include "camera.h"
+#include "PCH.h"
+#include "GUI.h"
+#include "Engine/Camera.h"
 #include "IconsFontAwesome5.h"
 
 namespace RK::GUI {
@@ -247,7 +247,7 @@ bool ImGui::DragDropTargetButton(const char* label, const char* text, bool hasva
 	if (!ItemAdd(total_bb, id, &frame_bb, 0))
 		return false;
 
-	const bool hovered = ItemHoverable(frame_bb, id);
+	const bool hovered = ItemHoverable(frame_bb, id, ImGuiItemFlags_None);
 
 	// Draw frame
 	const ImU32 frame_col = GetColorU32(g.ActiveId == id ? ImGuiCol_FrameBgActive : hovered ? ImGuiCol_FrameBgHovered : ImGuiCol_FrameBg);

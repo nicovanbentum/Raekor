@@ -8,7 +8,6 @@ project(Solution)
 
 find_package(lz4 CONFIG REQUIRED)
 find_package(SDL2 CONFIG REQUIRED)
-find_package(imgui CONFIG REQUIRED)
 find_package(directx-headers REQUIRED)
 
 # Enable MSVC parallel build process
