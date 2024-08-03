@@ -167,7 +167,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
         {
             // Calculate sky
             irradiance = skycube_texture.SampleLevel(SamplerLinearClamp, -ray.Direction, 0);
-            irradiance = max(irradiance, 0.0.xxx);
+            irradiance = max(irradiance, 0.0.xxx) * fc.mSunColor.a;
             
             // Stop tracing
             bounce = rc.mBounces + 1;
@@ -178,10 +178,17 @@ void main(uint3 threadID : SV_DispatchThreadID)
         total_throughput *= throughput;
     }
     
-    float4 acc = rc.mReset ? 0.xxxx : accumulation_texture[threadID.xy];
-    
-    acc += float4(total_irradiance, 1.0);
-    
-    result_texture[threadID.xy] = float4(acc.rgb / acc.a, 1.0);
-    accumulation_texture[threadID.xy] = acc;
+    if (rc.mReset || fc.mFrameCounter == 0)
+    {
+        result_texture[threadID.xy] = float4(total_irradiance, 1.0);
+        accumulation_texture[threadID.xy] = float4(total_irradiance, 1.0);
+    }
+    else
+    {
+        float4 acc = accumulation_texture[threadID.xy];
+        acc += float4(total_irradiance, 1.0);
+        
+        result_texture[threadID.xy] = float4(acc.rgb / acc.a, 1.0);
+        accumulation_texture[threadID.xy] = acc;
+    }
 }

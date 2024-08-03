@@ -280,6 +280,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     m_FrameConstants.mSunColor = inScene->GetSunLight() ? inScene->GetSunLight()->GetColor() : Vec4(0.0f);
     m_FrameConstants.mSunDirection = Vec4(inScene->GetSunLightDirection(), 0.0f);
     m_FrameConstants.mCameraPosition = Vec4(camera.GetPosition(), 1.0f);
+    m_FrameConstants.mViewportSize = inViewport.GetRenderSize(),
     m_FrameConstants.mViewMatrix = camera.GetView();
     m_FrameConstants.mProjectionMatrix = final_proj_matrix;
     m_FrameConstants.mPrevViewProjectionMatrix = m_FrameConstants.mViewProjectionMatrix;

@@ -136,6 +136,8 @@ struct FrameConstants
     uint      mFrameCounter;
     uint      mDebugLinesVertexBuffer;
     uint      mDebugLinesIndirectArgsBuffer;
+    uint2     mViewportSize;
+    uint2     mPad1;
     float2    mJitter;
     float2    mPrevJitter;
     float4    mSunColor;

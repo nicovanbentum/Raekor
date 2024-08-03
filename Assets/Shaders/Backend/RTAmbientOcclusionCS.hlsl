@@ -1,3 +1,4 @@
+#include "Include/RayTracing.hlsli"
 #include "Include/Bindless.hlsli"
 #include "Include/Packing.hlsli"
 #include "Include/Common.hlsli"
@@ -27,14 +28,15 @@ void main(uint3 threadID : SV_DispatchThreadID)
         result_texture[threadID.xy] = 0.0;
         return;
     }
-    
-    float occlusion = 1.0;
-    
-    float4 blue_noise = SampleBlueNoise(threadID.xy, fc.mFrameCounter);
-    const float3 random_offset = SampleCosineWeightedHemisphere(blue_noise.xy);
+        
     const float3 normal = UnpackNormal(asuint(gbuffer_texture[threadID.xy]));
     const float3 ws_position = ReconstructWorldPosition(screen_uv, depth, fc.mInvViewProjectionMatrix);
     const float3 vs_position = mul(fc.mViewMatrix, float4(ws_position, 1.0)).xyz;
+    float4 blue_noise = SampleBlueNoise(threadID.xy, fc.mFrameCounter);
+    
+    const float3 hemi = SampleCosineWeightedHemisphere(blue_noise.xy);
+    const float3x3 tbn = BuildOrthonormalBasis(normal);
+    const float3 new_normal = mul(tbn, hemi);
     
     const float bias = (-vs_position.z + length(ws_position.xyz)) * 1e-3;
     
@@ -42,14 +44,15 @@ void main(uint3 threadID : SV_DispatchThreadID)
     ray.TMin = 0.0;
     ray.TMax = rc.mParams.mRadius;
     ray.Origin = ws_position + normal * bias;
-    ray.Direction = normalize(normal + random_offset);
+    ray.Direction = normalize(new_normal);
 
     uint ray_flags =  RAY_FLAG_FORCE_OPAQUE;
-    
     RayQuery< RAY_FLAG_FORCE_OPAQUE> query;
 
     query.TraceRayInline(TLAS, ray_flags, 0xFF, ray);
     query.Proceed();
+
+    float occlusion = 1.0;
         
     if (query.CommittedStatus() == COMMITTED_TRIANGLE_HIT)
     {
