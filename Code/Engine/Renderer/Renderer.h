@@ -43,26 +43,26 @@ class Renderer
 private:
     struct Settings
     {
-        int& mEnableImGui        = g_CVars.Create("r_enable_imgui",         1);
-        int& mEnableVsync        = g_CVars.Create("r_vsync",                1);
-        int& mTargetFps          = g_CVars.Create("r_target_fps",          -1);
-        int& mDisableAlbedo      = g_CVars.Create("r_disable_albedo",       0, true);
-        int& mEnableDDGI         = g_CVars.Create("r_enable_ddgi",          1, true);
-        int& mDebugProbeRays     = g_CVars.Create("r_debug_gi_rays",        0, true);
-        int& mDebugProbes        = g_CVars.Create("r_debug_gi_probes",      0, true);
-        int& mEnableDebugOverlay = g_CVars.Create("r_enable_debug_overlay", 1);
-        int& mEnableRTAO         = g_CVars.Create("r_enable_rtao",          1);
-        int& mEnableShadows      = g_CVars.Create("r_enable_shadows",       1);
-        int& mEnableReflections  = g_CVars.Create("r_enable_reflections",   1);
-        int& mEnableAutoExposure = g_CVars.Create("r_enable_auto_exposure", 0, true);
-        int& mFullscreen         = g_CVars.Create("r_fullscreen",           0);
-        int& mDisplayRes         = g_CVars.Create("r_display_res_index",    0);
-        int& mEnableTAA          = g_CVars.Create("r_enable_taa",           1);
-        int& mEnableDoF          = g_CVars.Create("r_enable_dof",           0);
-        int& mEnableBloom        = g_CVars.Create("r_enable_bloom",         1);
-        int& mEnableVignette     = g_CVars.Create("r_enable_vignette",      1);
-        int& mDoPathTrace        = g_CVars.Create("r_path_trace",           0,   true);
-        float& mSunConeAngle     = g_CVars.Create("r_sun_cone_angle",       0.f, true);
+        int& mEnableImGui        = g_CVariables->Create("r_enable_imgui",         1);
+        int& mEnableVsync        = g_CVariables->Create("r_vsync",                1);
+        int& mTargetFps          = g_CVariables->Create("r_target_fps",          -1);
+        int& mDisableAlbedo      = g_CVariables->Create("r_disable_albedo",       0, true);
+        int& mEnableDDGI         = g_CVariables->Create("r_enable_ddgi",          1, true);
+        int& mDebugProbeRays     = g_CVariables->Create("r_debug_gi_rays",        0, true);
+        int& mDebugProbes        = g_CVariables->Create("r_debug_gi_probes",      0, true);
+        int& mEnableDebugOverlay = g_CVariables->Create("r_enable_debug_overlay", 1);
+        int& mEnableRTAO         = g_CVariables->Create("r_enable_rtao",          1);
+        int& mEnableShadows      = g_CVariables->Create("r_enable_shadows",       1);
+        int& mEnableReflections  = g_CVariables->Create("r_enable_reflections",   1);
+        int& mEnableAutoExposure = g_CVariables->Create("r_enable_auto_exposure", 0, true);
+        int& mFullscreen         = g_CVariables->Create("r_fullscreen",           0);
+        int& mDisplayRes         = g_CVariables->Create("r_display_res_index",    0);
+        int& mEnableTAA          = g_CVariables->Create("r_enable_taa",           1);
+        int& mEnableDoF          = g_CVariables->Create("r_enable_dof",           0);
+        int& mEnableBloom        = g_CVariables->Create("r_enable_bloom",         1);
+        int& mEnableVignette     = g_CVariables->Create("r_enable_vignette",      1);
+        int& mDoPathTrace        = g_CVariables->Create("r_path_trace",           0,   true);
+        float& mSunConeAngle     = g_CVariables->Create("r_sun_cone_angle",       0.f, true);
     } m_Settings;
 
 public:

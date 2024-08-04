@@ -83,7 +83,7 @@ IEditor::IEditor(WindowFlags inWindowFlags, IRenderInterface* inRenderInterface)
 		return;
 	}
 
-	if (g_CVars.Create("launch_asset_compiler_on_startup", 0))
+	if (g_CVariables->Create("launch_asset_compiler_on_startup", 0))
 	{
 		String compiler_app_cmd_line = OS::sGetExecutablePath().string() + " -asset_compiler";
 
@@ -158,7 +158,7 @@ void IEditor::OnUpdate(float inDeltaTime)
 	// update camera matrices
 	m_Viewport.OnUpdate(inDeltaTime);
 
-	static int& update_transforms = g_CVars.Create("update_transforms", 1, true);
+	static int& update_transforms = g_CVariables->Create("update_transforms", 1, true);
 
 	if (update_transforms)
 	{

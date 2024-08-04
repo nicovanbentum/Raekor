@@ -80,8 +80,8 @@ Application::Application(WindowFlags inFlags)
 		g_ThreadPool.WaitForJobs();
 	};
 
-	g_CVars.CreateFn("quit", quit_function);
-	g_CVars.CreateFn("exit", quit_function);
+	g_CVariables->CreateFn("quit", quit_function);
+	g_CVariables->CreateFn("exit", quit_function);
 
 	if (( inFlags & WindowFlag::HIDDEN ) == 0)
 		SDL_ShowWindow(m_Window);

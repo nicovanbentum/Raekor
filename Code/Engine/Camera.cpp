@@ -141,20 +141,20 @@ void EditorCameraController::OnUpdate(Camera& inCamera, float inDeltaTime)
 {
 	if (g_Input->IsRelativeMouseMode())
 	{
-		if (g_Input->IsKeyPressed(SDL_SCANCODE_W))
+		if (g_Input->IsKeyDown(Key::W))
 		{
 			inCamera.Zoom(float(inCamera.mZoomConstant * inDeltaTime));
 		}
-		else if (g_Input->IsKeyPressed(SDL_SCANCODE_S))
+		else if (g_Input->IsKeyDown(Key::S))
 		{
 			inCamera.Zoom(float(-inCamera.mZoomConstant * inDeltaTime));
 		}
 
-		if (g_Input->IsKeyPressed(SDL_SCANCODE_A))
+		if (g_Input->IsKeyDown(Key::A))
 		{
 			inCamera.Move({ inCamera.mMoveConstant * inDeltaTime, 0.0f });
 		}
-		else if (g_Input->IsKeyPressed(SDL_SCANCODE_D))
+		else if (g_Input->IsKeyDown(Key::D))
 		{
 			inCamera.Move({ -inCamera.mMoveConstant * inDeltaTime, 0.0f });
 		}
@@ -188,13 +188,13 @@ bool EditorCameraController::OnEvent(Camera& inCamera, const SDL_Event& inEvent)
 
 	if (inEvent.type == SDL_MOUSEMOTION)
 	{
-		if (g_Input->IsRelativeMouseMode() && g_Input->IsButtonPressed(3))
+		if (g_Input->IsRelativeMouseMode() && g_Input->IsButtonDown(3))
 		{
 			const float formula = glm::radians(0.022f * inCamera.mSensitivity * 2.0f);
 			inCamera.Look(glm::vec2(inEvent.motion.xrel * formula, inEvent.motion.yrel * formula));
 			camera_changed = true;
 		}
-		else if (g_Input->IsRelativeMouseMode() && g_Input->IsButtonPressed(2))
+		else if (g_Input->IsRelativeMouseMode() && g_Input->IsButtonDown(2))
 		{
 			inCamera.Move(glm::vec2(inEvent.motion.xrel * 0.02f, inEvent.motion.yrel * 0.02f));
 			camera_changed = true;

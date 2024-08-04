@@ -28,8 +28,8 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	Physics& physics = IWidget::GetPhysics();
 	Viewport& viewport = m_Editor->GetViewport();
 
-	static int& show_debug_text = g_CVars.Create("r_show_debug_text", 1, IF_DEBUG_ELSE(true, false));
-	static int& show_debug_icons = g_CVars.Create("r_show_debug_icons", 1, IF_DEBUG_ELSE(true, false));
+	static int& show_debug_text = g_CVariables->Create("r_show_debug_text", 1, IF_DEBUG_ELSE(true, false));
+	static int& show_debug_icons = g_CVariables->Create("r_show_debug_icons", 1, IF_DEBUG_ELSE(true, false));
 
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(2, 2));
 
@@ -154,7 +154,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	can_select_entity &= ImGui::IsMouseClicked(ImGuiMouseButton_Left);
 	can_select_entity &= SDL_GetModState() == KMOD_NONE;
 	can_select_entity &= !ImGui::IsAnyItemHovered();
-	can_select_entity &= !g_Input->IsKeyPressed(SDL_SCANCODE_LSHIFT);
+	can_select_entity &= !g_Input->IsKeyDown(Key::LSHIFT);
 	can_select_entity &= !ImGuizmo::IsOver(operation);
 
 	if (can_select_entity)

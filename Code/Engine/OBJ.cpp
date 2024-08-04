@@ -20,9 +20,14 @@ bool OBJImporter::LoadFromFile(const String& inFile, Assets* inAssets)
 
 	String mtl_file = "";
 	String name = Path(inFile).filename().string();
+	String file_name = name;
 
 	OBJMesh obj_mesh;
-	bool usemtl = false;
+	bool parsing_mesh = false;
+	bool using_material = false;
+
+	uint8_t vertex_count = 0;
+	StaticArray<Vec3, 4> vertices;
 
 	String buffer;
 	while (std::getline(file, buffer))
@@ -30,33 +35,28 @@ bool OBJImporter::LoadFromFile(const String& inFile, Assets* inAssets)
 		std::istringstream line(buffer);
 		std::string token;
 		line >> token;
-
-		if (token == "o")
-		{
-			line >> name;
-		}
-		else if (token == "v")
+		
+		if (token == "v")
 		{
 			Vec3 position;
 			line >> position.x >> position.y >> position.z;
-			obj_mesh.positions.push_back(position);
+			m_Positions.push_back(position);
 		}
 		else if (token == "vt")
 		{
 			Vec2 uv;
 			line >> uv.x >> uv.y;
-			obj_mesh.texcoords.push_back(uv);
+			m_Texcoords.push_back(uv);
 		}
 		else if (token == "vn")
 		{
 			Vec3 normal;
 			line >> normal.x >> normal.y >> normal.z;
-			obj_mesh.normals.push_back(normal);
+			m_Normals.push_back(normal);
 		}
 		else if (token == "f")
 		{
-			uint8_t vertex_count = 0;
-			StaticArray<Vec3, 4> vertices;
+			vertex_count = 0;
 
 			String face;
 			while (line >> face)
@@ -67,13 +67,13 @@ bool OBJImporter::LoadFromFile(const String& inFile, Assets* inAssets)
 				int v_index = 0, vt_index = 0, vn_index = 0;
 				spaced_face >> v_index >> vt_index >> vn_index;
 
-				if (v_index < 0) v_index = obj_mesh.positions.size() + v_index + 1;
-				if (vn_index < 0) vn_index = obj_mesh.normals.size() + vn_index + 1;
-				if (vt_index < 0) vt_index = obj_mesh.texcoords.size() + vt_index + 1;
+				if (v_index < 0) v_index = m_Positions.size() + v_index + 1;
+				if (vn_index < 0) vn_index = m_Normals.size() + vn_index + 1;
+				if (vt_index < 0) vt_index = m_Texcoords.size() + vt_index + 1;
 
-				assert(v_index >= 0 && v_index <= obj_mesh.positions.size());
-				assert(vn_index >= 0 && vn_index <= obj_mesh.normals.size());
-				assert(vt_index >= 0 && vt_index <= obj_mesh.texcoords.size());
+				assert(v_index >= 0 && v_index <= m_Positions.size());
+				assert(vn_index >= 0 && vn_index <= m_Normals.size());
+				assert(vt_index >= 0 && vt_index <= m_Texcoords.size());
 
 				vertices[vertex_count++] = Vec3(v_index, vt_index, vn_index);
 
@@ -94,11 +94,22 @@ bool OBJImporter::LoadFromFile(const String& inFile, Assets* inAssets)
 				obj_mesh.vn_indices.push_back(vn_index);
 			}
 		}
-		else if (token == "usemtl")
+		else if ((token == "o" || token == "g") && m_Settings.importGrouping)
+		{
+			if (parsing_mesh && !obj_mesh.IsEmpty())
+			{
+				ConvertMesh(m_Scene.CreateSpatialEntity(name), obj_mesh);
+				obj_mesh.Clear();
+			}
+
+			line >> name;
+			parsing_mesh = true;
+		}
+		else if (token == "usemtl" && m_Settings.importMaterials)
 		{
 
 		}
-		else if (token == "mtllib")
+		else if (token == "mtllib" && m_Settings.importMaterials)
 		{
 			if (mtl_file.empty())
 				line >> mtl_file;
@@ -107,35 +118,51 @@ bool OBJImporter::LoadFromFile(const String& inFile, Assets* inAssets)
 		}
 	}
 
+	if (!obj_mesh.IsEmpty())
+		ConvertMesh(m_Scene.CreateSpatialEntity(name), obj_mesh);
+
+	if (m_Meshes.size() > 1)
+	{
+		Entity root_entity = m_Scene.CreateSpatialEntity(file_name);
+		for (Entity entity : m_Meshes)
+			m_Scene.ParentTo(entity, root_entity);
+	}
+
 	if (!mtl_file.empty())
 		LoadMaterials(m_Directory / mtl_file);
 
 	if (inAssets != nullptr)
 		m_Scene.LoadMaterialTextures(*inAssets, m_Materials);
 
-	Entity entity = m_Scene.CreateSpatialEntity(name);
-	Mesh& mesh = m_Scene.Add<Mesh>(entity);
+	return true;
+}
 
-	mesh.uvs.reserve(obj_mesh.texcoords.size());
-	mesh.normals.reserve(obj_mesh.normals.size());
-	mesh.positions.reserve(obj_mesh.positions.size());
 
-	uint32_t index_count = obj_mesh.v_indices.size();
+void OBJImporter::ConvertMesh(Entity inEntity, const OBJMesh& inMesh)
+{
+	RK_ASSERT(!inMesh.IsEmpty());
+	Mesh& mesh = m_Scene.Add<Mesh>(inEntity);
+
+	mesh.uvs.reserve(inMesh.vt_indices.size());
+	mesh.normals.reserve(inMesh.vn_indices.size());
+	mesh.positions.reserve(inMesh.v_indices.size());
+
+	uint32_t index_count = inMesh.v_indices.size();
 
 	for (uint32_t i = 0; i < index_count; i++)
 	{
-		uint32_t v_index = obj_mesh.v_indices[i] - 1;
-		uint32_t vt_index = obj_mesh.vt_indices[i] - 1;
-		uint32_t vn_index = obj_mesh.vn_indices[i] - 1;
+		uint32_t v_index = inMesh.v_indices[i] - 1;
+		uint32_t vt_index = inMesh.vt_indices[i] - 1;
+		uint32_t vn_index = inMesh.vn_indices[i] - 1;
 
-		if (!obj_mesh.texcoords.empty())
-			mesh.uvs.push_back(obj_mesh.texcoords[vt_index]);
-		
-		if (!obj_mesh.normals.empty())
-			mesh.normals.push_back(obj_mesh.normals[vn_index]);
-		
-		if (!obj_mesh.positions.empty())
-			mesh.positions.push_back(obj_mesh.positions[v_index]);
+		if (!m_Texcoords.empty())
+			mesh.uvs.push_back(m_Texcoords[vt_index]);
+
+		if (!m_Normals.empty())
+			mesh.normals.push_back(m_Normals[vn_index]);
+
+		if (!m_Positions.empty())
+			mesh.positions.push_back(m_Positions[v_index]);
 
 		mesh.indices.push_back(i);
 	}
@@ -151,18 +178,16 @@ bool OBJImporter::LoadFromFile(const String& inFile, Assets* inAssets)
 	if (mesh.vertices.empty())
 		mesh.CalculateVertices();
 
-	std::cout << std::format("[OBJ] Importer took {:.1f} ms.\n", Timer::sToMilliseconds(timer.GetElapsedTime()));
-
 	if (m_Renderer)
-		m_Renderer->UploadMeshBuffers(entity, mesh);
+		m_Renderer->UploadMeshBuffers(inEntity, mesh);
 
-	return true;
+	m_Meshes.push_back(inEntity);
 }
 
 
-bool OBJImporter::LoadMaterials(const Path& inFile)
+bool OBJImporter::LoadMaterials(const Path& inFilePath)
 {
-	std::fstream file(inFile, std::ios::in);
+	std::fstream file(inFilePath, std::ios::in);
 	if (!file.is_open())
 		return false;
 

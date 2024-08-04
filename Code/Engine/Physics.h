@@ -133,7 +133,7 @@ public:
 private:
 	struct /* unnamed */
 	{
-		int& state = g_CVars.Create("physics_state", int(Idle), true);
+		int& state = g_CVariables->Create("physics_state", int(Idle), true);
 	} m_Settings;
 
 	bool m_Debug = true;

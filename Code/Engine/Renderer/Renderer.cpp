@@ -88,14 +88,14 @@ Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inW
     if (!m_FenceEvent)
         gThrowIfFailed(HRESULT_FROM_WIN32(GetLastError()));
 
-    g_CVars.CreateFn("fn_compile_psos", [this, &inDevice]()
+    g_CVariables->CreateFn("fn_compile_psos", [this, &inDevice]()
     {
         WaitForIdle(inDevice);
         g_SystemShaders.CompilePSOs(inDevice);
         g_ThreadPool.WaitForJobs();
     });
 
-    g_CVars.CreateFn("fn_hotload_shaders", [this, &inDevice]()
+    g_CVariables->CreateFn("fn_hotload_shaders", [this, &inDevice]()
     {
         WaitForIdle(inDevice);
         g_SystemShaders.HotLoad(inDevice);
@@ -316,8 +316,8 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
         gThrowIfFailed(PIXBeginCapture(PIX_CAPTURE_GPU, &capture_params));
     }
 
-    static const int& upload_tlas = g_CVars.Create("upload_scene", 1, true);
-    static const int& update_skinning = g_CVars.Create("update_skinning", 1, true);
+    static const int& upload_tlas = g_CVariables->Create("upload_scene", 1, true);
+    static const int& update_skinning = g_CVariables->Create("update_skinning", 1, true);
     // Start recording pending scene changes to the copy cmd list
     CommandList& copy_cmd_list = GetBackBufferData().mCopyCmdList;
 

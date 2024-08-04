@@ -2,6 +2,8 @@
 
 #define ALIGN(x) __declspec(align(x))
 
+#define RK_ASSERT(cond) assert(cond)
+
 #ifndef TOKENPASTE
 #define TOKENPASTE(x, y) x ## y
 #endif

@@ -5,6 +5,12 @@ namespace RK {
 
 #ifdef WIN32
 
+void  OS::sOpenFile(const char* inFile)
+{
+	ShellExecute(NULL, "open", inFile, NULL, NULL, SW_RESTORE);
+}
+
+
 bool OS::sRunMsBuild(const char* args)
 {
 	LPSTARTUPINFOA startupInfo;

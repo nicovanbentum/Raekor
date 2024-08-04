@@ -732,10 +732,21 @@ void InspectorWidget::DrawComponent(Entity inEntity, Material& inMaterial)
 
 		if (!inFile.empty() && inGpuMap && inGpuMap != inDefaultMap && ImGui::BeginPopupContextItem())
 		{
+			if (ImGui::MenuItem("Open"))
+			{
+				ShellExecute(NULL, "open", inFile.c_str(), NULL, NULL, SW_RESTORE);
+			}
+
 			if (ImGui::MenuItem("Remove"))
 			{
 				inFile = "";
 				inGpuMap = inDefaultMap;
+			}
+
+			if (ImGui::MenuItem("Show In Explorer"))
+			{
+				String shell_command = std::format("/select,{}", inFile);
+				ShellExecute(0, NULL, "explorer.exe", shell_command.c_str(), NULL, SW_SHOWNORMAL);
 			}
 
 			ImGui::EndPopup();

@@ -66,10 +66,10 @@ void ConsoleWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			std::string name, value;
 			stream >> name >> value;
 
-			bool success = g_CVars.SetValue(name, value);
+			bool success = g_CVariables->SetValue(name, value);
 			if (!success)
 			{
-				if (!g_CVars.Exists(name))
+				if (!g_CVariables->Exists(name))
 					m_Items.emplace_back("cvar \"" + name + "\" does not exist.");
 
 				else if (value.empty())
@@ -103,7 +103,7 @@ void ConsoleWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 		int first_cvar_index = -1;
 
-		for (const auto& [index, mapping] : gEnumerate(g_CVars))
+		for (const auto& [index, mapping] : gEnumerate(g_CVariables->GetCVars()))
 		{
 			if (!filter.PassFilter(mapping.first.c_str()))
 				continue;
@@ -114,7 +114,7 @@ void ConsoleWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 				m_ActiveItem = glm::max(m_ActiveItem, first_cvar_index);
 			}
 
-			const String cvar_text = mapping.first + " " + g_CVars.GetValue(mapping.first) + '\n';
+			const String cvar_text = mapping.first + " " + g_CVariables->GetValue(mapping.first) + '\n';
 
 			if (index == m_ActiveItem)
 			{
@@ -124,7 +124,7 @@ void ConsoleWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 				ImGui::TextUnformatted(cvar_text.c_str());
 		}
 
-		const size_t nr_of_cvars = g_CVars.GetCount();
+		const size_t nr_of_cvars = g_CVariables->GetCount();
 		m_ActiveItem = m_ActiveItem > nr_of_cvars ? nr_of_cvars : m_ActiveItem;
 
 		ImGui::EndTooltip();
@@ -151,7 +151,7 @@ int ConsoleWidget::sEditCallback(ImGuiInputTextCallbackData* data)
 	{
 		ImGuiTextFilter filter = ImGuiTextFilter(data->Buf);
 
-		for (const auto& [index, cvar] : gEnumerate(g_CVars))
+		for (const auto& [index, cvar] : gEnumerate(g_CVariables->GetCVars()))
 		{
 			if (!filter.PassFilter(cvar.first.c_str()))
 				continue;
@@ -170,7 +170,7 @@ int ConsoleWidget::sEditCallback(ImGuiInputTextCallbackData* data)
 		bool found_active = false;
 		ImGuiTextFilter filter = ImGuiTextFilter(data->Buf);
 
-		for (const auto& [index, cvar] : gEnumerate(g_CVars))
+		for (const auto& [index, cvar] : gEnumerate(g_CVariables->GetCVars()))
 		{
 			if (index == console->m_ActiveItem)
 			{
@@ -194,7 +194,7 @@ int ConsoleWidget::sEditCallback(ImGuiInputTextCallbackData* data)
 		int previous_index = 0;
 		ImGuiTextFilter filter = ImGuiTextFilter(data->Buf);
 
-		for (const auto& [index, cvar] : gEnumerate(g_CVars))
+		for (const auto& [index, cvar] : gEnumerate(g_CVariables->GetCVars()))
 		{
 			if (!filter.PassFilter(cvar.first.c_str()))
 				continue;

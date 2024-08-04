@@ -10,7 +10,7 @@ namespace RK {
 RTTI_DEFINE_TYPE_NO_FACTORY(ProfileWidget) {}
 
 
-ProfileWidget::ProfileWidget(Application* inApp) : IWidget(inApp, reinterpret_cast<const char*>( ICON_FA_RULER " CPU Profiler " )) {}
+ProfileWidget::ProfileWidget(Application* inApp) : IWidget(inApp, reinterpret_cast<const char*>( ICON_FA_RULER " Profiler " )) {}
 
 
 void ProfileWidget::Draw(Widgets* inWidgets, float inDeltaTime)

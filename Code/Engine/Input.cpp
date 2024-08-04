@@ -1,20 +1,20 @@
-#include "pch.h"
-#include "input.h"
+#include "PCH.h"
+#include "Input.h"
 
 namespace RK {
 
 Input* g_Input = new Input();
 
-Input::Input() : keyboardState(SDL_GetKeyboardState(NULL)) {}
+Input::Input() : m_KeyboardState(SDL_GetKeyboardState(NULL)) {}
 
 
-bool Input::IsKeyPressed(SDL_Keycode code)
+bool Input::IsKeyDown(Key key)
 {
-	return keyboardState[code];
+	return m_KeyboardState[static_cast<int>(key)];
 }
 
 
-bool Input::IsButtonPressed(uint32_t button)
+bool Input::IsButtonDown(uint32_t button)
 {
 	uint32_t state = SDL_GetMouseState(NULL, NULL);
 	return state & SDL_BUTTON(button);
@@ -23,7 +23,7 @@ bool Input::IsButtonPressed(uint32_t button)
 
 bool Input::IsRelativeMouseMode()
 {
-	return relMouseMode;
+	return m_RelMouseMode;
 }
 
 
@@ -32,11 +32,7 @@ void Input::SetRelativeMouseMode(bool inEnabled)
 	if (SDL_SetRelativeMouseMode(SDL_bool(inEnabled)) != 0) 
 		printf("SDL_SetRelativeMouseMode failed: %s\n", SDL_GetError());
 
-	relMouseMode = inEnabled;
+	m_RelMouseMode = inEnabled;
 }
-
-
-void Input::SetCallback(uint32_t type, const std::function<void()>& callback) {}
-
 
 } // raekor

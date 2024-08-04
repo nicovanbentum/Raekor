@@ -143,15 +143,15 @@ class IRenderInterface
 public:
 	struct Settings
 	{
-		int& vsync			= g_CVars.Create("r_vsync",				1);
-		int& doBloom		= g_CVars.Create("r_bloom",				0);
-		int& paused			= g_CVars.Create("r_paused",			0);
-		int& debugVoxels	= g_CVars.Create("r_voxelize_debug",	0);
-		int& debugCascades	= g_CVars.Create("r_debug_cascades",	0);
-		int& disableTiming	= g_CVars.Create("r_disable_timings",	0);
-		int& shouldVoxelize = g_CVars.Create("r_voxelize",			0);
-		int& enableTAA		= g_CVars.Create("r_taa",				0);
-		int& mDebugTexture	= g_CVars.Create("r_debug_texture",		0, true);
+		int& vsync			= g_CVariables->Create("r_vsync",			1);
+		int& doBloom		= g_CVariables->Create("r_bloom",			0);
+		int& paused			= g_CVariables->Create("r_paused",			0);
+		int& debugVoxels	= g_CVariables->Create("r_voxelize_debug",	0);
+		int& debugCascades	= g_CVariables->Create("r_debug_cascades",	0);
+		int& disableTiming	= g_CVariables->Create("r_disable_timings",	0);
+		int& shouldVoxelize = g_CVariables->Create("r_voxelize",			0);
+		int& enableTAA		= g_CVariables->Create("r_taa",				0);
+		int& mDebugTexture	= g_CVariables->Create("r_debug_texture",	0, true);
 	} mSettings;
 
 	Settings& GetSettings() { return mSettings; }

@@ -30,8 +30,8 @@ class Upscaler
 private:
     struct Settings
     {
-        int& mUpscaler       = g_CVars.Create("r_upscaler",         0, true);
-        int& mUpscaleQuality = g_CVars.Create("r_upscaler_quality", 0, true);
+        int& mUpscaler       = g_CVariables->Create("r_upscaler",         0, true);
+        int& mUpscaleQuality = g_CVariables->Create("r_upscaler_quality", 0, true);
     } m_Settings;
 
 public:

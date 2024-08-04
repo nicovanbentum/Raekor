@@ -5,43 +5,61 @@
 
 namespace RK {
 
-RTTI_DEFINE_TYPE(ConVar)
+RTTI_DEFINE_TYPE(CVar)
 {
-	RTTI_DEFINE_MEMBER(ConVar, SERIALIZE_ALL, "Type", mType);
-	RTTI_DEFINE_MEMBER(ConVar, SERIALIZE_ALL, "Int", mIntValue);
-	RTTI_DEFINE_MEMBER(ConVar, SERIALIZE_ALL, "Float", mFloatValue);
-	RTTI_DEFINE_MEMBER(ConVar, SERIALIZE_ALL, "String", mStringValue);
+	RTTI_DEFINE_MEMBER(CVar, SERIALIZE_ALL, "Type", mType);
+	RTTI_DEFINE_MEMBER(CVar, SERIALIZE_ALL, "Int", mIntValue);
+	RTTI_DEFINE_MEMBER(CVar, SERIALIZE_ALL, "Float", mFloatValue);
+	RTTI_DEFINE_MEMBER(CVar, SERIALIZE_ALL, "String", mStringValue);
 }
 
-RTTI_DEFINE_TYPE(ConVars)
+RTTI_DEFINE_TYPE(CVariables)
 {
-	RTTI_DEFINE_MEMBER(ConVars, SERIALIZE_ALL, "Variables", m_ConVars);
+	RTTI_DEFINE_MEMBER(CVariables, SERIALIZE_ALL, "Variables", m_ConVars);
 }
 
 
-ConVars g_CVars;
-
-
-ConVars::ConVars()
+CVariables::CVariables(int argc, char** argv)
 {
-	auto stream = std::ifstream("cvars.json");
+	std::ifstream stream = std::ifstream("cvars.json");
 	if (!stream.is_open() || fs::file_size("cvars.json") == 0)
 		return;
 
-    auto json_archive = JSON::ReadArchive("cvars.json");
-	json_archive >> g_CVars;
+	JSON::ReadArchive json_archive = JSON::ReadArchive("cvars.json");
+	json_archive >> *this;
+
+	for (int i = 0; i < argc; i++)
+	{
+		if (argv[i][0] != '-')
+			continue;
+
+		const String string = String(argv[i]);
+		const size_t equals_pos = string.find('=');
+
+		if (equals_pos == std::string::npos)
+			continue;
+
+		const String cvar = string.substr(1, equals_pos - 1);
+		const String value = string.substr(equals_pos + 1);
+
+		if (!SetValue(cvar, value))
+			std::cout << "[Engine] Failed to set cvar \"" << cvar << "\" to " << value << '\n';
+		else
+		{
+			std::cout << "[Engine] Succesfully set cvar \"" << cvar << "\" to " << value << '\n';
+		}
+	}
 }
 
 
-ConVars::~ConVars()
+CVariables::~CVariables()
 {
-	auto json_archive = JSON::WriteArchive("cvars.json");
-	json_archive << g_CVars;
+	JSON::WriteArchive json_archive = JSON::WriteArchive("cvars.json");
+	json_archive << *this;
 }
 
 
-
-std::string ConVar::ToString() const
+String CVar::ToString() const
 {
 	switch (mType)
 	{
@@ -59,21 +77,21 @@ std::string ConVar::ToString() const
 }
 
 
-bool ConVar::SetValue(const std::string& inValue)
+bool CVar::SetValue(const String& inValue)
 {
 	switch (mType)
 	{
 		case CVAR_TYPE_INT: 
-			mIntValue = std::stoi(inValue);
+			std::from_chars(inValue.data(), inValue.data() + inValue.size(), mIntValue);
 			return true;
 		case CVAR_TYPE_FLOAT: 
-			mFloatValue = std::stof(inValue);
+			std::from_chars(inValue.data(), inValue.data() + inValue.size(), mFloatValue);
 			return true;
 		case CVAR_TYPE_STRING: 
 			mStringValue = inValue;
 			return true;
-        case CVAR_TYPE_ERROR:
-            mFuncValue();
+        case CVAR_TYPE_FUNCTION:
+            mFunctionValue();
             return true;
 		default:
 			return false;
@@ -83,34 +101,34 @@ bool ConVar::SetValue(const std::string& inValue)
 }
 
 
-bool ConVars::Exists(const std::string& inName) const
+bool CVariables::Exists(const String& inName) const
 {
 	return m_ConVars.find(inName) != m_ConVars.end();
 }
 
 
-std::string ConVars::GetValue(const std::string& inName)
+String CVariables::GetValue(const String& inName) const
 {
 	if (m_ConVars.find(inName) == m_ConVars.end())
 		return {};
 
-	return m_ConVars[inName].ToString();
+	return m_ConVars.at(inName).ToString();
 }
 
-void ConVars::CreateFn(const std::string& name, std::function<void()> fn)
+void CVariables::CreateFn(const String& inName, CVar::Function inFunction)
 {
-	auto ret = Create(name, fn, true);
+	CVar::Function function = Create(inName, inFunction, true);
 }
 
 
-ConVar& ConVars::GetCVar(const std::string& inName) 
+CVar& CVariables::GetCVar(const String& inName) 
 {
 	assert(m_ConVars.contains(inName));
 	return m_ConVars[inName]; 
 }
 
 
-bool ConVars::SetValue(const std::string& inName, const std::string& inValue)
+bool CVariables::SetValue(const String& inName, const String& inValue)
 {
 	if (m_ConVars.find(inName) == m_ConVars.end())
 		return false;
@@ -122,32 +140,6 @@ bool ConVars::SetValue(const std::string& inName, const std::string& inValue)
 	catch (...)
 	{
 		return false;
-	}
-}
-
-
-void ConVars::ParseCommandLine(int argc, char** argv)
-{
-	for (int i = 0; i < argc; i++)
-	{
-		if (argv[i][0] != '-')
-			continue;
-
-		const auto string = std::string(argv[i]);
-		const auto equals_pos = string.find('=');
-
-		if (equals_pos == std::string::npos)
-			continue;
-
-		const auto cvar = string.substr(1, equals_pos - 1);
-		const auto value = string.substr(equals_pos + 1);
-
-		if (!SetValue(cvar, value))
-			std::cout << "[Engine] Failed to set cvar \"" << cvar << "\" to " << value << '\n';
-		else
-		{
-			std::cout << "[Engine] Succesfully set cvar \"" << cvar << "\" to " << value << '\n';
-		}
 	}
 }
 

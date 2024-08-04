@@ -18,14 +18,14 @@ SDL_Image::~SDL_Image()
 
 bool SDL_Image::Load(SDL_Renderer* inRenderer, const Path& inPath)
 {
-	auto width = 0, height = 0, ch = 0;
-	const auto filepath = inPath.string();
+	int width = 0, height = 0, ch = 0;
+	const String filepath = inPath.string();
 	m_PixelData = stbi_load(filepath.c_str(), &width, &height, &ch, 0);
 
 	if (!m_PixelData)
 		return false;
 
-	const auto pitch = ( ( width * ch ) + 3 ) & ~3;
+	const int pitch = ( ( width * ch ) + 3 ) & ~3;
 	const int r = 0x000000FF, g = 0x0000FF00, b = 0x00FF0000, a = ( ch == 4 ) ? 0xFF000000 : 0;
 	m_Surface = SDL_CreateRGBSurfaceFrom(m_PixelData, width, height, ch * 8, pitch, r, g, b, a);
 
@@ -72,7 +72,7 @@ Launcher::Launcher() : Application(WindowFlag::HIDDEN)
 	SDL_SetWindowTitle(m_Window, "Launcher");
 	SDL_SetWindowMinimumSize(m_Window, 420, 90);
 
-	for (const auto& [cvar, value] : g_CVars)
+	for (const auto& [cvar, value] : g_CVariables->GetCVars())
 		m_SortedCvarNames.insert(cvar);
 
 	m_NrOfRows = m_SortedCvarNames.size() / 2;
@@ -103,30 +103,30 @@ void Launcher::OnUpdate(float inDeltaTime)
 	ImGui::SetNextWindowSize(ImGui::GetIO().DisplaySize);
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
 
-	auto window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings;
+	ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings;
+
 	if (m_BgImage.IsLoaded())
 		window_flags |= ImGuiWindowFlags_NoBackground;
 
 	ImGui::Begin("##launcher", (bool*)1, window_flags);
-
 	ImGui::BeginTable("Configuration Settings", 2, ImGuiTableFlags_SizingFixedFit);
 
-	auto index = 0u;
-	auto cNrOfColumns = 2;
+	uint32_t index = 0u;
+	int cNrOfColumns = 2;
 
-	for (const auto& cvar_name : m_SortedCvarNames)
+	for (const String& cvar_name : m_SortedCvarNames)
 	{
-		auto& cvar = g_CVars.GetCVar(cvar_name);
+		CVar& cvar = g_CVariables->GetCVar(cvar_name);
 
-		switch (cvar.GetType())
+		switch (cvar.mType)
 		{
 			case CVAR_TYPE_INT:
 			{
-				auto value = bool(cvar.mIntValue);
-				auto string = "##" + cvar_name;
+				bool value = cvar.mIntValue;
+				String string = "##" + cvar_name;
 
 				if (ImGui::Checkbox(string.c_str(), &value))
-					cvar = ConVar(int(value));
+					cvar = CVar(int(value));
 
 				ImGui::SameLine();
 				ImGui::Text(cvar_name.c_str());

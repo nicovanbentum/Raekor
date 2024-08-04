@@ -5,114 +5,104 @@
 
 namespace RK {
 
-enum EConVarType
+enum CVarKind
 {
-	CVAR_TYPE_ERROR,
+	CVAR_TYPE_NONE,
 	CVAR_TYPE_INT,
 	CVAR_TYPE_FLOAT,
-	CVAR_TYPE_STRING
+	CVAR_TYPE_STRING,
+	CVAR_TYPE_FUNCTION
 };
 
-
-class ConVar
+class CVar
 {
-	RTTI_DECLARE_TYPE(ConVar);
-
-    using Func = std::function<void(void)>;
+	RTTI_DECLARE_TYPE(CVar);
+	using Function = std::function<void(void)>;
 
 public:
-	ConVar() : mType(CVAR_TYPE_ERROR) {}
-	ConVar(int inValue) : mType(CVAR_TYPE_INT), mIntValue(inValue) {}
-	ConVar(float inValue) : mType(CVAR_TYPE_FLOAT), mFloatValue(inValue) {}
-	ConVar(const std::string& inValue) : mType(CVAR_TYPE_STRING), mStringValue(inValue) {}
-	ConVar(std::function<void(void)> inValue) : mType(CVAR_TYPE_ERROR), mFuncValue(inValue) {}
+	CVar() : mType(CVAR_TYPE_NONE) {}
+	CVar(int inValue) : mType(CVAR_TYPE_INT), mIntValue(inValue) {}
+	CVar(float inValue) : mType(CVAR_TYPE_FLOAT), mFloatValue(inValue) {}
+	CVar(const String& inValue) : mType(CVAR_TYPE_STRING), mStringValue(inValue) {}
+	CVar(const Function& inValue) : mType(CVAR_TYPE_FUNCTION), mFunctionValue(inValue) {}
 
 	template<typename T> T& GetValue();
 	template<> int& GetValue() { return mIntValue; }
 	template<> float& GetValue() { return mFloatValue; }
-	template<> std::string& GetValue() { return mStringValue; }
-	template<> std::function<void(void)>& GetValue() { return mFuncValue; }
+	template<> String& GetValue() { return mStringValue; }
+	template<> Function& GetValue() { return mFunctionValue; }
 
-	inline EConVarType GetType() const { return mType; }
-
-	std::string ToString() const;
-	bool SetValue(const std::string& inValue);
+	String ToString() const;
+	bool SetValue(const String& inValue);
 
 public:
-	EConVarType mType;
+	CVarKind mType;
 	int mIntValue = 0;
 	float mFloatValue = 0;
-	std::string mStringValue;
-	std::function<void(void)> mFuncValue; // not serialized
+	String mStringValue;
+	Function mFunctionValue; // not serialized
 };
 
 
-class ConVars
+class CVariables
 {
-	RTTI_DECLARE_TYPE(ConVars);
+	RTTI_DECLARE_TYPE(CVariables);
 
 public:
-	ConVars();
-	~ConVars();
+	CVariables() = default;
+	CVariables(int argc, char** argv);
+	~CVariables();
 
-	bool Exists(const std::string& inName) const;
+	bool Exists(const String& inName) const;
 
-	std::string GetValue(const std::string& inName);
-
-	template<typename T>
-	inline T& Create(const std::string& inName, T inValue, bool inForce = false);
-
-	void CreateFn(const std::string& inName, std::function<void()> fn);
+	String GetValue(const String& inName) const;
 
 	template<typename T>
-	inline T& GetValue(const std::string& inName);
+	inline T& Create(const String& inName, T inValue, bool inForce = false);
 
-	ConVar& GetCVar(const std::string& inName);
+	void CreateFn(const String& inName, CVar::Function fn);
 
 	template<typename T>
-	inline T* TryGetValue(const std::string& inName);
+	inline T& GetValue(const String& inName);
 
-	bool SetValue(const std::string& inName, const std::string& inValue);
+	CVar& GetCVar(const String& inName);
 
-	void ParseCommandLine(int inArgc, char** inArgv);
+	template<typename T>
+	inline T* TryGetValue(const String& inName);
 
-	size_t GetCount() { return m_ConVars.size(); }
+	bool SetValue(const String& inName, const String& inValue);
 
-	inline auto end() { return m_ConVars.end(); }
-	inline auto begin() { return m_ConVars.begin(); }
+	size_t GetCount() const { return m_ConVars.size(); }
+	const HashMap<String, CVar>& GetCVars() const { return m_ConVars; }
 
 private:
-	std::unordered_map<std::string, ConVar> m_ConVars;
+	HashMap<String, CVar> m_ConVars;
 };
 
-
-extern ConVars g_CVars;
-
-
 template<typename T>
-inline T& ConVars::Create(const std::string& inName, T value, bool force)
+inline T& CVariables::Create(const std::string& inName, T value, bool force)
 {
 	if (m_ConVars.find(inName) == m_ConVars.end() || force)
-		m_ConVars[inName] = ConVar(value);
+		m_ConVars[inName] = CVar(value);
 
 	return m_ConVars[inName].GetValue<T>();
 }
 
-
 template<typename T>
-inline T& ConVars::GetValue(const std::string& inName)
+inline T& CVariables::GetValue(const std::string& inName)
 {
 	return m_ConVars[inName].GetValue<T>();
 }
 
-
 template<typename T>
-inline T* ConVars::TryGetValue(const std::string& inName)
+inline T* CVariables::TryGetValue(const std::string& inName)
 {
 	if (m_ConVars.find(inName) == m_ConVars.end())
 		return nullptr;
 
 	return &m_ConVars[inName].GetValue<T>();
 }
+
+inline CVariables* g_CVariables = nullptr;
 
 } // raekor

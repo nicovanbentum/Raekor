@@ -1106,8 +1106,8 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, 
             .mSettings = inData.mSettings
         };
 
-        root_constants.mSettings.mVignetteScale *= g_CVars.GetValue<int>("r_enable_vignette");
-        root_constants.mSettings.mBloomBlendFactor *= g_CVars.GetValue<int>("r_enable_bloom");
+        root_constants.mSettings.mVignetteScale *= g_CVariables->GetValue<int>("r_enable_vignette");
+        root_constants.mSettings.mBloomBlendFactor *= g_CVariables->GetValue<int>("r_enable_bloom");
 
         inCmdList.PushGraphicsConstants(root_constants);
         inCmdList->DrawInstanced(3, 1, 0, 0);

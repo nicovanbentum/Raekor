@@ -6,13 +6,13 @@
 namespace RK {
 
 template<typename T>
-struct Key
+struct TKey
 {
 	double mTime = 0.0f;
 	T mValue = {};
 
-	Key() = default;
-	Key(double inTime, const T& inValue) : mTime(inTime), mValue(inValue) {}
+	TKey() = default;
+	TKey(double inTime, const T& inValue) : mTime(inTime), mValue(inValue) {}
 
 	inline bool operator==(const T& inOther) const { return inOther.mValue == mValue; }
 	inline bool operator!=(const T& inOther) const { return inOther.mValue != mValue; }
@@ -21,16 +21,16 @@ struct Key
 	inline bool operator>(const T& inOther) const { return mTime > inOther.mTime; }
 };
 
-struct Vec3Key : public Key<Vec3>
+struct Vec3Key : public TKey<Vec3>
 {
 	RTTI_DECLARE_TYPE(Vec3Key);
-	using Key::Key;
+	using TKey::TKey;
 };
 
-struct QuatKey : public Key<Quat>
+struct QuatKey : public TKey<Quat>
 {
 	RTTI_DECLARE_TYPE(QuatKey);
-	using Key::Key;
+	using TKey::TKey;
 };
 
 class KeyFrames

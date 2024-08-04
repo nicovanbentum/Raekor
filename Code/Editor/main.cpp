@@ -10,12 +10,12 @@ using namespace RK;
 
 int main(int argc, char** argv)
 {
-    g_CVars.ParseCommandLine(argc, argv);
+    g_CVariables = new CVariables(argc, argv);
 
     bool should_launch = true;
     bool is_asset_compiler = OS::sCheckCommandLineOption("-asset_compiler");
 
-    if (g_CVars.Create("enable_launcher", 0) && !is_asset_compiler)
+    if (g_CVariables->Create("enable_launcher", 0) && !is_asset_compiler)
     {
         Launcher launcher;
         launcher.Run();
@@ -40,6 +40,7 @@ int main(int argc, char** argv)
     app->Run();
 
     delete app;
+    delete g_CVariables;
 
     return 0;
 }

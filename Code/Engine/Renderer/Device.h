@@ -116,10 +116,10 @@ private:
 
     ComPtr<ID3D12Device5> m_Device;
     ComPtr<IDXGIAdapter1> m_Adapter;
+    ComPtr<D3D12MA::Allocator> m_Allocator;
     ComPtr<ID3D12CommandQueue> m_CopyQueue;
     ComPtr<ID3D12CommandQueue> m_ComputeQueue;
     ComPtr<ID3D12CommandQueue> m_GraphicsQueue;
-    ComPtr<D3D12MA::Allocator> m_Allocator;
     ComPtr<ID3D12RootSignature> m_GlobalRootSignature;
 
     DescriptorHeap m_ClearHeap;
