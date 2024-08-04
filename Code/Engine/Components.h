@@ -224,48 +224,12 @@ struct Material : public Component
 {
 	RTTI_DECLARE_TYPE(Material);
 
-	struct Texture 
-	{
-		RTTI_DECLARE_TYPE(Material::Texture);
-
-		uint8_t swizzle;
-		uint32_t gpuMap;
-		String filepath;
-	};
-
-	enum TextureIndex
-	{
-		ALBEDO_INDEX, 
-		NORMALS_INDEX, 
-		EMISSIVE_INDEX, 
-		METALLIC_INDEX, 
-		ROUGHNESS_INDEX,
-		TEXTURE_INDEX_COUNT
-	};
-
 	// properties
 	Vec4 albedo = Vec4(1.0f);
 	Vec3 emissive = Vec3(0.0f);
 	float metallic = 0.0f;
 	float roughness = 1.0f;
 	bool isTransparent = false;
-
-	StaticArray<Texture, TEXTURE_INDEX_COUNT> textures;
-
-	Texture& GetAlbedoTexture() { return textures[ALBEDO_INDEX]; }
-	const Texture& GetAlbedoTexture() const { return textures[ALBEDO_INDEX]; }
-
-	Texture& GetNormalsTexture() { return textures[NORMALS_INDEX]; }
-	const Texture& GetNormalsTexture() const { return textures[NORMALS_INDEX]; }
-
-	Texture& GetEmissiveTexture() { return textures[EMISSIVE_INDEX]; }
-	const Texture& GetEmissiveTexture() const { return textures[EMISSIVE_INDEX]; }
-
-	Texture& GetMetallicTexture() { return textures[METALLIC_INDEX]; }
-	const Texture& GetMetallicTexture() const { return textures[METALLIC_INDEX]; }
-
-	Texture& GetRoughnessTexture() { return textures[ROUGHNESS_INDEX]; }
-	const Texture& GetRoughnessTexture() const { return textures[ROUGHNESS_INDEX]; }
 
 	// texture file paths
 	String albedoFile; // ptr
@@ -291,8 +255,6 @@ struct Material : public Component
 	uint8_t gpuEmissiveMapSwizzle = TEXTURE_SWIZZLE_RGBA;
 	uint8_t gpuMetallicMapSwizzle = TEXTURE_SWIZZLE_BBBB; // assume GLTF by default, TODO: make changes in FbxImporter?
 	uint8_t gpuRoughnessMapSwizzle = TEXTURE_SWIZZLE_GGGG; // assume GLTF by default, TODO: make changes in FbxImporter?
-
-	bool IsLoadedNew() const { for (const Texture& texture : textures) if (texture.gpuMap == 0) return false; return true; }
 
 	bool IsLoaded() const { return gpuAlbedoMap != 0 && gpuNormalMap != 0 && gpuMetallicMap != 0 && gpuRoughnessMap != 0; }
 
