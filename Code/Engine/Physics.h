@@ -112,8 +112,6 @@ public:
 	Physics(IRenderInterface* inRenderer = nullptr);
 	~Physics();
 
-	static void sInit();
-
 	void Step(Scene& scene, float dt);
 	void OnUpdate(Scene& scene);
 

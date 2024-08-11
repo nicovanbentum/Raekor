@@ -81,6 +81,8 @@ public:
 	void OnUpdate(float inDeltaTime);
 
 	const String& GetName() const { return m_Name; }
+	void SetName(StringView inName) { m_Name = inName; }
+
 	uint32_t GetBoneCount() const { return m_KeyFrames.size(); }
 	float GetTotalDuration() const { return m_TotalDuration; }
 	
@@ -96,9 +98,8 @@ public:
 #ifndef DEPRECATE_ASSIMP
 	void LoadKeyframes(uint32_t inBoneIndex, const aiNodeAnim* inAnimation);
 #endif
-	void LoadKeyframes(const std::string& inBoneName, const cgltf_animation_channel* inAnimation);
+	void LoadKeyframes(const String& inBoneName, const cgltf_animation_channel* inAnimation);
 	bool HasKeyFrames(const String& inBoneName) const { return m_KeyFrames.contains(inBoneName); }
-
 
 	KeyFrames& GetKeyFrames(const String& inBoneName) { return m_KeyFrames.at(inBoneName); }
 	const KeyFrames& GetKeyFrames(const String& inBoneName) const { return m_KeyFrames.at(inBoneName); }

@@ -11,15 +11,6 @@ set_source_files_properties(${CMAKE_SOURCE_DIR}/ThirdParty/D3D12MemoryAllocator/
 list(APPEND CppFiles ${CMAKE_SOURCE_DIR}/ThirdParty/D3D12MemoryAllocator/src/D3D12MemAlloc.cpp)
 list(APPEND CppFiles ${CMAKE_SOURCE_DIR}/ThirdParty/samplerCPP/samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d_1spp.cpp)
 
-# Add ImGui
-# set(IMGUI_DIR ${CMAKE_SOURCE_DIR}/ThirdParty/imgui)
-# file(GLOB_RECURSE ImGuiFiles ${IMGUI_DIR}/*.cpp)
-# list(APPEND ImGuiFiles ${IMGUI_DIR}/misc/cpp/imgui_stdlib.cpp)
-# list(APPEND ImGuiFiles ${IMGUI_DIR}/misc/cpp/imgui_stdlib.cpp)
-# list(APPEND ImGuiFiles ${IMGUI_DIR}/backends/imgui_impl_sdl2.cpp)
-# list(APPEND ImGuiFiles ${IMGUI_DIR}/backends/imgui_impl_dx12.cpp)
-# set_source_files_properties(ImGuiFiles PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
-
 # Rule to build the actual exectuable and enable c++20
 add_executable(${PROJECT_NAME} ${CppFiles} ${HppFiles} Assets/Icon/Icon.rc)
 set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "Editor")

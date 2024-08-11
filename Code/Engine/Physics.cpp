@@ -32,8 +32,7 @@ static bool AssertFailedImpl(const char* inExpression, const char* inMessage, co
 };
 
 
-
-void Physics::sInit()
+Physics::Physics(IRenderInterface* inRenderer)
 {
 	JPH::RegisterDefaultAllocator();
 
@@ -41,13 +40,6 @@ void Physics::sInit()
 #ifndef NDEBUG
 	JPH::AssertFailed = AssertFailedImpl;
 #endif
-}
-
-
-
-Physics::Physics(IRenderInterface* inRenderer)
-{
-	sInit();
 	
 	JPH::Factory::sInstance = new JPH::Factory();
 
@@ -84,7 +76,7 @@ void Physics::Step(Scene& scene, float dt)
 
 	m_Physics->Update(dt, 1, m_TempAllocator, m_JobSystem);
 
-	auto& body_interface = m_Physics->GetBodyInterface();
+	JPH::BodyInterface& body_interface = m_Physics->GetBodyInterface();
 
 	for (const auto& [entity, transform, mesh, collider] : scene.Each<Transform, Mesh, RigidBody>())
 	{
@@ -126,14 +118,14 @@ void Physics::OnUpdate(Scene& scene)
 
 				collider.bodyID = m_Physics->GetBodyInterface().CreateAndAddBody(settings, JPH::EActivation::Activate);
 
-				const auto position = JPH::Vec3(transform.position.x, transform.position.y, transform.position.z);
-				const auto rotation = JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
+				const JPH::Vec3 position = JPH::Vec3(transform.position.x, transform.position.y, transform.position.z);
+				const JPH::Quat rotation = JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
 				m_Physics->GetBodyInterface().SetPositionAndRotationWhenChanged(collider.bodyID, position, rotation, JPH::EActivation::DontActivate);
 			}
 			else
 			{
-				const auto position = JPH::Vec3(transform.position.x, transform.position.y, transform.position.z);
-				const auto rotation = JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
+				const JPH::Vec3 position = JPH::Vec3(transform.position.x, transform.position.y, transform.position.z);
+				const JPH::Quat rotation = JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
 				m_Physics->GetBodyInterface().SetPositionAndRotationWhenChanged(collider.bodyID, position, rotation, JPH::EActivation::DontActivate);
 			}
 		}
@@ -145,7 +137,7 @@ void Physics::OnUpdate(Scene& scene)
 		{
 			if (soft_body.mBodyID.IsInvalid() && soft_body.mSharedSettings.GetRefCount())
 			{
-				auto settings = JPH::SoftBodyCreationSettings(
+				JPH::SoftBodyCreationSettings settings = JPH::SoftBodyCreationSettings(
 					&soft_body.mSharedSettings,
 					JPH::Vec3(transform.position.x, transform.position.y, transform.position.z),
 					JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w),
@@ -158,16 +150,16 @@ void Physics::OnUpdate(Scene& scene)
 			}
 			else
 			{
-				const auto position = JPH::Vec3(transform.position.x, transform.position.y, transform.position.z);
-				const auto rotation = JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
+				const JPH::Vec3 position = JPH::Vec3(transform.position.x, transform.position.y, transform.position.z);
+				const JPH::Quat rotation = JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
 				m_Physics->GetBodyInterface().SetPositionAndRotationWhenChanged(soft_body.mBodyID, position, rotation, JPH::EActivation::DontActivate);
 
-				if (auto body = m_Physics->GetBodyLockInterface().TryGetBody(soft_body.mBodyID))
+				if (JPH::Body* body = m_Physics->GetBodyLockInterface().TryGetBody(soft_body.mBodyID))
 				{
 					if (!body->IsActive())
 						continue;
 
-					if (auto props = (JPH::SoftBodyMotionProperties*)body->GetMotionProperties())
+					if (JPH::SoftBodyMotionProperties* props = (JPH::SoftBodyMotionProperties*)body->GetMotionProperties())
 					{
 						if (auto mesh = scene.GetPtr<Mesh>(entity))
 						{

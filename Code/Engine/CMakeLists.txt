@@ -23,6 +23,7 @@ list(APPEND CppFiles ${CMAKE_SOURCE_DIR}/ThirdParty/meshoptimizer/src/clusterize
 set(IMGUI_DIR ${CMAKE_SOURCE_DIR}/ThirdParty/imgui)
 list(APPEND ImGuiFiles ${IMGUI_DIR}/imgui.cpp)
 list(APPEND ImGuiFiles ${IMGUI_DIR}/imgui_draw.cpp)
+list(APPEND ImGuiFiles ${IMGUI_DIR}/imgui_demo.cpp)
 list(APPEND ImGuiFiles ${IMGUI_DIR}/imgui_tables.cpp)
 list(APPEND ImGuiFiles ${IMGUI_DIR}/imgui_widgets.cpp)
 list(APPEND ImGuiFiles ${IMGUI_DIR}/misc/cpp/imgui_stdlib.cpp)
