@@ -449,6 +449,9 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
 
     if (m_Settings.mDoPathTrace)
     {
+        if (m_Settings.mDoPathTraceGBuffer)
+            depth_texture = AddGBufferPass(m_RenderGraph, inDevice, inScene).mDepthTexture;
+
         compose_input = AddPathTracePass(m_RenderGraph, inDevice, inScene, sky_cube_data).mOutputTexture;
     }
     else
@@ -522,11 +525,10 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
          if (m_Settings.mEnableBloom)
             bloom_output = AddBloomPass(m_RenderGraph, inDevice, compose_input).mOutputTexture;
 
-         // Depth of Field can't run under path tracing, no depth texture available (and we should just do actual depth of field)
-        if (m_Settings.mEnableDoF && !m_Settings.mDoPathTrace)
+        if (m_Settings.mEnableDoF && depth_texture != default_textures.mWhiteTexture)
             compose_input = AddDepthOfFieldPass(m_RenderGraph, inDevice, compose_input, depth_texture).mOutputTexture;
 
-        if (m_Settings.mEnableDebugOverlay && !m_Settings.mDoPathTrace)
+        if (m_Settings.mEnableDebugOverlay && depth_texture != default_textures.mWhiteTexture)
             AddDebugOverlayPass(m_RenderGraph, inDevice, compose_input, depth_texture);
     }
     else
@@ -918,6 +920,14 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
     if (ImGui::BeginMenu("Enable Path Tracer"))
     {
         ImGui::SeparatorText("Settings");
+
+        need_recompile |= ImGui::Checkbox("Rasterize GBuffer", (bool*)&m_Renderer.GetSettings().mDoPathTraceGBuffer);
+
+        ImGui::SameLine(0.0f, ImGui::CalcTextSize(" ").x);
+        ImGui::Text("(?)");
+
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("GBuffer is needed for certain editor functionality.");
 
         if (ImGui::SliderInt("Bounces", (int*)&PathTraceData::mBounces, 1, 8))
             PathTraceData::mReset = true;

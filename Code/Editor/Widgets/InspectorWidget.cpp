@@ -35,9 +35,11 @@ void InspectorWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	SequenceWidget* sequence_widget = inWidgets->GetWidget<SequenceWidget>();
 	ShaderGraphWidget* nodegraph_widget = inWidgets->GetWidget<ShaderGraphWidget>();
 
+	m_SceneChanged = false;
+
 	if (viewport_widget && GetActiveEntity() != Entity::Null)
 	{
-		DrawEntityInspector(inWidgets);
+		m_SceneChanged = DrawEntityInspector(inWidgets);
 	}
     else if (sequence_widget && sequence_widget->IsVisible() && sequence_widget->GetSelectedKeyFrame() != -1)
     {
@@ -48,11 +50,11 @@ void InspectorWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 };
 
 
-void InspectorWidget::DrawEntityInspector(Widgets* inWidgets)
+bool InspectorWidget::DrawEntityInspector(Widgets* inWidgets)
 {
 	Entity active_entity = m_Editor->GetActiveEntity();
 	if (active_entity == Entity::Null)
-		return;
+		return false;
 
 	ImGui::Text("Entity ID: %i", active_entity);
 
@@ -70,6 +72,7 @@ void InspectorWidget::DrawEntityInspector(Widgets* inWidgets)
 
 	Scene& scene = GetScene();
 	Assets& assets = GetAssets();
+	bool scene_changed = false;
 
 	// I much prefered the for_each_tuple_element syntax tbh
 	std::apply([&](const auto& ... components)
@@ -83,14 +86,12 @@ void InspectorWidget::DrawEntityInspector(Widgets* inWidgets)
 				ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
 				
 				bool is_open = true;
-				if (ImGui::CollapsingHeader(components.name, &is_open, ImGuiTreeNodeFlags_DefaultOpen))
+				if (ImGui::CollapsingHeader(components.name, ImGuiTreeNodeFlags_DefaultOpen))
 				{
 					ImGui::PopStyleVar();
 
-					if (is_open)
-						DrawComponent(entity, scene.Get<ComponentType>(entity));
-					else
-						scene.Remove<ComponentType>(entity);
+					if (is_open) 
+						scene_changed |= DrawComponent(entity, scene.Get<ComponentType>(entity));
 				}
 				else
 					ImGui::PopStyleVar();
@@ -122,12 +123,12 @@ void InspectorWidget::DrawEntityInspector(Widgets* inWidgets)
 		ImGui::EndPopup();
 	}
 
-	// Broken for now
-	if (ImGui::Button("Add Component", ImVec2(ImGui::GetWindowWidth(), 0)))
-		ImGui::OpenPopup("Components");
+	ImGui::Separator();
 
 	ImGui::PopStyleVar();
 	ImGui::PopStyleVar();
+
+	return scene_changed;
 }
 
 
@@ -231,7 +232,7 @@ void InspectorWidget::DrawScriptMember(const char* inLabel, Entity& ioValue)
 }
 
 
-void InspectorWidget::DrawComponent(Entity inEntity, Name& inName)
+bool InspectorWidget::DrawComponent(Entity inEntity, Name& inName)
 {
 	if (ImGui::BeginTable("##NameTable", 2, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_BordersInnerV))
 	{
@@ -247,10 +248,12 @@ void InspectorWidget::DrawComponent(Entity inEntity, Name& inName)
 
 		ImGui::EndTable();
 	}
+
+	return false;
 }
 
 
-void InspectorWidget::DrawComponent(Entity inEntity, Mesh& ioMesh)
+bool InspectorWidget::DrawComponent(Entity inEntity, Mesh& ioMesh)
 {
 	const int byte_size = sizeof(Mesh) + ioMesh.GetVertexStride() * ioMesh.positions.size();
 	ImGui::Text("%.1f Kb", float(byte_size) / 1024);
@@ -260,6 +263,8 @@ void InspectorWidget::DrawComponent(Entity inEntity, Mesh& ioMesh)
 	ImGui::Text("%i Triangles", ioMesh.indices.size() / 3);
 
 	Scene& scene = GetScene();
+	bool scene_changed = false;
+
 	if (scene.Has<Material>(ioMesh.material) && scene.Has<Material, Name>(ioMesh.material))
 	{
 		const auto& [material, name] = scene.Get<Material, Name>(ioMesh.material);
@@ -272,8 +277,11 @@ void InspectorWidget::DrawComponent(Entity inEntity, Mesh& ioMesh)
 
 		if (ImGui::BeginPopupContextItem(NULL, ImGuiPopupFlags_MouseButtonRight))
 		{
-			if (ImGui::MenuItem("Clear"))
+			if (ImGui::MenuItem("Clear")) 
+			{
+				scene_changed = true;
 				ioMesh.material = Entity::Null;
+			}
 
 			ImGui::EndPopup();
 		}
@@ -281,7 +289,10 @@ void InspectorWidget::DrawComponent(Entity inEntity, Mesh& ioMesh)
 		if (ImGui::BeginDragDropTarget())
 		{
 			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("drag_drop_entity"))
+			{
+				scene_changed = true;
 				ioMesh.material = *reinterpret_cast<const Entity*>( payload->Data );
+			}
 
 			ImGui::EndDragDropTarget();
 		}
@@ -319,6 +330,8 @@ void InspectorWidget::DrawComponent(Entity inEntity, Mesh& ioMesh)
 
 				name.name = "NewMaterial";
 				material = Material::Default;
+
+				scene_changed = true;
 			}
 
 			ImGui::EndPopup();
@@ -327,7 +340,10 @@ void InspectorWidget::DrawComponent(Entity inEntity, Mesh& ioMesh)
 		if (ImGui::BeginDragDropTarget())
 		{
 			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("drag_drop_entity"))
+			{
+				scene_changed = true;
 				ioMesh.material = *reinterpret_cast<const Entity*>( payload->Data );
+			}
 
 			ImGui::EndDragDropTarget();
 		}
@@ -342,14 +358,17 @@ void InspectorWidget::DrawComponent(Entity inEntity, Mesh& ioMesh)
 
 	if (ImGui::Button("Generate Tangents"))
 		ioMesh.CalculateTangents();
+
+	return scene_changed;
 }
 
 
-void InspectorWidget::DrawComponent(Entity inEntity, Camera& ioCamera)
+bool InspectorWidget::DrawComponent(Entity inEntity, Camera& ioCamera)
 {
+	return false;
 }
 
-void InspectorWidget::DrawComponent(Entity inEntity, SoftBody& ioSoftBody)
+bool InspectorWidget::DrawComponent(Entity inEntity, SoftBody& ioSoftBody)
 {
 	JPH::BodyInterface& body_interface = GetPhysics().GetSystem()->GetBodyInterface();
 
@@ -443,10 +462,12 @@ void InspectorWidget::DrawComponent(Entity inEntity, SoftBody& ioSoftBody)
 	{
 		GetPhysics().GetSystem()->GetBodyInterface().AddImpulse(ioSoftBody.mBodyID, JPH::Vec3(0.0f, 0.0f, 1.0f));
 	}
+
+	return false;
 }
 
 
-void InspectorWidget::DrawComponent(Entity inEntity, RigidBody& inBoxCollider)
+bool InspectorWidget::DrawComponent(Entity inEntity, RigidBody& inBoxCollider)
 {
 	JPH::BodyInterface& body_interface = GetPhysics().GetSystem()->GetBodyInterface();
 
@@ -492,10 +513,12 @@ void InspectorWidget::DrawComponent(Entity inEntity, RigidBody& inBoxCollider)
 		if (mesh && transform)
 			inBoxCollider.CreateCylinderCollider(*mesh, *transform);
 	}
+
+	return false;
 }
 
 
-void InspectorWidget::DrawComponent(Entity inEntity, Skeleton& inSkeleton)
+bool InspectorWidget::DrawComponent(Entity inEntity, Skeleton& inSkeleton)
 {
 	uint32_t bone_count = 0;
 
@@ -574,20 +597,23 @@ void InspectorWidget::DrawComponent(Entity inEntity, Skeleton& inSkeleton)
 		}
 	}
 
+	return false;
 }
 
 
-void InspectorWidget::DrawComponent(Entity inEntity, Material& inMaterial)
+bool InspectorWidget::DrawComponent(Entity inEntity, Material& inMaterial)
 {
 	ImGuiIO& io = ImGui::GetIO();
 	ImGuiStyle& style = ImGui::GetStyle();
 	const float line_height = io.FontDefault->FontSize;
 
-	ImGui::ColorEdit4("Albedo", glm::value_ptr(inMaterial.albedo), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
-	ImGui::ColorEdit3("Emissive", glm::value_ptr(inMaterial.emissive), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
+	bool scene_changed = false;
 
-	ImGui::DragFloat("Metallic", &inMaterial.metallic, 0.001f, 0.0f, 1.0f);
-	ImGui::DragFloat("Roughness", &inMaterial.roughness, 0.001f, 0.0f, 1.0f);
+	scene_changed |= ImGui::ColorEdit4("Albedo", glm::value_ptr(inMaterial.albedo), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
+	scene_changed |= ImGui::ColorEdit3("Emissive", glm::value_ptr(inMaterial.emissive), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
+
+	scene_changed |= ImGui::DragFloat("Metallic", &inMaterial.metallic, 0.001f, 0.0f, 1.0f);
+	scene_changed |= ImGui::DragFloat("Roughness", &inMaterial.roughness, 0.001f, 0.0f, 1.0f);
 
 	//ImGui::Text(inMaterial.vertexShaderFile.c_str());
 	//ImGui::SameLine();
@@ -612,6 +638,7 @@ void InspectorWidget::DrawComponent(Entity inEntity, Material& inMaterial)
 
 		if (!filepath.empty())
 		{
+			scene_changed = true;
 			inMaterial.vertexShaderFile = filepath;
 			m_Editor->GetRenderInterface()->CompileMaterialShaders(inEntity, inMaterial);
 		}
@@ -639,6 +666,7 @@ void InspectorWidget::DrawComponent(Entity inEntity, Material& inMaterial)
 
 		if (!filepath.empty())
 		{
+			scene_changed = true;
 			inMaterial.pixelShaderFile = filepath;
 			m_Editor->GetRenderInterface()->CompileMaterialShaders(inEntity, inMaterial);
 		}
@@ -741,6 +769,7 @@ void InspectorWidget::DrawComponent(Entity inEntity, Material& inMaterial)
 			{
 				inFile = "";
 				inGpuMap = inDefaultMap;
+				scene_changed = true;
 			}
 
 			if (ImGui::MenuItem("Show In Explorer"))
@@ -781,15 +810,22 @@ void InspectorWidget::DrawComponent(Entity inEntity, Material& inMaterial)
 		DrawTextureInteraction(texture.gpuMap, texture.swizzle, Material::Default.textures[index].gpuMap, texture.filepath, imgui_id);
 	} */
 
-	ImGui::Checkbox("Is Transparent", &inMaterial.isTransparent);
+	scene_changed |= ImGui::Checkbox("Is Transparent", &inMaterial.isTransparent);
+
+	return scene_changed;
 }
 
 
-void InspectorWidget::DrawComponent(Entity inEntity, Transform& inTransform)
+bool InspectorWidget::DrawComponent(Entity inEntity, Transform& inTransform)
 {
+	bool scene_changed = false;
+
     ImGui::SetNextItemRightAlign("Scale     ");
 	if (ImGui::DragVec3("##ScaleDragFloat3", inTransform.scale, 0.001f, 0.0f, FLT_MAX))
+	{
 		inTransform.Compose();
+		scene_changed = true;
+	}
 
     ImGui::SetNextItemRightAlign("Rotation");
 	Vec3 degrees = glm::degrees(glm::eulerAngles(inTransform.rotation));
@@ -797,11 +833,15 @@ void InspectorWidget::DrawComponent(Entity inEntity, Transform& inTransform)
 	{
 		inTransform.rotation = glm::quat(glm::radians(degrees));
 		inTransform.Compose();
+		scene_changed = true;
 	}
 
     ImGui::SetNextItemRightAlign("Position ");
 	if (ImGui::DragVec3("##PositionDragFloat3", inTransform.position, 0.001f, -FLT_MAX, FLT_MAX))
+	{
 		inTransform.Compose();
+		scene_changed = true;
+	}
 
 	ImGui::Separator();
 
@@ -809,12 +849,18 @@ void InspectorWidget::DrawComponent(Entity inEntity, Transform& inTransform)
 	const String preview_text = animation ? animation->GetName() : "None";
 
 	if (ImGui::DragDropTargetButton("Animation", preview_text.c_str(), animation != nullptr))
+	{
 		SetActiveEntity(inTransform.animation);
+		scene_changed = true;
+	}
 
 	if (ImGui::BeginDragDropTarget())
 	{
 		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("drag_drop_entity"))
+		{
 			inTransform.animation = *reinterpret_cast<const Entity*>( payload->Data );
+			scene_changed = true;
+		}
 
 		ImGui::EndDragDropTarget();
 	}
@@ -832,22 +878,33 @@ void InspectorWidget::DrawComponent(Entity inEntity, Transform& inTransform)
 			for (const String& channel : channels)
 			{
 				if (ImGui::Selectable(channel.c_str(), inTransform.animationChannel == channel))
+				{
 					inTransform.animationChannel = channel;
+					scene_changed = true;
+				}
 			}
 
 			ImGui::EndCombo();
 		}
 	}
+
+	return scene_changed;
 }
 
 
-void InspectorWidget::DrawComponent(Entity inEntity, Animation& inAnimation)
+bool InspectorWidget::DrawComponent(Entity inEntity, Animation& inAnimation)
 {
 	const float current_time = inAnimation.GetRunningTime();
 	const float total_duration = inAnimation.GetTotalDuration();
 
 	ImGui::Text("Bone Count: %i", inAnimation.GetBoneCount());
 	ImGui::Text("Total Duration: %.2f seconds", total_duration / 1000.0f);
+
+	String name = inAnimation.GetName();
+	if (ImGui::InputText("Name##Animation::m_Name", &name, ImGuiInputTextFlags_EnterReturnsTrue))
+		inAnimation.SetName(name);
+
+	bool scene_changed = false;
 
 	if (ImGui::Button("Apply to Scene"))
 	{
@@ -859,6 +916,8 @@ void InspectorWidget::DrawComponent(Entity inEntity, Animation& inAnimation)
 				transform.animationChannel = name;
 			}
 		}
+
+		scene_changed = true;
 	}
 
 	if (ImGui::Button("Remove from Scene"))
@@ -871,12 +930,17 @@ void InspectorWidget::DrawComponent(Entity inEntity, Animation& inAnimation)
 				transform.animationChannel = "";
 			}
 		}
+
+		scene_changed = true;
 	}
 
 	if (inAnimation.IsPlaying())
 	{
 		if (ImGui::Button(reinterpret_cast<const char*>( ICON_FA_STOP )))
+		{
+			scene_changed = true;
 			inAnimation.SetIsPlaying(false);
+		}
 
 		ImGui::SameLine();
 
@@ -891,46 +955,56 @@ void InspectorWidget::DrawComponent(Entity inEntity, Animation& inAnimation)
 	else
 	{
 		if (ImGui::Button(reinterpret_cast<const char*>( ICON_FA_PLAY )))
+		{
+			scene_changed = true;
 			inAnimation.SetIsPlaying(true);
+		}
 
 		ImGui::SameLine();
 
 		float time = inAnimation.GetRunningTime() / 1000.0f;
 		if (ImGui::SliderFloat("Time", &time, 0.0f, inAnimation.GetTotalDuration() / 1000.0f))
+		{
+			scene_changed = true;
 			inAnimation.SetRunningTime(time * 1000.0f);
+		}
 	}
 
-
+	return scene_changed;
 }
 
 
-void InspectorWidget::DrawComponent(Entity inEntity, Light& inLight)
+bool InspectorWidget::DrawComponent(Entity inEntity, Light& inLight)
 {
-	constexpr std::array type_names = { "None", "Spot", "Point" };
-	ImGui::Combo("Type", (int*)&inLight.type, type_names.data(), type_names.size());
+	bool scene_changed = false;
 
-	ImGui::ColorEdit3("Colour", glm::value_ptr(inLight.colour), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
-	ImGui::DragFloat("Intensity", &inLight.colour.a, 0.001f);
+	constexpr std::array type_names = { "None", "Spot", "Point" };
+	scene_changed |= ImGui::Combo("Type", (int*)&inLight.type, type_names.data(), type_names.size());
+
+	scene_changed |= ImGui::ColorEdit3("Colour", glm::value_ptr(inLight.colour), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
+	scene_changed |= ImGui::DragFloat("Intensity", &inLight.colour.a, 0.001f);
 
 	switch (inLight.type)
 	{
 		case LIGHT_TYPE_POINT:
 		{
-			ImGui::DragFloat("Radius", &inLight.attributes.x, 0.001f, 0.0f, 100.0f);
+			scene_changed |= ImGui::DragFloat("Radius", &inLight.attributes.x, 0.001f, 0.0f, 100.0f);
 		} break;
 
 		case LIGHT_TYPE_SPOT:
 		{
-			ImGui::DragFloat("Range", &inLight.attributes.x, 0.001f);
-			ImGui::DragFloat("Inner Cone Angle", &inLight.attributes.y, 0.001f, 0.0f, M_PI / 2);
-			ImGui::DragFloat("Outer Cone Angle", &inLight.attributes.z, 0.001f, 0.0f, M_PI / 2);
-			ImGui::DragFloat3("Direction", &inLight.direction[0], 0.001f);
+			scene_changed |= ImGui::DragFloat("Range", &inLight.attributes.x, 0.001f);
+			scene_changed |= ImGui::DragFloat("Inner Cone Angle", &inLight.attributes.y, 0.001f, 0.0f, M_PI / 2);
+			scene_changed |= ImGui::DragFloat("Outer Cone Angle", &inLight.attributes.z, 0.001f, 0.0f, M_PI / 2);
+			scene_changed |= ImGui::DragFloat3("Direction", &inLight.direction[0], 0.001f);
 		} break;
 	}
+
+	return scene_changed;
 }
 
 
-void InspectorWidget::DrawComponent(Entity inEntity, NativeScript& inScript)
+bool InspectorWidget::DrawComponent(Entity inEntity, NativeScript& inScript)
 {
 	Scene& scene = GetScene();
 	Assets& assets = GetAssets();
@@ -1024,10 +1098,12 @@ void InspectorWidget::DrawComponent(Entity inEntity, NativeScript& inScript)
 			}
 		}
 	}
+
+	return false;
 }
 
 
-void InspectorWidget::DrawComponent(Entity inEntity, DDGISceneSettings& ioSettings)
+bool InspectorWidget::DrawComponent(Entity inEntity, DDGISceneSettings& ioSettings)
 {
 	const Transform& transform = GetScene().Get<Transform>(GetActiveEntity());
 
@@ -1041,22 +1117,22 @@ void InspectorWidget::DrawComponent(Entity inEntity, DDGISceneSettings& ioSettin
 
 	ImGui::DragInt3("Probe Count", glm::value_ptr(ioSettings.mDDGIProbeCount), 1, 1, 40);
 	ImGui::DragFloat3("Probe Spacing", glm::value_ptr(ioSettings.mDDGIProbeSpacing), 0.01f, -1000.0f, 1000.0f, "%.3f");
+
+	return false;
 }
 
 
-void InspectorWidget::DrawComponent(Entity inEntity, DirectionalLight& inDirectionalLight)
+bool InspectorWidget::DrawComponent(Entity inEntity, DirectionalLight& inDirectionalLight)
 {
-	ImGui::AlignTextToFramePadding();
-	ImGui::Text("Colour     ");
-	ImGui::SameLine();
-	ImGui::SetNextItemWidth(-FLT_MIN);
-	ImGui::ColorEdit3("##Colour", glm::value_ptr(inDirectionalLight.colour), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
+	bool scene_changed = false;
 
-	ImGui::AlignTextToFramePadding();
-	ImGui::Text("Intensity  ");
-	ImGui::SameLine();
-	ImGui::SetNextItemWidth(-FLT_MIN);
-	ImGui::DragFloat("##Intensity", &inDirectionalLight.colour.a, 0.001f, 0.0f, FLT_MAX);
+	ImGui::SetNextItemRightAlign("Colour     ");
+	scene_changed |= ImGui::ColorEdit3("##Colour", glm::value_ptr(inDirectionalLight.colour), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
+
+	ImGui::SetNextItemRightAlign("Intensity  ");
+	scene_changed |= ImGui::DragFloat("##Intensity", &inDirectionalLight.colour.a, 0.001f, 0.0f, FLT_MAX);
+
+	return scene_changed;
 }
 
 }

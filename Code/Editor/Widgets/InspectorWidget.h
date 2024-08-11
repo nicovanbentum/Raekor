@@ -30,9 +30,11 @@ public:
 	virtual void Draw(Widgets* inWidgets, float inDeltaTime) override;
 	virtual void OnEvent(Widgets* inWidgets, const SDL_Event& inEvent) override {}
 
+	bool SceneChanged() const { return m_SceneChanged; }
+
 private:
 	void DrawJSONInspector(Widgets* inWidgets);
-	void DrawEntityInspector(Widgets* inWidgets);
+	bool DrawEntityInspector(Widgets* inWidgets);
     void DrawKeyFrameInspector(Widgets* inWidgets);
 
 	void DrawScriptMember(const char* inLabel, int& ioValue);
@@ -40,19 +42,22 @@ private:
 	void DrawScriptMember(const char* inLabel, float& ioValue);
 	void DrawScriptMember(const char* inLabel, Entity& ioValue);
 
-	void DrawComponent(Entity inEntity, Name& ioName);
-	void DrawComponent(Entity inEntity, Mesh& ioMesh);
-	void DrawComponent(Entity inEntity, Light& ioLight);
-	void DrawComponent(Entity inEntity, Camera& ioCamera);
-	void DrawComponent(Entity inEntity, SoftBody& ioSoftBody);
-	void DrawComponent(Entity inEntity, Skeleton& ioSkeleton);
-	void DrawComponent(Entity inEntity, Material& ioMaterial);
-	void DrawComponent(Entity inEntity, Transform& ioTransform);
-	void DrawComponent(Entity inEntity, Animation& ioAnimation);
-	void DrawComponent(Entity inEntity, RigidBody& ioBoxCollider);
-	void DrawComponent(Entity inEntity, NativeScript& ioNativeScript);
-	void DrawComponent(Entity inEntity, DirectionalLight& ioDirectionalLight);
-	void DrawComponent(Entity inEntity, DDGISceneSettings& ioDDGISceneSettings);
+	bool DrawComponent(Entity inEntity, Name& ioName);
+	bool DrawComponent(Entity inEntity, Mesh& ioMesh);
+	bool DrawComponent(Entity inEntity, Light& ioLight);
+	bool DrawComponent(Entity inEntity, Camera& ioCamera);
+	bool DrawComponent(Entity inEntity, SoftBody& ioSoftBody);
+	bool DrawComponent(Entity inEntity, Skeleton& ioSkeleton);
+	bool DrawComponent(Entity inEntity, Material& ioMaterial);
+	bool DrawComponent(Entity inEntity, Transform& ioTransform);
+	bool DrawComponent(Entity inEntity, Animation& ioAnimation);
+	bool DrawComponent(Entity inEntity, RigidBody& ioBoxCollider);
+	bool DrawComponent(Entity inEntity, NativeScript& ioNativeScript);
+	bool DrawComponent(Entity inEntity, DirectionalLight& ioDirectionalLight);
+	bool DrawComponent(Entity inEntity, DDGISceneSettings& ioDDGISceneSettings);
+
+private:
+	bool m_SceneChanged = false;
 };
 
 }

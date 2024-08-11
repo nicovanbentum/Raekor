@@ -260,6 +260,15 @@ D3D12_RESOURCE_DESC Texture::Desc::ToResourceDesc() const
             resource_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS; break;
     }
 
+    if (__allowDepthTarget)
+        resource_desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+    
+    if (__allowRenderTarget)
+        resource_desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+    
+    if (__allowUnorderedAccess)
+        resource_desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+    
     return resource_desc;
 }
 

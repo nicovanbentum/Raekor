@@ -67,7 +67,9 @@ RenderGraphResourceViewID RenderGraphBuilder::RenderTarget(RenderGraphResourceID
 {
     RenderGraphResourceViewDesc& desc = EmplaceDescriptorDesc(inGraphResourceID);
     assert(desc.mResourceDesc.mResourceType != RESOURCE_TYPE_BUFFER);
+
     desc.mResourceDesc.mTextureDesc.usage = Texture::Usage::RENDER_TARGET;
+    m_ResourceDescriptions[inGraphResourceID].mTextureDesc.__allowRenderTarget = true;
 
     const RenderGraphResourceViewID graph_resource_id = RenderGraphResourceViewID(m_ResourceViewDescriptions.size() - 1);
 
@@ -87,6 +89,7 @@ RenderGraphResourceViewID RenderGraphBuilder::DepthStencilTarget(RenderGraphReso
     assert(desc.mResourceDesc.mResourceType != RESOURCE_TYPE_BUFFER);
     
     desc.mResourceDesc.mTextureDesc.usage = Texture::Usage::DEPTH_STENCIL_TARGET;
+    m_ResourceDescriptions[inGraphResourceID].mTextureDesc.__allowDepthTarget = true;
 
     const RenderGraphResourceViewID graph_resource_id = RenderGraphResourceViewID(m_ResourceViewDescriptions.size() - 1);
 
@@ -109,6 +112,7 @@ RenderGraphResourceViewID RenderGraphBuilder::Write(RenderGraphResourceID inGrap
     else if (desc.mResourceDesc.mResourceType == RESOURCE_TYPE_TEXTURE)
     {
         desc.mResourceDesc.mTextureDesc.usage = Texture::Usage::SHADER_READ_WRITE;
+        m_ResourceDescriptions[inGraphResourceID].mTextureDesc.__allowUnorderedAccess = true;
     }
 
     const RenderGraphResourceViewID graph_resource_id = RenderGraphResourceViewID(m_ResourceViewDescriptions.size() - 1);

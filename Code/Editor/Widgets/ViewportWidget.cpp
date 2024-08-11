@@ -24,6 +24,8 @@ ViewportWidget::ViewportWidget(Application* inApp) :
 
 void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 {
+	m_Changed = false;
+	
 	Scene& scene = IWidget::GetScene();
 	Physics& physics = IWidget::GetPhysics();
 	Viewport& viewport = m_Editor->GetViewport();
@@ -122,7 +124,10 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			Entity entity = *reinterpret_cast<const Entity*>( payload->Data );
 
 			if (scene.Has<Material>(entity))
+			{
+				m_Changed = true;
 				mesh->material = entity;
+			}
 
 			if (scene.Has<Animation>(entity) && skeleton)
 				skeleton->animation = entity;
@@ -281,8 +286,6 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 		);
 
 		world_space_transform = glm::translate(world_space_transform, -additional_translation);
-
-		m_Changed = false;
 
 		if (manipulated)
 		{

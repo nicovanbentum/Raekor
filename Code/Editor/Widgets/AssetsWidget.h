@@ -8,12 +8,12 @@ namespace RK {
 class Material;
 class Animation;
 
-class ComponentsWidget : public IWidget
+class MaterialsWidget : public IWidget
 {
-	RTTI_DECLARE_VIRTUAL_TYPE(ComponentsWidget);
+	RTTI_DECLARE_VIRTUAL_TYPE(MaterialsWidget);
 
 public:
-	ComponentsWidget(Application* inApp);
+	MaterialsWidget(Application* inApp);
 	
 	virtual void Draw(Widgets* inWidgets, float dt) override;
 	virtual void OnEvent(Widgets* inWidgets, const SDL_Event& ev) override {}

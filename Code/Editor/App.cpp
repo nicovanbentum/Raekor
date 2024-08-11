@@ -198,7 +198,7 @@ void DXApp::OnUpdate(float inDeltaTime)
     for (const auto& [entity, mesh, skeleton] : m_Scene.Each<Mesh, Skeleton>())
         m_Renderer.QueueBlasUpdate(entity);
 
-    if (m_ViewportChanged || m_Viewport.GetCamera().Changed() || m_Physics.GetState() == Physics::EState::Stepping)
+    if (m_ViewportChanged || m_Physics.GetState() == Physics::EState::Stepping)
         PathTraceData::mReset = true;
 
     for (const Animation& animation : m_Scene.GetComponents<Animation>())

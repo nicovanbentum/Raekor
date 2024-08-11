@@ -57,7 +57,7 @@ IEditor::IEditor(WindowFlags inWindowFlags, IRenderInterface* inRenderInterface)
 	else
 	{
 		m_Widgets.Register<SequenceWidget>(this);
-		m_Widgets.Register<ComponentsWidget>(this);
+		m_Widgets.Register<MaterialsWidget>(this);
 		m_Widgets.Register<MenubarWidget>(this);
 		m_Widgets.Register<ConsoleWidget>(this);
 		m_Widgets.Register<ShaderGraphWidget>(this);
@@ -200,16 +200,20 @@ void IEditor::OnUpdate(float inDeltaTime)
 
 	// detect any changes to the viewport (mainly used to reset path tracers)
 	m_ViewportChanged = false;
-	if (ViewportWidget* widget = m_Widgets.GetWidget<ViewportWidget>())
-		if (widget->Changed())
-			m_ViewportChanged = true;
 
-	// this has to check deltas in camera matrices, so only do it if the previous check failed
+	if (ViewportWidget* widget = m_Widgets.GetWidget<ViewportWidget>())
+			m_ViewportChanged |= widget->Changed();
+
+	// detect any changes to the scene
+	if (InspectorWidget* widget = m_Widgets.GetWidget<InspectorWidget>())
+		m_ViewportChanged |= widget->SceneChanged();
+
+	// this has to check deltas in camera matrices, so only do it if the previous checks failed
 	if (!m_ViewportChanged)
 		m_ViewportChanged = m_Viewport.GetCamera().Changed();
 
 	// ImGui::ShowDemoWindow();
-	//ImGui::ShowStyleEditor();
+	// ImGui::ShowStyleEditor();
 	
 	GUI::EndFrame();
 
@@ -479,7 +483,7 @@ void IEditor::BeginImGuiDockSpace()
 
 		ImGui::DockBuilderSplitNode(SplitB, ImGuiDir_Down, 0.10f, &SplitA, &SplitB);
 		ImGui::DockBuilderDockWindow(m_Widgets.GetWidget<SequenceWidget>()->GetTitle().c_str(), SplitA);
-		ImGui::DockBuilderDockWindow(m_Widgets.GetWidget<ComponentsWidget>()->GetTitle().c_str(), SplitA);
+		ImGui::DockBuilderDockWindow(m_Widgets.GetWidget<MaterialsWidget>()->GetTitle().c_str(), SplitA);
 
 		ImGui::DockBuilderSplitNode(hierarchy_node_id, ImGuiDir_Down, 0.75f, &SplitA, &SplitB);
 		ImGui::DockBuilderDockWindow(m_Widgets.GetWidget<InspectorWidget>()->GetTitle().c_str(), SplitA);

@@ -9,11 +9,11 @@
 
 namespace RK {
 
-RTTI_DEFINE_TYPE_NO_FACTORY(ComponentsWidget) {}
+RTTI_DEFINE_TYPE_NO_FACTORY(MaterialsWidget) {}
 
-ComponentsWidget::ComponentsWidget(Application* inApp) : IWidget(inApp, reinterpret_cast<const char*>( ICON_FA_PALETTE "  Components " )) {}
+MaterialsWidget::MaterialsWidget(Application* inApp) : IWidget(inApp, reinterpret_cast<const char*>( ICON_FA_PALETTE "  Materials " )) {}
 
-void ComponentsWidget::UpdateLayoutSizes(float avail_width)
+void MaterialsWidget::UpdateLayoutSizes(float avail_width)
 {
     // Layout: when not stretching: allow extending into right-most spacing.
     m_LayoutItemSpacing = (float)m_IconSpacing;
@@ -36,44 +36,12 @@ void ComponentsWidget::UpdateLayoutSizes(float avail_width)
     m_LayoutOuterPadding = floorf(m_LayoutItemSpacing * 0.5f);
 }
 
-void ComponentsWidget::Draw(Widgets* inWidgets, float dt)
+void MaterialsWidget::Draw(Widgets* inWidgets, float dt)
 {
-    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0, 0, 0, 0));
-    ImGui::PushStyleColor(ImGuiCol_MenuBarBg, ImVec4(0, 0, 0, 0));
-
-	ImGui::Begin(m_Title.c_str(), &m_Open, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_MenuBar);
+	ImGui::Begin(m_Title.c_str(), &m_Open, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 	m_Visible = ImGui::IsWindowAppearing();
     
-    ImGui::PopStyleColor(2);
-
 	Scene& scene = GetScene();
-
-    struct ComponentTypeInfo
-    {
-        const char* name;
-        bool enabled;
-    };
-
-    static std::array component_type_infos = { 
-        ComponentTypeInfo{"Material", true}, 
-        ComponentTypeInfo{"Animation", false} 
-    };
-
-    if (ImGui::BeginMenuBar())
-    {
-        if (ImGui::BeginMenu("Components"))
-        {
-            for (ComponentTypeInfo& info : component_type_infos)
-            {
-                ImGui::MenuItem(info.name, "", &info.enabled);
-            }
-
-            ImGui::EndMenu();
-        }
-
-        ImGui::EndMenuBar();
-    }
-
 
     ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowContentSize(ImVec2(0.0f, m_LayoutOuterPadding + m_LayoutLineCount * ( m_LayoutItemSize.x + m_LayoutItemSpacing )));
@@ -132,6 +100,8 @@ void ComponentsWidget::Draw(Widgets* inWidgets, float dt)
 
                     if (ImGui::BeginDragDropSource())
                     {
+                        ImGui::SetDragDropPayload("drag_drop_entity", &entity, sizeof(Entity));
+
                         ImGui::EndDragDropSource();
                     }
 
@@ -142,14 +112,23 @@ void ComponentsWidget::Draw(Widgets* inWidgets, float dt)
                         draw_list->AddRectFilled(box_min, box_max, ImGui::GetColorU32(ImGuiCol_MenuBarBg)); 
 
                         if (material.gpuAlbedoMap && !material.albedoFile.empty())
-                            draw_list->AddImage((void*)((intptr_t)m_Editor->GetRenderInterface()->GetImGuiTextureID(material.gpuAlbedoMap)), box_min + ImVec2(1, 1), box_max - ImVec2(1, 1));
-
-                        if (m_LayoutItemSize.x >= ImGui::CalcTextSize("999").x)
                         {
-                            ImU32 label_col = ImGui::GetColorU32(item_is_selected ? ImGuiCol_Text : ImGuiCol_TextDisabled);
-                            char label[32];
-                            sprintf(label, "%d", entity);
-                            draw_list->AddText(ImVec2(box_min.x, box_max.y - ImGui::GetFontSize()), label_col, label);
+                            uint64_t texture_id = m_Editor->GetRenderInterface()->GetImGuiTextureID(material.gpuAlbedoMap);
+                            draw_list->AddImage((void*)((intptr_t)texture_id), box_min + ImVec2(1, 1), box_max - ImVec2(1, 1));
+                        }
+                        else
+                        {
+                            ImVec4 color = ImVec4(material.albedo.r, material.albedo.g, material.albedo.b, material.albedo.a);
+                            draw_list->AddRectFilled(box_min, box_max, ImGui::ColorConvertFloat4ToU32(color));
+                        }
+
+                        if (m_LayoutItemSize.x >= ImGui::CalcTextSize("Gr").x)
+                        {
+                            const Name& name = GetScene().Get<Name>(entity);
+                            const ImVec4 clip_rect = ImVec4(box_min.x, box_min.y, box_max.x, box_max.y);
+                            const ImU32 label_color = ImGui::GetColorU32(item_is_selected ? ImGuiCol_Text : ImGuiCol_TextDisabled);
+                            draw_list->AddText(NULL, 0.0f, ImVec2(box_min.x + 1, box_max.y + 1 - ImGui::GetFontSize()), IM_COL32_BLACK, name.name.c_str(), name.name.c_str() + name.name.size(), 0.0f, &clip_rect);
+                            draw_list->AddText(NULL, 0.0f, ImVec2(box_min.x, box_max.y - ImGui::GetFontSize()), label_color, name.name.c_str(), name.name.c_str() + name.name.size(), 0.0f, &clip_rect);
                         }
                     }
 

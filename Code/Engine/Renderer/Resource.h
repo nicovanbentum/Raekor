@@ -198,7 +198,10 @@ public:
         uint32_t baseMip            = 0;
         uint32_t mipLevels          = 1;
         Usage usage                 = Usage::GENERAL;
-        const char* debugName       = nullptr;
+        bool __allowDepthTarget     = false; // only used by the render graph
+        bool __allowRenderTarget    = false; // only used by the render graph
+        bool __allowUnorderedAccess = false; // only used by the render graph
+        const char* debugName       = nullptr; // SHOULD ALWAYS BE THE LAST MEMBER!!
 
         inline bool operator==(const Desc& inOther) const { return std::memcmp(this, &inOther, offsetof(Desc, debugName)) == 0; }
 

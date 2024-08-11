@@ -610,6 +610,7 @@ D3D12_GPU_DESCRIPTOR_HANDLE Device::GetGPUDescriptorHandle(TextureID inID)
 DescriptorID Device::CreateDepthStencilView(D3D12ResourceRef inResource, const D3D12_DEPTH_STENCIL_VIEW_DESC* inDesc)
 {
     assert(gIsDepthFormat(inResource->GetDesc().Format));
+    assert(inResource->GetDesc().Flags & D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL);
 
     DescriptorHeap& heap = m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_DSV];
     DescriptorID descriptor = heap.Add(inResource);
@@ -649,6 +650,8 @@ DescriptorID Device::CreateShaderResourceView(D3D12ResourceRef inResource, const
 
 DescriptorID Device::CreateUnorderedAccessView(D3D12ResourceRef inResource, const D3D12_UNORDERED_ACCESS_VIEW_DESC* inDesc)
 {
+    assert(inResource->GetDesc().Flags & D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+
     DescriptorHeap& heap = m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV];
     DescriptorID descriptor = heap.Add(inResource);
 
