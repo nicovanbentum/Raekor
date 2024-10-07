@@ -110,7 +110,7 @@ public:
         return m_Storage[inID.GetIndex()];
     }
 
-    inline size_t GetSize() const { return m_Storage.size(); }
+    size_t GetSize() const { return m_Storage.size(); }
 
     void Clear() 
     {

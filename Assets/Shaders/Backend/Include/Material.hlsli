@@ -2,6 +2,7 @@
 #define BRDF_HLSLI
 
 #include "Sky.hlsli"
+#include "Common.hlsli"
 #include "Shared.hlsli"
 #include "Random.hlsli"
 #include "Packing.hlsli"
@@ -147,8 +148,10 @@ struct BRDF {
     
     void SampleDiffuse(inout uint rng, float3 Wo, out float3 Wi)
     {
-        float2 rand = pcg_float2(rng);
-        Wi = SampleCosineWeightedHemisphere(rand);
+        float2 r = pcg_float2(rng);
+        float3x3 tbn = BuildOrthonormalBasis(mNormal);
+        float3 hemi = SampleCosineWeightedHemisphere(r);
+        Wi = mul(tbn, hemi);
     }
     
     // Sample specular lobe

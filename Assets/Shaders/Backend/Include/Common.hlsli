@@ -21,6 +21,15 @@ float3 ReconstructWorldPosition(float2 inUV, float inDepth, float4x4 inClipToWor
 }
 
 
+float2 CalculateViewToScreenUV(float3 inPos, float4x4 inViewToClipMatrix)
+{
+    float4 clip_pos = mul(inViewToClipMatrix, float4(inPos, 1.0));
+    clip_pos.xy /= clip_pos.w;
+    clip_pos.xy = clip_pos.xy * 0.5 + 0.5;
+    return clip_pos.xy;
+}
+
+
 void TransformToWorldSpace(inout RTVertex inVertex, float4x4 inLocalToWorldMatrix, float4x4 inInvLocalToWorldMatrix)
 {
     inVertex.mPos = mul(inLocalToWorldMatrix, float4(inVertex.mPos, 1.0)).xyz;

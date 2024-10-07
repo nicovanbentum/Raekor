@@ -51,7 +51,9 @@ private:
         int& mDebugProbeRays     = g_CVariables->Create("r_debug_gi_rays",        0, true);
         int& mDebugProbes        = g_CVariables->Create("r_debug_gi_probes",      0, true);
         int& mEnableDebugOverlay = g_CVariables->Create("r_enable_debug_overlay", 1);
-        int& mEnableRTAO         = g_CVariables->Create("r_enable_rtao",          1);
+        int& mEnableRTAO         = g_CVariables->Create("r_enable_rtao",          0, true);
+        int& mEnableSSAO         = g_CVariables->Create("r_enable_ssao",          1, true);
+        int& mEnableSSR          = g_CVariables->Create("r_enable_ssr",           1, true);
         int& mEnableShadows      = g_CVariables->Create("r_enable_shadows",       1);
         int& mEnableReflections  = g_CVariables->Create("r_enable_reflections",   1);
         int& mEnableAutoExposure = g_CVariables->Create("r_enable_auto_exposure", 0, true);
@@ -63,7 +65,7 @@ private:
         int& mEnableVignette     = g_CVariables->Create("r_enable_vignette",      1);
         int& mDoPathTrace        = g_CVariables->Create("r_path_trace",           0,   true);
         int& mDoPathTraceGBuffer = g_CVariables->Create("r_path_trace_gbuffer",   1,   true);
-        float& mSunConeAngle     = g_CVariables->Create("r_sun_cone_angle",       0.f, true);
+        float& mSunConeAngle     = g_CVariables->Create("r_sun_cone_angle",       0.02f, true);
     } m_Settings;
 
 public:

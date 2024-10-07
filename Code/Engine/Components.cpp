@@ -231,26 +231,51 @@ void Transform::Print()
 
 void Mesh::CreateCube(Mesh& ioMesh, float inScale)
 {
-	static constexpr std::array vertices = 
-	{
-		Vertex{{-0.5f, -0.5f,  0.5f}},
-		Vertex{{ 0.5f, -0.5f,  0.5f}},
-		Vertex{{ 0.5f,  0.5f,  0.5f}},
-		Vertex{{-0.5f,  0.5f,  0.5f}},
-		Vertex{{-0.5f, -0.5f, -0.5f}},
-		Vertex{{ 0.5f, -0.5f, -0.5f}},
-		Vertex{{ 0.5f,  0.5f, -0.5f}},
-		Vertex{{-0.5f,  0.5f, -0.5f}}
+	static constexpr std::array vertices = {
+		// Front face
+		Vertex(Vec3(-0.5f, -0.5f,  0.5f), Vec2(0.0f, 0.0f), Vec3(0.0f, 0.0f, 1.0f)),
+		Vertex(Vec3(0.5f, -0.5f,  0.5f),  Vec2(1.0f, 0.0f), Vec3(0.0f, 0.0f, 1.0f)),
+		Vertex(Vec3(0.5f,  0.5f,  0.5f),  Vec2(1.0f, 1.0f), Vec3(0.0f, 0.0f, 1.0f)),
+		Vertex(Vec3(-0.5f,  0.5f,  0.5f), Vec2(0.0f, 1.0f), Vec3(0.0f, 0.0f, 1.0f)),
+
+		// Back face
+		Vertex(Vec3(-0.5f, -0.5f, -0.5f), Vec2(1.0f, 0.0f), Vec3(0.0f, 0.0f, -1.0f)),
+		Vertex(Vec3(-0.5f,  0.5f, -0.5f), Vec2(1.0f, 1.0f), Vec3(0.0f, 0.0f, -1.0f)),
+		Vertex(Vec3(0.5f,  0.5f, -0.5f),  Vec2(0.0f, 1.0f), Vec3(0.0f, 0.0f, -1.0f)),
+		Vertex(Vec3(0.5f, -0.5f, -0.5f),  Vec2(0.0f, 0.0f), Vec3(0.0f, 0.0f, -1.0f)),
+
+		// Left face
+		Vertex(Vec3(-0.5f, -0.5f, -0.5f), Vec2(0.0f, 0.0f), Vec3(-1.0f, 0.0f, 0.0f)),
+		Vertex(Vec3(-0.5f, -0.5f,  0.5f), Vec2(1.0f, 0.0f), Vec3(-1.0f, 0.0f, 0.0f)),
+		Vertex(Vec3(-0.5f,  0.5f,  0.5f), Vec2(1.0f, 1.0f), Vec3(-1.0f, 0.0f, 0.0f)),
+		Vertex(Vec3(-0.5f,  0.5f, -0.5f), Vec2(0.0f, 1.0f), Vec3(-1.0f, 0.0f, 0.0f)),
+
+		// Right face
+		Vertex(Vec3(0.5f, -0.5f, -0.5f), Vec2(0.0f, 0.0f), Vec3(1.0f, 0.0f, 0.0f)),
+		Vertex(Vec3(0.5f,  0.5f, -0.5f), Vec2(0.0f, 1.0f), Vec3(1.0f, 0.0f, 0.0f)),
+		Vertex(Vec3(0.5f,  0.5f,  0.5f), Vec2(1.0f, 1.0f), Vec3(1.0f, 0.0f, 0.0f)),
+		Vertex(Vec3(0.5f, -0.5f,  0.5f), Vec2(1.0f, 0.0f), Vec3(1.0f, 0.0f, 0.0f)),
+
+		// Top face
+		Vertex(Vec3(-0.5f,  0.5f,  0.5f), Vec2(0.0f, 1.0f), Vec3(0.0f, 1.0f, 0.0f)),
+		Vertex(Vec3(0.5f,  0.5f,  0.5f),  Vec2(1.0f, 1.0f), Vec3(0.0f, 1.0f, 0.0f)),
+		Vertex(Vec3(0.5f,  0.5f, -0.5f),  Vec2(1.0f, 0.0f), Vec3(0.0f, 1.0f, 0.0f)),
+		Vertex(Vec3(-0.5f,  0.5f, -0.5f), Vec2(0.0f, 0.0f), Vec3(0.0f, 1.0f, 0.0f)),
+
+		// Bottom face
+		Vertex(Vec3(-0.5f, -0.5f,  0.5f), Vec2(0.0f, 0.0f), Vec3(0.0f, -1.0f, 0.0f)),
+		Vertex(Vec3(-0.5f, -0.5f, -0.5f), Vec2(0.0f, 1.0f), Vec3(0.0f, -1.0f, 0.0f)),
+		Vertex(Vec3(0.5f, -0.5f, -0.5f),  Vec2(1.0f, 1.0f), Vec3(0.0f, -1.0f, 0.0f)),
+		Vertex(Vec3(0.5f, -0.5f,  0.5f),  Vec2(1.0f, 0.0f), Vec3(0.0f, -1.0f, 0.0f)),
 	};
 
-	static constexpr std::array indices = 
-	{
-		Triangle{0, 1, 2}, Triangle{2, 3, 0},
-		Triangle{1, 5, 6}, Triangle{6, 2, 1},
-		Triangle{7, 6, 5}, Triangle{5, 4, 7},
-		Triangle{4, 0, 3}, Triangle{3, 7, 4},
-		Triangle{4, 5, 1}, Triangle{1, 0, 4},
-		Triangle{3, 2, 6}, Triangle{6, 7, 3}
+	static constexpr std::array indices = {
+		0, 1, 2, 2, 3, 0,       // Front  face
+		4, 5, 6, 6, 7, 4,       // Back   face
+		8, 9, 10, 10, 11, 8,    // Left   face
+		12, 13, 14, 14, 15, 12, // Right  face
+		16, 17, 18, 18, 19, 16, // Top    face
+		20, 21, 22, 22, 23, 20  // Bottom face
 	};
 
 	for (const Vertex& v : vertices)
@@ -260,14 +285,9 @@ void Mesh::CreateCube(Mesh& ioMesh, float inScale)
 		ioMesh.positions.push_back(v.pos * inScale);
 	}
 
-	for (const Triangle& index : indices)
-	{
-		ioMesh.indices.push_back(index.p1);
-		ioMesh.indices.push_back(index.p2);
-		ioMesh.indices.push_back(index.p3);
-	}
+	for (uint32_t index : indices)
+		ioMesh.indices.push_back(index);
 
-	ioMesh.CalculateNormals();
 	ioMesh.CalculateTangents();
 	ioMesh.CalculateVertices();
 	ioMesh.CalculateBoundingBox();

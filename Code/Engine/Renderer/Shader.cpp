@@ -56,6 +56,9 @@ RTTI_DEFINE_TYPE(SystemShadersDX12)
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Final Compose Shader", mFinalComposeShader);
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Debug Primitives Shader", mDebugPrimitivesShader);
 
+    RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "SSR Trace Shader", mSSRTraceShader);
+    RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "SSAO Trace Shader", mSSAOTraceShader);
+
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Sky Cube Shader", mSkyCubeShader);
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Convolve Cube Shader", mConvolveCubeShader);
 
@@ -254,6 +257,9 @@ ComPtr<IDxcBlob> ShaderCompiler::CompileShader(const Path& inPath, const String&
 
     arguments.push_back(L"-HV");
     arguments.push_back(L"2021");
+
+    arguments.push_back(L"-I");
+    arguments.push_back(L"Assets\\Shaders\\Backend\\");
 
     String str_filepath = inPath.string();
     WString wstr_filepath = WString(str_filepath.begin(), str_filepath.end());

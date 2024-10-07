@@ -39,6 +39,16 @@
             "Pixel Shader File": "Assets/Shaders/Backend/GBufferPS.hlsl"
         },
 
+        "SSR Trace Shader":
+        {
+            "Compute Shader File": "Assets/Shaders/Backend/SSRTraceCS.hlsl"
+        },
+
+        "SSAO Trace Shader":
+        {
+            "Compute Shader File": "Assets/Shaders/Backend/SSAOTraceCS.hlsl"
+        },
+
         "Skinning Shader":
         {
             "Compute Shader File": "Assets/Shaders/Backend/SkinningCS.hlsl"

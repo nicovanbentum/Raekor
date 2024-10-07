@@ -422,21 +422,15 @@ void RayTracedScene::UploadMaterials(Application* inApp, Device& inDevice, Comma
 
 BufferID RayTracedScene::GrowBuffer(Device& inDevice, BufferID inBuffer, const Buffer::Desc& inDesc)
 {
-    BufferID current_buffer = inBuffer;
-
-    if (current_buffer.IsValid())
+    if (inBuffer.IsValid())
     {
-        if (inDesc.size > inDevice.GetBuffer(current_buffer).GetSize())
-        {
-            const BufferID old_buffer = current_buffer;
-            current_buffer = inDevice.CreateBuffer(inDesc);
-            inDevice.ReleaseBuffer(old_buffer);
-        }
-    }
-    else
-        current_buffer = inDevice.CreateBuffer(inDesc);
+        if (inDesc.size <= inDevice.GetBuffer(inBuffer).GetSize())
+            return inBuffer;
 
-    return current_buffer;
+        inDevice.ReleaseBuffer(inBuffer);
+    }
+
+    return inDevice.CreateBuffer(inDesc);
 }
 
 } // namespace Raekor

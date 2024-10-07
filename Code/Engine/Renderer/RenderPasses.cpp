@@ -32,6 +32,8 @@ RTTI_DEFINE_TYPE(ClearBufferData)           {}
 RTTI_DEFINE_TYPE(ClearTextureFloatData)     {}
 RTTI_DEFINE_TYPE(TransitionResourceData)    {}
 RTTI_DEFINE_TYPE(LuminanceHistogramData)    {}
+RTTI_DEFINE_TYPE(SSRTraceData)              {}
+RTTI_DEFINE_TYPE(SSAOTraceData)             {}
 
 /*
 
@@ -544,6 +546,83 @@ const GBufferDebugData& AddGBufferDebugPass(RenderGraph& inRenderGraph, Device& 
 }
 
 
+
+const SSAOTraceData& AddSSAOTracePass(RenderGraph& inRenderGraph, Device& inDevice, const GBufferData& inGBufferData)
+{
+    return inRenderGraph.AddComputePass<SSAOTraceData>("SSAO TRACE PASS",
+    [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, SSAOTraceData& inData)
+    {
+        inData.mOutputTexture = ioRGBuilder.Create(Texture::Desc 
+        {
+            .format = DXGI_FORMAT_R32G32B32A32_FLOAT,
+            .width  = inRenderGraph.GetViewport().GetRenderSize().x,
+            .height = inRenderGraph.GetViewport().GetRenderSize().y,
+            .usage  = Texture::Usage::SHADER_READ_WRITE
+        });
+
+        inData.mDepthTexture   = ioRGBuilder.Read(inGBufferData.mDepthTexture);
+        inData.mGBufferTexture = ioRGBuilder.Read(inGBufferData.mRenderTexture);
+    },
+
+    [&inRenderGraph, &inDevice](SSAOTraceData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
+    {
+        const Viewport& viewport = inRenderGraph.GetViewport();
+
+        inCmdList.PushComputeConstants(SSAOTraceRootConstants 
+        {
+            .mOutputTexture  = inDevice.GetBindlessHeapIndex(inRGResources.GetTexture(inData.mOutputTexture)),
+            .mDepthTexture   = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mDepthTexture)),
+            .mGBufferTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mGBufferTexture)),
+            .mRadius         = inData.mRadius,
+            .mBias           = inData.mBias,
+            .mSamples        = uint32_t(inData.mSamples),
+            .mDispatchSize   = viewport.size
+        });
+
+        inCmdList->SetPipelineState(g_SystemShaders.mSSAOTraceShader.GetComputePSO());
+        inCmdList->Dispatch(( viewport.size.x + 7 ) / 8, ( viewport.size.y + 7 ) / 8, 1);
+    });
+}
+
+
+const SSRTraceData& AddSSRTracePass(RenderGraph& inRenderGraph, Device& inDevice, const GBufferData& inGBufferData, RenderGraphResourceID inSceneTexture)
+{
+    return inRenderGraph.AddComputePass<SSRTraceData>("SSR TRACE PASS",
+        [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, SSRTraceData& inData)
+    {
+        inData.mOutputTexture = ioRGBuilder.Create(Texture::Desc
+            {
+                .format = DXGI_FORMAT_R32G32B32A32_FLOAT,
+                .width = inRenderGraph.GetViewport().GetRenderSize().x,
+                .height = inRenderGraph.GetViewport().GetRenderSize().y,
+                .usage = Texture::Usage::SHADER_READ_WRITE
+            });
+
+        inData.mSceneTexture = ioRGBuilder.Read(inSceneTexture);
+        inData.mDepthTexture = ioRGBuilder.Read(inGBufferData.mDepthTexture);
+        inData.mGBufferTexture = ioRGBuilder.Read(inGBufferData.mRenderTexture);
+    },
+
+        [&inRenderGraph, &inDevice](SSRTraceData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
+    {
+        const Viewport& viewport = inRenderGraph.GetViewport();
+
+        inCmdList.PushComputeConstants(SSRTraceRootConstants
+            {
+                .mOutputTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTexture(inData.mOutputTexture)),
+                .mSceneTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mSceneTexture)),
+                .mDepthTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mDepthTexture)),
+                .mGBufferTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mGBufferTexture)),
+                .mRadius = inData.mRadius,
+                .mBias = inData.mBias,
+                .mSamples = uint32_t(inData.mSamples),
+                .mDispatchSize = viewport.size
+            });
+
+        inCmdList->SetPipelineState(g_SystemShaders.mSSRTraceShader.GetComputePSO());
+        inCmdList->Dispatch(( viewport.size.x + 7 ) / 8, ( viewport.size.y + 7 ) / 8, 1);
+    });
+}
 
 const GrassData& AddGrassRenderPass(RenderGraph& inGraph, Device& inDevice, const GBufferData& inGBufferData)
 {

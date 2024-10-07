@@ -16,6 +16,8 @@ enum EDebugTexture
     DEBUG_TEXTURE_GBUFFER_METALLIC,
     DEBUG_TEXTURE_GBUFFER_ROUGHNESS,
     DEBUG_TEXTURE_LIGHTING,
+    DEBUG_TEXTURE_SSR,
+    DEBUG_TEXTURE_SSAO,
     DEBUG_TEXTURE_RT_SHADOWS,
     DEBUG_TEXTURE_RT_REFLECTIONS,
     DEBUG_TEXTURE_RT_INDIRECT_DIFFUSE,
@@ -188,6 +190,50 @@ struct GBufferDebugData
 const GBufferDebugData& AddGBufferDebugPass(RenderGraph& inRenderGraph, Device& inDevice,
     const GBufferData& inGBufferData,
     EDebugTexture inDebugTexture
+);
+
+
+////////////////////////////////////////
+/// SSAO Render Pass
+////////////////////////////////////////
+struct SSAOTraceData
+{
+    RTTI_DECLARE_TYPE(SSAOTraceData);
+
+    static inline int mSamples = 16;
+    static inline float mBias = 0.025f;
+    static inline float mRadius = 0.05f;
+    RenderGraphResourceID mOutputTexture;
+    RenderGraphResourceViewID mDepthTexture;
+    RenderGraphResourceViewID mGBufferTexture;
+};
+
+
+const SSAOTraceData& AddSSAOTracePass(RenderGraph& inRenderGraph, Device& inDevice,
+    const GBufferData& inGBufferData
+);
+
+
+////////////////////////////////////////
+/// SSR Render Pass
+////////////////////////////////////////
+struct SSRTraceData
+{
+    RTTI_DECLARE_TYPE(SSRTraceData);
+
+    static inline int mSamples = 16;
+    static inline float mBias = 0.025f;
+    static inline float mRadius = 0.05f;
+    RenderGraphResourceID mOutputTexture;
+    RenderGraphResourceViewID mSceneTexture;
+    RenderGraphResourceViewID mDepthTexture;
+    RenderGraphResourceViewID mGBufferTexture;
+};
+
+
+const SSRTraceData& AddSSRTracePass(RenderGraph& inRenderGraph, Device& inDevice,
+    const GBufferData& inGBufferData,
+    const RenderGraphResourceID inSceneTexture
 );
 
 

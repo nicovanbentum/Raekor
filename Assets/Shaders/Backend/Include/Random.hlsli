@@ -14,6 +14,16 @@ float4 SampleBlueNoise(uint2 inCoord, uint inFrameCounter) {
     return frac(blue_noise + (GOLDEN_RATIO * (inFrameCounter & 255)));
 }
 
+static const float PHI = sqrt(5) * 0.5 + 0.5;
+
+float3 SphericalFibonnaci(uint i, uint n) {
+    float fraction = (i * (PHI - 1)) - floor(i * (PHI - 1));
+    float phi = 2.0 * M_PI * fraction;
+    float cos_theta = 1.0 - (2.0 * i + 1.0) * (1.0 / n);
+    float sin_theta = sqrt(saturate(1.0 - cos_theta * cos_theta));
+    return normalize(float3(cos(phi) * sin_theta, sin(phi) * sin_theta, cos_theta));
+}
+
 // From Ray Tracing Gems chapter 6
 float3 offsetRay(float3 p, float3 n) {
     const float origin = 1.0 / 32.0;

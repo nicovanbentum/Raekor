@@ -144,7 +144,9 @@ struct FrameConstants
     float4    mSunDirection;
     float4    mCameraPosition;
     float4x4  mViewMatrix;
+    float4x4  mInvViewMatrix;
     float4x4  mProjectionMatrix;
+    float4x4  mInvProjectionMatrix;
     float4x4  mViewProjectionMatrix;
     float4x4  mInvViewProjectionMatrix;
     float4x4  mPrevViewProjectionMatrix;
@@ -186,7 +188,32 @@ struct ClearBufferRootConstants
 };
 
 
+struct SSAOTraceRootConstants
+{
+    uint  mOutputTexture;
+    uint  mDepthTexture;
+    uint  mGBufferTexture;
+    float mRadius;
+    float mBias;
+    uint  mSamples;
+    uint  mPad0;
+    uint  mPad1;
+    uint2 mDispatchSize;
+};
 
+
+struct SSRTraceRootConstants
+{
+    uint  mOutputTexture;
+    uint  mSceneTexture;
+    uint  mDepthTexture;
+    uint  mGBufferTexture;
+    float mRadius;
+    float mBias;
+    uint  mSamples;
+    uint  mPad1;
+    uint2 mDispatchSize;
+};
 
 struct ConvolveCubeRootConstants
 {
@@ -316,8 +343,8 @@ struct ShadowsDenoiseRootConstants
     uint mGBufferTexture;
     uint mVelocityTexture;
     uint mShadowMaskTexture;
+    uint mSelectionTexture;
     uint mTilesBuffer;
-    uint mPad0;
     uint2 mDispatchSize;
 };
 

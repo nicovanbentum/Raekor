@@ -195,6 +195,7 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
             inData.mDepthTextureSRV = inRGBuilder.Read(inGBufferData.mDepthTexture);
             inData.mGBufferTextureSRV = inRGBuilder.Read(inGBufferData.mRenderTexture);
             inData.mVelocityTextureSRV = inRGBuilder.Read(inGBufferData.mVelocityTexture);
+            inData.mSelectionTextureSRV = inRGBuilder.Read(inGBufferData.mSelectionTexture);
 
             inData.mTracedShadowRaysTextureSRV = inRGBuilder.Read(inTraceData.mOutputTexture);
 
@@ -215,6 +216,7 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
                 .mDepthTexture      = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mDepthTextureSRV)),
                 .mVelocityTexture   = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mVelocityTextureSRV)),
                 .mShadowMaskTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mTracedShadowRaysTextureSRV)),
+                .mSelectionTexture  = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mSelectionTextureSRV)),
                 .mDispatchSize      = inRenderGraph.GetViewport().GetRenderSize()
             };
 

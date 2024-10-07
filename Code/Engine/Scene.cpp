@@ -15,35 +15,18 @@ namespace RK {
 
 Scene::Scene(IRenderInterface* inRenderer) : m_Renderer(inRenderer), m_RootEntity(Create())
 {
-	for (const RTTI* rtti : g_RTTIFactory)
-	{
-		if (rtti->IsDerivedFrom(&RTTI_OF(Component)))
-		{
-			if (!m_Components.contains(rtti->GetHash()))
-			{
-
-#define CASE(T) case RTTI_HASH(T): EnsureExists<T>(); break;
-
-				switch (rtti->GetHash())
-				{
-					CASE(Name);
-					CASE(Mesh);
-					CASE(Light);
-					CASE(Material);
-					CASE(Skeleton);
-					CASE(SoftBody);
-					CASE(RigidBody);
-					CASE(Transform);
-					CASE(Animation);
-					CASE(NativeScript);
-					CASE(DirectionalLight);
-					CASE(DDGISceneSettings);
-				}
-#undef CASE
-
-			}
-		}
-	}
+	EnsureExists<Name>();
+	EnsureExists<Mesh>();
+	EnsureExists<Light>();
+	EnsureExists<Material>();
+	EnsureExists<Skeleton>();
+	EnsureExists<SoftBody>();
+	EnsureExists<RigidBody>();
+	EnsureExists<Transform>();
+	EnsureExists<Animation>();
+	EnsureExists<NativeScript>();
+	EnsureExists<DirectionalLight>();
+	EnsureExists<DDGISceneSettings>();
 }
 
 

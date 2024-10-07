@@ -83,11 +83,11 @@ void main(uint3 threadID : SV_DispatchThreadID)
             opacity = opacity * (1 - brdf.mAlbedo.a);
             
             // brdf.mAlbedo.rgb *= 4.0f;
+            //wtf
             
             irradiance = brdf.mEmissive;
             
             const float3 Wo = -ray.Direction;
-            const float3x3 tangent_to_world_matrix = vertex.GetTangentToWorldMatrix();
 
             {
                 // sample a ray direction towards the sun disk
@@ -146,7 +146,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
                 brdf.Sample(rng, Wo, Wi, throughput);
                 
                 ray.Origin = vertex.mPos + vertex.mNormal * 0.01; // TODO: find a more robust method?
-                ray.Direction = mul(tangent_to_world_matrix, Wi);
+                ray.Direction = Wi;
             }
             
             // // Russian roulette

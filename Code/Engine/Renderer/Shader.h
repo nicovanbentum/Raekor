@@ -134,6 +134,9 @@ struct SystemShadersDX12 : public IResource
     ShaderProgram mFinalComposeShader;
     ShaderProgram mDebugPrimitivesShader;
 
+    ShaderProgram mSSRTraceShader;
+    ShaderProgram mSSAOTraceShader;
+
     ShaderProgram mSkyCubeShader;
     ShaderProgram mConvolveCubeShader;
 

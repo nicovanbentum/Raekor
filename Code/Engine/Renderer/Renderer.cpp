@@ -281,7 +281,9 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     m_FrameConstants.mCameraPosition = Vec4(camera.GetPosition(), 1.0f);
     m_FrameConstants.mViewportSize = inViewport.GetRenderSize(),
     m_FrameConstants.mViewMatrix = camera.GetView();
+    m_FrameConstants.mInvViewMatrix = glm::inverse(camera.GetView());
     m_FrameConstants.mProjectionMatrix = final_proj_matrix;
+    m_FrameConstants.mInvProjectionMatrix = glm::inverse(final_proj_matrix);
     m_FrameConstants.mPrevViewProjectionMatrix = m_FrameConstants.mViewProjectionMatrix;
     m_FrameConstants.mViewProjectionMatrix = final_proj_matrix * camera.GetView();
     m_FrameConstants.mInvViewProjectionMatrix = glm::inverse(final_proj_matrix * camera.GetView());
@@ -293,7 +295,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     }
 
     // TODO: instead of updating this every frame, make these buffers global?
-    if (auto debug_lines_pass = m_RenderGraph.GetPass<ProbeDebugRaysData>())
+    if (RenderPass<ProbeDebugRaysData>* debug_lines_pass = m_RenderGraph.GetPass<ProbeDebugRaysData>())
     {
         m_FrameConstants.mDebugLinesVertexBuffer = inDevice.GetBindlessHeapIndex(m_RenderGraph.GetResources().GetBuffer(debug_lines_pass->GetData().mVertexBuffer));
         m_FrameConstants.mDebugLinesIndirectArgsBuffer = inDevice.GetBindlessHeapIndex(m_RenderGraph.GetResources().GetBuffer(debug_lines_pass->GetData().mIndirectArgsBuffer));
@@ -469,10 +471,13 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
         if (m_Settings.mEnableShadows)
             shadow_texture = AddRayTracedShadowsPass(m_RenderGraph, inDevice, inScene, gbuffer_data);
 
-        RenderGraphResourceID rtao_texture = default_textures.mWhiteTexture;
+        RenderGraphResourceID ao_texture = default_textures.mWhiteTexture;
 
+        if (m_Settings.mEnableSSAO)
+            ao_texture = AddSSAOTracePass(m_RenderGraph, inDevice, gbuffer_data).mOutputTexture;
+        
         if (m_Settings.mEnableRTAO)
-            rtao_texture = AddAmbientOcclusionPass(m_RenderGraph, inDevice, inScene, gbuffer_data).mOutputTexture;
+            ao_texture = AddAmbientOcclusionPass(m_RenderGraph, inDevice, inScene, gbuffer_data).mOutputTexture;
 
         RenderGraphResourceID reflections_texture = default_textures.mBlackTexture;
 
@@ -496,7 +501,7 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
         
         const TiledLightCullingData& light_cull_data = AddTiledLightCullingPass(m_RenderGraph, inDevice, inScene);
 
-        const LightingData& light_data = AddLightingPass(m_RenderGraph, inDevice, inScene, gbuffer_data, light_cull_data, sky_cube_data.mSkyCubeTexture, shadow_texture, reflections_texture, rtao_texture, indirect_diffuse_texture);
+        const LightingData& light_data = AddLightingPass(m_RenderGraph, inDevice, inScene, gbuffer_data, light_cull_data, sky_cube_data.mSkyCubeTexture, shadow_texture, reflections_texture, ao_texture, indirect_diffuse_texture);
         
         compose_input = light_data.mOutputTexture;
         
@@ -513,7 +518,11 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
 
         if (m_Settings.mEnableTAA)
             compose_input = AddTAAResolvePass(m_RenderGraph, inDevice, gbuffer_data, light_data.mOutputTexture, m_FrameCounter).mOutputTexture;
+        
+        if (m_Settings.mEnableSSR)
+            AddSSRTracePass(m_RenderGraph, inDevice, gbuffer_data, compose_input).mOutputTexture;
     }
+
 
     RenderGraphResourceID bloom_output = compose_input;
 
@@ -597,6 +606,14 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
 
         case DEBUG_TEXTURE_LIGHTING:
             if (auto render_pass = m_RenderGraph.GetPass<LightingData>())
+                final_output = render_pass->GetData().mOutputTexture;
+            break;
+        case DEBUG_TEXTURE_SSAO:
+            if (auto render_pass = m_RenderGraph.GetPass<SSAOTraceData>())
+                final_output = render_pass->GetData().mOutputTexture;
+            break;
+        case DEBUG_TEXTURE_SSR:
+            if (auto render_pass = m_RenderGraph.GetPass<SSRTraceData>())
                 final_output = render_pass->GetData().mOutputTexture;
             break;
     }
@@ -728,6 +745,8 @@ const char* RenderInterface::GetDebugTextureName(uint32_t inIndex) const
         "Metallic",
         "Roughness",
         "Lighting",
+        "SSR",
+        "SSAO",
         "RT Shadows",
         "RT Reflections",
         "RT Indirect Diffuse",
@@ -1004,11 +1023,11 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
         if (ImGui::Button("PIX GPU Capture"))
             m_Renderer.SetShouldCaptureNextFrame(true);
 
-        if (ImGui::Button("Lower Spot Lights"))
+        if (ImGui::Button("Lower Dynamic Lights"))
         {
             for (const auto& [entity, light] : inScene.Each<Light>())
             {
-                if (light.type == LIGHT_TYPE_SPOT)
+                if (light.type == LIGHT_TYPE_SPOT || light.type == LIGHT_TYPE_POINT)
                 {
                     light.colour.a /= 1000.0f;
                 }
@@ -1342,6 +1361,20 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
     if (ImGui::BeginMenu("Post Process Settings"))
     {
         ImGui::SeparatorText("Post Processing");
+
+        need_recompile |= ImGui::Checkbox("##SSAOtoggle", (bool*)&m_Renderer.GetSettings().mEnableSSAO);
+        ImGui::SameLine();
+
+        if (ImGui::BeginMenu("SSAO"))
+        {
+            ImGui::SeparatorText("Settings");
+
+            ImGui::DragFloat("Bias", &SSAOTraceData::mBias, 0.001f, 0.0f, 0.5f, "%.3f");
+            ImGui::DragFloat("Radius", &SSAOTraceData::mRadius, 0.01f, 0.0f, 0.5f, "%.2f");
+            ImGui::DragInt("Samples", &SSAOTraceData::mSamples, 1, 1, 64);
+
+            ImGui::EndMenu();
+        }
 
         need_recompile |= ImGui::Checkbox("##Bloomtoggle", (bool*)&m_Renderer.GetSettings().mEnableBloom);
         ImGui::SameLine();

@@ -55,6 +55,7 @@ struct DenoiseShadowsData
     RenderGraphResourceViewID mDepthTextureSRV;
     RenderGraphResourceViewID mGBufferTextureSRV;
     RenderGraphResourceViewID mVelocityTextureSRV;
+    RenderGraphResourceViewID mSelectionTextureSRV;
     RenderGraphResourceViewID mTracedShadowRaysTextureSRV;
     RenderGraphResourceViewID mTilesBufferSRV;
     RenderGraphResourceViewID mDenoisedTilesBufferSRV;

@@ -1,8 +1,4 @@
-#include "include/shared.h"
-#include "include/brdf.hlsli"
-#include "include/common.hlsli"
-#include "include/packing.hlsli"
-#include "include/bindless.hlsli"
+#include "Include/Material.hlsli"
 
 struct VS_OUTPUT {
     float4 sv_position : SV_Position;
@@ -55,7 +51,7 @@ PS_OUTPUT main(in VS_OUTPUT input) {
     // normal = normalize(input.normal);
 
     float4 albedo = material.mAlbedo * sampled_albedo;
-    float metalness = material.mMetallic * sampled_metallic;
+    float metallic = material.mMetallic * sampled_metallic;
     float roughness = material.mRoughness * sampled_roughness;
     float3 emissive = material.mEmissive.rgb * sampled_emissive;
     
@@ -64,7 +60,7 @@ PS_OUTPUT main(in VS_OUTPUT input) {
     PackAlpha(albedo.a, packed);
     PackNormal(normal, packed);
     PackEmissive(emissive, packed);
-    PackMetallicRoughness(metalness, roughness, packed);
+    PackMetallicRoughness(metallic, roughness, packed);
 
 @Main
     

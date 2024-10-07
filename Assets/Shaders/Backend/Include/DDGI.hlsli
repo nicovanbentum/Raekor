@@ -2,6 +2,7 @@
 #define DDGI_HLSLI
 
 #include "Shared.hlsli"
+#include "Random.hlsli"
 #include "Common.hlsli"
 #include "Bindless.hlsli"
 
@@ -60,16 +61,6 @@ float3 OctDecode(float2 inOct) {
         v.xy = (1.0 - abs(v.yx)) * SignNotZero(v.xy);
     
     return normalize(v);
-}
-
-static const float PHI = sqrt(5) * 0.5 + 0.5;
-
-float3 SphericalFibonnaci(uint i, uint n) {
-    float fraction = (i * (PHI - 1)) - floor(i * (PHI - 1));
-    float phi = 2.0 * M_PI * fraction;
-    float cos_theta = 1.0 - (2.0 * i + 1.0) * (1.0 / n);
-    float sin_theta = sqrt(saturate(1.0 - cos_theta * cos_theta));
-    return normalize(float3(cos(phi) * sin_theta, sin(phi) * sin_theta, cos_theta));
 }
 
 float4 DDGIGetProbeDebugColor(uint inProbeIndex, uint3 inProbeCount) {

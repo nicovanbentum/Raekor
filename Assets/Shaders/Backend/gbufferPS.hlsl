@@ -1,4 +1,5 @@
 #include "Include/Bindless.hlsli"
+#include "Include/Material.hlsli"
 #include "Include/Packing.hlsli"
 
 struct VS_OUTPUT {
@@ -19,13 +20,6 @@ struct PS_OUTPUT {
 
 ROOT_CONSTANTS(GbufferRootConstants, rc)
 
-
-float3 ReconstructNormalBC5(float2 normal)
-{
-    float2 xy = 2.0f * normal - 1.0f;
-    float z = sqrt(1 - dot(xy, xy));
-    return float3(xy.x, xy.y, z);
-}
 
 PS_OUTPUT main(in VS_OUTPUT input) {
     PS_OUTPUT output;
