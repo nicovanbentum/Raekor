@@ -48,6 +48,10 @@ public:
 
 	Frustum GetFrustum() const;
 
+	float GetZoomSpeed() const { return mZoomSpeed; }
+	float GetMoveSpeed() const { return mMoveSpeed; }
+	float GetSensitivity() const { return mSensitivity; }
+
 private:
 	Vec2 m_Angle;
 	Vec2 m_PrevAngle;

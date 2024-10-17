@@ -159,6 +159,43 @@ void EditorCameraController::OnUpdate(Camera& inCamera, float inDeltaTime)
 			inCamera.Move({ -inCamera.mMoveConstant * inDeltaTime, 0.0f });
 		}
 	}
+
+	if (g_Input->HasController())
+	{
+		SDL_GameController* controller = g_Input->GetController();
+
+		const Sint16 x_axis = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTX);
+		const Sint16 y_axis = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTY);
+
+		float move_x = ( x_axis / 32767.0f ) * inCamera.GetSensitivity();
+		float move_z = ( y_axis / 32767.0f ) * inCamera.GetSensitivity();
+
+		const Sint16 lt_axis = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERLEFT);
+
+		move_x = move_x * glm::lerp(1.0f, 12.3333f, lt_axis / 32767.0f);
+		move_z = move_z * glm::lerp(1.0f, 12.3333f, lt_axis / 32767.0f);
+
+		const Sint16 right_x = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTX);
+		const Sint16 right_y = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTY);
+
+		const float delta_yaw = ( right_x / 32767.0f ) * inCamera.GetSensitivity();
+		const float delta_pitch = ( right_y / 32767.0f ) * inCamera.GetSensitivity();
+
+		inCamera.Look(Vec2(delta_yaw * inDeltaTime, delta_pitch * inDeltaTime));
+
+		float move_y = 0.0f;
+
+		if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_LEFTSHOULDER))
+			move_y = -inCamera.GetSensitivity();
+
+		if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER))
+			move_y = inCamera.GetSensitivity();
+
+		inCamera.Move(Vec2(-move_x * inDeltaTime, move_y * inDeltaTime));
+		inCamera.Zoom(-move_z * inDeltaTime);
+	}
+
+
 }
 
 

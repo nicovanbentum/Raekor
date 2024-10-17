@@ -100,7 +100,13 @@ class Input
 public:
 	Input();
 
-	/* Gets the current state of a keyboard key */
+    void OnEvent(const SDL_Event& inEvent);
+    void OnUpdate(float inDeltaTime);
+
+    bool HasController() const { return m_Controller != nullptr; }
+    SDL_GameController* GetController() { return m_Controller; }
+
+    /* Gets the current state of a keyboard key */
 	bool IsKeyDown(Key key);
 
 	/* Gets the current state of a mouse button.
@@ -113,6 +119,7 @@ public:
 private:
 	bool m_RelMouseMode = false;
 	const uint8_t* m_KeyboardState;
+    SDL_GameController* m_Controller = nullptr;
 };
 
 extern Input* g_Input;

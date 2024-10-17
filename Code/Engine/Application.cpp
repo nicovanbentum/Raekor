@@ -6,6 +6,7 @@
 #include "Archive.h"
 #include "Camera.h"
 #include "Member.h"
+#include "Input.h"
 #include "Timer.h"
 #include "iter.h"
 #include "OS.h"
@@ -42,7 +43,7 @@ Application::Application(WindowFlags inFlags)
 
 	SDL_SetHint("SDL_BORDERLESS_RESIZABLE_STYLE", "1");
 
-	if (SDL_Init(SDL_INIT_VIDEO) != 0)
+	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER) != 0)
 	{
 		LogMessage(SDL_GetError());
 		std::abort();
@@ -134,6 +135,8 @@ void Application::Run()
 		SDL_Event ev;
 		while (SDL_PollEvent(&ev))
 		{
+			g_Input->OnEvent(ev);
+			
 			OnEvent(ev);
 
 			if (ev.type == SDL_WINDOWEVENT && ev.window.event == SDL_WINDOWEVENT_CLOSE)
@@ -143,6 +146,8 @@ void Application::Run()
 
 		if (!m_Running)
 			break;
+
+		g_Input->OnUpdate(dt);
 
 		OnUpdate(dt);
 
