@@ -68,6 +68,9 @@ void RunECStorageTests()
 	for (const auto& [entity, name, transform] : ecs.Each<TestName, TestTransform>())
 		assert(name.name == "NotFirstEntity");
 
+	for (const auto& [entity, name, transform, material] : ecs.Each<TestName, TestTransform, TestMaterial>())
+		assert(name.name == "NotFirstEntity");
+
 	ecs.Remove<TestName>(entity);
 	assert(!ecs.Has<TestName>(entity));
 

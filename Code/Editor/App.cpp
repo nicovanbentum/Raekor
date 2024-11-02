@@ -199,12 +199,12 @@ void DXApp::OnUpdate(float inDeltaTime)
         m_Renderer.QueueBlasUpdate(entity);
 
     if (m_ViewportChanged || m_Physics.GetState() == Physics::EState::Stepping)
-        PathTraceData::mReset = true;
+        RenderSettings::mPathTraceReset = true;
 
     for (const Animation& animation : m_Scene.GetComponents<Animation>())
     {
         if (animation.IsPlaying())
-            PathTraceData::mReset = true;
+            RenderSettings::mPathTraceReset = true;
     }
     
     m_RenderInterface.UpdateGPUStats(m_Device);
@@ -242,7 +242,7 @@ void DXApp::OnEvent(const SDL_Event& inEvent)
         }
     }
 
-    if (inEvent.window.event == SDL_WINDOWEVENT_RESIZED)
+    if (inEvent.type == SDL_WINDOWEVENT && inEvent.window.event == SDL_WINDOWEVENT_RESIZED)
         m_Renderer.SetShouldResize(true);
 }
 

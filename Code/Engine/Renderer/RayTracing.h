@@ -66,7 +66,7 @@ struct DenoiseShadowsData
 
 const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, Device& inDevice,
     const RayTracedScene& inScene,
-    const GBufferData& inGBufferData
+    const GBufferOutput& inGBuffer
 );
 
 
@@ -78,14 +78,6 @@ struct RTAOData
 {
     RTTI_DECLARE_TYPE(RTAOData);
 
-    static inline AmbientOcclusionParams mParams =
-    {
-        .mRadius = 1.0,
-        .mPower = 1.0,
-        .mNormalBias = 0.01,
-        .mSampleCount = 1u
-    };
-
     RenderGraphResourceID mOutputTexture;
     RenderGraphResourceViewID mGbufferDepthTextureSRV;
     RenderGraphResourceViewID mGBufferRenderTextureSRV;
@@ -93,7 +85,7 @@ struct RTAOData
 
 const RTAOData& AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDevice,
     const RayTracedScene& inScene,
-    const GBufferData& inGBufferData
+    const GBufferOutput& inGBuffer
 );
 
 
@@ -113,7 +105,7 @@ struct ReflectionsData
 
 const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& inDevice,
     const RayTracedScene& inScene,
-    const GBufferData& inGBufferData,
+    const GBufferOutput& inGBuffer,
     const SkyCubeData& inSkyCubeData
 );
 
@@ -126,8 +118,6 @@ struct PathTraceData
 {
     RTTI_DECLARE_TYPE(PathTraceData);
 
-    static inline bool mReset = true;
-    static inline uint32_t mBounces = 2;
     RenderGraphResourceID mOutputTexture;
     RenderGraphResourceID mAccumulationTexture;
     RenderGraphResourceViewID mSkyCubeTextureSRV;
@@ -141,77 +131,16 @@ const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevi
 
 
 //////////////////////////////////////////
-///// GI Probe Trace Compute Pass
+///// DDGI Pass
 //////////////////////////////////////////
-struct ProbeTraceData
+struct DDGIOutput
 {
-    RTTI_DECLARE_TYPE(ProbeTraceData);
-
-    static inline IVec3 mDebugProbe = IVec3(10, 10, 5);
-    static inline DDGIData mDDGIData =
-    {
-        .mProbeCount = IVec3(22, 22, 22),
-        .mProbeRadius = 0.25f,
-        .mProbeSpacing = Vec3(6.4, 3.0, 2.8),
-        .mCornerPosition = Vec3(-65, -1.4, -28.5)
-    };
-
-    Mat4x4 mRandomRotationMatrix;
-    RenderGraphResourceID mProbesDepthTexture;
-    RenderGraphResourceID mProbesIrradianceTexture;
-    RenderGraphResourceID mRaysDepthTexture;
-    RenderGraphResourceID mRaysIrradianceTexture;
-    RenderGraphResourceViewID mSkyCubeTextureSRV;
+    RenderGraphResourceID mOutput;
+    RenderGraphResourceID mDepthProbes;
+    RenderGraphResourceID mIrradianceProbes;
 };
 
-const ProbeTraceData& AddProbeTracePass(RenderGraph& inRenderGraph, Device& inDevice,
-    const RayTracedScene& inScene,
-    const SkyCubeData& inSkyCubeData
-);
-
-
-
-//////////////////////////////////////////
-///// GI Probe Update Compute Pass
-//////////////////////////////////////////
-struct ProbeUpdateData
-{
-    RTTI_DECLARE_TYPE(ProbeUpdateData);
-
-    static inline bool mClear = false;
-    DDGIData mDDGIData;
-    RenderGraphResourceID mProbesDepthTexture;
-    RenderGraphResourceID mProbesIrradianceTexture;
-    RenderGraphResourceViewID mRaysDepthTextureSRV;
-    RenderGraphResourceViewID mRaysIrradianceTextureSRV;
-};
-
-const ProbeUpdateData& AddProbeUpdatePass(RenderGraph& inRenderGraph, Device& inDevice,
-    const RayTracedScene& inScene,
-    const ProbeTraceData& inTraceData
-);
-
-
-
-//////////////////////////////////////////
-///// GI Probe Sample Compute Pass
-//////////////////////////////////////////
-struct ProbeSampleData
-{
-    RTTI_DECLARE_TYPE(ProbeSampleData);
-
-    DDGIData mDDGIData;
-    RenderGraphResourceID mOutputTexture;
-    RenderGraphResourceViewID mDepthTextureSRV;
-    RenderGraphResourceViewID mGBufferTextureSRV;
-    RenderGraphResourceViewID mProbesDepthTextureSRV;
-    RenderGraphResourceViewID mProbesIrradianceTextureSRV;
-};
-
-const ProbeSampleData& AddProbeSamplePass(RenderGraph& inRenderGraph, Device& inDevice,
-    const GBufferData& inGBufferData,
-    const ProbeUpdateData& inUpdateData
-);
+DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferOutput& inGBuffer, const SkyCubeData& inSkyCubeData);
 
 
 
@@ -222,9 +151,7 @@ struct ProbeDebugData
 {
     RTTI_DECLARE_TYPE(ProbeDebugData);
 
-    static inline float mRadius = 1.0f;
-    RK::Mesh        mProbeMesh;
-    DDGIData        mDDGIData;
+    RK::Mesh mProbeMesh;
     RenderGraphResourceViewID mRenderTargetRTV;
     RenderGraphResourceViewID mDepthTargetDSV;
     RenderGraphResourceViewID mProbesDepthTextureSRV;
@@ -233,8 +160,7 @@ struct ProbeDebugData
 };
 
 const ProbeDebugData& AddProbeDebugPass(RenderGraph& inRenderGraph, Device& inDevice,
-    const ProbeTraceData& inTraceData,
-    const ProbeUpdateData& inUpdateData,
+    const DDGIOutput& inDDGI,
     RenderGraphResourceID inRenderTarget,
     RenderGraphResourceID inDepthTarget
 );

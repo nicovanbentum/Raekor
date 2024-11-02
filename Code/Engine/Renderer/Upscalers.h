@@ -4,7 +4,7 @@
 
 namespace RK::DX12 {
 
-struct GBufferData;
+struct GBufferOutput;
 
 enum EUpscaler
 {
@@ -86,8 +86,8 @@ struct FSR2Data
 };
 
 const FSR2Data& AddFsrPass(RenderGraph& inRenderGraph, Device& inDevice, Upscaler& inUpscaler,
-    RenderGraphResourceID inColorTexture,
-    const GBufferData& inGBufferData
+    const GBufferOutput& inGBuffer,
+    RenderGraphResourceID inColorTexture
 );
 
 
@@ -108,8 +108,8 @@ struct DLSSData
 };
 
 const DLSSData& AddDLSSPass(RenderGraph& inRenderGraph, Device& inDevice,  Upscaler& inUpscaler,
-    RenderGraphResourceID inColorTexture,
-    const GBufferData& inGBufferData
+    const GBufferOutput& inGBuffer,
+    RenderGraphResourceID inColorTexture
 );
 
 
@@ -130,8 +130,8 @@ struct XeSSData
 };
 
 const XeSSData& AddXeSSPass(RenderGraph& inRenderGraph, Device& inDevice, Upscaler& inUpscaler,
-    RenderGraphResourceID inColorTexture,
-    const GBufferData& inGBufferData
+    const GBufferOutput& inGBuffer,
+    RenderGraphResourceID inColorTexture
 );
 
 } // namespace raekor

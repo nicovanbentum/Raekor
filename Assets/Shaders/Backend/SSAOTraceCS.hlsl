@@ -39,12 +39,17 @@ void main(uint3 threadID : SV_DispatchThreadID)
     float3 tangent = normalize(cross(world_up, vs_normal));
     float3 bitangent = normalize(cross(vs_normal, tangent));
     float3x3 TBN = float3x3(tangent, bitangent, vs_normal);
-    
+
+    uint rng = TeaHash(((threadID.y << 16) | threadID.x), fc.mFrameCounter + 1);
+
     float occlusion = 0.0;
     
     for (int sample_index = 0; sample_index < rc.mSamples; sample_index++)
     {
+        float ign = InterleavedGradientNoise(pixel_center);
         float2 rand = Hammersley2D(sample_index, rc.mSamples);
+        rand = pcg_float2(rng);
+
         float3 sample = SampleCosineWeightedHemisphere(float2(rand.x, rand.y));
         
         //float3 sample_vs_pos = vs_position + vs_normal;

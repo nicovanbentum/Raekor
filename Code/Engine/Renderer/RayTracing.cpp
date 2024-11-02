@@ -17,9 +17,6 @@ RTTI_DEFINE_TYPE(ClassifyShadowTilesData) {}
 RTTI_DEFINE_TYPE(DenoiseShadowsData)      {}
 RTTI_DEFINE_TYPE(RTAOData)                {}
 RTTI_DEFINE_TYPE(ReflectionsData)         {}
-RTTI_DEFINE_TYPE(ProbeTraceData)          {}
-RTTI_DEFINE_TYPE(ProbeUpdateData)         {}
-RTTI_DEFINE_TYPE(ProbeSampleData)         {}
 RTTI_DEFINE_TYPE(PathTraceData)           {}
 RTTI_DEFINE_TYPE(ProbeDebugData)          {}
 RTTI_DEFINE_TYPE(ProbeDebugRaysData)      {}
@@ -40,13 +37,13 @@ void ClearTextureUAV(Device& inDevice, TextureID inTexture, Vec4 inValue, Comman
 }
 
 
-const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferData& inGBufferData)
+const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferOutput& inGBuffer)
 {
     static constexpr int cTileSize = RT_SHADOWS_GROUP_DIM;
     static constexpr int cPackedRaysWidth = RT_SHADOWS_PACKED_DIM_X;
     static constexpr int cPackedRaysHeight = RT_SHADOWS_PACKED_DIM_Y;
 
-    auto TraceShadowRaysPass = [](RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferData& inGBufferData)
+    auto TraceShadowRaysPass = [](RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferOutput& inGBuffer)
     {
         return inRenderGraph.AddComputePass<TraceShadowTilesData>("TRACE SHADOW RAYS PASS",
         [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, TraceShadowTilesData& inData)
@@ -61,8 +58,8 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
             });
 
             inRGBuilder.Write(inData.mOutputTexture);
-            inData.mGBufferDepthTextureSRV = inRGBuilder.Read(inGBufferData.mDepthTexture);
-            inData.mGBufferRenderTextureSRV = inRGBuilder.Read(inGBufferData.mRenderTexture);
+            inData.mGBufferDepthTextureSRV = inRGBuilder.Read(inGBuffer.mDepthTexture);
+            inData.mGBufferRenderTextureSRV = inRGBuilder.Read(inGBuffer.mRenderTexture);
         },
 
         [&inRenderGraph, &inDevice, &inScene](TraceShadowTilesData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
@@ -184,7 +181,7 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
         });
     };
 
-    auto DenoiseShadowsPass = [](RenderGraph& inRenderGraph, Device& inDevice, const GBufferData& inGBufferData, const TraceShadowTilesData& inTraceData, const ClearShadowTilesData& inTilesData, const ClearShadowsData& inShadowsData)
+    auto DenoiseShadowsPass = [](RenderGraph& inRenderGraph, Device& inDevice, const GBufferOutput& inGBuffer, const TraceShadowTilesData& inTraceData, const ClearShadowTilesData& inTilesData, const ClearShadowsData& inShadowsData)
     {
         return inRenderGraph.AddComputePass<DenoiseShadowsData>("DENOISE SHADOWS PASS",
         [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, DenoiseShadowsData& inData)
@@ -192,10 +189,10 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
             inData.mOutputTextureUAV = inRGBuilder.Write(inShadowsData.mShadowsTexture);
             inData.mHistoryTextureUAV = inRGBuilder.Write(inShadowsData.mShadowsTextureHistory);
 
-            inData.mDepthTextureSRV = inRGBuilder.Read(inGBufferData.mDepthTexture);
-            inData.mGBufferTextureSRV = inRGBuilder.Read(inGBufferData.mRenderTexture);
-            inData.mVelocityTextureSRV = inRGBuilder.Read(inGBufferData.mVelocityTexture);
-            inData.mSelectionTextureSRV = inRGBuilder.Read(inGBufferData.mSelectionTexture);
+            inData.mDepthTextureSRV = inRGBuilder.Read(inGBuffer.mDepthTexture);
+            inData.mGBufferTextureSRV = inRGBuilder.Read(inGBuffer.mRenderTexture);
+            inData.mVelocityTextureSRV = inRGBuilder.Read(inGBuffer.mVelocityTexture);
+            inData.mSelectionTextureSRV = inRGBuilder.Read(inGBuffer.mSelectionTexture);
 
             inData.mTracedShadowRaysTextureSRV = inRGBuilder.Read(inTraceData.mOutputTexture);
 
@@ -258,7 +255,7 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
         });
     };
 
-    const TraceShadowTilesData& traced_rays_data = TraceShadowRaysPass(inRenderGraph, inDevice, inScene, inGBufferData);
+    const TraceShadowTilesData& traced_rays_data = TraceShadowRaysPass(inRenderGraph, inDevice, inScene, inGBuffer);
 
     const ClearShadowTilesData& clear_tiles_data = ClearShadowTilesPass(inRenderGraph, inDevice);
 
@@ -266,14 +263,14 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
 
     const ClearShadowsData& clear_shadows_data   = ClearShadowsPass(inRenderGraph, inDevice);
 
-    const DenoiseShadowsData& denoise_tiles_data = DenoiseShadowsPass(inRenderGraph, inDevice, inGBufferData, traced_rays_data, clear_tiles_data, clear_shadows_data);
+    const DenoiseShadowsData& denoise_tiles_data = DenoiseShadowsPass(inRenderGraph, inDevice, inGBuffer, traced_rays_data, clear_tiles_data, clear_shadows_data);
 
     return clear_shadows_data.mShadowsTexture;
 }
 
 
 
-const RTAOData& AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferData& inGbufferData)
+const RTAOData& AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferOutput& inGBuffer)
 {
     return inRenderGraph.AddComputePass<RTAOData>("RAY TRACED AO PASS",
     [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, RTAOData& inData)
@@ -288,8 +285,8 @@ const RTAOData& AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDe
 
         inRGBuilder.Write(inData.mOutputTexture);
 
-        inData.mGbufferDepthTextureSRV = inRGBuilder.Read(inGbufferData.mDepthTexture);
-        inData.mGBufferRenderTextureSRV = inRGBuilder.Read(inGbufferData.mRenderTexture);
+        inData.mGbufferDepthTextureSRV = inRGBuilder.Read(inGBuffer.mDepthTexture);
+        inData.mGBufferRenderTextureSRV = inRGBuilder.Read(inGBuffer.mRenderTexture);
     },
 
     [&inRenderGraph, &inDevice, &inScene](RTAOData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
@@ -301,7 +298,12 @@ const RTAOData& AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDe
 
         inCmdList.PushComputeConstants(AmbientOcclusionRootConstants
         {
-            .mParams                = inData.mParams,
+            .mParams = AmbientOcclusionParams {
+                .mRadius = RenderSettings::mRTAORadius,
+                .mPower = RenderSettings::mRTAOPower,
+                .mNormalBias = RenderSettings::mRTAONormalBias,
+                .mSampleCount = RenderSettings::mRTAOSampleCount
+            },
             .mAOmaskTexture         = inDevice.GetBindlessHeapIndex(inRGResources.GetTexture(inData.mOutputTexture)),
             .mGbufferDepthTexture   = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mGbufferDepthTextureSRV)),
             .mGbufferRenderTexture  = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mGBufferRenderTextureSRV)),
@@ -316,7 +318,7 @@ const RTAOData& AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDe
 
 
 
-const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferData& inGBufferData, const SkyCubeData& inSkyCubeData)
+const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferOutput& inGBuffer, const SkyCubeData& inSkyCubeData)
 {
     return inRenderGraph.AddComputePass<ReflectionsData>("RAY TRACED REFLECTIONS PASS",
         [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, ReflectionsData& inData)
@@ -334,8 +336,8 @@ const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& in
         inRGBuilder.Write(inData.mOutputTexture);
 
         inData.mSkyCubeTextureSRV = inRGBuilder.Read(inSkyCubeData.mSkyCubeTexture);
-        inData.mGBufferDepthTextureSRV = inRGBuilder.Read(inGBufferData.mDepthTexture);
-        inData.mGbufferRenderTextureSRV = inRGBuilder.Read(inGBufferData.mRenderTexture);
+        inData.mGBufferDepthTextureSRV = inRGBuilder.Read(inGBuffer.mDepthTexture);
+        inData.mGbufferRenderTextureSRV = inRGBuilder.Read(inGBuffer.mRenderTexture);
     },
 
     [&inRenderGraph, &inDevice, &inScene](ReflectionsData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
@@ -399,14 +401,14 @@ const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevi
         PathTraceRootConstants constants =
         {
             .mTLAS = inDevice.GetBindlessHeapIndex(inScene.GetTLASDescriptor(inDevice)),
-            .mBounces = inData.mBounces,
+            .mBounces = RenderSettings::mPathTraceBounces,
             .mInstancesBuffer = inDevice.GetBindlessHeapIndex(inScene.GetInstancesDescriptor(inDevice)),
             .mMaterialsBuffer = inDevice.GetBindlessHeapIndex(inScene.GetMaterialsDescriptor(inDevice)),
             .mResultTexture = inDevice.GetBindlessHeapIndex(inResources.GetTexture(inData.mOutputTexture)),
             .mAccumulationTexture = inDevice.GetBindlessHeapIndex(inResources.GetTexture(inData.mAccumulationTexture)),
             .mSkyCubeTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mSkyCubeTextureSRV)),
             .mDispatchSize = viewport.size,
-            .mReset = PathTraceData::mReset,
+            .mReset = RenderSettings::mPathTraceReset,
         };
 
         constants.mLightsCount = inScene->Count<Light>();
@@ -419,18 +421,33 @@ const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevi
         inCmdList->SetPipelineState(g_SystemShaders.mRTPathTraceShader.GetComputePSO());
         inCmdList->Dispatch(( viewport.size.x + 7 ) / 8, ( viewport.size.y + 7 ) / 8, 1);
 
-        PathTraceData::mReset = false;
+        RenderSettings::mPathTraceReset = false;
     });
 }
 
 
 
-const ProbeTraceData& AddProbeTracePass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const SkyCubeData& inSkyCubeData)
+DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferOutput& inGBuffer, const SkyCubeData& inSkyCubeData)
 {
-    return inRenderGraph.AddComputePass<ProbeTraceData>("GI PROBE TRACE PASS",
+    //////////////////////////////////////////
+    ///// Probe Trace Compute Pass
+    //////////////////////////////////////////
+    struct ProbeTraceData
+    {
+        RenderGraphResourceID mRaysDepthTexture;
+        RenderGraphResourceID mProbesDepthTexture;
+        RenderGraphResourceViewID mProbesDepthTextureSRV;
+        RenderGraphResourceID mRaysIrradianceTexture;
+        RenderGraphResourceID mProbesIrradianceTexture;
+        RenderGraphResourceViewID mProbesIrradianceTextureSRV;
+        RenderGraphResourceViewID mSkyCubeTextureSRV;
+        Mat4x4 mRandomRotationMatrix;
+    };
+
+    const ProbeTraceData& trace_data = inRenderGraph.AddComputePass<ProbeTraceData>("GI PROBE TRACE PASS",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ProbeTraceData& inData)
     {
-        const int total_probe_count = inData.mDDGIData.mProbeCount.x * inData.mDDGIData.mProbeCount.y * inData.mDDGIData.mProbeCount.z;
+        const int total_probe_count = RenderSettings::mDDGIProbeCount.x * RenderSettings::mDDGIProbeCount.y * RenderSettings::mDDGIProbeCount.z;
 
         inData.mRaysDepthTexture = ioRGBuilder.Create(Texture::Desc
         {
@@ -450,72 +467,6 @@ const ProbeTraceData& AddProbeTracePass(RenderGraph& inRenderGraph, Device& inDe
             .debugName = "DDGI_TracedIrradiance"
         });
 
-        ioRGBuilder.Write(inData.mRaysDepthTexture);
-        ioRGBuilder.Write(inData.mRaysIrradianceTexture);
-
-        inData.mSkyCubeTextureSRV = ioRGBuilder.Read(inSkyCubeData.mSkyCubeTexture);
-    },
-
-    [&inRenderGraph, &inDevice, &inScene](ProbeTraceData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
-    {
-        if (inScene->Count<Mesh>() == 0)
-            return;
-
-        auto Index3Dto1D = [](UVec3 inIndex, UVec3 inCount)
-        {
-            return inIndex.x + inIndex.y * inCount.x + inIndex.z * inCount.x * inCount.y;
-        };
-
-        if (inScene->Any<DDGISceneSettings>() && inScene->Count<DDGISceneSettings>())
-        {
-            const Entity& ddgi_entity = inScene->GetEntities<DDGISceneSettings>()[0];
-            const Transform& ddgi_transform = inScene->Get<Transform>(ddgi_entity);
-            const DDGISceneSettings& ddgi_settings = inScene->Get<DDGISceneSettings>(ddgi_entity);
-
-            inData.mDDGIData.mProbeCount = ddgi_settings.mDDGIProbeCount;
-            inData.mDDGIData.mProbeSpacing = ddgi_settings.mDDGIProbeSpacing;
-            inData.mDDGIData.mCornerPosition = ddgi_transform.position;
-        }
-
-        inData.mRandomRotationMatrix = gRandomOrientation();
-        inData.mDDGIData.mRaysDepthTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTexture(inData.mRaysDepthTexture));
-        inData.mDDGIData.mRaysIrradianceTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTexture(inData.mRaysIrradianceTexture));
-
-        ProbeTraceRootConstants root_constants =
-        {
-            .mInstancesBuffer = inDevice.GetBindlessHeapIndex(inScene.GetInstancesDescriptor(inDevice)),
-            .mTLAS = inDevice.GetBindlessHeapIndex(inScene.GetTLASDescriptor(inDevice)),
-            .mDebugProbeIndex = Index3Dto1D(inData.mDebugProbe, inData.mDDGIData.mProbeCount),
-            .mSkyCubeTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mSkyCubeTextureSRV)),
-            .mRandomRotationMatrix = inData.mRandomRotationMatrix,
-            .mDDGIData = inData.mDDGIData
-        };
-
-        if (inScene->Count<Material>())
-            root_constants.mMaterialsBuffer = inDevice.GetBindlessHeapIndex(inScene.GetMaterialsDescriptor(inDevice));
-        
-        if (root_constants.mLightsCount = inScene->Count<Light>())
-            root_constants.mLightsBuffer = inDevice.GetBindlessHeapIndex(inScene.GetLightsDescriptor(inDevice));
-
-        inCmdList.PushComputeConstants(root_constants);
-
-        const int total_probe_count = inData.mDDGIData.mProbeCount.x * inData.mDDGIData.mProbeCount.y * inData.mDDGIData.mProbeCount.z;
-
-        inCmdList->SetPipelineState(g_SystemShaders.mProbeTraceShader.GetComputePSO());
-        inCmdList->Dispatch(DDGI_RAYS_PER_PROBE / DDGI_TRACE_SIZE, total_probe_count, 1);
-    });
-}
-
-
-
-const ProbeUpdateData& AddProbeUpdatePass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const ProbeTraceData& inTraceData)
-{
-    return inRenderGraph.AddComputePass<ProbeUpdateData>("GI PROBE UPDATE PASS",
-    [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ProbeUpdateData& inData)
-    {
-        inData.mDDGIData = inTraceData.mDDGIData;
-        const int total_probe_count = inData.mDDGIData.mProbeCount.x * inData.mDDGIData.mProbeCount.y * inData.mDDGIData.mProbeCount.z;
-
         inData.mProbesDepthTexture = ioRGBuilder.Create(Texture::Desc
         {
             .format = DXGI_FORMAT_R16G16_FLOAT,
@@ -534,23 +485,90 @@ const ProbeUpdateData& AddProbeUpdatePass(RenderGraph& inRenderGraph, Device& in
             .debugName = "DDGI_UpdatedIrradiance"
         });
 
-        ioRGBuilder.Write(inData.mProbesDepthTexture);
-        ioRGBuilder.Write(inData.mProbesIrradianceTexture);
+        inData.mProbesDepthTextureSRV = ioRGBuilder.Read(inData.mProbesDepthTexture);
+        inData.mProbesIrradianceTextureSRV = ioRGBuilder.Read(inData.mProbesIrradianceTexture);
 
-        inData.mRaysDepthTextureSRV = ioRGBuilder.Read(inTraceData.mRaysDepthTexture);
-        inData.mRaysIrradianceTextureSRV = ioRGBuilder.Read(inTraceData.mRaysIrradianceTexture);
+        ioRGBuilder.Write(inData.mRaysDepthTexture);
+        ioRGBuilder.Write(inData.mRaysIrradianceTexture);
+
+        inData.mSkyCubeTextureSRV = ioRGBuilder.Read(inSkyCubeData.mSkyCubeTexture);
     },
-
-    [&inDevice, &inTraceData, &inScene](ProbeUpdateData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
+    [&inRenderGraph, &inDevice, &inScene](ProbeTraceData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
     {
         if (inScene->Count<Mesh>() == 0)
             return;
 
-        inData.mDDGIData = inTraceData.mDDGIData;
-        inData.mDDGIData.mRaysDepthTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mRaysDepthTextureSRV));
-        inData.mDDGIData.mProbesDepthTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTexture(inData.mProbesDepthTexture));
-        inData.mDDGIData.mRaysIrradianceTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mRaysIrradianceTextureSRV));
-        inData.mDDGIData.mProbesIrradianceTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTexture(inData.mProbesIrradianceTexture));
+        //if (ProbeUpdateData::mClear)
+        //{
+        //    ClearTextureUAV(inDevice, inRGResources.GetTexture(inData.mProbesIrradianceTexture), Vec4(0.0), inCmdList);
+        //    ProbeUpdateData::mClear = false;
+        //}
+
+        auto Index3Dto1D = [](UVec3 inIndex, UVec3 inCount)
+        {
+            return inIndex.x + inIndex.y * inCount.x + inIndex.z * inCount.x * inCount.y;
+        };
+
+        inData.mRandomRotationMatrix = gRandomOrientation();
+
+        ProbeTraceRootConstants root_constants =
+        {
+            .mInstancesBuffer = inDevice.GetBindlessHeapIndex(inScene.GetInstancesDescriptor(inDevice)),
+            .mTLAS = inDevice.GetBindlessHeapIndex(inScene.GetTLASDescriptor(inDevice)),
+            .mDebugProbeIndex = Index3Dto1D(RenderSettings::mDDGIDebugProbe, RenderSettings::mDDGIProbeCount),
+            .mSkyCubeTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mSkyCubeTextureSRV)),
+            .mRandomRotationMatrix = inData.mRandomRotationMatrix,
+            .mDDGIData = DDGIData {
+                .mProbeCount = RenderSettings::mDDGIProbeCount,
+                .mProbeRadius = RenderSettings::mDDGIDebugRadius,
+                .mProbeSpacing = RenderSettings::mDDGIProbeSpacing,
+                .mCornerPosition = RenderSettings::mDDGICornerPosition,
+                .mRaysDepthTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTexture(inData.mRaysDepthTexture)),
+                .mProbesDepthTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mProbesDepthTextureSRV)),
+                .mRaysIrradianceTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTexture(inData.mRaysIrradianceTexture)),
+                .mProbesIrradianceTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mProbesIrradianceTextureSRV))
+            }
+        };
+
+        if (inScene->Count<Material>())
+            root_constants.mMaterialsBuffer = inDevice.GetBindlessHeapIndex(inScene.GetMaterialsDescriptor(inDevice));
+        
+        if (root_constants.mLightsCount = inScene->Count<Light>())
+            root_constants.mLightsBuffer = inDevice.GetBindlessHeapIndex(inScene.GetLightsDescriptor(inDevice));
+
+        inCmdList.PushComputeConstants(root_constants);
+
+        const int total_probe_count = root_constants.mDDGIData.mProbeCount.x * root_constants.mDDGIData.mProbeCount.y * root_constants.mDDGIData.mProbeCount.z;
+
+        inCmdList->SetPipelineState(g_SystemShaders.mProbeTraceShader.GetComputePSO());
+        inCmdList->Dispatch(DDGI_RAYS_PER_PROBE / DDGI_TRACE_SIZE, total_probe_count, 1);
+    });
+
+    //////////////////////////////////////////
+    ///// Probe Update Compute Pass
+    //////////////////////////////////////////
+    struct ProbeUpdateData
+    {
+        RenderGraphResourceViewID mProbesDepthTextureUAV;
+        RenderGraphResourceViewID mProbesIrradianceTextureUAV;
+        RenderGraphResourceViewID mRaysDepthTextureSRV;
+        RenderGraphResourceViewID mRaysIrradianceTextureSRV;
+    };
+
+    const ProbeUpdateData& update_data =  inRenderGraph.AddComputePass<ProbeUpdateData>("GI PROBE UPDATE PASS",
+    [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ProbeUpdateData& inData)
+    {
+        inData.mProbesDepthTextureUAV = ioRGBuilder.Write(trace_data.mProbesDepthTexture);
+        inData.mProbesIrradianceTextureUAV = ioRGBuilder.Write(trace_data.mProbesIrradianceTexture);
+
+        inData.mRaysDepthTextureSRV = ioRGBuilder.Read(trace_data.mRaysDepthTexture);
+        inData.mRaysIrradianceTextureSRV = ioRGBuilder.Read(trace_data.mRaysIrradianceTexture);
+    },
+
+        [&inDevice, &trace_data, &inScene](ProbeUpdateData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
+    {
+        if (inScene->Count<Mesh>() == 0)
+            return;
 
         /*{
             inCmdList->SetPipelineState(g_SystemShaders.mProbeUpdateDepthShader.GetComputePSO());
@@ -564,76 +582,97 @@ const ProbeUpdateData& AddProbeUpdatePass(RenderGraph& inRenderGraph, Device& in
             inCmdList->Dispatch(depth_texture.GetDesc().width / DDGI_DEPTH_TEXELS, depth_texture.GetDesc().height / DDGI_DEPTH_TEXELS, 1);
         }*/
 
-        if (ProbeUpdateData::mClear)
+        ProbeUpdateRootConstants root_constants = ProbeUpdateRootConstants
         {
-            ClearTextureUAV(inDevice, inRGResources.GetTexture(inData.mProbesIrradianceTexture), Vec4(0.0), inCmdList);
-            ProbeUpdateData::mClear = false;
-        }
+            .mRandomRotationMatrix = trace_data.mRandomRotationMatrix,
+            .mDDGIData = DDGIData {
+                .mProbeCount = RenderSettings::mDDGIProbeCount,
+                .mProbeRadius = RenderSettings::mDDGIDebugRadius,
+                .mProbeSpacing = RenderSettings::mDDGIProbeSpacing,
+                .mCornerPosition = RenderSettings::mDDGICornerPosition,
+                .mRaysDepthTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mRaysDepthTextureSRV)),
+                .mProbesDepthTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mProbesDepthTextureUAV)),
+                .mRaysIrradianceTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mRaysIrradianceTextureSRV)),
+                .mProbesIrradianceTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mProbesIrradianceTextureUAV))
+            }
+        };
 
-        {
-            inCmdList->SetPipelineState(g_SystemShaders.mProbeUpdateIrradianceShader.GetComputePSO());
-            inCmdList.PushComputeConstants(ProbeUpdateRootConstants
-            {
-                .mRandomRotationMatrix = inTraceData.mRandomRotationMatrix,
-                .mDDGIData = inData.mDDGIData
-            });
+        inCmdList->SetPipelineState(g_SystemShaders.mProbeUpdateIrradianceShader.GetComputePSO());
+        inCmdList.PushComputeConstants(root_constants);
 
-            const Texture& irradiance_texture = inDevice.GetTexture(inRGResources.GetTexture(inData.mProbesIrradianceTexture));
-            inCmdList->Dispatch(irradiance_texture.GetWidth() / DDGI_IRRADIANCE_TEXELS, irradiance_texture.GetHeight() / DDGI_IRRADIANCE_TEXELS, 1);
-        }
+        const Texture& irradiance_texture = inDevice.GetTexture(inRGResources.GetTextureView(inData.mProbesIrradianceTextureUAV));
+        inCmdList->Dispatch(irradiance_texture.GetWidth() / DDGI_IRRADIANCE_TEXELS, irradiance_texture.GetHeight() / DDGI_IRRADIANCE_TEXELS, 1);
     });
-}
 
+    //////////////////////////////////////////
+    ///// Probe Sample Compute Pass
+    //////////////////////////////////////////
+    struct ProbeSampleData
+    {
+        RenderGraphResourceID mOutputTexture;
+        RenderGraphResourceViewID mDepthTextureSRV;
+        RenderGraphResourceViewID mGBufferTextureSRV;
+        RenderGraphResourceViewID mProbesDepthTextureSRV;
+        RenderGraphResourceViewID mProbesIrradianceTextureSRV;
+    };
 
-
-const ProbeSampleData& AddProbeSamplePass(RenderGraph& inRenderGraph, Device& inDevice, const GBufferData& inGBufferData, const ProbeUpdateData& inProbeData)
-{
-    return inRenderGraph.AddComputePass<ProbeSampleData>("GI PROBE SAMPLE PASS",
-        [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ProbeSampleData& inData)
+    const ProbeSampleData& sample_data = inRenderGraph.AddComputePass<ProbeSampleData>("GI PROBE SAMPLE PASS",
+    [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ProbeSampleData& inData)
     {
         inData.mOutputTexture = ioRGBuilder.Create(Texture::Desc
-        {
-            .format = DXGI_FORMAT_R32G32B32A32_FLOAT,
-            .width  = inRenderGraph.GetViewport().size.x,
-            .height = inRenderGraph.GetViewport().size.y,
-            .usage  = Texture::SHADER_READ_WRITE,
-            .debugName = "RT_DDGISampleOutput"
-        });
+            {
+                .format = DXGI_FORMAT_R32G32B32A32_FLOAT,
+                .width  = inRenderGraph.GetViewport().size.x,
+                .height = inRenderGraph.GetViewport().size.y,
+                .usage  = Texture::SHADER_READ_WRITE,
+                .debugName = "RT_DDGISampleOutput"
+            });
 
         ioRGBuilder.Write(inData.mOutputTexture);
 
-        inData.mDDGIData = inProbeData.mDDGIData;
-        inData.mDepthTextureSRV = ioRGBuilder.Read(inGBufferData.mDepthTexture);
-        inData.mGBufferTextureSRV = ioRGBuilder.Read(inGBufferData.mRenderTexture);
-        inData.mProbesDepthTextureSRV = ioRGBuilder.Read(inProbeData.mProbesDepthTexture);
-        inData.mProbesIrradianceTextureSRV = ioRGBuilder.Read(inProbeData.mProbesIrradianceTexture);
+        inData.mDepthTextureSRV = ioRGBuilder.Read(inGBuffer.mDepthTexture);
+        inData.mGBufferTextureSRV = ioRGBuilder.Read(inGBuffer.mRenderTexture);
+        inData.mProbesDepthTextureSRV = ioRGBuilder.Read(trace_data.mProbesDepthTexture);
+        inData.mProbesIrradianceTextureSRV = ioRGBuilder.Read(trace_data.mProbesIrradianceTexture);
     },
 
-        [&inRenderGraph, &inDevice, &inProbeData](ProbeSampleData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
+        [&inRenderGraph, &inDevice, &inScene, &update_data](ProbeSampleData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
     {
         const Viewport& viewport = inRenderGraph.GetViewport();
 
-        inData.mDDGIData = inProbeData.mDDGIData;
-        inData.mDDGIData.mProbesDepthTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mProbesDepthTextureSRV));
-        inData.mDDGIData.mProbesIrradianceTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mProbesIrradianceTextureSRV));
+        ProbeSampleRootConstants root_constants = ProbeSampleRootConstants
+        {
+            .mDDGIData = DDGIData {
+                .mProbeCount = RenderSettings::mDDGIProbeCount,
+                .mProbeRadius = RenderSettings::mDDGIDebugRadius,
+                .mProbeSpacing = RenderSettings::mDDGIProbeSpacing,
+                .mCornerPosition = RenderSettings::mDDGICornerPosition,
+                .mProbesDepthTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mProbesDepthTextureSRV)),
+                .mProbesIrradianceTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mProbesIrradianceTextureSRV))
+            },
+            .mOutputTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTexture(inData.mOutputTexture)),
+            .mDepthTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mDepthTextureSRV)),
+            .mGBufferTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mGBufferTextureSRV)),
+            .mDispatchSize = viewport.GetRenderSize()
+        };
 
         inCmdList->SetPipelineState(g_SystemShaders.mProbeSampleShader.GetComputePSO());
-        inCmdList.PushComputeConstants(ProbeSampleRootConstants
-            {
-                .mDDGIData = inData.mDDGIData,
-                .mOutputTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTexture(inData.mOutputTexture)),
-                .mDepthTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mDepthTextureSRV)),
-                .mGBufferTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mGBufferTextureSRV)),
-                .mDispatchSize = viewport.GetRenderSize()
-            });
+        inCmdList.PushComputeConstants(root_constants);
 
         inCmdList->Dispatch(( viewport.GetRenderSize().x + 7 ) / 8, ( viewport.GetRenderSize().y + 7 ) / 8, 1);
     });
+
+    return DDGIOutput
+    {
+        .mOutput = sample_data.mOutputTexture,
+        .mDepthProbes = trace_data.mProbesDepthTexture,
+        .mIrradianceProbes = trace_data.mProbesIrradianceTexture
+    };
 }
 
 
 
-const ProbeDebugData& AddProbeDebugPass(RenderGraph& inRenderGraph, Device& inDevice, const ProbeTraceData& inTraceData, const ProbeUpdateData& inUpdateData, RenderGraphResourceID inRenderTarget, RenderGraphResourceID inDepthTarget)
+const ProbeDebugData& AddProbeDebugPass(RenderGraph& inRenderGraph, Device& inDevice, const DDGIOutput& inDDGI, RenderGraphResourceID inRenderTarget, RenderGraphResourceID inDepthTarget)
 {
     return inRenderGraph.AddGraphicsPass<ProbeDebugData>("GI PROBE DEBUG PASS",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ProbeDebugData& inData)
@@ -677,17 +716,15 @@ const ProbeDebugData& AddProbeDebugPass(RenderGraph& inRenderGraph, Device& inDe
             vertex_buffer->Unmap(0, nullptr);
         }
 
-        inData.mDDGIData = inUpdateData.mDDGIData;
-
         inData.mRenderTargetRTV = ioRGBuilder.RenderTarget(inRenderTarget);
         inData.mDepthTargetDSV = ioRGBuilder.DepthStencilTarget(inDepthTarget);
 
-        inData.mProbesDepthTextureSRV = ioRGBuilder.Read(inUpdateData.mProbesDepthTexture);
-        inData.mProbesIrradianceTextureSRV = ioRGBuilder.Read(inUpdateData.mProbesIrradianceTexture);
+        inData.mProbesDepthTextureSRV = ioRGBuilder.Read(inDDGI.mDepthProbes);
+        inData.mProbesIrradianceTextureSRV = ioRGBuilder.Read(inDDGI.mIrradianceProbes);
 
         ByteSlice vertex_shader, pixel_shader;
         g_SystemShaders.mProbeDebugShader.GetGraphicsProgram(vertex_shader, pixel_shader);
-        D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_desc = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
+        D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_desc = inRenderPass->CreatePipelineStateDesc(inDevice, vertex_shader, pixel_shader);
 
         constexpr std::array vertex_layout =
         {
@@ -704,20 +741,23 @@ const ProbeDebugData& AddProbeDebugPass(RenderGraph& inRenderGraph, Device& inDe
         inData.mPipeline->SetName(L"PSO_PROBE_DEBUG");
     },
 
-    [&inRenderGraph, &inDevice, &inUpdateData](ProbeDebugData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
+    [&inRenderGraph, &inDevice](ProbeDebugData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
     {
         inCmdList->SetPipelineState(inData.mPipeline.Get());
         inCmdList.SetViewportAndScissor(inRenderGraph.GetViewport());
 
-        inData.mDDGIData = inUpdateData.mDDGIData;
-        inData.mDDGIData.mProbesDepthTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mProbesDepthTextureSRV));
-        inData.mDDGIData.mProbesIrradianceTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mProbesIrradianceTextureSRV));
-
-        inCmdList.PushGraphicsConstants(inData.mDDGIData);
+        inCmdList.PushGraphicsConstants(DDGIData {
+            .mProbeCount = RenderSettings::mDDGIProbeCount,
+            .mProbeRadius = RenderSettings::mDDGIDebugRadius,
+            .mProbeSpacing = RenderSettings::mDDGIProbeSpacing,
+            .mCornerPosition = RenderSettings::mDDGICornerPosition,
+            .mProbesDepthTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mProbesDepthTextureSRV)),
+            .mProbesIrradianceTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mProbesIrradianceTextureSRV))
+        });
 
         inCmdList.BindVertexAndIndexBuffers(inDevice, inData.mProbeMesh);
 
-        const int total_probe_count = inData.mDDGIData.mProbeCount.x * inData.mDDGIData.mProbeCount.y * inData.mDDGIData.mProbeCount.z;
+        const int total_probe_count = RenderSettings::mDDGIProbeCount.x * RenderSettings::mDDGIProbeCount.y * RenderSettings::mDDGIProbeCount.z;
         inCmdList->DrawIndexedInstanced(inData.mProbeMesh.indices.size(), total_probe_count, 0, 0, 0);
     });
 }
@@ -772,7 +812,7 @@ const ProbeDebugRaysData& AddProbeDebugRaysPass(RenderGraph& inRenderGraph, Devi
 
         ByteSlice vertex_shader, pixel_shader;
         g_SystemShaders.mProbeDebugRaysShader.GetGraphicsProgram(vertex_shader, pixel_shader);
-        D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
+        D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inRenderPass->CreatePipelineStateDesc(inDevice, vertex_shader, pixel_shader);
 
         pso_state.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
         pso_state.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;

@@ -64,7 +64,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
         
         if (sample_depth > depth)
         {
-            sample_color = scene_texture.SampleLevel(SamplerLinearClamp, ndc_sample_pos.xy, 0);
+            sample_color = scene_texture.SampleLevel(SamplerLinearClamp, ndc_sample_pos.xy, 0).rgb;
             break;
         }
         

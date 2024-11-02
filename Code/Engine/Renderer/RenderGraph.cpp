@@ -603,6 +603,48 @@ void IRenderPass::SetRenderTargets(Device& inDevice, const RenderGraphResources&
 
 
 
+D3D12_GRAPHICS_PIPELINE_STATE_DESC IRenderPass::CreatePipelineStateDesc(Device& inDevice, const ByteSlice& inVertexShader, const ByteSlice& inPixelShader)
+{
+    assert(IsGraphics() && "Cannot create a Graphics PSO description for a Compute RenderPass");
+
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state =
+    {
+        .pRootSignature = inDevice.GetGlobalRootSignature(),
+        .VS = CD3DX12_SHADER_BYTECODE(inVertexShader.data(), inVertexShader.size()),
+        .PS = CD3DX12_SHADER_BYTECODE(inPixelShader.data(), inPixelShader.size()),
+        .BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT),
+        .SampleMask = UINT_MAX,
+        .RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT),
+        .DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT),
+        .PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
+        .SampleDesc = DXGI_SAMPLE_DESC {.Count = 1 },
+    };
+
+    pso_state.RasterizerState.FrontCounterClockwise = TRUE;
+
+    for (DXGI_FORMAT format : m_RenderTargetFormats)
+    {
+        if (format == DXGI_FORMAT_UNKNOWN)
+            break;
+
+        pso_state.RTVFormats[pso_state.NumRenderTargets++] = format;
+    }
+
+    pso_state.DSVFormat = m_DepthStencilFormat;
+
+    return pso_state;
+}
+
+
+
+D3D12_COMPUTE_PIPELINE_STATE_DESC IRenderPass::CreatePipelineStateDesc(Device& inDevice, const ByteSlice& inComputeShader)
+{
+    assert(IsCompute() && "Cannot create a Compute PSO description for a Graphics RenderPass");
+    D3D12_SHADER_BYTECODE cs_bytecode = CD3DX12_SHADER_BYTECODE(inComputeShader.data(), inComputeShader.size());
+    return D3D12_COMPUTE_PIPELINE_STATE_DESC { .pRootSignature = inDevice.GetGlobalRootSignature(), .CS = cs_bytecode };
+}
+
+
 RenderGraph::RenderGraph(Device& inDevice, const Viewport& inViewport, uint32_t inFrameCount) :
     m_Viewport(inViewport),
     m_FrameCount(inFrameCount)
@@ -691,7 +733,7 @@ bool RenderGraph::Compile(Device& inDevice, const GlobalConstants& inGlobalConst
         Array<D3D12_RESOURCE_STATES> mSubResourceStates;
     };
 
-    std::unordered_map<RenderGraphResourceID, GraphNode> graph;
+    HashMap<RenderGraphResourceID, GraphNode> graph;
 
     // initialize all the graph nodes (all the created/imported resources)
     for (const auto& [resource_id, resource] : gEnumerate(m_RenderGraphResources.m_Resources))
@@ -792,9 +834,9 @@ bool RenderGraph::Compile(Device& inDevice, const GlobalConstants& inGlobalConst
         if a resource has 1 edge the initial state should match the edge state, no barriers needed. TODO: add validation for this single edge case.
         else loop linearly through all the edges, if state changes look up the previous edge's render pass and add an end-of render pass barrier.
         at the end of the loop we're left with the resource's final state for the graph
-        if final state differs from the state in which it was created, add a begin-of render pass barrier to the pass that creates it. These barriers are skipped the first frame.
+        if final state differs from the state in which it was created, add a 'final' barrier. Final barriers are all flushed in 1 call at the end of the frame.
 
-        TODO: Ideally we refactor this to use aliasing as that would reset the state of the resource, so we wouldn't need the begin-of render pass barriers.
+        TODO: Ideally we refactor this to use aliasing as that would reset the state of the resource, so we wouldn't need the final barriers.
     */
     for (const auto& [resource_id, node] : graph)
     {

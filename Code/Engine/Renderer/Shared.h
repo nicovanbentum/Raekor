@@ -161,16 +161,16 @@ struct DebugPrimitivesRootConstants
 
 struct DDGIData
 {
-    uint   mRaysDepthTexture;
-    uint   mRaysIrradianceTexture;
-    uint   mProbesDepthTexture;
-    uint   mProbesIrradianceTexture;
     int3   mProbeCount;
     float  mProbeRadius;
     float3 mProbeSpacing;
     uint   pad1;
     float3 mCornerPosition;
     uint   pad2;
+    uint   mRaysDepthTexture;
+    uint   mProbesDepthTexture;
+    uint   mRaysIrradianceTexture;
+    uint   mProbesIrradianceTexture;
 };
 
 

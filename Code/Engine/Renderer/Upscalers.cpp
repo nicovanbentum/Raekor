@@ -215,7 +215,7 @@ bool Upscaler::DestroyXeSS(Device& inDevice)
 
 
 
-const FSR2Data& AddFsrPass(RenderGraph& inRenderGraph, Device& inDevice, Upscaler& inUpscaler, RenderGraphResourceID inColorTexture, const GBufferData& inGBufferData)
+const FSR2Data& AddFsrPass(RenderGraph& inRenderGraph, Device& inDevice, Upscaler& inUpscaler, const GBufferOutput& inGBuffer, RenderGraphResourceID inColorTexture)
 {
     return inRenderGraph.AddComputePass<FSR2Data>("FSR2 PASS",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, FSR2Data& inData)
@@ -232,8 +232,8 @@ const FSR2Data& AddFsrPass(RenderGraph& inRenderGraph, Device& inDevice, Upscale
         ioRGBuilder.Write(inData.mOutputTexture);
 
         inData.mColorTextureSRV = ioRGBuilder.Read(inColorTexture);
-        inData.mDepthTextureSRV = ioRGBuilder.Read(inGBufferData.mDepthTexture);
-        inData.mMotionVectorTextureSRV = ioRGBuilder.Read(inGBufferData.mVelocityTexture);
+        inData.mDepthTextureSRV = ioRGBuilder.Read(inGBuffer.mDepthTexture);
+        inData.mMotionVectorTextureSRV = ioRGBuilder.Read(inGBuffer.mVelocityTexture);
 
         inRenderPass->SetExternal(true);
     },
@@ -278,7 +278,7 @@ const FSR2Data& AddFsrPass(RenderGraph& inRenderGraph, Device& inDevice, Upscale
 
 
 
-const DLSSData& AddDLSSPass(RenderGraph& inRenderGraph, Device& inDevice, Upscaler& inUpscaler, RenderGraphResourceID inColorTexture, const GBufferData& inGBufferData)
+const DLSSData& AddDLSSPass(RenderGraph& inRenderGraph, Device& inDevice, Upscaler& inUpscaler, const GBufferOutput& inGBuffer, RenderGraphResourceID inColorTexture)
 {
     return inRenderGraph.AddComputePass<DLSSData>("DLSS PASS",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, DLSSData& inData)
@@ -295,8 +295,8 @@ const DLSSData& AddDLSSPass(RenderGraph& inRenderGraph, Device& inDevice, Upscal
         ioRGBuilder.Write(inData.mOutputTexture);
 
         inData.mColorTextureSRV = ioRGBuilder.Read(inColorTexture);
-        inData.mDepthTextureSRV = ioRGBuilder.Read(inGBufferData.mDepthTexture);
-        inData.mMotionVectorTextureSRV = ioRGBuilder.Read(inGBufferData.mVelocityTexture);
+        inData.mDepthTextureSRV = ioRGBuilder.Read(inGBuffer.mDepthTexture);
+        inData.mMotionVectorTextureSRV = ioRGBuilder.Read(inGBuffer.mVelocityTexture);
 
         inRenderPass->SetExternal(true);
     },
@@ -330,7 +330,7 @@ const DLSSData& AddDLSSPass(RenderGraph& inRenderGraph, Device& inDevice, Upscal
 
 
 
-const XeSSData& AddXeSSPass(RenderGraph& inRenderGraph, Device& inDevice, Upscaler& inUpscaler, RenderGraphResourceID inColorTexture, const GBufferData& inGBufferData)
+const XeSSData& AddXeSSPass(RenderGraph& inRenderGraph, Device& inDevice, Upscaler& inUpscaler, const GBufferOutput& inGBuffer, RenderGraphResourceID inColorTexture)
 {
     return inRenderGraph.AddComputePass<XeSSData>("XeSS PASS",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, XeSSData& inData)
@@ -347,8 +347,8 @@ const XeSSData& AddXeSSPass(RenderGraph& inRenderGraph, Device& inDevice, Upscal
         ioRGBuilder.Write(inData.mOutputTexture);
 
         inData.mColorTextureSRV = ioRGBuilder.Read(inColorTexture);
-        inData.mDepthTextureSRV = ioRGBuilder.Read(inGBufferData.mDepthTexture);
-        inData.mMotionVectorTextureSRV = ioRGBuilder.Read(inGBufferData.mVelocityTexture);
+        inData.mDepthTextureSRV = ioRGBuilder.Read(inGBuffer.mDepthTexture);
+        inData.mMotionVectorTextureSRV = ioRGBuilder.Read(inGBuffer.mVelocityTexture);
 
         inRenderPass->SetExternal(true);
     },

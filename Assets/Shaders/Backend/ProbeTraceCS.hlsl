@@ -72,7 +72,7 @@ void main(uint3 threadID : SV_DispatchThreadID) {
         
         irradiance += l * NdotL * sunlight_luminance;
         
-        if (NdotL != 0.0)
+        if (NdotL > 0.0)
         {
             RayDesc shadow_ray;
             shadow_ray.Origin = vertex.mPos + vertex.mNormal * 0.01;
@@ -92,7 +92,10 @@ void main(uint3 threadID : SV_DispatchThreadID) {
         
         // TODO: make probe textures persistent, at this point in the rendergraph they don't exist yet
         // Infinite bounces!
-        // irradiance += DDGISampleIrradiance(vertex.mPos, vertex.mNormal, rc.mDDGIData);
+        if (fc.mFrameCounter > 0)
+        {
+            // irradiance += DDGISampleIrradiance(vertex.mPos, vertex.mNormal, rc.mDDGIData);
+        }
     }
     else
     {

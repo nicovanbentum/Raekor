@@ -51,12 +51,12 @@ private:
         int& mDebugProbeRays     = g_CVariables->Create("r_debug_gi_rays",        0, true);
         int& mDebugProbes        = g_CVariables->Create("r_debug_gi_probes",      0, true);
         int& mEnableDebugOverlay = g_CVariables->Create("r_enable_debug_overlay", 1);
-        int& mEnableRTAO         = g_CVariables->Create("r_enable_rtao",          0, true);
-        int& mEnableSSAO         = g_CVariables->Create("r_enable_ssao",          1, true);
-        int& mEnableSSR          = g_CVariables->Create("r_enable_ssr",           1, true);
+        int& mEnableRTAO         = g_CVariables->Create("r_enable_rtao",          0);
+        int& mEnableSSAO         = g_CVariables->Create("r_enable_ssao",          1);
+        int& mEnableSSR          = g_CVariables->Create("r_enable_ssr",           1);
         int& mEnableShadows      = g_CVariables->Create("r_enable_shadows",       1);
         int& mEnableReflections  = g_CVariables->Create("r_enable_reflections",   1);
-        int& mEnableAutoExposure = g_CVariables->Create("r_enable_auto_exposure", 0, true);
+        int& mEnableAutoExposure = g_CVariables->Create("r_enable_auto_exposure", 0);
         int& mFullscreen         = g_CVariables->Create("r_fullscreen",           0);
         int& mDisplayRes         = g_CVariables->Create("r_display_res_index",    0);
         int& mEnableTAA          = g_CVariables->Create("r_enable_taa",           1);
@@ -94,6 +94,9 @@ public:
     void QueueTextureUpload(TextureID inTexture, uint32_t inMip, const TextureAsset::Ptr& inAsset) { m_PendingTextureUploads.emplace_back(TextureUpload{ inMip, inTexture, inAsset->GetDataSlice() }); }
     void QueueTextureUpload(TextureID inTexture, uint32_t inMip, const void* inData, size_t inSize) { m_PendingTextureUploads.emplace_back(TextureUpload { inMip, inTexture, {(uint8_t*)inData, inSize} }); }
 
+    TextureID GetEntityTexture() const;
+    TextureID GetDisplayTexture() const;
+
     SDL_Window*         GetWindow() const       { return m_Window; }
     Settings&           GetSettings()           { return m_Settings; }
     Upscaler&           GetUpscaler()           { return m_Upscaler; }
@@ -106,28 +109,29 @@ public:
     static constexpr DXGI_FORMAT sSwapchainFormat = DXGI_FORMAT_B8G8R8A8_UNORM;
 
 private:
-    SDL_Window*             m_Window;
-    Array<Entity>           m_PendingBlasUpdates;
-    Array<Entity>           m_PendingMeshUploads;
-    Array<Entity>           m_PendingSkeletonUploads;
-    Array<Entity>           m_PendingMaterialUploads;
-    Array<TextureUpload>    m_PendingTextureUploads;
-
-    uint32_t                m_FrameIndex = 0;
-    uint64_t                m_FrameCounter = 0;
-    Job::Ptr                m_PresentJobPtr = nullptr;
-    float                   m_ElapsedTime = 0;
-    ComPtr<ID3D12Fence>     m_Fence;
-    HANDLE                  m_FenceEvent;
-    ComPtr<IDXGISwapChain3> m_Swapchain;
-    bool                    m_ShouldResize = false;
-    bool                    m_ShouldRecompile = false;
-    bool                    m_ShouldCaptureNextFrame = false;
-    BackBufferData          m_BackBufferData[sFrameCount];
-    FrameConstants          m_FrameConstants = {};
-    GlobalConstants         m_GlobalConstants = {};
-    Upscaler                m_Upscaler;
-    RenderGraph             m_RenderGraph;
+    SDL_Window*                 m_Window;
+    Array<Entity>               m_PendingBlasUpdates;
+    Array<Entity>               m_PendingMeshUploads;
+    Array<Entity>               m_PendingSkeletonUploads;
+    Array<Entity>               m_PendingMaterialUploads;
+    Array<TextureUpload>        m_PendingTextureUploads;
+    RenderGraphResourceID       m_EntityTexture;
+    RenderGraphResourceViewID   m_DisplayTexture;
+    uint32_t                    m_FrameIndex = 0;
+    uint64_t                    m_FrameCounter = 0;
+    Job::Ptr                    m_PresentJobPtr = nullptr;
+    float                       m_ElapsedTime = 0;
+    ComPtr<ID3D12Fence>         m_Fence;
+    HANDLE                      m_FenceEvent;
+    ComPtr<IDXGISwapChain3>     m_Swapchain;
+    bool                        m_ShouldResize = false;
+    bool                        m_ShouldRecompile = false;
+    bool                        m_ShouldCaptureNextFrame = false;
+    BackBufferData              m_BackBufferData[sFrameCount];
+    FrameConstants              m_FrameConstants = {};
+    GlobalConstants             m_GlobalConstants = {};
+    Upscaler                    m_Upscaler;
+    RenderGraph                 m_RenderGraph;
 };
 
 

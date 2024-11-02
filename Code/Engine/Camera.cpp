@@ -171,9 +171,13 @@ void EditorCameraController::OnUpdate(Camera& inCamera, float inDeltaTime)
 		float move_z = ( y_axis / 32767.0f ) * inCamera.GetSensitivity();
 
 		const Sint16 lt_axis = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERLEFT);
+		const Sint16 rt_axis = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERRIGHT);
 
 		move_x = move_x * glm::lerp(1.0f, 12.3333f, lt_axis / 32767.0f);
 		move_z = move_z * glm::lerp(1.0f, 12.3333f, lt_axis / 32767.0f);
+
+		move_x = move_x * glm::lerp(1.0f / 12.3333f, 1.0f, 1.0f - (rt_axis / 32767.0f));
+		move_z = move_z * glm::lerp(1.0f / 12.3333f, 1.0f, 1.0f - (rt_axis / 32767.0f));
 
 		const Sint16 right_x = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTX);
 		const Sint16 right_y = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTY);
@@ -298,7 +302,7 @@ void Viewport::OnUpdate(float dt)
 }
 
 
-glm::mat4 Viewport::GetJitteredProjMatrix(const Vec2& inJitter) const
+Mat4x4 Viewport::GetJitteredProjMatrix(const Vec2& inJitter) const
 {
 	Mat4x4 proj = m_Camera.GetProjection();
 	proj[2][0] = m_Jitter[0];

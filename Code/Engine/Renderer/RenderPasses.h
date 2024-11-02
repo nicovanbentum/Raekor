@@ -5,6 +5,49 @@
 
 namespace RK::DX12 {
 
+struct RenderSettings
+{
+    static inline float mDoFFocusPoint = 1.0f;
+    static inline float mDoFFocusScale = 1.0f;
+
+    static inline int mSSAOSamples = 16;
+    static inline float mSSAOBias = 0.025f;
+    static inline float mSSAORadius = 0.05f;
+
+    static inline int mSSRSamples = 16;
+    static inline float mSSRBias = 0.025f;
+    static inline float mSSRRadius = 0.05f;
+
+    static inline float mGrassBend = 0.0f;
+    static inline float mGrassTilt = 0.0f;
+    static inline Vec2 mWindDirection = Vec2(0.0f, -1.0f);
+
+    static inline float mExposure = 1.0f;
+    static inline float mVignetteScale = 0.8f;
+    static inline float mVignetteBias = 0.2f;
+    static inline float mVignetteInner = 0.0f;
+    static inline float mVignetteOuter = 2.0f;
+    static inline float mBloomBlendFactor = 0.06f;
+    static inline float mChromaticAberrationStrength = 0.0;
+
+    static inline float mRTAORadius = 1.0;
+    static inline float mRTAOPower = 1.0;
+    static inline float mRTAONormalBias = 0.01;
+    static inline uint32_t mRTAOSampleCount = 1;
+
+    static inline bool mPathTraceReset = false;
+    static inline uint32_t mPathTraceBounces = 2u;
+
+    static inline float mDDGIDebugRadius = 1.0f;
+    static inline IVec3 mDDGIDebugProbe = IVec3(10, 10, 5);
+    static inline IVec3 mDDGIProbeCount = IVec3(22, 22, 22);
+    static inline Vec3 mDDGIProbeSpacing = Vec3(6.4, 3.0, 2.8);
+    static inline Vec3 mDDGICornerPosition = Vec3(-65, -1.4, -28.5);
+
+    static inline Entity mActiveEntity = Entity::Null;
+};
+
+
 enum EDebugTexture
 {
     DEBUG_TEXTURE_NONE = 0,
@@ -148,15 +191,19 @@ const SkinningData& AddSkinningPass(RenderGraph& inRenderGraph, Device& inDevice
 ////////////////////////////////////////
 /// GBuffer Render Pass
 ////////////////////////////////////////
-struct GBufferData
+struct GBufferOutput
 {
-    RTTI_DECLARE_TYPE(GBufferData);
-
-    Entity mActiveEntity = Entity::Null;
     RenderGraphResourceID mDepthTexture;
     RenderGraphResourceID mRenderTexture;
     RenderGraphResourceID mVelocityTexture;
     RenderGraphResourceID mSelectionTexture;
+};
+
+struct GBufferData
+{
+    RTTI_DECLARE_TYPE(GBufferData);
+
+    GBufferOutput mOutput;
     IRenderPass* mRenderPass = nullptr;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
@@ -188,7 +235,7 @@ struct GBufferDebugData
 };
 
 const GBufferDebugData& AddGBufferDebugPass(RenderGraph& inRenderGraph, Device& inDevice,
-    const GBufferData& inGBufferData,
+    const GBufferOutput& inGBuffer,
     EDebugTexture inDebugTexture
 );
 
@@ -200,9 +247,6 @@ struct SSAOTraceData
 {
     RTTI_DECLARE_TYPE(SSAOTraceData);
 
-    static inline int mSamples = 16;
-    static inline float mBias = 0.025f;
-    static inline float mRadius = 0.05f;
     RenderGraphResourceID mOutputTexture;
     RenderGraphResourceViewID mDepthTexture;
     RenderGraphResourceViewID mGBufferTexture;
@@ -210,7 +254,7 @@ struct SSAOTraceData
 
 
 const SSAOTraceData& AddSSAOTracePass(RenderGraph& inRenderGraph, Device& inDevice,
-    const GBufferData& inGBufferData
+    const GBufferOutput& inGBuffer
 );
 
 
@@ -221,9 +265,6 @@ struct SSRTraceData
 {
     RTTI_DECLARE_TYPE(SSRTraceData);
 
-    static inline int mSamples = 16;
-    static inline float mBias = 0.025f;
-    static inline float mRadius = 0.05f;
     RenderGraphResourceID mOutputTexture;
     RenderGraphResourceViewID mSceneTexture;
     RenderGraphResourceViewID mDepthTexture;
@@ -232,7 +273,7 @@ struct SSRTraceData
 
 
 const SSRTraceData& AddSSRTracePass(RenderGraph& inRenderGraph, Device& inDevice,
-    const GBufferData& inGBufferData,
+    const GBufferOutput& inGBuffer,
     const RenderGraphResourceID inSceneTexture
 );
 
@@ -247,12 +288,11 @@ struct GrassData
     BufferID mPerBladeIndexBuffer;
     RenderGraphResourceViewID mDepthTextureSRV;
     RenderGraphResourceViewID mRenderTextureSRV;
-    GrassRenderRootConstants mRenderConstants;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
 
 const GrassData& AddGrassRenderPass(RenderGraph& inGraph, Device& inDevice,
-    const GBufferData& inGBufferData
+    const GBufferOutput& inGBuffer
 );
 
 
@@ -267,7 +307,6 @@ struct DownsampleData
     RenderGraphResourceID mGlobalAtomicBuffer;
     RenderGraphResourceViewID mSourceTextureUAV;
     RenderGraphResourceViewID mSourceTextureMipsUAVs[12];
-    ComPtr<ID3D12PipelineState> mPipeline;
 };
 
 const DownsampleData& AddDownsamplePass(RenderGraph& inRenderGraph, Device& inDevice,
@@ -312,7 +351,7 @@ struct LightingData
 
 const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice, 
     const RayTracedScene& inScene,
-    const GBufferData& inGBufferData, 
+    const GBufferOutput& inGBuffer, 
     const TiledLightCullingData& inLightData,
     RenderGraphResourceID inSkyCubeTexture,
     RenderGraphResourceID inShadowTexture, 
@@ -341,7 +380,7 @@ struct TAAResolveData
 };
 
 const TAAResolveData& AddTAAResolvePass(RenderGraph& inRenderGraph, Device& inDevice,
-    const GBufferData& inGBufferData,
+    const GBufferOutput& inGBuffer,
     RenderGraphResourceID inColorTexture,
     uint32_t inFrameCounter
 );
@@ -354,8 +393,6 @@ struct DepthOfFieldData
 {
     RTTI_DECLARE_TYPE(DepthOfFieldData);
 
-    static inline float mFocusPoint = 1.0f;
-    static inline float mFocusScale = 1.0f;
     RenderGraphResourceID mOutputTexture;
     RenderGraphResourceViewID mDepthTextureSRV;
     RenderGraphResourceViewID mInputTextureSRV;
@@ -391,16 +428,6 @@ const LuminanceHistogramData& AddLuminanceHistogramPass(RenderGraph& inRenderGra
 struct ComposeData
 {
     RTTI_DECLARE_TYPE(ComposeData);
-
-    static inline ComposeSettings mSettings = ComposeSettings {
-        .mExposure = 1.0f,
-        .mVignetteScale = 0.8f,
-        .mVignetteBias =  0.2f,
-        .mVignetteInner = 0.0f,
-        .mVignetteOuter = 2.0f,
-        .mBloomBlendFactor = 0.06f,
-        .mChromaticAberrationStrength = 0.0f
-    };
 
     RenderGraphResourceID mOutputTexture;
     RenderGraphResourceViewID mInputTextureSRV;

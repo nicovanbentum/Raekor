@@ -295,16 +295,23 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     }
 
     // TODO: instead of updating this every frame, make these buffers global?
-    if (RenderPass<ProbeDebugRaysData>* debug_lines_pass = m_RenderGraph.GetPass<ProbeDebugRaysData>())
     {
-        m_FrameConstants.mDebugLinesVertexBuffer = inDevice.GetBindlessHeapIndex(m_RenderGraph.GetResources().GetBuffer(debug_lines_pass->GetData().mVertexBuffer));
-        m_FrameConstants.mDebugLinesIndirectArgsBuffer = inDevice.GetBindlessHeapIndex(m_RenderGraph.GetResources().GetBuffer(debug_lines_pass->GetData().mIndirectArgsBuffer));
+        //m_FrameConstants.mDebugLinesVertexBuffer = inDevice.GetBindlessHeapIndex(m_RenderGraph.GetResources().GetBuffer(debug_lines_pass->GetData().mVertexBuffer));
+        //m_FrameConstants.mDebugLinesIndirectArgsBuffer = inDevice.GetBindlessHeapIndex(m_RenderGraph.GetResources().GetBuffer(debug_lines_pass->GetData().mIndirectArgsBuffer));
     }
 
-    // TODO: move this somewhere else?
-    if (auto gbuffer_pass = m_RenderGraph.GetPass<GBufferData>())
+    // update RenderSettings
+    RenderSettings::mActiveEntity = inApp->GetActiveEntity();
+
+    if (inScene->Any<DDGISceneSettings>() && inScene->Count<DDGISceneSettings>())
     {
-        gbuffer_pass->GetData().mActiveEntity = inApp->GetActiveEntity();
+        const Entity& ddgi_entity = inScene->GetEntities<DDGISceneSettings>()[0];
+        const Transform& ddgi_transform = inScene->Get<Transform>(ddgi_entity);
+        const DDGISceneSettings& ddgi_settings = inScene->Get<DDGISceneSettings>(ddgi_entity);
+
+        RenderSettings::mDDGIProbeCount = ddgi_settings.mDDGIProbeCount;
+        RenderSettings::mDDGIProbeSpacing = ddgi_settings.mDDGIProbeSpacing;
+        RenderSettings::mDDGICornerPosition = ddgi_transform.position;
     }
 
     // memcpy the frame constants into upload memory
@@ -439,9 +446,32 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
     m_RenderGraph.Clear(inDevice);
 
     const DefaultTexturesData& default_textures = AddDefaultTexturesPass(m_RenderGraph, inDevice, inRenderInterface->GetBlackTexture(), inRenderInterface->GetWhiteTexture());
-    
-    RenderGraphResourceID depth_texture = default_textures.mWhiteTexture;
+
+    GBufferOutput gbuffer_output = GBufferOutput
+    {
+        .mDepthTexture = default_textures.mWhiteTexture,
+        .mRenderTexture = default_textures.mBlackTexture,
+        .mVelocityTexture = default_textures.mBlackTexture,
+        .mSelectionTexture = default_textures.mBlackTexture
+    };
+
+    DDGIOutput ddgi_output = 
+    {
+        .mOutput = default_textures.mBlackTexture,
+        .mDepthProbes = default_textures.mWhiteTexture,
+        .mIrradianceProbes = default_textures.mBlackTexture,
+    };
+
     RenderGraphResourceID compose_input = default_textures.mBlackTexture;
+
+    RenderGraphResourceID ssr_texture = default_textures.mBlackTexture;
+    RenderGraphResourceID ssao_texture = default_textures.mWhiteTexture;
+    RenderGraphResourceID lighting_texture = default_textures.mBlackTexture;
+
+    RenderGraphResourceID ao_texture = default_textures.mWhiteTexture;
+    RenderGraphResourceID rt_shadows_texture = default_textures.mWhiteTexture;
+    RenderGraphResourceID reflections_texture = default_textures.mBlackTexture;
+    RenderGraphResourceID indirect_diffuse_texture = default_textures.mBlackTexture;
 
     const SkinningData& skinning_data = AddSkinningPass(m_RenderGraph, inDevice, inScene);
 
@@ -452,77 +482,53 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
     if (m_Settings.mDoPathTrace)
     {
         if (m_Settings.mDoPathTraceGBuffer)
-            depth_texture = AddGBufferPass(m_RenderGraph, inDevice, inScene).mDepthTexture;
+            gbuffer_output = AddGBufferPass(m_RenderGraph, inDevice, inScene).mOutput;
 
         compose_input = AddPathTracePass(m_RenderGraph, inDevice, inScene, sky_cube_data).mOutputTexture;
     }
     else
     {
-        const GBufferData& gbuffer_data = AddGBufferPass(m_RenderGraph, inDevice, inScene);
-        
-        depth_texture = gbuffer_data.mDepthTexture;
+        gbuffer_output = AddGBufferPass(m_RenderGraph, inDevice, inScene).mOutput;
 
         // const auto& grass_data = AddGrassRenderPass(m_RenderGraph, inDevice, gbuffer_data);
 
         //const auto shadow_texture = AddShadowMaskPass(m_RenderGraph, inDevice, inScene, gbuffer_data).mOutputTexture;
 
-        RenderGraphResourceID shadow_texture = default_textures.mWhiteTexture;
-
         if (m_Settings.mEnableShadows)
-            shadow_texture = AddRayTracedShadowsPass(m_RenderGraph, inDevice, inScene, gbuffer_data);
-
-        RenderGraphResourceID ao_texture = default_textures.mWhiteTexture;
+            rt_shadows_texture = AddRayTracedShadowsPass(m_RenderGraph, inDevice, inScene, gbuffer_output);
 
         if (m_Settings.mEnableSSAO)
-            ao_texture = AddSSAOTracePass(m_RenderGraph, inDevice, gbuffer_data).mOutputTexture;
+            ao_texture = AddSSAOTracePass(m_RenderGraph, inDevice, gbuffer_output).mOutputTexture;
         
         if (m_Settings.mEnableRTAO)
-            ao_texture = AddAmbientOcclusionPass(m_RenderGraph, inDevice, inScene, gbuffer_data).mOutputTexture;
-
-        RenderGraphResourceID reflections_texture = default_textures.mBlackTexture;
+            ao_texture = AddAmbientOcclusionPass(m_RenderGraph, inDevice, inScene, gbuffer_output).mOutputTexture;
 
         if (m_Settings.mEnableReflections)
-            reflections_texture = AddReflectionsPass(m_RenderGraph, inDevice, inScene, gbuffer_data, sky_cube_data).mOutputTexture;
+            reflections_texture = AddReflectionsPass(m_RenderGraph, inDevice, inScene, gbuffer_output, sky_cube_data).mOutputTexture;
 
         // const auto& downsample_data = AddDownsamplePass(m_RenderGraph, inDevice, reflection_data.mOutputTexture);
 
-        RenderGraphResourceID indirect_diffuse_texture = default_textures.mBlackTexture;
-
         if (m_Settings.mEnableDDGI)
-        {
-            const ProbeTraceData& ddgi_trace_data = AddProbeTracePass(m_RenderGraph, inDevice, inScene, sky_cube_data);
-
-            const ProbeUpdateData& ddgi_update_data = AddProbeUpdatePass(m_RenderGraph, inDevice, inScene, ddgi_trace_data);
-        
-            const ProbeSampleData& ddgi_sample_data = AddProbeSamplePass(m_RenderGraph, inDevice, gbuffer_data, ddgi_update_data);
-
-            indirect_diffuse_texture = ddgi_sample_data.mOutputTexture;
-        }
+            ddgi_output = AddDDGIPass(m_RenderGraph, inDevice, inScene, gbuffer_output, sky_cube_data);
         
         const TiledLightCullingData& light_cull_data = AddTiledLightCullingPass(m_RenderGraph, inDevice, inScene);
 
-        const LightingData& light_data = AddLightingPass(m_RenderGraph, inDevice, inScene, gbuffer_data, light_cull_data, sky_cube_data.mSkyCubeTexture, shadow_texture, reflections_texture, ao_texture, indirect_diffuse_texture);
+        const LightingData& light_data = AddLightingPass(m_RenderGraph, inDevice, inScene, gbuffer_output, light_cull_data, sky_cube_data.mSkyCubeTexture, rt_shadows_texture, reflections_texture, ao_texture, indirect_diffuse_texture);
         
         compose_input = light_data.mOutputTexture;
         
         if (m_Settings.mEnableDDGI && m_Settings.mDebugProbes)
-        {
-            ProbeTraceData* ddgi_trace_data = m_RenderGraph.GetData<ProbeTraceData>();
-            ProbeUpdateData* ddgi_update_data = m_RenderGraph.GetData<ProbeUpdateData>();
-
-            AddProbeDebugPass(m_RenderGraph, inDevice, *ddgi_trace_data, *ddgi_update_data, light_data.mOutputTexture, gbuffer_data.mDepthTexture);
-        }
+            AddProbeDebugPass(m_RenderGraph, inDevice, ddgi_output, light_data.mOutputTexture, gbuffer_output.mDepthTexture);
 
         if (m_Settings.mEnableDDGI && m_Settings.mDebugProbeRays)
-            AddProbeDebugRaysPass(m_RenderGraph, inDevice, light_data.mOutputTexture, gbuffer_data.mDepthTexture);
+            AddProbeDebugRaysPass(m_RenderGraph, inDevice, light_data.mOutputTexture, gbuffer_output.mDepthTexture);
 
         if (m_Settings.mEnableTAA)
-            compose_input = AddTAAResolvePass(m_RenderGraph, inDevice, gbuffer_data, light_data.mOutputTexture, m_FrameCounter).mOutputTexture;
+            compose_input = AddTAAResolvePass(m_RenderGraph, inDevice, gbuffer_output, light_data.mOutputTexture, m_FrameCounter).mOutputTexture;
         
         if (m_Settings.mEnableSSR)
-            AddSSRTracePass(m_RenderGraph, inDevice, gbuffer_data, compose_input).mOutputTexture;
+            AddSSRTracePass(m_RenderGraph, inDevice, gbuffer_output, compose_input).mOutputTexture;
     }
-
 
     RenderGraphResourceID bloom_output = compose_input;
 
@@ -534,24 +540,21 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
          if (m_Settings.mEnableBloom)
             bloom_output = AddBloomPass(m_RenderGraph, inDevice, compose_input).mOutputTexture;
 
-        if (m_Settings.mEnableDoF && depth_texture != default_textures.mWhiteTexture)
-            compose_input = AddDepthOfFieldPass(m_RenderGraph, inDevice, compose_input, depth_texture).mOutputTexture;
+        if (m_Settings.mEnableDoF && gbuffer_output.mDepthTexture != default_textures.mWhiteTexture)
+            compose_input = AddDepthOfFieldPass(m_RenderGraph, inDevice, compose_input, gbuffer_output.mDepthTexture).mOutputTexture;
 
-        if (m_Settings.mEnableDebugOverlay && depth_texture != default_textures.mWhiteTexture)
-            AddDebugOverlayPass(m_RenderGraph, inDevice, compose_input, depth_texture);
+        if (m_Settings.mEnableDebugOverlay && gbuffer_output.mDepthTexture != default_textures.mWhiteTexture)
+            AddDebugOverlayPass(m_RenderGraph, inDevice, compose_input, gbuffer_output.mDepthTexture);
     }
     else
     {
         switch (debug_texture)
         { // all the debug textures that need tonemapping/gamma adjustment should go here, so they go through the compose pass
-            case DEBUG_TEXTURE_RT_INDIRECT_DIFFUSE:
-                if (auto render_pass = m_RenderGraph.GetPass<ProbeSampleData>())
-                    compose_input = render_pass->GetData().mOutputTexture;
-                break;
-
             case DEBUG_TEXTURE_RT_REFLECTIONS:
-                if (auto render_pass = m_RenderGraph.GetPass<ReflectionsData>())
-                    compose_input = render_pass->GetData().mOutputTexture;
+                compose_input = reflections_texture;
+                break;
+            case DEBUG_TEXTURE_RT_INDIRECT_DIFFUSE:
+                compose_input = indirect_diffuse_texture;
                 break;
         }
 
@@ -563,16 +566,13 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
         switch (m_Upscaler.GetActiveUpscaler())
         {
             case UPSCALER_FSR:
-                if (GBufferData* gbuffer_data = m_RenderGraph.GetData<GBufferData>())
-                    compose_input = AddFsrPass(m_RenderGraph, inDevice, m_Upscaler, compose_input, *gbuffer_data).mOutputTexture;
+                    compose_input = AddFsrPass(m_RenderGraph, inDevice, m_Upscaler, gbuffer_output, compose_input).mOutputTexture;
                     break;
             case UPSCALER_DLSS:
-                if (GBufferData* gbuffer_data = m_RenderGraph.GetData<GBufferData>())
-                    compose_input = AddDLSSPass(m_RenderGraph, inDevice, m_Upscaler, compose_input, *gbuffer_data).mOutputTexture;
+                    compose_input = AddDLSSPass(m_RenderGraph, inDevice, m_Upscaler, gbuffer_output, compose_input).mOutputTexture;
                     break;
             case UPSCALER_XESS:
-                if (GBufferData* gbuffer_data = m_RenderGraph.GetData<GBufferData>())
-                    compose_input = AddXeSSPass(m_RenderGraph, inDevice, m_Upscaler, compose_input, *gbuffer_data).mOutputTexture;
+                    compose_input = AddXeSSPass(m_RenderGraph, inDevice, m_Upscaler, gbuffer_output, compose_input).mOutputTexture;
                     break;
         }
     }
@@ -583,6 +583,21 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
 
     switch (debug_texture)
     {
+        case DEBUG_TEXTURE_SSR:
+            final_output = ssr_texture;
+            break;
+        case DEBUG_TEXTURE_SSAO:
+            final_output = ssao_texture;
+            break;
+        case DEBUG_TEXTURE_LIGHTING:
+            final_output = lighting_texture;
+            break;
+        case DEBUG_TEXTURE_RT_SHADOWS:
+            final_output = rt_shadows_texture;
+            break;
+        case DEBUG_TEXTURE_RT_AMBIENT_OCCLUSION:
+            final_output = ao_texture;
+            break;
         case DEBUG_TEXTURE_GBUFFER_DEPTH:
         case DEBUG_TEXTURE_GBUFFER_ALBEDO:
         case DEBUG_TEXTURE_GBUFFER_NORMALS:
@@ -590,35 +605,12 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
         case DEBUG_TEXTURE_GBUFFER_VELOCITY:
         case DEBUG_TEXTURE_GBUFFER_METALLIC:
         case DEBUG_TEXTURE_GBUFFER_ROUGHNESS:
-            if (auto render_pass = m_RenderGraph.GetPass<GBufferData>())
-                final_output = AddGBufferDebugPass(m_RenderGraph, inDevice, render_pass->GetData(), debug_texture).mOutputTexture;
-            break;
-
-        case DEBUG_TEXTURE_RT_SHADOWS:
-            if (auto render_pass = m_RenderGraph.GetPass<ClearShadowsData>())
-                final_output = render_pass->GetData().mShadowsTexture;
-            break;
-
-        case DEBUG_TEXTURE_RT_AMBIENT_OCCLUSION:
-            if (auto render_pass = m_RenderGraph.GetPass<RTAOData>())
-                final_output = render_pass->GetData().mOutputTexture;
-            break;
-
-        case DEBUG_TEXTURE_LIGHTING:
-            if (auto render_pass = m_RenderGraph.GetPass<LightingData>())
-                final_output = render_pass->GetData().mOutputTexture;
-            break;
-        case DEBUG_TEXTURE_SSAO:
-            if (auto render_pass = m_RenderGraph.GetPass<SSAOTraceData>())
-                final_output = render_pass->GetData().mOutputTexture;
-            break;
-        case DEBUG_TEXTURE_SSR:
-            if (auto render_pass = m_RenderGraph.GetPass<SSRTraceData>())
-                final_output = render_pass->GetData().mOutputTexture;
+            final_output = AddGBufferDebugPass(m_RenderGraph, inDevice, gbuffer_output, debug_texture).mOutputTexture;
             break;
     }
 
-    AddPreImGuiPass(m_RenderGraph, inDevice, final_output);
+    m_EntityTexture = gbuffer_output.mSelectionTexture;
+    m_DisplayTexture = AddPreImGuiPass(m_RenderGraph, inDevice, final_output).mDisplayTextureSRV;
 
     // const auto& imgui_data = AddImGuiPass(m_RenderGraph, inDevice, inStagingHeap, compose_data.mOutputTexture);
 
@@ -651,6 +643,17 @@ void Renderer::WaitForIdle(Device& inDevice)
 
 
 
+TextureID Renderer::GetEntityTexture() const
+{
+    return m_RenderGraph.GetResources().GetTexture(m_EntityTexture);
+}
+
+
+
+TextureID Renderer::GetDisplayTexture() const
+{
+    return m_RenderGraph.GetResources().GetTextureView(m_DisplayTexture);
+}
 
 
 
@@ -704,10 +707,7 @@ void RenderInterface::UpdateGPUStats(Device& inDevice)
 
 uint64_t RenderInterface::GetDisplayTexture()
 {
-    if (auto pre_imgui_pass = m_Renderer.GetRenderGraph().GetPass<PreImGuiData>())
-        return m_Device.GetGPUDescriptorHandle(m_Resources.GetTextureView(pre_imgui_pass->GetData().mDisplayTextureSRV)).ptr;
-    else
-        return uint64_t(TextureID().GetValue());
+    return m_Device.GetGPUDescriptorHandle(m_Renderer.GetDisplayTexture()).ptr;
 }
 
 
@@ -948,8 +948,8 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("GBuffer is needed for certain editor functionality.");
 
-        if (ImGui::SliderInt("Bounces", (int*)&PathTraceData::mBounces, 1, 8))
-            PathTraceData::mReset = true;
+        if (ImGui::SliderInt("Bounces", (int*)&RenderSettings::mPathTraceBounces, 1, 8))
+            RenderSettings::mPathTraceReset = true;
 
         ImGui::EndMenu();
     }
@@ -1085,7 +1085,6 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
 
         if (ImGui::Button("Clear DDGI History"))
         {
-            ProbeUpdateData::mClear = true;
         }
 
         if (ImGui::Button("Generate Meshlets"))
@@ -1280,14 +1279,13 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
         ImGui::EndMenu();
     }
 
-    /*if (auto grass_pass = m_Renderer.GetRenderGraph().GetPass<GrassData>())
-    {
+    if (0) {
         ImGui::Text("Grass Settings");
-        ImGui::DragFloat("Grass Bend", &grass_pass->GetData().mRenderConstants.mBend, 0.01f, -1.0f, 1.0f, "%.2f");
-        ImGui::DragFloat("Grass Tilt", &grass_pass->GetData().mRenderConstants.mTilt, 0.01f, -1.0f, 1.0f, "%.2f");
-        ImGui::DragFloat2("Wind Direction", glm::value_ptr(grass_pass->GetData().mRenderConstants.mWindDirection), 0.01f, -10.0f, 10.0f, "%.1f");
+        ImGui::DragFloat("Grass Bend", &RenderSettings::mGrassBend, 0.01f, -1.0f, 1.0f, "%.2f");
+        ImGui::DragFloat("Grass Tilt", &RenderSettings::mGrassTilt, 0.01f, -1.0f, 1.0f, "%.2f");
+        ImGui::DragFloat2("Wind Direction", &RenderSettings::mWindDirection[0], 0.01f, -10.0f, 10.0f, "%.1f");
         ImGui::NewLine();
-    }*/
+    }
 
     ImGui::AlignTextToFramePadding();
 
@@ -1319,7 +1317,9 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
             ImGui::SeparatorText("Debug Options");
 
             ImGui::Checkbox("Visualize Pure White Mode", (bool*)&m_Renderer.GetSettings().mDisableAlbedo);
-            need_recompile |= ImGui::Checkbox("Visualize Indirect Diffuse Rays", (bool*)&m_Renderer.GetSettings().mDebugProbeRays);
+
+            // TODO FIX DEBUG PROBE RAYS
+            //need_recompile |= ImGui::Checkbox("Visualize Indirect Diffuse Rays", (bool*)&m_Renderer.GetSettings().mDebugProbeRays);
 
             need_recompile |= ImGui::Checkbox("##ddgiprobedebug", (bool*)&m_Renderer.GetSettings().mDebugProbes);
             
@@ -1329,7 +1329,7 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
             {
                 ImGui::SeparatorText("Settings");
 
-                ImGui::DragFloat("Probe Radius", &ProbeTraceData::mDDGIData.mProbeRadius, 0.01f, 0.01f, 10.0f, "%.2f");
+                ImGui::DragFloat("Probe Radius", &RenderSettings::mDDGIDebugRadius, 0.01f, 0.01f, 10.0f, "%.2f");
 
                 ImGui::EndMenu();
             }
@@ -1344,10 +1344,10 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
         {
             ImGui::SeparatorText("Settings");
 
-            ImGui::DragFloat("Radius", &RTAOData::mParams.mRadius, 0.01f, 0.0f, 20.0f, "%.2f");
-            ImGui::DragFloat("Intensity", &RTAOData::mParams.mPower, 0.01f, 0.0f, 10.0f, "%.2f");
-            ImGui::DragFloat("Normal Bias", &RTAOData::mParams.mNormalBias, 0.001f, 0.0f, 1.0f, "%.3f");
-            ImGui::SliderInt("Sample Count", (int*)&RTAOData::mParams.mSampleCount, 1u, 128u);
+            ImGui::DragFloat("Radius", &RenderSettings::mRTAORadius, 0.01f, 0.0f, 20.0f, "%.2f");
+            ImGui::DragFloat("Intensity", &RenderSettings::mRTAOPower, 0.01f, 0.0f, 10.0f, "%.2f");
+            ImGui::DragFloat("Normal Bias", &RenderSettings::mRTAONormalBias, 0.001f, 0.0f, 1.0f, "%.3f");
+            ImGui::SliderInt("Sample Count", (int*)&RenderSettings::mRTAOSampleCount, 1u, 128u);
             ImGui::EndMenu();
         }
 
@@ -1369,9 +1369,9 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
         {
             ImGui::SeparatorText("Settings");
 
-            ImGui::DragFloat("Bias", &SSAOTraceData::mBias, 0.001f, 0.0f, 0.5f, "%.3f");
-            ImGui::DragFloat("Radius", &SSAOTraceData::mRadius, 0.01f, 0.0f, 0.5f, "%.2f");
-            ImGui::DragInt("Samples", &SSAOTraceData::mSamples, 1, 1, 64);
+            ImGui::DragFloat("Bias", &RenderSettings::mSSAOBias, 0.001f, 0.0f, 0.5f, "%.3f");
+            ImGui::DragFloat("Radius", &RenderSettings::mSSAORadius, 0.01f, 0.0f, 0.5f, "%.2f");
+            ImGui::DragInt("Samples", &RenderSettings::mSSAOSamples, 1, 1, 64);
 
             ImGui::EndMenu();
         }
@@ -1383,7 +1383,7 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
         {
             ImGui::SeparatorText("Settings");
 
-            ImGui::DragFloat("Blend Factor", &ComposeData::mSettings.mBloomBlendFactor, 0.01f, 0.0f, 0.5f, "%.2f");
+            ImGui::DragFloat("Blend Factor", &RenderSettings::mBloomBlendFactor, 0.01f, 0.0f, 0.5f, "%.2f");
 
             ImGui::EndMenu();
         }
@@ -1395,10 +1395,10 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
         {
             ImGui::SeparatorText("Settings");
 
-            ImGui::DragFloat("Scale", &ComposeData::mSettings.mVignetteScale, 0.01f, 0.0f, 1.0f, "%.2f");
-            ImGui::DragFloat("Bias", &ComposeData::mSettings.mVignetteBias, 0.01f, 0.0f, 1.0f, "%.2f");
-            ImGui::DragFloat("Inner Radius", &ComposeData::mSettings.mVignetteInner, 0.01f, 0.0f, ComposeData::mSettings.mVignetteOuter, "%.2f");
-            ImGui::DragFloat("Outer Radius", &ComposeData::mSettings.mVignetteOuter, 0.01f, ComposeData::mSettings.mVignetteInner, 2.0f, "%.2f");
+            ImGui::DragFloat("Scale", &RenderSettings::mVignetteScale, 0.01f, 0.0f, 1.0f, "%.2f");
+            ImGui::DragFloat("Bias", &RenderSettings::mVignetteBias, 0.01f, 0.0f, 1.0f, "%.2f");
+            ImGui::DragFloat("Inner Radius", &RenderSettings::mVignetteInner, 0.01f, 0.0f, RenderSettings::mVignetteOuter, "%.2f");
+            ImGui::DragFloat("Outer Radius", &RenderSettings::mVignetteOuter, 0.01f, RenderSettings::mVignetteInner, 2.0f, "%.2f");
 
             ImGui::EndMenu();
         }
@@ -1414,8 +1414,8 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
             const float far_plane = inViewport.GetCamera().GetFar();
             const float near_plane = inViewport.GetCamera().GetNear();
 
-            ImGui::DragFloat("Focus Scale", &DepthOfFieldData::mFocusScale, 0.01f, 0.0f, 4.0f, "%.2f");
-            ImGui::DragFloat("Focus Point", &DepthOfFieldData::mFocusPoint, 0.01f, near_plane, far_plane, "%.2f");
+            ImGui::DragFloat("Focus Scale", &RenderSettings::mDoFFocusScale, 0.01f, 0.0f, 4.0f, "%.2f");
+            ImGui::DragFloat("Focus Point", &RenderSettings::mDoFFocusPoint, 0.01f, near_plane, far_plane, "%.2f");
             ImGui::EndMenu();
         }
 
@@ -1423,8 +1423,8 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("Currently not implemented.");
 
-        ImGui::DragFloat("Manual Exposure", &ComposeData::mSettings.mExposure, 0.01f, 0.0f, 100.0f, "%.2f");
-        ImGui::DragFloat("Chromatic Aberration", &ComposeData::mSettings.mChromaticAberrationStrength, 0.01f, 0.0f, 10.0f, "%.2f");
+        ImGui::DragFloat("Manual Exposure", &RenderSettings::mExposure, 0.01f, 0.0f, 100.0f, "%.2f");
+        ImGui::DragFloat("Chromatic Aberration", &RenderSettings::mChromaticAberrationStrength, 0.01f, 0.0f, 10.0f, "%.2f");
 
         ImGui::EndMenu();
     }
@@ -1445,24 +1445,19 @@ uint32_t RenderInterface::GetSelectedEntity(const Scene& inScene, uint32_t inScr
     CommandList cmd_list = CommandList(m_Device, D3D12_COMMAND_LIST_TYPE_DIRECT, 0);
     cmd_list.Reset();
 
-    TextureID entity_texture_id;
-
-    if (RenderPass<GBufferData>* gbuffer_pass = m_Renderer.GetRenderGraph().GetPass<GBufferData>())
-        entity_texture_id = m_Renderer.GetRenderGraph().GetResources().GetTexture(gbuffer_pass->GetData().mSelectionTexture);
-
-    if (!entity_texture_id.IsValid())
-        return Entity::Null;
+    Texture& entity_texture = m_Device.GetTexture(m_Renderer.GetEntityTexture());
+    ID3D12Resource* entity_texture_resource = entity_texture.GetD3D12Resource().Get();
 
     BufferID readback_buffer_id = m_Device.CreateBuffer(Buffer::Describe(sizeof(Entity), Buffer::READBACK, true, "PixelReadbackBuffer"));
 
-    auto entity_texture_barrier = D3D12_RESOURCE_BARRIER(CD3DX12_RESOURCE_BARRIER::Transition(m_Device.GetD3D12Resource(entity_texture_id), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_SOURCE));
+    auto entity_texture_barrier = D3D12_RESOURCE_BARRIER(CD3DX12_RESOURCE_BARRIER::Transition(entity_texture_resource, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_SOURCE));
     cmd_list->ResourceBarrier(1, &entity_texture_barrier);
     
     D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint = {};
-    footprint.Footprint = CD3DX12_SUBRESOURCE_FOOTPRINT(m_Device.GetTexture(entity_texture_id).GetDesc().format, 1, 1, 1, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
+    footprint.Footprint = CD3DX12_SUBRESOURCE_FOOTPRINT(entity_texture.GetDesc().format, 1, 1, 1, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
 
     const CD3DX12_BOX box = CD3DX12_BOX(inScreenPosX, inScreenPosY, inScreenPosX + 1, inScreenPosY + 1);
-    const CD3DX12_TEXTURE_COPY_LOCATION src = CD3DX12_TEXTURE_COPY_LOCATION(m_Device.GetD3D12Resource(entity_texture_id), 0);
+    const CD3DX12_TEXTURE_COPY_LOCATION src = CD3DX12_TEXTURE_COPY_LOCATION(entity_texture_resource, 0);
     const CD3DX12_TEXTURE_COPY_LOCATION dest = CD3DX12_TEXTURE_COPY_LOCATION(m_Device.GetD3D12Resource(readback_buffer_id), footprint);
 
     cmd_list->CopyTextureRegion(&dest, 0, 0, 0, &src, &box);

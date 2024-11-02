@@ -106,13 +106,6 @@ private:
 };
 
 
-enum EGlobalResource
-{
-    GLOBAL_RESOURCE_SKY_CUBE_TEXTURE,
-    GLOBAL_RESOURCE_SKY_CUBE_CONVOLVED_TEXTURE,
-    GLOBAL_RESOURCE_COUNT,
-};
-
 
 class RenderGraphResourceAllocator
 {
@@ -187,15 +180,16 @@ public:
     virtual bool IsCompute() = 0;
     virtual bool IsGraphics() = 0;
     
-    virtual const RTTI& GetRTTI() = 0;
-
     virtual void Setup(RenderGraphBuilder& inBuilder) = 0;
     virtual void Execute(const RenderGraphResources& inResources, CommandList& inCmdList) = 0;
+    
+    const std::string& GetName() const { return m_Name; }
 
     bool IsCreated(RenderGraphResourceID inResource) const;
     bool IsRead(RenderGraphResourceViewID inResource) const;
     bool IsWritten(RenderGraphResourceViewID inResource) const;
 
+    /* Indicate if this pass calls external D3D12 code and needs to rebind defaults after. */
     bool IsExternal() const { return m_IsExternal; }
     void SetExternal(bool inValue) { m_IsExternal = inValue; }
 
@@ -206,11 +200,13 @@ public:
     D3D12_RESOURCE_TRANSITION_BARRIER::StateAfter could be overwritten by the graph if it finds a better match during graph compilation. */
     void AddExitBarrier(const D3D12_RESOURCE_BARRIER& inBarrier) { m_ExitBarriers.push_back(inBarrier); }
 
-    inline const std::string& GetName() const { return m_Name; }
+    D3D12_COMPUTE_PIPELINE_STATE_DESC  CreatePipelineStateDesc(Device& inDevice, const ByteSlice& inComputeShader);
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC CreatePipelineStateDesc(Device& inDevice, const ByteSlice& inVertexShader, const ByteSlice& inPixelShader);
 
 private:
     void FlushBarriers(Device& inDevice, CommandList& inCmdList, const Slice<D3D12_RESOURCE_BARRIER>& inBarriers) const;
     void SetRenderTargets(Device& inDevice, const RenderGraphResources& inRenderResources, CommandList& inCmdList) const;
+
 
 protected:
     std::string	m_Name;
@@ -239,8 +235,6 @@ public:
         IRenderPass(inName), m_Execute(inExecute)
     {
     }
-
-    const RTTI& GetRTTI() { return RTTI_OF(T); }
 
     virtual void Setup(RenderGraphBuilder& inBuilder) override 
     { 
@@ -375,50 +369,6 @@ template<typename T>
 const T& RenderGraph::AddComputePass(const std::string& inName, const IRenderPass::SetupFn<T>& inSetup, const IRenderPass::ExecFn<T>& inExecute)
 {
     return RenderGraph::AddPass<T, ComputeRenderPass<T>>(inName, inSetup, inExecute);
-}
-
-
-template<typename T> requires HasRTTI<T>
-RenderPass<T>* RenderGraph::GetPass()
-{
-    for (auto& renderpass : m_RenderPasses)
-    {
-        if (renderpass->GetRTTI() == RTTI_OF(T))
-            return static_cast<RenderPass<T>*>(renderpass.get());
-    }
-
-    return nullptr;
-}
-
-
-template<typename T> requires HasRTTI<T>
-RenderPass<T>* RenderGraph::GetPass() const
-{
-    for (auto& renderpass : m_RenderPasses)
-    {
-        if (renderpass->GetRTTI() == RTTI_OF(T))
-            return static_cast<RenderPass<T>*>( renderpass.get());
-    }
-
-    return nullptr;
-}
-
-
-template<typename T> requires HasRTTI<T>
-T* RenderGraph::GetData()
-{
-    if (auto pass = GetPass<T>())
-        return &pass->GetData();
-    return nullptr;
-}
-
-
-template<typename T> requires HasRTTI<T>
-const T* RenderGraph::GetData() const
-{
-    if (auto pass = GetPass<T>())
-        return &pass->GetData();
-    return nullptr;
 }
 
 }

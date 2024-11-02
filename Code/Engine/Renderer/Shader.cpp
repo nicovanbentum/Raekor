@@ -6,6 +6,7 @@
 #include "Device.h"
 #include "Threading.h"
 #include "RenderUtil.h"
+#include "RenderGraph.h"
 
 namespace RK::DX12 {
 
@@ -117,7 +118,11 @@ bool ShaderProgram::CompilePSO(Device& inDevice, const char* inDebugName)
 
         Timer timer;
 
-        D3D12_COMPUTE_PIPELINE_STATE_DESC pso_desc = inDevice.CreatePipelineStateDesc(nullptr, ByteSlice(mComputeShader.data(), mComputeShader.size()));
+        D3D12_COMPUTE_PIPELINE_STATE_DESC pso_desc = { 
+            .pRootSignature = inDevice.GetGlobalRootSignature(), 
+            .CS = CD3DX12_SHADER_BYTECODE(mComputeShader.data(), mComputeShader.size())
+        };
+
         gThrowIfFailed(inDevice->CreateComputePipelineState(&pso_desc, IID_PPV_ARGS(&m_ComputePipeline)));
 
         std::cout << std::format("[DX12] Compute PSO {} compilation took {:.2f} ms \n", inDebugName, Timer::sToMilliseconds(timer.GetElapsedTime()));
@@ -400,7 +405,7 @@ ID3D12PipelineState* ShaderCompiler::GetGraphicsPipeline(Device& inDevice, IRend
         ByteSlice pixel_shader((const uint8_t*)m_ShaderCache[inPixelShaderHash]->GetBufferPointer(), m_ShaderCache[inPixelShaderHash]->GetBufferSize());
         ByteSlice vertex_shader((const uint8_t*)m_ShaderCache[inVertexShaderHash]->GetBufferPointer(), m_ShaderCache[inVertexShaderHash]->GetBufferSize());
 
-        D3D12_GRAPHICS_PIPELINE_STATE_DESC desc = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
+        D3D12_GRAPHICS_PIPELINE_STATE_DESC desc = inRenderPass->CreatePipelineStateDesc(inDevice, vertex_shader, pixel_shader);
         inDevice->CreateGraphicsPipelineState(&desc, IID_PPV_ARGS(m_PipelineCache[shader_hash].GetAddressOf()));
 
         return m_PipelineCache[shader_hash].Get();

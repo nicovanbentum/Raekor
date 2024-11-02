@@ -372,52 +372,6 @@ void Device::ReleaseTextureImmediate(TextureID inTextureID)
 }
 
 
-
-
-
-D3D12_GRAPHICS_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* inRenderPass, const ByteSlice& inVertexShader, const ByteSlice& inPixelShader)
-{
-    assert(inRenderPass->IsGraphics() && "Cannot create a Graphics PSO description for a Compute RenderPass");
-
-    D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state =
-    {
-        .pRootSignature = m_GlobalRootSignature.Get(),
-        .VS = CD3DX12_SHADER_BYTECODE(inVertexShader.data(), inVertexShader.size()),
-        .PS = CD3DX12_SHADER_BYTECODE(inPixelShader.data(), inPixelShader.size()),
-        .BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT),
-        .SampleMask = UINT_MAX,
-        .RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT),
-        .DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT),
-        .PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
-        .SampleDesc = DXGI_SAMPLE_DESC {.Count = 1 },
-    };
-
-    pso_state.RasterizerState.FrontCounterClockwise = TRUE;
-
-    for (DXGI_FORMAT format : inRenderPass->m_RenderTargetFormats)
-    {
-        if (format == DXGI_FORMAT_UNKNOWN)
-            break;
-
-        pso_state.RTVFormats[pso_state.NumRenderTargets++] = format;
-    }
-
-    pso_state.DSVFormat = inRenderPass->m_DepthStencilFormat;
-
-    return pso_state;
-}
-
-
-
-D3D12_COMPUTE_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* inRenderPass, const ByteSlice& inComputeShader)
-{
-    assert(inRenderPass ? inRenderPass->IsCompute() : true && "Cannot create a Compute PSO description for a GraphicsRenderPass");
-    D3D12_SHADER_BYTECODE cs_bytecode = CD3DX12_SHADER_BYTECODE(inComputeShader.data(), inComputeShader.size());
-    return D3D12_COMPUTE_PIPELINE_STATE_DESC { .pRootSignature = m_GlobalRootSignature.Get(), .CS = cs_bytecode };
-}
-
-
-
 void Device::CreateDescriptor(BufferID inID, const Buffer::Desc& inDesc)
 {
     Buffer& buffer = GetBuffer(inID);
