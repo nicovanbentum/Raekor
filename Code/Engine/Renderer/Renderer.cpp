@@ -471,7 +471,6 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
     RenderGraphResourceID ao_texture = default_textures.mWhiteTexture;
     RenderGraphResourceID rt_shadows_texture = default_textures.mWhiteTexture;
     RenderGraphResourceID reflections_texture = default_textures.mBlackTexture;
-    RenderGraphResourceID indirect_diffuse_texture = default_textures.mBlackTexture;
 
     const SkinningData& skinning_data = AddSkinningPass(m_RenderGraph, inDevice, inScene);
 
@@ -489,6 +488,8 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
     else
     {
         gbuffer_output = AddGBufferPass(m_RenderGraph, inDevice, inScene).mOutput;
+
+        AddShadowMapPass(m_RenderGraph, inDevice, inScene);
 
         // const auto& grass_data = AddGrassRenderPass(m_RenderGraph, inDevice, gbuffer_data);
 
@@ -513,7 +514,7 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
         
         const TiledLightCullingData& light_cull_data = AddTiledLightCullingPass(m_RenderGraph, inDevice, inScene);
 
-        const LightingData& light_data = AddLightingPass(m_RenderGraph, inDevice, inScene, gbuffer_output, light_cull_data, sky_cube_data.mSkyCubeTexture, rt_shadows_texture, reflections_texture, ao_texture, indirect_diffuse_texture);
+        const LightingData& light_data = AddLightingPass(m_RenderGraph, inDevice, inScene, gbuffer_output, light_cull_data, sky_cube_data.mSkyCubeTexture, rt_shadows_texture, reflections_texture, ao_texture, ddgi_output.mOutput);
         
         compose_input = light_data.mOutputTexture;
         
@@ -523,11 +524,11 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
         if (m_Settings.mEnableDDGI && m_Settings.mDebugProbeRays)
             AddProbeDebugRaysPass(m_RenderGraph, inDevice, light_data.mOutputTexture, gbuffer_output.mDepthTexture);
 
-        if (m_Settings.mEnableTAA)
-            compose_input = AddTAAResolvePass(m_RenderGraph, inDevice, gbuffer_output, light_data.mOutputTexture, m_FrameCounter).mOutputTexture;
-        
         if (m_Settings.mEnableSSR)
             AddSSRTracePass(m_RenderGraph, inDevice, gbuffer_output, compose_input).mOutputTexture;
+
+        if (m_Settings.mEnableTAA)
+            compose_input = AddTAAResolvePass(m_RenderGraph, inDevice, gbuffer_output, light_data.mOutputTexture, m_FrameCounter).mOutputTexture;
     }
 
     RenderGraphResourceID bloom_output = compose_input;
@@ -554,7 +555,7 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
                 compose_input = reflections_texture;
                 break;
             case DEBUG_TEXTURE_RT_INDIRECT_DIFFUSE:
-                compose_input = indirect_diffuse_texture;
+                compose_input = ddgi_output.mOutput;
                 break;
         }
 
@@ -577,6 +578,7 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
         }
     }
 
+    // applies post processing, tonemapping etc.
     const ComposeData& compose_data = AddComposePass(m_RenderGraph, inDevice, bloom_output, compose_input);
 
     RenderGraphResourceID final_output = compose_data.mOutputTexture;
@@ -587,7 +589,7 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
             final_output = ssr_texture;
             break;
         case DEBUG_TEXTURE_SSAO:
-            final_output = ssao_texture;
+            final_output = ao_texture;
             break;
         case DEBUG_TEXTURE_LIGHTING:
             final_output = lighting_texture;

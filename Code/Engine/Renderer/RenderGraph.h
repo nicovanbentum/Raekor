@@ -60,6 +60,8 @@ struct RenderGraphResource
     ResourceID mResourceID; 
     /* Was this resource imported and should it stay alive outside the graph? */
     bool mImported = false;
+    /* Bindless descriptor heap index */
+    DescriptorID mDescriptorID;
 };
 
 
@@ -151,8 +153,11 @@ public:
     TextureID GetTexture(RenderGraphResourceID inResource) const;
     ResourceID GetResource(RenderGraphResourceID inResource) const;
 
-    inline bool IsBuffer(RenderGraphResourceViewID inResource) const { return m_ResourceViews[inResource].mResourceType == RESOURCE_TYPE_BUFFER; }
-    inline bool IsTexture(RenderGraphResourceViewID inResource) const { return m_ResourceViews[inResource].mResourceType == RESOURCE_TYPE_TEXTURE; }
+    uint32_t GetBindlessHeapIndex(RenderGraphResourceID inResource) const { return m_Resources[inResource].mDescriptorID.GetIndex(); }
+    uint32_t GetBindlessHeapIndex(RenderGraphResourceViewID inResource) const { return m_ResourceViews[inResource].mDescriptorID.GetIndex(); }
+
+    bool IsBuffer(RenderGraphResourceViewID inResource) const { return m_ResourceViews[inResource].mResourceType == RESOURCE_TYPE_BUFFER; }
+    bool IsTexture(RenderGraphResourceViewID inResource) const { return m_ResourceViews[inResource].mResourceType == RESOURCE_TYPE_TEXTURE; }
 
 private:
     RenderGraphResourceAllocator m_Allocator;
@@ -326,6 +331,7 @@ private:
     const Viewport& m_Viewport;
     const uint32_t m_FrameCount;
     
+    uint32_t m_TimestampCount = 0;
     BufferID m_TimestampReadbackBuffer;
     ComPtr<ID3D12QueryHeap> m_TimestampQueryHeap = nullptr;
 

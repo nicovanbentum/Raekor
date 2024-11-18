@@ -148,8 +148,11 @@ public:
 
     uint64_t GetImGuiTextureID(uint32_t inTextureID) override;
 
-    virtual uint32_t    GetDebugTextureCount() const override { return DEBUG_TEXTURE_COUNT; }
-    virtual const char* GetDebugTextureName(uint32_t inIndex) const;
+    uint64_t GetDebugTextureIndex() const override { return m_Settings.mDebugTexture; }
+    void SetDebugTextureIndex(int inIndex) override { m_Settings.mDebugTexture = inIndex; }
+
+    uint32_t GetDebugTextureCount() const override { return DEBUG_TEXTURE_COUNT; }
+    const char* GetDebugTextureName(uint32_t inIndex) const override;
 
     uint32_t GetScreenshotBuffer(uint8_t* ioBuffer) { return 0; }
 

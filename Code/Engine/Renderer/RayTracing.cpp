@@ -10,18 +10,6 @@
 
 namespace RK::DX12 {
 
-RTTI_DEFINE_TYPE(ClearShadowsData)        {}
-RTTI_DEFINE_TYPE(ClearShadowTilesData)    {}
-RTTI_DEFINE_TYPE(TraceShadowTilesData)    {}
-RTTI_DEFINE_TYPE(ClassifyShadowTilesData) {}
-RTTI_DEFINE_TYPE(DenoiseShadowsData)      {}
-RTTI_DEFINE_TYPE(RTAOData)                {}
-RTTI_DEFINE_TYPE(ReflectionsData)         {}
-RTTI_DEFINE_TYPE(PathTraceData)           {}
-RTTI_DEFINE_TYPE(ProbeDebugData)          {}
-RTTI_DEFINE_TYPE(ProbeDebugRaysData)      {}
-
-
 void ClearTextureUAV(Device& inDevice, TextureID inTexture, Vec4 inValue, CommandList& inCmdList)
 {
     inCmdList.PushComputeConstants(ClearTextureRootConstants
@@ -64,7 +52,7 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
 
         [&inRenderGraph, &inDevice, &inScene](TraceShadowTilesData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
         {
-            if (inScene->Count<Mesh>() == 0)
+            if (!inScene.HasTLAS())
                 return;
 
             const Viewport& viewport = inRenderGraph.GetViewport();
@@ -72,10 +60,10 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
 
             inCmdList.PushComputeConstants(ShadowMaskRootConstants
             {
-                .mShadowMaskTexture = inDevice.GetBindlessHeapIndex(inResources.GetTexture(inData.mOutputTexture)),
-                .mGbufferDepthTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mGBufferDepthTextureSRV)),
-                .mGbufferRenderTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mGBufferRenderTextureSRV)),
-                .mTLAS = inDevice.GetBindlessHeapIndex(inScene.GetTLASDescriptor(inDevice)),
+                .mShadowMaskTexture = inResources.GetBindlessHeapIndex(inData.mOutputTexture),
+                .mGbufferDepthTexture = inResources.GetBindlessHeapIndex(inData.mGBufferDepthTextureSRV),
+                .mGbufferRenderTexture = inResources.GetBindlessHeapIndex(inData.mGBufferRenderTextureSRV),
+                .mTLAS = inScene.GetTLASDescriptorIndex(),
                 .mDispatchSize = viewport.GetRenderSize()
             });
 
@@ -105,8 +93,8 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
         {
             inCmdList.PushComputeConstants(ShadowsClearRootConstants
             {
-                .mTilesBuffer = inDevice.GetBindlessHeapIndex(inResources.GetBuffer(inData.mTilesBuffer)),
-                .mDispatchBuffer = inDevice.GetBindlessHeapIndex(inResources.GetBuffer(inData.mIndirectDispatchBuffer))
+                .mTilesBuffer = inResources.GetBindlessHeapIndex(inData.mTilesBuffer),
+                .mDispatchBuffer = inResources.GetBindlessHeapIndex(inData.mIndirectDispatchBuffer)
             });
 
             const Buffer& tiles_buffer = inDevice.GetBuffer(inResources.GetBuffer(inData.mTilesBuffer));
@@ -137,9 +125,9 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
 
             inCmdList.PushComputeConstants(ShadowsClassifyRootConstants 
             { 
-                .mShadowMaskTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mTracedShadowRaysTextureSRV)),
-                .mTilesBuffer       = inDevice.GetBindlessHeapIndex(inResources.GetBufferView(inData.mTilesBufferUAV)),
-                .mDispatchBuffer    = inDevice.GetBindlessHeapIndex(inResources.GetBufferView(inData.mIndirectDispatchBufferUAV)),
+                .mShadowMaskTexture = inResources.GetBindlessHeapIndex(inData.mTracedShadowRaysTextureSRV),
+                .mTilesBuffer       = inResources.GetBindlessHeapIndex(inData.mTilesBufferUAV),
+                .mDispatchBuffer    = inResources.GetBindlessHeapIndex(inData.mIndirectDispatchBufferUAV),
                 .mDispatchSize      = viewport.size
             });
 
@@ -208,12 +196,12 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
         {
             ShadowsDenoiseRootConstants root_constants =
             {
-                .mResultTexture     = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mOutputTextureUAV)),
-                .mHistoryTexture    = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mHistoryTextureUAV)),
-                .mDepthTexture      = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mDepthTextureSRV)),
-                .mVelocityTexture   = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mVelocityTextureSRV)),
-                .mShadowMaskTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mTracedShadowRaysTextureSRV)),
-                .mSelectionTexture  = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mSelectionTextureSRV)),
+                .mResultTexture     = inResources.GetBindlessHeapIndex(inData.mOutputTextureUAV),
+                .mHistoryTexture    = inResources.GetBindlessHeapIndex(inData.mHistoryTextureUAV),
+                .mDepthTexture      = inResources.GetBindlessHeapIndex(inData.mDepthTextureSRV),
+                .mVelocityTexture   = inResources.GetBindlessHeapIndex(inData.mVelocityTextureSRV),
+                .mShadowMaskTexture = inResources.GetBindlessHeapIndex(inData.mTracedShadowRaysTextureSRV),
+                .mSelectionTexture  = inResources.GetBindlessHeapIndex(inData.mSelectionTextureSRV),
                 .mDispatchSize      = inRenderGraph.GetViewport().GetRenderSize()
             };
 
@@ -225,7 +213,7 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
 
             {
                 // write all the denoised tiles to the final shadow texture
-                root_constants.mTilesBuffer = inDevice.GetBindlessHeapIndex(inResources.GetBufferView(inData.mDenoisedTilesBufferSRV));
+                root_constants.mTilesBuffer = inResources.GetBindlessHeapIndex(inData.mDenoisedTilesBufferSRV);
                 inCmdList.PushComputeConstants(root_constants);
 
                 inCmdList->SetPipelineState(g_SystemShaders.mDenoiseShadowTilesShader.GetComputePSO());
@@ -289,9 +277,9 @@ const RTAOData& AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDe
         inData.mGBufferRenderTextureSRV = inRGBuilder.Read(inGBuffer.mRenderTexture);
     },
 
-    [&inRenderGraph, &inDevice, &inScene](RTAOData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
+    [&inRenderGraph, &inScene](RTAOData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
     {
-        if (inScene->Count<Mesh>() == 0)
+        if (!inScene.HasTLAS())
             return;
 
         const Viewport& viewport = inRenderGraph.GetViewport();
@@ -304,10 +292,10 @@ const RTAOData& AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDe
                 .mNormalBias = RenderSettings::mRTAONormalBias,
                 .mSampleCount = RenderSettings::mRTAOSampleCount
             },
-            .mAOmaskTexture         = inDevice.GetBindlessHeapIndex(inRGResources.GetTexture(inData.mOutputTexture)),
-            .mGbufferDepthTexture   = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mGbufferDepthTextureSRV)),
-            .mGbufferRenderTexture  = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mGBufferRenderTextureSRV)),
-            .mTLAS                  = inDevice.GetBindlessHeapIndex(inScene.GetTLASDescriptor(inDevice)),
+            .mAOmaskTexture         = inRGResources.GetBindlessHeapIndex(inData.mOutputTexture),
+            .mGbufferDepthTexture   = inRGResources.GetBindlessHeapIndex(inData.mGbufferDepthTextureSRV),
+            .mGbufferRenderTexture  = inRGResources.GetBindlessHeapIndex(inData.mGBufferRenderTextureSRV),
+            .mTLAS                  = inScene.GetTLASDescriptorIndex(),
             .mDispatchSize          = viewport.size
         });
 
@@ -325,11 +313,11 @@ const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& in
     {
         inData.mOutputTexture = inRGBuilder.Create(Texture::Desc
             {
-                .format = DXGI_FORMAT_R16G16B16A16_FLOAT,
-                .width = inRenderGraph.GetViewport().size.x,
-                .height = inRenderGraph.GetViewport().size.y,
+                .format    = DXGI_FORMAT_R16G16B16A16_FLOAT,
+                .width     = inRenderGraph.GetViewport().size.x,
+                .height    = inRenderGraph.GetViewport().size.y,
                 .mipLevels = 0, // let it calculate the nr of mips
-                .usage = Texture::Usage::SHADER_READ_WRITE,
+                .usage     = Texture::Usage::SHADER_READ_WRITE,
                 .debugName = "RT_Reflections"
             });
 
@@ -342,15 +330,15 @@ const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& in
 
     [&inRenderGraph, &inDevice, &inScene](ReflectionsData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
     {
-        if (inScene->Count<Mesh>() == 0)
+        if (!inScene.HasTLAS())
             return;
 
         const Viewport& viewport = inRenderGraph.GetViewport();
 
         inCmdList.PushComputeConstants(ReflectionsRootConstants {
-            .mTLAS = inDevice.GetBindlessHeapIndex(inScene.GetTLASDescriptor(inDevice)),
-            .mInstancesBuffer = inDevice.GetBindlessHeapIndex(inScene.GetInstancesDescriptor(inDevice)),
-            .mMaterialsBuffer = inDevice.GetBindlessHeapIndex(inScene.GetMaterialsDescriptor(inDevice)),
+            .mTLAS = inScene.GetTLASDescriptorIndex(),
+            .mInstancesBuffer = inScene.GetInstancesDescriptorIndex(),
+            .mMaterialsBuffer = inScene.GetMaterialsDescriptorIndex(),
             .mResultTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTexture(inData.mOutputTexture)),
             .mSkyCubeTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mSkyCubeTextureSRV)),
             .mGbufferDepthTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mGBufferDepthTextureSRV)),
@@ -400,21 +388,22 @@ const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevi
 
         PathTraceRootConstants constants =
         {
-            .mTLAS = inDevice.GetBindlessHeapIndex(inScene.GetTLASDescriptor(inDevice)),
+            .mTLAS = inScene.GetTLASDescriptorIndex(),
             .mBounces = RenderSettings::mPathTraceBounces,
-            .mInstancesBuffer = inDevice.GetBindlessHeapIndex(inScene.GetInstancesDescriptor(inDevice)),
-            .mMaterialsBuffer = inDevice.GetBindlessHeapIndex(inScene.GetMaterialsDescriptor(inDevice)),
+            .mInstancesBuffer = inScene.GetInstancesDescriptorIndex(),
+            .mMaterialsBuffer = inScene.GetMaterialsDescriptorIndex(),
             .mResultTexture = inDevice.GetBindlessHeapIndex(inResources.GetTexture(inData.mOutputTexture)),
             .mAccumulationTexture = inDevice.GetBindlessHeapIndex(inResources.GetTexture(inData.mAccumulationTexture)),
             .mSkyCubeTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mSkyCubeTextureSRV)),
             .mDispatchSize = viewport.size,
-            .mReset = RenderSettings::mPathTraceReset,
+            .mReset = RenderSettings::mPathTraceReset
         };
 
-        constants.mLightsCount = inScene->Count<Light>();
-
-        if (constants.mLightsCount > 0)
-            constants.mLightsBuffer = inDevice.GetBindlessHeapIndex(inScene.GetLightsDescriptor(inDevice));
+        if (inScene.HasLights())
+        {
+            constants.mLightsCount = inScene.GetLightsCount();
+            constants.mLightsBuffer = inScene.GetLightsDescriptorIndex();
+        }
 
         inCmdList.PushComputeConstants(constants);
 
@@ -495,7 +484,7 @@ DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTr
     },
     [&inRenderGraph, &inDevice, &inScene](ProbeTraceData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
     {
-        if (inScene->Count<Mesh>() == 0)
+        if (!inScene.HasTLAS())
             return;
 
         //if (ProbeUpdateData::mClear)
@@ -513,8 +502,8 @@ DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTr
 
         ProbeTraceRootConstants root_constants =
         {
-            .mInstancesBuffer = inDevice.GetBindlessHeapIndex(inScene.GetInstancesDescriptor(inDevice)),
-            .mTLAS = inDevice.GetBindlessHeapIndex(inScene.GetTLASDescriptor(inDevice)),
+            .mInstancesBuffer = inScene.GetInstancesDescriptorIndex(),
+            .mTLAS = inScene.GetTLASDescriptorIndex(),
             .mDebugProbeIndex = Index3Dto1D(RenderSettings::mDDGIDebugProbe, RenderSettings::mDDGIProbeCount),
             .mSkyCubeTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mSkyCubeTextureSRV)),
             .mRandomRotationMatrix = inData.mRandomRotationMatrix,
@@ -531,10 +520,10 @@ DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTr
         };
 
         if (inScene->Count<Material>())
-            root_constants.mMaterialsBuffer = inDevice.GetBindlessHeapIndex(inScene.GetMaterialsDescriptor(inDevice));
+            root_constants.mMaterialsBuffer = inScene.GetMaterialsDescriptorIndex();
         
         if (root_constants.mLightsCount = inScene->Count<Light>())
-            root_constants.mLightsBuffer = inDevice.GetBindlessHeapIndex(inScene.GetLightsDescriptor(inDevice));
+            root_constants.mLightsBuffer = inScene.GetLightsDescriptorIndex();
 
         inCmdList.PushComputeConstants(root_constants);
 
@@ -565,9 +554,9 @@ DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTr
         inData.mRaysIrradianceTextureSRV = ioRGBuilder.Read(trace_data.mRaysIrradianceTexture);
     },
 
-        [&inDevice, &trace_data, &inScene](ProbeUpdateData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
+    [&inDevice, &trace_data, &inScene](ProbeUpdateData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
     {
-        if (inScene->Count<Mesh>() == 0)
+        if (!inScene.HasTLAS())
             return;
 
         /*{

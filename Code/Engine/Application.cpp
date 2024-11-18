@@ -50,6 +50,8 @@ Application::Application(WindowFlags inFlags)
 	}
 
 	Array<SDL_Rect> displays(SDL_GetNumVideoDisplays());
+	assert(!displays.empty());
+
 	for (const auto& [index, display] : gEnumerate(displays))
 		SDL_GetDisplayBounds(index, &display);
 

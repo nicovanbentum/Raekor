@@ -10,31 +10,6 @@
 
 namespace RK::DX12 {
 
-RTTI_DEFINE_TYPE(DebugPrimitivesData)       {}
-RTTI_DEFINE_TYPE(SkyCubeData)               {}
-RTTI_DEFINE_TYPE(ConvolveCubeData)          {}
-RTTI_DEFINE_TYPE(GBufferData)               {}
-RTTI_DEFINE_TYPE(SkinningData)              {}
-RTTI_DEFINE_TYPE(GBufferDebugData)          {}
-RTTI_DEFINE_TYPE(GrassData)                 {}
-RTTI_DEFINE_TYPE(DownsampleData)            {}
-RTTI_DEFINE_TYPE(TiledLightCullingData)     {}
-RTTI_DEFINE_TYPE(LightingData)              {}
-RTTI_DEFINE_TYPE(TAAResolveData)            {}
-RTTI_DEFINE_TYPE(DepthOfFieldData)          {}
-RTTI_DEFINE_TYPE(ComposeData)               {}
-RTTI_DEFINE_TYPE(PreImGuiData)              {}
-RTTI_DEFINE_TYPE(BloomBlurData)             {}
-RTTI_DEFINE_TYPE(BloomPassData)             {}
-RTTI_DEFINE_TYPE(ImGuiData)                 {}
-RTTI_DEFINE_TYPE(DefaultTexturesData)       {}
-RTTI_DEFINE_TYPE(ClearBufferData)           {}
-RTTI_DEFINE_TYPE(ClearTextureFloatData)     {}
-RTTI_DEFINE_TYPE(TransitionResourceData)    {}
-RTTI_DEFINE_TYPE(LuminanceHistogramData)    {}
-RTTI_DEFINE_TYPE(SSRTraceData)              {}
-RTTI_DEFINE_TYPE(SSAOTraceData)             {}
-
 /*
 
 const T& AddPass(RenderGraph& inRenderGraph, Device& inDevice)
@@ -49,7 +24,6 @@ const T& AddPass(RenderGraph& inRenderGraph, Device& inDevice)
 }
 
 */
-
 
 const DefaultTexturesData& AddDefaultTexturesPass(RenderGraph& inRenderGraph, Device& inDevice, TextureID inBlackTexture, TextureID inWhiteTexture)
 {
@@ -76,7 +50,7 @@ const ClearBufferData& AddClearBufferPass(RenderGraph& inRenderGraph, Device& in
         inCmdList.PushComputeConstants(ClearBufferRootConstants
         {
             .mClearValue = inClearValue,
-            .mBuffer = inDevice.GetBindlessHeapIndex(inResources.GetBufferView(inData.mBufferUAV))
+            .mBuffer = inResources.GetBindlessHeapIndex(inData.mBufferUAV)
         });
 
         const Buffer& buffer = inDevice.GetBuffer(inResources.GetBufferView(inData.mBufferUAV));
@@ -100,7 +74,7 @@ const ClearTextureFloatData& AddClearTextureFloatPass(RenderGraph& inRenderGraph
         inCmdList.PushComputeConstants(ClearTextureRootConstants
         {
             .mClearValue = inClearValue,
-            .mTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mTextureUAV))
+            .mTexture = inResources.GetBindlessHeapIndex(inData.mTextureUAV)
         });
 
         const Texture& texture = inDevice.GetTexture(inResources.GetTextureView(inData.mTextureUAV));
@@ -134,7 +108,7 @@ const SkyCubeData& AddSkyCubePass(RenderGraph& inRenderGraph, Device& inDevice, 
         {
             inCmdList.PushComputeConstants(SkyCubeRootConstants
             {
-                .mSkyCubeTexture    = inDevice.GetBindlessHeapIndex(inResources.GetTexture(inData.mSkyCubeTexture)),
+                .mSkyCubeTexture    = inResources.GetBindlessHeapIndex(inData.mSkyCubeTexture),
                 .mSunLightDirection = sun_light->GetDirection(),
                 .mSunLightColor     = sun_light->GetColor()
             });
@@ -163,8 +137,8 @@ const ConvolveCubeData& AddConvolveSkyCubePass(RenderGraph& inRenderGraph, Devic
     {
         inCmdList.PushComputeConstants(ConvolveCubeRootConstants
         {
-            .mCubeTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mCubeTextureSRV)),
-            .mConvolvedCubeTexture = inDevice.GetBindlessHeapIndex(inResources.GetTexture(inData.mConvolvedCubeTexture))
+            .mCubeTexture = inResources.GetBindlessHeapIndex(inData.mCubeTextureSRV),
+            .mConvolvedCubeTexture = inResources.GetBindlessHeapIndex(inData.mConvolvedCubeTexture)
         });
 
         inCmdList->SetPipelineState(g_SystemShaders.mConvolveCubeShader.GetComputePSO());
@@ -328,8 +302,8 @@ const GBufferData& AddMeshletsRasterPass(RenderGraph& inRenderGraph, Device& inD
 
             const GbufferRootConstants root_constants = 
             {
-                .mInstancesBuffer = inDevice.GetBindlessHeapIndex(inScene.GetInstancesDescriptor(inDevice)),
-                .mMaterialsBuffer = inDevice.GetBindlessHeapIndex(inScene.GetMaterialsDescriptor(inDevice)),
+                .mInstancesBuffer = inScene.GetInstancesDescriptorIndex(),
+                .mMaterialsBuffer = inScene.GetMaterialsDescriptorIndex(),
                 .mInstanceIndex   = uint32_t(instance_index)
             };
 
@@ -461,8 +435,8 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
 
             inCmdList.PushGraphicsConstants(GbufferRootConstants
             {
-                .mInstancesBuffer = inDevice.GetBindlessHeapIndex(inScene.GetInstancesDescriptor(inDevice)),
-                .mMaterialsBuffer = inDevice.GetBindlessHeapIndex(inScene.GetMaterialsDescriptor(inDevice)),
+                .mInstancesBuffer = inScene.GetInstancesDescriptorIndex(),
+                .mMaterialsBuffer = inScene.GetMaterialsDescriptorIndex(),
                 .mInstanceIndex = uint32_t(instance_index),
                 .mEntity = uint32_t(entity)
             });
@@ -537,11 +511,128 @@ const GBufferDebugData& AddGBufferDebugPass(RenderGraph& inRenderGraph, Device& 
         inCmdList.SetViewportAndScissor(inRenderGraph.GetViewport());
         inCmdList.PushGraphicsConstants(GbufferDebugRootConstants
         {
-            .mTexture   = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mInputTextureSRV)),
+            .mTexture   = inRGResources.GetBindlessHeapIndex(inData.mInputTextureSRV),
             .mFarPlane  = inRenderGraph.GetViewport().GetCamera().GetFar(),
             .mNearPlane = inRenderGraph.GetViewport().GetCamera().GetNear(),
         });
         inCmdList->DrawInstanced(3, 1, 0, 0);
+    });
+}
+
+
+
+const ShadowMapData& AddShadowMapPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene)
+{
+    return inRenderGraph.AddGraphicsPass<ShadowMapData>("SHADOW MAP PASS",
+    [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ShadowMapData& inData)
+    {
+        inData.mOutputTexture = ioRGBuilder.Create(Texture::Desc {
+            .format = DXGI_FORMAT_D32_FLOAT,
+            .width  = 2048,
+            .height = 2048,
+            .usage  = Texture::Usage::DEPTH_STENCIL_TARGET,
+            .debugName = "ShadowMap2048"
+        });
+
+        ioRGBuilder.DepthStencilTarget(inData.mOutputTexture);
+
+        ByteSlice vertex_shader, pixel_shader;
+        g_SystemShaders.mShadowMapShader.GetGraphicsProgram(vertex_shader, pixel_shader);
+
+        D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_desc = inRenderPass->CreatePipelineStateDesc(inDevice, vertex_shader, pixel_shader);
+
+        inDevice->CreateGraphicsPipelineState(&pso_desc, IID_PPV_ARGS(inData.mPipeline.GetAddressOf()));
+    },
+
+    [&inDevice, &inRenderGraph, &inScene](ShadowMapData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+    {
+        if (inScene->Count<Mesh>() == 0)
+            return;
+
+        std::array frustum_corners = {
+            Vec3(-1.0f,  1.0f, -1.0f),
+            Vec3( 1.0f,  1.0f, -1.0f),
+            Vec3( 1.0f, -1.0f, -1.0f),
+            Vec3(-1.0f, -1.0f, -1.0f),
+            Vec3(-1.0f,  1.0f,  1.0f),
+            Vec3( 1.0f,  1.0f,  1.0f),
+            Vec3( 1.0f, -1.0f,  1.0f),
+            Vec3(-1.0f, -1.0f,  1.0f),
+        };
+
+        Mat4x4 projection = glm::perspectiveRH(
+            glm::radians(inRenderGraph.GetViewport().GetFieldOfView()),
+            inRenderGraph.GetViewport().GetAspectRatio(),
+            inRenderGraph.GetViewport().GetCamera().GetNear(),
+            128.0f
+        );
+
+        const Camera& camera = inRenderGraph.GetViewport().GetCamera();
+        const Mat4x4 inv_vp = glm::inverse(projection * camera.GetView());
+
+        for (Vec3& corner : frustum_corners)
+        {
+            Vec4 corner_ws = inv_vp * Vec4(corner, 1.0f);
+            corner = corner_ws / corner_ws.w;
+        }
+
+        float radius = 0.0f;
+        Vec3 frustum_center = Vec3(0.0f);
+
+        for (const Vec3& corner : frustum_corners)
+            frustum_center += corner;
+        
+        frustum_center /= 8.0f;
+
+        for (const Vec3& corner : frustum_corners)
+            radius = glm::max(radius, glm::length(corner - frustum_center));
+
+        radius = std::ceil(radius * 16.0f) / 16.0f;
+
+        const Vec3 max_extents = Vec3(radius);
+        const Vec3 min_extents = -max_extents;
+
+        const Vec3 light_dir = glm::normalize(inScene->GetSunLightDirection());
+
+        const Mat4x4 light_view_matrix = glm::lookAtRH(frustum_center + light_dir * min_extents.z, frustum_center, Vec3(0.0f, 1.0f, 0.0f));
+        const Mat4x4 light_ortho_matrix = glm::orthoRH_ZO(min_extents.x, max_extents.x, min_extents.y, max_extents.y, 0.0f, max_extents.z - min_extents.z);
+
+        inCmdList->SetPipelineState(inData.mPipeline.Get());
+
+        TextureID texture = inResources.GetTexture(inData.mOutputTexture);
+
+        D3D12_CPU_DESCRIPTOR_HANDLE dsv_handle = inDevice.GetCPUDescriptorHandle(texture);
+        inCmdList->ClearDepthStencilView(dsv_handle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+
+        inCmdList.SetViewportAndScissor(inDevice.GetTexture(texture));
+
+        if (inScene->Count<Mesh>() > 0)
+        {
+            ShadowMapRootConstants root_constants =
+            {
+                .mInstancesBuffer = inScene.GetTLASDescriptorIndex(),
+                .mMaterialsBuffer = inScene.GetMaterialsDescriptorIndex(),
+                .mViewProjMatrix = light_ortho_matrix * light_view_matrix
+            };
+
+            for (const auto& [entity, mesh] : inScene->Each<Mesh>())
+            {
+                const Name& name = inScene->Get<Name>(entity);
+
+                const char* debug_name = mesh.name.empty() ? name.name.c_str() : mesh.name.c_str();
+                PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( inCmdList ), PIX_COLOR(0, 255, 0), debug_name);
+
+                const int instance_index = inScene->GetPackedIndex<Mesh>(entity);
+                assert(instance_index != -1);
+
+                root_constants.mInstanceIndex = uint32_t(instance_index);
+                inCmdList.PushGraphicsConstants(root_constants);
+
+                inCmdList.BindIndexBuffer(inDevice.GetBuffer(BufferID(mesh.indexBuffer)));
+                inCmdList->DrawIndexedInstanced(mesh.indices.size(), 1, 0, 0, 0);
+            }
+        }
+
     });
 }
 
@@ -570,9 +661,9 @@ const SSAOTraceData& AddSSAOTracePass(RenderGraph& inRenderGraph, Device& inDevi
 
         inCmdList.PushComputeConstants(SSAOTraceRootConstants 
         {
-            .mOutputTexture  = inDevice.GetBindlessHeapIndex(inRGResources.GetTexture(inData.mOutputTexture)),
-            .mDepthTexture   = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mDepthTexture)),
-            .mGBufferTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mGBufferTexture)),
+            .mOutputTexture  = inRGResources.GetBindlessHeapIndex(inData.mOutputTexture),
+            .mDepthTexture   = inRGResources.GetBindlessHeapIndex(inData.mDepthTexture),
+            .mGBufferTexture = inRGResources.GetBindlessHeapIndex(inData.mGBufferTexture),
             .mRadius         = RenderSettings::mSSAORadius,
             .mBias           = RenderSettings::mSSAOBias,
             .mSamples        = uint32_t(RenderSettings::mSSAOSamples),
@@ -593,9 +684,9 @@ const SSRTraceData& AddSSRTracePass(RenderGraph& inRenderGraph, Device& inDevice
         inData.mOutputTexture = ioRGBuilder.Create(Texture::Desc
             {
                 .format = DXGI_FORMAT_R32G32B32A32_FLOAT,
-                .width = inRenderGraph.GetViewport().GetRenderSize().x,
+                .width  = inRenderGraph.GetViewport().GetRenderSize().x,
                 .height = inRenderGraph.GetViewport().GetRenderSize().y,
-                .usage = Texture::Usage::SHADER_READ_WRITE
+                .usage  = Texture::Usage::SHADER_READ_WRITE
             });
 
         inData.mSceneTexture = ioRGBuilder.Read(inSceneTexture);
@@ -609,10 +700,10 @@ const SSRTraceData& AddSSRTracePass(RenderGraph& inRenderGraph, Device& inDevice
 
         inCmdList.PushComputeConstants(SSRTraceRootConstants
             {
-                .mOutputTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTexture(inData.mOutputTexture)),
-                .mSceneTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mSceneTexture)),
-                .mDepthTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mDepthTexture)),
-                .mGBufferTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mGBufferTexture)),
+                .mOutputTexture = inRGResources.GetBindlessHeapIndex(inData.mOutputTexture),
+                .mSceneTexture = inRGResources.GetBindlessHeapIndex(inData.mSceneTexture),
+                .mDepthTexture = inRGResources.GetBindlessHeapIndex(inData.mDepthTexture),
+                .mGBufferTexture = inRGResources.GetBindlessHeapIndex(inData.mGBufferTexture),
                 .mRadius = RenderSettings::mSSRRadius,
                 .mBias = RenderSettings::mSSRBias,
                 .mSamples = uint32_t(RenderSettings::mSSRSamples),
@@ -711,14 +802,14 @@ const DownsampleData& AddDownsamplePass(RenderGraph& inRenderGraph, Device& inDe
         {
             .mNrOfMips = numWorkGroupsAndMips[1],
             .mNrOfWorkGroups = numWorkGroupsAndMips[0],
-            .mGlobalAtomicBuffer = inDevice.GetBindlessHeapIndex(atomic_buffer.GetDescriptor()),
+            .mGlobalAtomicBuffer = inRGResources.GetBindlessHeapIndex(inData.mGlobalAtomicBuffer),
             .mWorkGroupOffset = work_group_offset,
         };
 
         uint* mips_ptr = &root_constants.mTextureMip0;
 
         for (uint32_t mip = 0u; mip < numWorkGroupsAndMips[1]; mip++)
-            mips_ptr[mip] = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mSourceTextureMipsUAVs[mip]));
+            mips_ptr[mip] = inRGResources.GetBindlessHeapIndex(inData.mSourceTextureMipsUAVs[mip]);
 
         static bool first_run = true;
 
@@ -766,8 +857,8 @@ const TiledLightCullingData& AddTiledLightCullingPass(RenderGraph& inRenderGraph
     {
         inData.mRootConstants = 
         {
-            .mLightGridBuffer    = inDevice.GetBindlessHeapIndex(inRGResources.GetBuffer(inData.mLightGridBuffer)),
-            .mLightIndicesBuffer = inDevice.GetBindlessHeapIndex(inRGResources.GetBuffer(inData.mLightIndicesBuffer)),
+            .mLightGridBuffer    = inRGResources.GetBindlessHeapIndex(inData.mLightGridBuffer),
+            .mLightIndicesBuffer = inRGResources.GetBindlessHeapIndex(inData.mLightIndicesBuffer),
         };
 
         //inData.mRootConstants.mFullResSize = inRenderGraph.GetViewport().GetRenderSize();
@@ -832,13 +923,13 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
     {
         LightingRootConstants root_constants =
         {
-            .mSkyCubeTexture          = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mSkyCubeTextureSRV)),
-            .mShadowMaskTexture       = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mShadowMaskTextureSRV)),
-            .mReflectionsTexture      = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mReflectionsTextureSRV)),
-            .mGbufferDepthTexture     = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mGBufferDepthTextureSRV)),
-            .mGbufferRenderTexture    = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mGBufferRenderTextureSRV)),
-            .mIndirectDiffuseTexture  = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mIndirectDiffuseTextureSRV)),
-            .mAmbientOcclusionTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mAmbientOcclusionTextureSRV)),
+            .mSkyCubeTexture          = inRGResources.GetBindlessHeapIndex(inData.mSkyCubeTextureSRV),
+            .mShadowMaskTexture       = inRGResources.GetBindlessHeapIndex(inData.mShadowMaskTextureSRV),
+            .mReflectionsTexture      = inRGResources.GetBindlessHeapIndex(inData.mReflectionsTextureSRV),
+            .mGbufferDepthTexture     = inRGResources.GetBindlessHeapIndex(inData.mGBufferDepthTextureSRV),
+            .mGbufferRenderTexture    = inRGResources.GetBindlessHeapIndex(inData.mGBufferRenderTextureSRV),
+            .mIndirectDiffuseTexture  = inRGResources.GetBindlessHeapIndex(inData.mIndirectDiffuseTextureSRV),
+            .mAmbientOcclusionTexture = inRGResources.GetBindlessHeapIndex(inData.mAmbientOcclusionTextureSRV),
         };
 
         uint32_t lights_count = inScene->Count<Light>();
@@ -846,7 +937,7 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
         if (lights_count > 0)
         {
             root_constants.mLightsCount = lights_count;
-            root_constants.mLightsBuffer = inDevice.GetBindlessHeapIndex(inScene.GetLightsDescriptor(inDevice));
+            root_constants.mLightsBuffer = inScene.GetLightsDescriptorIndex();
         }
 
         root_constants.mLights = inLightData.mRootConstants;
@@ -910,10 +1001,10 @@ const TAAResolveData& AddTAAResolvePass(RenderGraph& inRenderGraph, Device& inDe
         inCmdList.PushGraphicsConstants(TAAResolveConstants {
             .mRenderSize      = inRenderGraph.GetViewport().GetRenderSize(),
             .mRenderSizeRcp   = 1.0f / Vec2(inRenderGraph.GetViewport().GetRenderSize()),
-            .mColorTexture    = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mColorTextureSRV)),
-            .mDepthTexture    = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mDepthTextureSRV)),
-            .mHistoryTexture  = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mHistoryTextureSRV)),
-            .mVelocityTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mVelocityTextureSRV))
+            .mColorTexture    = inResources.GetBindlessHeapIndex(inData.mColorTextureSRV),
+            .mDepthTexture    = inResources.GetBindlessHeapIndex(inData.mDepthTextureSRV),
+            .mHistoryTexture  = inResources.GetBindlessHeapIndex(inData.mHistoryTextureSRV),
+            .mVelocityTexture = inResources.GetBindlessHeapIndex(inData.mVelocityTextureSRV)
         });
 
         inCmdList->DrawInstanced(3, 1, 0, 0);
@@ -967,9 +1058,9 @@ const DepthOfFieldData& AddDepthOfFieldPass(RenderGraph& inRenderGraph, Device& 
         const Viewport& viewport = inRenderGraph.GetViewport();
 
         inCmdList.PushComputeConstants(DepthOfFieldRootConstants {
-            .mDepthTexture  = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mDepthTextureSRV)),
-            .mInputTexture  = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mInputTextureSRV)),
-            .mOutputTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTexture(inData.mOutputTexture)),
+            .mDepthTexture  = inRGResources.GetBindlessHeapIndex(inData.mDepthTextureSRV),
+            .mInputTexture  = inRGResources.GetBindlessHeapIndex(inData.mInputTextureSRV),
+            .mOutputTexture = inRGResources.GetBindlessHeapIndex(inData.mOutputTexture),
             .mFarPlane      = viewport.GetCamera().GetFar(),
             .mNearPlane     = viewport.GetCamera().GetNear(),
             .mFocusPoint    = RenderSettings::mDoFFocusPoint,
@@ -1015,30 +1106,21 @@ const BloomPassData& AddBloomPass(RenderGraph& inRenderGraph, Device& inDevice, 
         },
         [&inRenderGraph, &inDevice, inPipeline](BloomBlurData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
         {
-            uint32_t nr_of_rows = 0u;
-            uint64_t row_size = 0ull, total_size = 0ull;
-            D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint = {};
-
-            D3D12_RESOURCE_DESC desc = inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mFromTextureSRV))->GetDesc();
-            inDevice->GetCopyableFootprints(&desc, inData.mFromTextureMip, 1, 0, &footprint, &nr_of_rows, &row_size, &total_size);
-
-            const Texture& src_texture = inDevice.GetTexture(inResources.GetTextureView(inData.mFromTextureSRV));
-            const UVec2 src_mip_size = UVec2(src_texture.GetWidth(), src_texture.GetHeight());
-
-            const CD3DX12_VIEWPORT dest_viewport = CD3DX12_VIEWPORT(inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mToTextureUAV)), inData.mToTextureMip);
+            const CD3DX12_VIEWPORT to_viewport = CD3DX12_VIEWPORT(inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mToTextureUAV)), inData.mToTextureMip);
+            const CD3DX12_VIEWPORT from_viewport = CD3DX12_VIEWPORT(inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mFromTextureSRV)), inData.mFromTextureMip);
             
             inCmdList.PushComputeConstants(BloomRootConstants
             {
-                .mSrcTexture   = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mFromTextureSRV)),
+                .mSrcTexture   = inResources.GetBindlessHeapIndex(inData.mFromTextureSRV),
                 .mSrcMipLevel  = inData.mFromTextureMip,
-                .mDstTexture   = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mToTextureUAV)),
+                .mDstTexture   = inResources.GetBindlessHeapIndex(inData.mToTextureUAV),
                 .mDstMipLevel  = inData.mToTextureMip,
-                .mDispatchSize = UVec2(dest_viewport.Width, dest_viewport.Height),
-                .mSrcSizeRcp   = Vec2(1.0f / (src_mip_size.x >> inData.mFromTextureMip), 1.0f / (src_mip_size.y >> inData.mFromTextureMip))
+                .mDispatchSize = UVec2(to_viewport.Width, to_viewport.Height),
+                .mSrcSizeRcp   = Vec2(1.0f / from_viewport.Width, 1.0f / from_viewport.Height)
             });
 
             inCmdList->SetPipelineState(inPipeline);
-            inCmdList->Dispatch(( dest_viewport.Width + 7 ) / 8, ( dest_viewport.Height + 7 ) / 8, 1);
+            inCmdList->Dispatch(( to_viewport.Width + 7 ) / 8, ( to_viewport.Height + 7 ) / 8, 1);
         });
     };
     
@@ -1057,14 +1139,14 @@ const BloomPassData& AddBloomPass(RenderGraph& inRenderGraph, Device& inDevice, 
     return inRenderGraph.AddComputePass<BloomPassData>("BLOOM PASS",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, BloomPassData& inData)
     {
-        const uint32_t mip_levels = 6u;
+        const uint32_t cMipLevels = 6u;
 
         inData.mOutputTexture = ioRGBuilder.Create(Texture::Desc
         {
             .format    = DXGI_FORMAT_R32G32B32A32_FLOAT,
             .width     = inRenderGraph.GetViewport().size.x,
             .height    = inRenderGraph.GetViewport().size.y,
-            .mipLevels = mip_levels,
+            .mipLevels = cMipLevels,
             .usage     = Texture::SHADER_READ_WRITE,
             .debugName = "RT_BloomResult"
         });
@@ -1075,11 +1157,11 @@ const BloomPassData& AddBloomPass(RenderGraph& inRenderGraph, Device& inDevice, 
         AddDownsamplePass(inInputTexture, inData.mOutputTexture, 0, 1);
 
         // downsample along the bloom chain
-        for (uint32_t mip = 1u; mip < mip_levels - 1; mip++)
+        for (uint32_t mip = 1u; mip < cMipLevels - 1; mip++)
             AddDownsamplePass(inData.mOutputTexture, inData.mOutputTexture, mip, mip + 1);
 
         // upsample along the bloom chain
-        for (uint32_t mip = mip_levels - 1; mip > 0; mip--)
+        for (uint32_t mip = cMipLevels - 1; mip > 0; mip--)
             AddUpsamplePass(inData.mOutputTexture, inData.mOutputTexture, mip, mip - 1);
     },
 
@@ -1174,8 +1256,8 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, 
         inCmdList.SetViewportAndScissor(inRenderGraph.GetViewport());
 
         ComposeRootConstants root_constants = ComposeRootConstants {
-            .mBloomTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mBloomTextureSRV)),
-            .mInputTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mInputTextureSRV)),
+            .mBloomTexture = inResources.GetBindlessHeapIndex(inData.mBloomTextureSRV),
+            .mInputTexture = inResources.GetBindlessHeapIndex(inData.mInputTextureSRV),
             .mSettings = {
                 .mExposure = RenderSettings::mExposure,
                 .mVignetteScale = RenderSettings::mVignetteScale,

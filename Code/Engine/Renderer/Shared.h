@@ -250,6 +250,16 @@ struct GbufferRootConstants
 };
 
 
+struct ShadowMapRootConstants
+{
+    uint     mInstancesBuffer;
+    uint     mMaterialsBuffer;
+    uint     mInstanceIndex;
+    uint     mPad0;
+    float4x4 mViewProjMatrix;
+};
+
+
 struct GbufferDebugRootConstants
 {
     uint     mTexture;

@@ -169,35 +169,28 @@ bool Upscaler::InitXeSS(Device& inDevice, const Viewport& inViewport)
     }
 
     const xess_2d_t display_res = { inViewport.size.x, inViewport.size.y };
-    xess_properties_t props;
+    xess_properties_t props = {};
     status = xessGetProperties(m_XeSSContext, &display_res, &props);
     if (status != XESS_RESULT_SUCCESS)
         return false;
 
-    xess_version_t xefx_version;
+    xess_version_t xefx_version = {};
     status = xessGetIntelXeFXVersion(m_XeSSContext, &xefx_version);
     if (status != XESS_RESULT_SUCCESS)
         return false;
 
     const UINT uav_desc_size = inDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-    xess_d3d12_init_params_t params = {
-        /* Output width and height. */
-        display_res,
-        /* Quality setting */
-        XESS_QUALITY_SETTING_ULTRA_QUALITY,
-        /* Initialization flags. */
-        XESS_INIT_FLAG_ENABLE_AUTOEXPOSURE
-    };
-
+    xess_d3d12_init_params_t params = {};
+    params.outputResolution = display_res;
+    params.initFlags = XESS_INIT_FLAG_ENABLE_AUTOEXPOSURE;
     params.qualitySetting = Upscaler::sGetQualityXeSS(EUpscalerQuality(m_Settings.mUpscaleQuality));
 
     status = xessD3D12Init(m_XeSSContext, &params);
     if (status != XESS_RESULT_SUCCESS)
         return false;
 
-    // Get optimal input resolution
-    xess_2d_t render_res = xess_2d_t {};
+    xess_2d_t render_res = {};
     status = xessGetInputResolution(m_XeSSContext, &display_res, XESS_QUALITY_SETTING_ULTRA_QUALITY, &render_res);
     if (status != XESS_RESULT_SUCCESS)
         return false;
@@ -211,7 +204,6 @@ bool Upscaler::DestroyXeSS(Device& inDevice)
 {
     return xessDestroyContext(m_XeSSContext) == XESS_RESULT_SUCCESS;
 }
-
 
 
 

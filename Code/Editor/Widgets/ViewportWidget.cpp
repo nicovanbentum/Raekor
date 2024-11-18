@@ -364,7 +364,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 		ImGui::Checkbox("Show Debug Icons", (bool*)&show_debug_icons);
 
-		int& current_debug_texture = m_Editor->GetRenderInterface()->GetSettings().mDebugTexture;
+		int current_debug_texture = m_Editor->GetRenderInterface()->GetDebugTextureIndex();
 		const uint32_t debug_texture_count = m_Editor->GetRenderInterface()->GetDebugTextureCount();
 
 		ImGui::AlignTextToFramePadding();
@@ -375,7 +375,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			{
 				if (ImGui::RadioButton(m_Editor->GetRenderInterface()->GetDebugTextureName(texture_idx), current_debug_texture == texture_idx))
 				{
-					current_debug_texture = texture_idx;
+					m_Editor->GetRenderInterface()->SetDebugTextureIndex(texture_idx);
 					m_Editor->GetRenderInterface()->OnResize(viewport); // not an actual resize, just to recreate render targets
 				}
 			}

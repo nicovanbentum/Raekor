@@ -38,7 +38,7 @@ struct RenderSettings
     static inline bool mPathTraceReset = false;
     static inline uint32_t mPathTraceBounces = 2u;
 
-    static inline float mDDGIDebugRadius = 1.0f;
+    static inline float mDDGIDebugRadius = 0.25f;
     static inline IVec3 mDDGIDebugProbe = IVec3(10, 10, 5);
     static inline IVec3 mDDGIProbeCount = IVec3(22, 22, 22);
     static inline Vec3 mDDGIProbeSpacing = Vec3(6.4, 3.0, 2.8);
@@ -74,8 +74,6 @@ enum EDebugTexture
 ////////////////////////////////////////
 struct DefaultTexturesData
 {
-    RTTI_DECLARE_TYPE(DefaultTexturesData);
-
     RenderGraphResourceID mBlackTexture;
     RenderGraphResourceID mWhiteTexture;
 };
@@ -92,8 +90,6 @@ const DefaultTexturesData& AddDefaultTexturesPass(RenderGraph& inRenderGraph, De
 ////////////////////////////////////////
 struct ClearBufferData
 {
-    RTTI_DECLARE_TYPE(ClearBufferData);
-
     RenderGraphResourceViewID mBufferUAV;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
@@ -110,8 +106,6 @@ const ClearBufferData& AddClearBufferPass(RenderGraph& inRenderGraph, Device& in
 ////////////////////////////////////////
 struct ClearTextureFloatData
 {
-    RTTI_DECLARE_TYPE(ClearTextureFloatData);
-
     RenderGraphResourceViewID mTextureUAV;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
@@ -127,7 +121,6 @@ const ClearTextureFloatData& AddClearTextureFloatPass(RenderGraph& inRenderGraph
 ////////////////////////////////////////
 struct TransitionResourceData
 {
-    RTTI_DECLARE_TYPE(TransitionResourceData);
     RenderGraphResourceViewID mResourceView;
 };
 
@@ -144,8 +137,6 @@ const TransitionResourceData& AddTransitionResourceData(RenderGraph& inRenderGra
 ////////////////////////////////////////
 struct SkyCubeData
 {
-    RTTI_DECLARE_TYPE(SkyCubeData);
-
     RenderGraphResourceID mSkyCubeTexture;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
@@ -161,8 +152,6 @@ const SkyCubeData& AddSkyCubePass(RenderGraph& inRenderGraph, Device& inDevice,
 ////////////////////////////////////////
 struct ConvolveCubeData
 {
-    RTTI_DECLARE_TYPE(ConvolveCubeData);
-
     RenderGraphResourceViewID mCubeTextureSRV;
     RenderGraphResourceID mConvolvedCubeTexture;
     ComPtr<ID3D12PipelineState> mPipeline;
@@ -179,7 +168,7 @@ const ConvolveCubeData& AddConvolveSkyCubePass(RenderGraph& inRenderGraph, Devic
 ////////////////////////////////////////
 struct SkinningData
 {
-    RTTI_DECLARE_TYPE(SkinningData);
+    // all data is stored in Mesh
 };
 
 const SkinningData& AddSkinningPass(RenderGraph& inRenderGraph, Device& inDevice,
@@ -201,8 +190,6 @@ struct GBufferOutput
 
 struct GBufferData
 {
-    RTTI_DECLARE_TYPE(GBufferData);
-
     GBufferOutput mOutput;
     IRenderPass* mRenderPass = nullptr;
     ComPtr<ID3D12PipelineState> mPipeline;
@@ -226,8 +213,6 @@ const GBufferData& AddMeshletsRasterPass(RenderGraph& inRenderGraph, Device& inD
 //////////////////////////////////////////
 struct GBufferDebugData
 {
-    RTTI_DECLARE_TYPE(GBufferDebugData);
-
     GBufferData mGBufferData;
     RenderGraphResourceID mOutputTexture;
     RenderGraphResourceViewID mInputTextureSRV;
@@ -240,13 +225,26 @@ const GBufferDebugData& AddGBufferDebugPass(RenderGraph& inRenderGraph, Device& 
 );
 
 
+
+//////////////////////////////////////////
+///// Shadow Map Pass
+//////////////////////////////////////////
+struct ShadowMapData
+{
+    RenderGraphResourceID mOutputTexture;
+    ComPtr<ID3D12PipelineState> mPipeline;
+};
+
+const ShadowMapData& AddShadowMapPass(RenderGraph& inRenderGraph, Device& inDevice,
+    const RayTracedScene& inScene
+);
+
+
 ////////////////////////////////////////
 /// SSAO Render Pass
 ////////////////////////////////////////
 struct SSAOTraceData
 {
-    RTTI_DECLARE_TYPE(SSAOTraceData);
-
     RenderGraphResourceID mOutputTexture;
     RenderGraphResourceViewID mDepthTexture;
     RenderGraphResourceViewID mGBufferTexture;
@@ -263,8 +261,6 @@ const SSAOTraceData& AddSSAOTracePass(RenderGraph& inRenderGraph, Device& inDevi
 ////////////////////////////////////////
 struct SSRTraceData
 {
-    RTTI_DECLARE_TYPE(SSRTraceData);
-
     RenderGraphResourceID mOutputTexture;
     RenderGraphResourceViewID mSceneTexture;
     RenderGraphResourceViewID mDepthTexture;
@@ -283,8 +279,6 @@ const SSRTraceData& AddSSRTracePass(RenderGraph& inRenderGraph, Device& inDevice
 //////////////////////////////////////////
 struct GrassData
 {
-    RTTI_DECLARE_TYPE(GrassData);
-
     BufferID mPerBladeIndexBuffer;
     RenderGraphResourceViewID mDepthTextureSRV;
     RenderGraphResourceViewID mRenderTextureSRV;
@@ -302,8 +296,6 @@ const GrassData& AddGrassRenderPass(RenderGraph& inGraph, Device& inDevice,
 //////////////////////////////////////////
 struct DownsampleData
 {
-    RTTI_DECLARE_TYPE(DownsampleData);
-
     RenderGraphResourceID mGlobalAtomicBuffer;
     RenderGraphResourceViewID mSourceTextureUAV;
     RenderGraphResourceViewID mSourceTextureMipsUAVs[12];
@@ -320,8 +312,6 @@ const DownsampleData& AddDownsamplePass(RenderGraph& inRenderGraph, Device& inDe
 //////////////////////////////////////////
 struct TiledLightCullingData
 {
-    RTTI_DECLARE_TYPE(TiledLightCullingData);
-
     RenderGraphResourceID mLightGridBuffer;
     RenderGraphResourceID mLightIndicesBuffer;
     TiledLightCullingRootConstants mRootConstants;
@@ -335,9 +325,7 @@ const TiledLightCullingData& AddTiledLightCullingPass(RenderGraph& inRenderGraph
 //////////////////////////////////////////
 struct LightingData
 {
-    RTTI_DECLARE_TYPE(LightingData);
-
-    DDGIData        mDDGIData;
+    DDGIData mDDGIData;
     RenderGraphResourceID mOutputTexture;
     RenderGraphResourceViewID mSkyCubeTextureSRV;
     RenderGraphResourceViewID mShadowMaskTextureSRV;
@@ -367,8 +355,6 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
 //////////////////////////////////////////
 struct TAAResolveData
 {
-    RTTI_DECLARE_TYPE(TAAResolveData);
-
     uint32_t mFrameCounter = 0;
     RenderGraphResourceID mOutputTexture;
     RenderGraphResourceID mHistoryTexture;
@@ -391,8 +377,6 @@ const TAAResolveData& AddTAAResolvePass(RenderGraph& inRenderGraph, Device& inDe
 ////////////////////////////////////////
 struct DepthOfFieldData
 {
-    RTTI_DECLARE_TYPE(DepthOfFieldData);
-
     RenderGraphResourceID mOutputTexture;
     RenderGraphResourceViewID mDepthTextureSRV;
     RenderGraphResourceViewID mInputTextureSRV;
@@ -410,8 +394,6 @@ const DepthOfFieldData& AddDepthOfFieldPass(RenderGraph& inRenderGraph, Device& 
 ////////////////////////////////////////
 struct LuminanceHistogramData 
 {
-    RTTI_DECLARE_TYPE(LuminanceHistogramData);
-
     RenderGraphResourceID mHistogramBuffer;
     RenderGraphResourceViewID mInputTextureSRV;
 };
@@ -427,8 +409,6 @@ const LuminanceHistogramData& AddLuminanceHistogramPass(RenderGraph& inRenderGra
 ////////////////////////////////////////
 struct ComposeData
 {
-    RTTI_DECLARE_TYPE(ComposeData);
-
     RenderGraphResourceID mOutputTexture;
     RenderGraphResourceViewID mInputTextureSRV;
     RenderGraphResourceViewID mBloomTextureSRV;;
@@ -446,8 +426,6 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice,
 ////////////////////////////////////////
 struct BloomBlurData
 {
-    RTTI_DECLARE_TYPE(BloomBlurData);
-
     uint32_t mToTextureMip = 0;
     uint32_t mFromTextureMip = 0;
     RenderGraphResourceViewID mToTextureUAV;
@@ -457,8 +435,6 @@ struct BloomBlurData
 
 struct BloomPassData
 {
-    RTTI_DECLARE_TYPE(BloomPassData);
-
     RenderGraphResourceID mOutputTexture;
 };
 
@@ -473,8 +449,6 @@ const BloomPassData& AddBloomPass(RenderGraph& inRenderGraph, Device& inDevice,
 ////////////////////////////////////////
 struct DebugPrimitivesData
 {
-    RTTI_DECLARE_TYPE(DebugPrimitivesData);
-
     uint32_t mLineVertexDataOffset = 0;
     uint32_t mTriangleVertexDataOffset = 0;
 
@@ -497,8 +471,6 @@ const DebugPrimitivesData& AddDebugOverlayPass(RenderGraph& inRenderGraph, Devic
 ////////////////////////////////////////
 struct PreImGuiData
 {
-    RTTI_DECLARE_TYPE(PreImGuiData);
-
     RenderGraphResourceViewID mDisplayTextureSRV;
 };
 
@@ -512,8 +484,6 @@ const PreImGuiData& AddPreImGuiPass(RenderGraph& inRenderGraph, Device& inDevice
 ////////////////////////////////////////
 struct ImGuiData
 {
-    RTTI_DECLARE_TYPE(ImGuiData);
-
     RenderGraphResourceID mIndexBuffer;
     RenderGraphResourceID mVertexBuffer;
     RenderGraphResourceViewID mBackBufferRTV;

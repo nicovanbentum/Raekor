@@ -156,6 +156,15 @@ void CommandList::BindVertexAndIndexBuffers(Device& inDevice, const RK::Mesh& in
 }
 
 
+void CommandList::SetViewportAndScissor(const Texture& inTexture)
+{
+    const D3D12_VIEWPORT vp = CD3DX12_VIEWPORT(inTexture.GetD3D12Resource().Get());
+    const D3D12_RECT scissor = CD3DX12_RECT(vp.TopLeftX, vp.TopLeftY, vp.Width, vp.Height);
+
+    m_CommandLists[m_CurrentCmdListIndex]->RSSetViewports(1, &vp);
+    m_CommandLists[m_CurrentCmdListIndex]->RSSetScissorRects(1, &scissor);
+}
+
 
 void CommandList::SetViewportAndScissor(const Viewport& inViewport)
 {

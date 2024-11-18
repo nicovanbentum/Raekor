@@ -427,14 +427,25 @@ void RenderGraphResources::Compile(Device& inDevice, const RenderGraphBuilder& i
         {
             resource.mImported = true;
             resource.mResourceID = desc.mResourceID;
+
+            if (desc.mResourceType == RESOURCE_TYPE_BUFFER)
+            {
+                resource.mDescriptorID = inDevice.GetBuffer(resource.mResourceID).GetDescriptor();
+            }
+            else if (desc.mResourceType == RESOURCE_TYPE_TEXTURE)
+            {
+                resource.mDescriptorID = inDevice.GetTexture(resource.mResourceID).GetDescriptor();
+            }
         }
         else if (desc.mResourceType == RESOURCE_TYPE_BUFFER)
         {
             resource.mResourceID = m_Allocator.CreateBuffer(inDevice, desc.mBufferDesc);
+            resource.mDescriptorID = inDevice.GetBuffer(resource.mResourceID).GetDescriptor();
         }
         else if (desc.mResourceType == RESOURCE_TYPE_TEXTURE)
         {
             resource.mResourceID = m_Allocator.CreateTexture(inDevice, desc.mTextureDesc);
+            resource.mDescriptorID = inDevice.GetTexture(resource.mResourceID).GetDescriptor();
         }
 
         m_Resources.push_back(resource);
@@ -456,14 +467,20 @@ void RenderGraphResources::Compile(Device& inDevice, const RenderGraphBuilder& i
         if (resource.mResourceType == RESOURCE_TYPE_BUFFER)
         {
             if (descriptor_desc.mResourceDesc.mBufferDesc != resource_desc.mBufferDesc)
+            {
                 new_resource.mResourceID = inDevice.CreateBufferView(BufferID(device_resource_id), descriptor_desc.mResourceDesc.mBufferDesc);
+                new_resource.mDescriptorID = inDevice.GetBuffer(new_resource.mResourceID).GetDescriptor();
+            }
         }
         else if (resource.mResourceType == RESOURCE_TYPE_TEXTURE)
         {
             // TODO: if this check does not pass we don't need to create a new View and just use the original texture,
             // but result is duplicate ResourceID's in m_ResourceViews and m_Resources, so when we Clear/Destroy we end up double freeing.. do I want to no-op double free or fix the logic?
             if (descriptor_desc.mResourceDesc.mTextureDesc != resource_desc.mTextureDesc)
+            {
                 new_resource.mResourceID = inDevice.CreateTextureView(TextureID(device_resource_id), descriptor_desc.mResourceDesc.mTextureDesc);
+                new_resource.mDescriptorID = inDevice.GetTexture(new_resource.mResourceID).GetDescriptor();
+            }
         }
 
         m_ResourceViews.push_back(new_resource);
@@ -933,6 +950,14 @@ bool RenderGraph::Compile(Device& inDevice, const GlobalConstants& inGlobalConst
     assert(m_TimestampQueryHeap == nullptr);
     inDevice->CreateQueryHeap(&query_heap_desc, IID_PPV_ARGS(m_TimestampQueryHeap.GetAddressOf()));
 
+    m_TimestampReadbackBuffer = inDevice.CreateBuffer(Buffer::Desc 
+{
+        .size = sizeof(uint64_t) * query_heap_desc.Count,
+        .usage = Buffer::READBACK,
+        .mappable = true,
+        .debugName = "TimestampReadbackBuffer"
+    });
+
     return true;
 }
 
@@ -970,6 +995,11 @@ void RenderGraph::Execute(Device& inDevice, CommandList& inCmdList)
 
     if (!m_FinalBarriers.empty())
         inCmdList->ResourceBarrier(m_FinalBarriers.size(), m_FinalBarriers.data());
+
+    const Buffer& timestamp_buffer = inDevice.GetBuffer(m_TimestampReadbackBuffer);
+    const uint32_t timestamp_count = timestamp_buffer.GetSize() / sizeof(uint64_t);
+    ID3D12Resource* timestamp_resource = timestamp_buffer.GetD3D12Resource().Get();
+    inCmdList->ResolveQueryData(m_TimestampQueryHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 0, timestamp_count, timestamp_resource, 0);
 }
 
 

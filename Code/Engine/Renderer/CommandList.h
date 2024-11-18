@@ -31,6 +31,7 @@ public:
     uint32_t GetFrameIndex() const { return m_FrameIndex; }
     uint64_t GetFenceValue() const { return m_SubmitFenceValue; }
 
+    void SetViewportAndScissor(const Texture& inTexture);
     void SetViewportAndScissor(const Viewport& inViewport);
 
     void ClearBuffer(Device& inDevice, BufferID inBuffer, Vec4 inValue);

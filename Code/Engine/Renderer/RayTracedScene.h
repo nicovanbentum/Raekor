@@ -4,6 +4,7 @@
 #include "Device.h"
 #include "Defines.h"
 #include "Resource.h"
+#include "Components.h"
 
 namespace RK {
 
@@ -29,10 +30,19 @@ public:
     Scene* operator-> ()                    { return &m_Scene; }
     const Scene* operator-> () const        { return &m_Scene; }
 
-    DescriptorID GetTLASDescriptor(Device& inDevice) const { return inDevice.GetBuffer(m_TLASBuffer).GetDescriptor(); }
-    DescriptorID GetLightsDescriptor(Device& inDevice) const { return inDevice.GetBuffer(m_LightsBuffer).GetDescriptor(); }
-    DescriptorID GetInstancesDescriptor(Device& inDevice) const { return inDevice.GetBuffer(m_InstancesBuffer).GetDescriptor(); }
-    DescriptorID GetMaterialsDescriptor(Device& inDevice) const { return inDevice.GetBuffer(m_MaterialsBuffer).GetDescriptor(); }
+    bool HasTLAS() const { return m_TLASBuffer.IsValid() && GetInstancesCount() > 0; }
+    bool HasLights() const { return m_LightsBuffer.IsValid() && GetLightsCount() > 0; }
+    bool HasInstances() const { return m_InstancesBuffer.IsValid() && GetInstancesCount() > 0; }
+    bool HasMaterials() const { return m_MaterialsBuffer.IsValid() && GetMaterialsCount() > 0; }
+
+    uint32_t GetLightsCount() const { return m_Scene.Count<Light>(); }
+    uint32_t GetInstancesCount() const { return m_Scene.Count<Mesh>(); }
+    uint32_t GetMaterialsCount() const { return m_Scene.Count<Material>(); }
+
+    uint32_t GetTLASDescriptorIndex() const { return m_TLASDescriptor.GetIndex(); }
+    uint32_t GetLightsDescriptorIndex() const { return m_LightsDescriptor.GetIndex(); }
+    uint32_t GetInstancesDescriptorIndex() const { return m_InstancesDescriptor.GetIndex(); }
+    uint32_t GetMaterialsDescriptorIndex() const { return m_MaterialsDescriptor.GetIndex(); }
 
     void UploadMesh(Application* inApp, Device& inDevice, Mesh& inMesh, Skeleton* inSkeleton, CommandList& inCmdList);
     void UpdateBLAS(Application* inApp, Device& inDevice, Mesh& inMesh, Skeleton* inSkeleton, CommandList& inCmdList);
@@ -50,12 +60,18 @@ private:
 
 private:
     Scene& m_Scene;
+    
     BufferID m_TLASBuffer;
     BufferID m_LightsBuffer;
     BufferID m_ScratchBuffer;
-    BufferID m_MaterialsBuffer;
     BufferID m_InstancesBuffer;
+    BufferID m_MaterialsBuffer;
     BufferID m_D3D12InstancesBuffer;
+
+    DescriptorID m_TLASDescriptor;
+    DescriptorID m_LightsDescriptor;
+    DescriptorID m_InstancesDescriptor;
+    DescriptorID m_MaterialsDescriptor;
 };
 
 }

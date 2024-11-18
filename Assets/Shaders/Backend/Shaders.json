@@ -38,7 +38,11 @@
             "Vertex Shader File": "Assets/Shaders/Backend/GBufferVS.hlsl",
             "Pixel Shader File": "Assets/Shaders/Backend/GBufferPS.hlsl"
         },
-
+        "Shadow Map Shader":
+        {
+            "Vertex Shader File": "Assets/Shaders/Backend/ShadowMapVS.hlsl",
+            "Pixel Shader File": "Assets/Shaders/Backend/ShadowMapPS.hlsl"
+        },
         "SSR Trace Shader":
         {
             "Compute Shader File": "Assets/Shaders/Backend/SSRTraceCS.hlsl"

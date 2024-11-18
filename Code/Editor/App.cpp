@@ -36,6 +36,10 @@ public:
     const Array<GPUProfileSection>& GetGPUProfileSections() const { return m_HistoryGPUSections; }
 
 private:
+    uint32_t m_TimestampCount = 0;
+    BufferID m_TimestampReadbackBuffer;
+    ComPtr<ID3D12QueryHeap> m_TimestampQueryHeap = nullptr;
+
     Array<GPUProfileSection> m_GPUSections;
     Array<GPUProfileSection> m_HistoryGPUSections;
 };

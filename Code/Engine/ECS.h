@@ -375,7 +375,7 @@ public:
 	template<typename Component>
 	bool Any() const
 	{
-		return m_Components.contains(gGetTypeHash<Component>());
+		return m_Components.contains(gGetTypeHash<Component>()) && Count<Component>() > 0;
 	}
 
 	template<typename ...Components>

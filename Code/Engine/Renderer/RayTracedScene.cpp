@@ -280,6 +280,8 @@ void RayTracedScene::UploadTLAS(Application* inApp, Device& inDevice, CommandLis
         .debugName = "TLAS_FULL_SCENE"
     });
 
+    m_TLASDescriptor = inDevice.GetBuffer(m_TLASBuffer).GetDescriptor();
+
     m_ScratchBuffer = GrowBuffer(inDevice, m_ScratchBuffer, Buffer::Desc
     {
         .size = prebuild_info.ScratchDataSizeInBytes,
@@ -313,6 +315,8 @@ void RayTracedScene::UploadLights(Application* inApp, Device& inDevice, CommandL
         .usage  = Buffer::Usage::SHADER_READ_ONLY,
         .debugName = "RT_LIGHTS_BUFFER"
     });
+
+    m_LightsDescriptor = inDevice.GetBuffer(m_LightsBuffer).GetDescriptor();
 
     const Buffer& lights_buffer = inDevice.GetBuffer(m_LightsBuffer);
     
@@ -366,6 +370,8 @@ void RayTracedScene::UploadInstances(Application* inApp, Device& inDevice, Comma
         .debugName = "RT_INSTANCE_BUFFER"
     });
 
+    m_InstancesDescriptor = inDevice.GetBuffer(m_InstancesBuffer).GetDescriptor();
+
     const Buffer& instance_buffer = inDevice.GetBuffer(m_InstancesBuffer);
     inDevice.UploadBufferData(inCmdList, instance_buffer, 0, rt_geometries.data(), instance_buffer.GetSize());
 }
@@ -414,6 +420,8 @@ void RayTracedScene::UploadMaterials(Application* inApp, Device& inDevice, Comma
         .usage     = Buffer::Usage::SHADER_READ_ONLY,
         .debugName = "MaterialsBuffer"
     });
+
+    m_MaterialsDescriptor = inDevice.GetBuffer(m_MaterialsBuffer).GetDescriptor();
 
     const Buffer& materials_buffer = inDevice.GetBuffer(m_MaterialsBuffer);
     inDevice.UploadBufferData(inCmdList, materials_buffer, 0, rt_materials.data(), materials_buffer.GetSize());

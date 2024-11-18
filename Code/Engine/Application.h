@@ -152,10 +152,12 @@ public:
 		int& shouldVoxelize = g_CVariables->Create("r_voxelize",			0);
 		int& enableTAA		= g_CVariables->Create("r_taa",				0);
 		int& mDebugTexture	= g_CVariables->Create("r_debug_texture",	0, true);
-	} mSettings;
+	} m_Settings;
 
-	Settings& GetSettings() { return mSettings; }
+	Settings& GetSettings() { return m_Settings; }
 	GPUStats& GetGPUStats() { return m_GPUStats; }
+	const Settings& GetSettings() const { return m_Settings; }
+	const GPUStats& GetGPUStats() const { return m_GPUStats; }
 
 	const GPUInfo& GetGPUInfo() const { return m_GPUInfo; }
 	void SetGPUInfo(const GPUInfo& inInfo) { m_GPUInfo = inInfo; }
@@ -167,6 +169,9 @@ public:
 	
 	virtual uint64_t GetLightTexture() { return 0; };
 	virtual uint64_t GetDisplayTexture() = 0;
+
+	virtual uint64_t GetDebugTextureIndex() const = 0;
+	virtual void SetDebugTextureIndex(int inIndex) = 0;
 
 	virtual uint32_t    GetDebugTextureCount() const = 0;
 	virtual const char* GetDebugTextureName(uint32_t inIndex) const = 0;
@@ -187,7 +192,6 @@ public:
 	virtual void UploadSkeletonBuffers(Entity inEntity, Skeleton& inSkeleton, Mesh& inMesh) = 0;
 	virtual void DestroySkeletonBuffers(Entity inEntity, Skeleton& inSkeleton) = 0;
 
-	/* Implementation resides in Systems.cpp to avoid conflicts. */
 	virtual void UploadMaterialTextures(Entity inEntity, Material& inMaterial, Assets& inAssets);
 	virtual void DestroyMaterialTextures(Entity inEntity, Material& inMaterial, Assets& inAssets) = 0;
 
