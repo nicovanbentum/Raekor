@@ -1,7 +1,8 @@
 #pragma once
 
-#include "ecs.h"
-#include "scene.h"
+#include "ECS.h"
+#include "Scene.h"
+#include "Assets.h"
 
 #define DECLARE_SCRIPT_CLASS(T) class T : public INativeScript { public: RTTI_DECLARE_VIRTUAL_TYPE(T); };
 
@@ -12,8 +13,6 @@ namespace RK {
 
 class Input;
 class Scene;
-class Asset;
-class Assets;
 class Camera;
 class Physics;
 class Application;

@@ -95,6 +95,9 @@ public:
     [[nodiscard]] const Buffer::Pool& GetBufferPool() const { return m_Buffers; }
     [[nodiscard]] const Texture::Pool& GetTexturePool() const { return m_Textures; }
 
+    [[nodiscard]] uint64_t GetUploadBufferSize() const { return m_UploadBuffersSize; }
+    [[nodiscard]] const Array<UploadBuffer> GetUploadBuffers() const { return m_UploadBuffers; }
+
 private:
     void CreateDescriptor(BufferID inBufferID, const Buffer::Desc& inDesc);
     void CreateDescriptor(TextureID inTextureID, const Texture::Desc& inDesc);
@@ -120,6 +123,7 @@ private:
     ComPtr<ID3D12RootSignature> m_GlobalRootSignature;
 
     DescriptorHeap m_ClearHeap;
+    uint64_t m_UploadBuffersSize = 0;
     Array<UploadBuffer> m_UploadBuffers;
     StaticArray<DescriptorHeap, D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES> m_Heaps;
     StaticArray<ComPtr<ID3D12CommandSignature>, COMMAND_SIGNATURE_COUNT> m_CommandSignatures;

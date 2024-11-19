@@ -673,6 +673,8 @@ RenderGraph::RenderGraph(Device& inDevice, const Viewport& inViewport, uint32_t 
 void RenderGraph::Clear(Device& inDevice)
 {
     m_TimestampQueryHeap = nullptr;
+    if (m_TimestampReadbackBuffer.IsValid())
+        inDevice.ReleaseBuffer(m_TimestampReadbackBuffer);
 
     m_RenderPasses.clear();
     m_FinalBarriers.clear();

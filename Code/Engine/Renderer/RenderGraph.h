@@ -145,6 +145,8 @@ public:
     void Clear(Device& inDevice);
     void Compile(Device& inDevice, const RenderGraphBuilder& inBuilder);
 
+    const RenderGraphResourceAllocator& GetAllocator() const { return m_Allocator; }
+
     BufferID GetBufferView(RenderGraphResourceViewID inResource) const;
     TextureID GetTextureView(RenderGraphResourceViewID inResource) const;
     ResourceID GetResourceView(RenderGraphResourceViewID inResource) const;

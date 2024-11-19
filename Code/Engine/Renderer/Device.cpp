@@ -664,6 +664,8 @@ void Device::UploadBufferData(CommandList& inCmdList, const Buffer& inBuffer, ui
         .mPtr        = mapped_ptr,
         .mID        = buffer_id,
     });
+
+    m_UploadBuffersSize += buffer.GetD3D12Allocation()->GetSize();
 }
 
 
@@ -735,6 +737,8 @@ void Device::UploadTextureData(CommandList& inCmdList, const Texture& inTexture,
         .mPtr        = mapped_ptr,
         .mID         = buffer_id
     });
+
+    m_UploadBuffersSize += buffer.GetD3D12Allocation()->GetSize();
 
     auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(inTexture.GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ, inSubResource);
     inCmdList->ResourceBarrier(1, &barrier);

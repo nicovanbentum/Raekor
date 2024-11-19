@@ -528,7 +528,7 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
             AddSSRTracePass(m_RenderGraph, inDevice, gbuffer_output, compose_input).mOutputTexture;
 
         if (m_Settings.mEnableTAA)
-            compose_input = AddTAAResolvePass(m_RenderGraph, inDevice, gbuffer_output, light_data.mOutputTexture, m_FrameCounter).mOutputTexture;
+            compose_input = AddTAAResolvePass(m_RenderGraph, inDevice, gbuffer_output, light_data.mOutputTexture).mOutputTexture;
     }
 
     RenderGraphResourceID bloom_output = compose_input;

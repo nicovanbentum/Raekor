@@ -258,6 +258,13 @@ void DeviceResourcesWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
     DXApp* app = (DXApp*)m_Editor;
 
+    ImGui::Text("UploadBuffers: %.1f MBs", float(app->GetDevice().GetUploadBufferSize()) / 1'000'000);
+    
+    const RenderGraph& rg = app->GetRenderer().GetRenderGraph();
+    uint64_t rg_resources_size = rg.GetResources().GetAllocator().GetSize();
+
+    ImGui::Text("RenderGraphResourceAllocator: %.1f MBs", float(rg_resources_size) / 1'000'000);
+    
     const Buffer::Pool& buffer_pool = app->GetDevice().GetBufferPool();
     const Texture::Pool& texture_pool = app->GetDevice().GetTexturePool();
 
@@ -287,7 +294,10 @@ void DeviceResourcesWidget::Draw(Widgets* inWidgets, float inDeltaTime)
     ImGui::PushStyleColor(ImGuiCol_TableRowBg, ImVec4(0.15, 0.15, 0.15, 1.0));
     ImGui::PushStyleColor(ImGuiCol_TableRowBgAlt, ImVec4(0.20, 0.20, 0.20, 1.0));
 
-    m_UniqueResources.clear();
+    uint64_t buffers_total_size = 0;
+    uint64_t textures_total_size = 0;
+
+    m_SeenResources.clear();
 
     if (ImGui::CollapsingHeader("Buffers", ImGuiTreeNodeFlags_DefaultOpen))
     {
@@ -306,6 +316,10 @@ void DeviceResourcesWidget::Draw(Widgets* inWidgets, float inDeltaTime)
             ImGui::EndCombo();
         }
 
+        ImGui::SameLine();
+
+        ImGui::Text("Total Size: %.1f MBs", float(m_BuffersTotalSize) / 1'000'000);
+        
         if (ImGui::BeginTable("Buffers", 3, table_flags))
         {
             ImGui::TableSetupScrollFreeze(0, 1); // Make top row always visible
@@ -317,17 +331,24 @@ void DeviceResourcesWidget::Draw(Widgets* inWidgets, float inDeltaTime)
             {
                 D3D12ResourceRef resource = buffer.GetD3D12Resource();
                 D3D12AllocationRef allocation = buffer.GetD3D12Allocation();
-
+    
                 if (resource == nullptr)
                     continue;
 
-                if (m_UniqueResources.contains(resource.Get()))
+                if ((m_BufferUsageFilter & ( 1 << buffer.GetUsage())) == 0)
+                    continue;
+
+                if (m_SeenResources.contains(resource.Get()))
                     continue;
                 else
-                    m_UniqueResources.insert(resource.Get());
+                    m_SeenResources.insert(resource.Get());
 
-                if (( m_BufferUsageFilter & ( 1 << buffer.GetUsage() ) ) == 0)
-                    continue;
+                int byte_size = buffer.GetDesc().size;
+
+                if (allocation)
+                    byte_size = allocation->GetSize();
+
+                buffers_total_size += byte_size;
 
                 ImGui::TableNextRow();
 
@@ -339,11 +360,6 @@ void DeviceResourcesWidget::Draw(Widgets* inWidgets, float inDeltaTime)
                     ImGui::Text("N/A");
 
                 ImGui::TableNextColumn();
-
-                int byte_size = buffer.GetDesc().size;
-
-                if (allocation)
-                    byte_size = allocation->GetSize();
 
                 ImGui::Text("%.2f Kib", byte_size / 1000.0f);
 
@@ -373,11 +389,16 @@ void DeviceResourcesWidget::Draw(Widgets* inWidgets, float inDeltaTime)
             ImGui::EndCombo();
         }
 
+        ImGui::SameLine();
+
+        ImGui::Text("Total Size: %.1f MBs", float(m_TexturesTotalSize) / 1'000'000);
+
         if (ImGui::BeginTable("Textures", 3, table_flags))
         {
             ImGui::TableSetupScrollFreeze(0, 1); // Make top row always visible
             ImGui::TableSetupColumn("Name");
             ImGui::TableSetupColumn("Size");
+            ImGui::TableSetupColumn("Usage");
 
             for (const auto& [index, texture] : gEnumerate(texture_pool))
             {
@@ -386,15 +407,22 @@ void DeviceResourcesWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
                 if (resource == nullptr)
                     continue;
-
-                if (m_UniqueResources.contains(resource.Get()))
+                
+                if ((m_TextureUsageFilter & ( 1 << texture.GetUsage())) == 0)
+                    continue;
+                
+                if (m_SeenResources.contains(resource.Get()))
                     continue;
                 else
-                    m_UniqueResources.insert(resource.Get());
+                    m_SeenResources.insert(resource.Get());
 
-                if ( ( m_TextureUsageFilter & (1 << texture.GetUsage()) ) == 0)
-                    continue;
+                int byte_size = gBitsPerPixel(texture.GetFormat()) * ( texture.GetWidth() * texture.GetHeight() ) / 8.0f;
 
+                if (allocation)
+                    byte_size = allocation->GetSize();
+
+                textures_total_size += byte_size;
+                
                 ImGui::TableNextRow();
 
                 ImGui::TableNextColumn();
@@ -406,12 +434,7 @@ void DeviceResourcesWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
                 ImGui::TableNextColumn();
 
-                int byte_size = gBitsPerPixel(texture.GetFormat()) * ( texture.GetWidth() * texture.GetHeight() ) / 8.0f;
-
-                if (allocation)
-                    byte_size = allocation->GetSize();
-
-                ImGui::Text("%.2f Mib", byte_size / 1000000.0f);
+                ImGui::Text("%.2f Mib", byte_size / 1'000'000.0f);
 
                 ImGui::TableNextColumn();
 
@@ -422,9 +445,10 @@ void DeviceResourcesWidget::Draw(Widgets* inWidgets, float inDeltaTime)
         }
     }
 
+    m_BuffersTotalSize = buffers_total_size;
+    m_TexturesTotalSize = textures_total_size;
 
     ImGui::PopStyleColor(2);
-
     ImGui::End();
 }
 

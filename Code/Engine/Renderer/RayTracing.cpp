@@ -288,8 +288,8 @@ const RTAOData& AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDe
         {
             .mParams = AmbientOcclusionParams {
                 .mRadius = RenderSettings::mRTAORadius,
-                .mPower = RenderSettings::mRTAOPower,
-                .mNormalBias = RenderSettings::mRTAONormalBias,
+                .mPower  = RenderSettings::mRTAOPower,
+                .mNormalBias  = RenderSettings::mRTAONormalBias,
                 .mSampleCount = RenderSettings::mRTAOSampleCount
             },
             .mAOmaskTexture         = inRGResources.GetBindlessHeapIndex(inData.mOutputTexture),
@@ -554,7 +554,7 @@ DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTr
         inData.mRaysIrradianceTextureSRV = ioRGBuilder.Read(trace_data.mRaysIrradianceTexture);
     },
 
-    [&inDevice, &trace_data, &inScene](ProbeUpdateData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
+    [&inDevice, &trace_data, &inScene](ProbeUpdateData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
         if (!inScene.HasTLAS())
             return;
@@ -579,17 +579,17 @@ DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTr
                 .mProbeRadius = RenderSettings::mDDGIDebugRadius,
                 .mProbeSpacing = RenderSettings::mDDGIProbeSpacing,
                 .mCornerPosition = RenderSettings::mDDGICornerPosition,
-                .mRaysDepthTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mRaysDepthTextureSRV)),
-                .mProbesDepthTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mProbesDepthTextureUAV)),
-                .mRaysIrradianceTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mRaysIrradianceTextureSRV)),
-                .mProbesIrradianceTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mProbesIrradianceTextureUAV))
+                .mRaysDepthTexture = inResources.GetBindlessHeapIndex(inData.mRaysDepthTextureSRV),
+                .mProbesDepthTexture = inResources.GetBindlessHeapIndex(inData.mProbesDepthTextureUAV),
+                .mRaysIrradianceTexture = inResources.GetBindlessHeapIndex(inData.mRaysIrradianceTextureSRV),
+                .mProbesIrradianceTexture = inResources.GetBindlessHeapIndex(inData.mProbesIrradianceTextureUAV)
             }
         };
 
         inCmdList->SetPipelineState(g_SystemShaders.mProbeUpdateIrradianceShader.GetComputePSO());
         inCmdList.PushComputeConstants(root_constants);
 
-        const Texture& irradiance_texture = inDevice.GetTexture(inRGResources.GetTextureView(inData.mProbesIrradianceTextureUAV));
+        const Texture& irradiance_texture = inDevice.GetTexture(inResources.GetTextureView(inData.mProbesIrradianceTextureUAV));
         inCmdList->Dispatch(irradiance_texture.GetWidth() / DDGI_IRRADIANCE_TEXELS, irradiance_texture.GetHeight() / DDGI_IRRADIANCE_TEXELS, 1);
     });
 
@@ -625,9 +625,9 @@ DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTr
         inData.mProbesIrradianceTextureSRV = ioRGBuilder.Read(trace_data.mProbesIrradianceTexture);
     },
 
-        [&inRenderGraph, &inDevice, &inScene, &update_data](ProbeSampleData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
+    [&inDevice](ProbeSampleData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
-        const Viewport& viewport = inRenderGraph.GetViewport();
+        const Texture& output_texture = inDevice.GetTexture(inResources.GetTexture(inData.mOutputTexture));
 
         ProbeSampleRootConstants root_constants = ProbeSampleRootConstants
         {
@@ -636,19 +636,19 @@ DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTr
                 .mProbeRadius = RenderSettings::mDDGIDebugRadius,
                 .mProbeSpacing = RenderSettings::mDDGIProbeSpacing,
                 .mCornerPosition = RenderSettings::mDDGICornerPosition,
-                .mProbesDepthTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mProbesDepthTextureSRV)),
-                .mProbesIrradianceTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mProbesIrradianceTextureSRV))
+                .mProbesDepthTexture = inResources.GetBindlessHeapIndex(inData.mProbesDepthTextureSRV),
+                .mProbesIrradianceTexture = inResources.GetBindlessHeapIndex(inData.mProbesIrradianceTextureSRV)
             },
-            .mOutputTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTexture(inData.mOutputTexture)),
-            .mDepthTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mDepthTextureSRV)),
-            .mGBufferTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mGBufferTextureSRV)),
-            .mDispatchSize = viewport.GetRenderSize()
+            .mOutputTexture = inResources.GetBindlessHeapIndex(inData.mOutputTexture),
+            .mDepthTexture = inResources.GetBindlessHeapIndex(inData.mDepthTextureSRV),
+            .mGBufferTexture = inResources.GetBindlessHeapIndex(inData.mGBufferTextureSRV),
+            .mDispatchSize = UVec2(output_texture.GetWidth(), output_texture.GetHeight())
         };
 
         inCmdList->SetPipelineState(g_SystemShaders.mProbeSampleShader.GetComputePSO());
         inCmdList.PushComputeConstants(root_constants);
 
-        inCmdList->Dispatch(( viewport.GetRenderSize().x + 7 ) / 8, ( viewport.GetRenderSize().y + 7 ) / 8, 1);
+        inCmdList->Dispatch(( output_texture.GetWidth() + 7 ) / 8, ( output_texture.GetHeight() + 7 ) / 8, 1);
     });
 
     return DDGIOutput
@@ -730,18 +730,18 @@ const ProbeDebugData& AddProbeDebugPass(RenderGraph& inRenderGraph, Device& inDe
         inData.mPipeline->SetName(L"PSO_PROBE_DEBUG");
     },
 
-    [&inRenderGraph, &inDevice](ProbeDebugData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
+    [&inDevice](ProbeDebugData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
         inCmdList->SetPipelineState(inData.mPipeline.Get());
-        inCmdList.SetViewportAndScissor(inRenderGraph.GetViewport());
+        inCmdList.SetViewportAndScissor(inDevice.GetTexture(inResources.GetTextureView(inData.mRenderTargetRTV)));
 
         inCmdList.PushGraphicsConstants(DDGIData {
             .mProbeCount = RenderSettings::mDDGIProbeCount,
             .mProbeRadius = RenderSettings::mDDGIDebugRadius,
             .mProbeSpacing = RenderSettings::mDDGIProbeSpacing,
             .mCornerPosition = RenderSettings::mDDGICornerPosition,
-            .mProbesDepthTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mProbesDepthTextureSRV)),
-            .mProbesIrradianceTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mProbesIrradianceTextureSRV))
+            .mProbesDepthTexture = inResources.GetBindlessHeapIndex(inData.mProbesDepthTextureSRV),
+            .mProbesIrradianceTexture = inResources.GetBindlessHeapIndex(inData.mProbesIrradianceTextureSRV)
         });
 
         inCmdList.BindVertexAndIndexBuffers(inDevice, inData.mProbeMesh);
@@ -756,8 +756,7 @@ const ProbeDebugData& AddProbeDebugPass(RenderGraph& inRenderGraph, Device& inDe
 const ProbeDebugRaysData& AddProbeDebugRaysPass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inRenderTarget, RenderGraphResourceID inDepthTarget)
 {
     return inRenderGraph.AddGraphicsPass<ProbeDebugRaysData>("GI PROBE DEBUG RAYS PASS",
-
-        [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ProbeDebugRaysData& inData)
+    [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ProbeDebugRaysData& inData)
     {
         inData.mVertexBuffer = ioRGBuilder.Create(Buffer::Desc
         {
@@ -777,8 +776,8 @@ const ProbeDebugRaysData& AddProbeDebugRaysPass(RenderGraph& inRenderGraph, Devi
 
         // ioRGBuilder.Write(inData.mVertexBuffer);
 
-        const RenderGraphResourceViewID render_target = ioRGBuilder.RenderTarget(inRenderTarget);
-        const RenderGraphResourceViewID depth_target = ioRGBuilder.DepthStencilTarget(inDepthTarget);
+        ioRGBuilder.RenderTarget(inRenderTarget);
+        ioRGBuilder.DepthStencilTarget(inDepthTarget);
 
         D3D12_INDIRECT_ARGUMENT_DESC indirect_args =
         {
@@ -813,7 +812,7 @@ const ProbeDebugRaysData& AddProbeDebugRaysPass(RenderGraph& inRenderGraph, Devi
         inData.mPipeline->SetName(L"PSO_PROBE_DEBUG_RAYS");
     },
 
-        [&inDevice](ProbeDebugRaysData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
+    [&inDevice](ProbeDebugRaysData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
     {
         ID3D12Resource* vertices_buffer_resource = inDevice.GetD3D12Resource(inRGResources.GetBuffer(inData.mVertexBuffer));
         ID3D12Resource* indirect_args_buffer_resource = inDevice.GetD3D12Resource(inRGResources.GetBuffer(inData.mIndirectArgsBuffer));

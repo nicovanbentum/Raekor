@@ -367,8 +367,7 @@ struct TAAResolveData
 
 const TAAResolveData& AddTAAResolvePass(RenderGraph& inRenderGraph, Device& inDevice,
     const GBufferOutput& inGBuffer,
-    RenderGraphResourceID inColorTexture,
-    uint32_t inFrameCounter
+    RenderGraphResourceID inColorTexture
 );
 
 

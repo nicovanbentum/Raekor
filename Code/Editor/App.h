@@ -50,9 +50,11 @@ public:
     void OnEvent(Widgets* inWidgets, const SDL_Event& inEvent) {}
 
 private:
+    uint64_t m_BuffersTotalSize = 0;
+    uint64_t m_TexturesTotalSize = 0;
     uint16_t m_BufferUsageFilter = 0xFFFF;
     uint16_t m_TextureUsageFilter = 0xFFFF;
-    HashSet<ID3D12Resource*> m_UniqueResources;
+    HashSet<ID3D12Resource*> m_SeenResources;
 };
 
 } // namespace Raekor::DX12

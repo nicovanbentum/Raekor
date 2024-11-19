@@ -383,11 +383,10 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
         inData.mRenderPass = inRenderPass;
     },
 
-    [&inRenderGraph, &inDevice, &inScene](GBufferData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+    [&inDevice, &inScene](GBufferData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
-        const Viewport& viewport = inRenderGraph.GetViewport();
-        inCmdList.SetViewportAndScissor(viewport);
         inCmdList->SetPipelineState(inData.mPipeline.Get());
+        inCmdList.SetViewportAndScissor(inDevice.GetTexture(inResources.GetTexture(inData.mOutput.mRenderTexture)));
 
         constexpr Vec4 clear_color = Vec4(0.0f, 0.0f, 0.0f, 0.0f);
         inCmdList->ClearDepthStencilView(inDevice.GetCPUDescriptorHandle(inResources.GetTexture(inData.mOutput.mDepthTexture)), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
@@ -676,6 +675,7 @@ const SSAOTraceData& AddSSAOTracePass(RenderGraph& inRenderGraph, Device& inDevi
 }
 
 
+
 const SSRTraceData& AddSSRTracePass(RenderGraph& inRenderGraph, Device& inDevice, const GBufferOutput& inGBuffer, RenderGraphResourceID inSceneTexture)
 {
     return inRenderGraph.AddComputePass<SSRTraceData>("SSR TRACE PASS",
@@ -714,6 +714,8 @@ const SSRTraceData& AddSSRTracePass(RenderGraph& inRenderGraph, Device& inDevice
         inCmdList->Dispatch(( viewport.size.x + 7 ) / 8, ( viewport.size.y + 7 ) / 8, 1);
     });
 }
+
+
 
 const GrassData& AddGrassRenderPass(RenderGraph& inGraph, Device& inDevice, const GBufferOutput& inGBuffer)
 {
@@ -835,6 +837,7 @@ const DownsampleData& AddDownsamplePass(RenderGraph& inRenderGraph, Device& inDe
 }
 
 
+
 const TiledLightCullingData& AddTiledLightCullingPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene)
 {
     return inRenderGraph.AddComputePass<TiledLightCullingData>("TILED LIGHT CULLING PASS",
@@ -853,7 +856,7 @@ const TiledLightCullingData& AddTiledLightCullingPass(RenderGraph& inRenderGraph
         ioRGBuilder.Write(inData.mLightGridBuffer);
         ioRGBuilder.Write(inData.mLightIndicesBuffer);
     },
-    [&inRenderGraph, &inDevice, &inScene](TiledLightCullingData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
+    [&inRenderGraph, &inScene](TiledLightCullingData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
     {
         inData.mRootConstants = 
         {
@@ -878,7 +881,7 @@ const TiledLightCullingData& AddTiledLightCullingPass(RenderGraph& inRenderGraph
 
 
 
-const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferOutput& inGBuffer, const TiledLightCullingData& inLightData, RenderGraphResourceID inSkyCubeTexture, RenderGraphResourceID inShadowTexture, RenderGraphResourceID inReflectionsTexture, RenderGraphResourceID inAOTexture, RenderGraphResourceID inIndirectDiffuseTexture)
+const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferOutput& inGBuffer, const TiledLightCullingData& inLightCullData, RenderGraphResourceID inSkyCubeTexture, RenderGraphResourceID inShadowTexture, RenderGraphResourceID inReflectionsTexture, RenderGraphResourceID inAOTexture, RenderGraphResourceID inIndirectDiffuseTexture)
 {
     return inRenderGraph.AddGraphicsPass<LightingData>("DEFERRED LIGHTING PASS",
 
@@ -895,8 +898,8 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
 
         ioRGBuilder.RenderTarget(inData.mOutputTexture);
 
-        ioRGBuilder.Write(inLightData.mLightGridBuffer);
-        ioRGBuilder.Write(inLightData.mLightIndicesBuffer);
+        ioRGBuilder.Write(inLightCullData.mLightGridBuffer);
+        ioRGBuilder.Write(inLightCullData.mLightIndicesBuffer);
 
         inData.mSkyCubeTextureSRV           = ioRGBuilder.Read(inSkyCubeTexture);
         inData.mAmbientOcclusionTextureSRV  = ioRGBuilder.Read(inAOTexture);
@@ -919,7 +922,7 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
         inData.mPipeline->SetName(L"PSO_DEFERRED_LIGHTING");
     },
 
-    [&inRenderGraph, &inDevice, &inScene, &inLightData](LightingData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
+    [&inRenderGraph, &inDevice, &inScene, &inLightCullData](LightingData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
     {
         LightingRootConstants root_constants =
         {
@@ -932,15 +935,13 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
             .mAmbientOcclusionTexture = inRGResources.GetBindlessHeapIndex(inData.mAmbientOcclusionTextureSRV),
         };
 
-        uint32_t lights_count = inScene->Count<Light>();
-
-        if (lights_count > 0)
+        if (inScene.HasLights())
         {
-            root_constants.mLightsCount = lights_count;
+            root_constants.mLightsCount = inScene.GetLightsCount();
             root_constants.mLightsBuffer = inScene.GetLightsDescriptorIndex();
         }
 
-        root_constants.mLights = inLightData.mRootConstants;
+        root_constants.mLights = inLightCullData.mRootConstants;
 
         inCmdList->SetPipelineState(inData.mPipeline.Get());
         inCmdList.SetViewportAndScissor(inRenderGraph.GetViewport());
@@ -951,7 +952,7 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
 
 
 
-const TAAResolveData& AddTAAResolvePass(RenderGraph& inRenderGraph, Device& inDevice, const GBufferOutput& inGBuffer, RenderGraphResourceID inColorTexture, uint32_t inFrameCounter)
+const TAAResolveData& AddTAAResolvePass(RenderGraph& inRenderGraph, Device& inDevice, const GBufferOutput& inGBuffer, RenderGraphResourceID inColorTexture)
 {
     return inRenderGraph.AddGraphicsPass<TAAResolveData>("TAA RESOLVE PASS",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, TAAResolveData& inData)
