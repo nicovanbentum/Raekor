@@ -144,34 +144,49 @@ void KeyFrames::LoadFromGltf(const cgltf_animation_channel* channel)
 }
 
 
-Vec3 KeyFrames::GetInterpolatedPosition(float animationTime) const
+Vec3 KeyFrames::GetInterpolatedPosition(float inTime) const
 {
-	if (m_PositionKeys.size() == 1)
-		return m_PositionKeys[0].mValue;
-
-	int pos_index = 0;
-	for (int i = 0; i < m_PositionKeys.size() - 1; i++)
+	const int nr_of_key_frames = m_PositionKeys.size();
+	if (nr_of_key_frames == 0)
 	{
-		if (animationTime < (float)m_PositionKeys[i + 1].mTime)
-		{
-			pos_index = i;
-			break;
-		}
+		return Vec3(0.0f);
+	}
+	else if (nr_of_key_frames == 1)
+	{
+		return m_PositionKeys[0].mValue;
 	}
 
-	int NextPositionIndex = ( pos_index + 1 );
-	float delta_time = m_PositionKeys[NextPositionIndex].mTime - m_PositionKeys[pos_index].mTime;
+	int start_index = 0;
 
-	float factor = ( animationTime - (float)m_PositionKeys[pos_index].mTime ) / delta_time;
-	if (factor < 0.0f)
-		factor = 0.0f;
+	for (; start_index < nr_of_key_frames - 1; start_index++)
+	{
+		if (inTime < m_PositionKeys[start_index + 1].mTime)
+			break;
+	}
 
-	const Vec3& start = m_PositionKeys[pos_index].mValue;
-	const Vec3& end = m_PositionKeys[NextPositionIndex].mValue;
-	Vec3 delta = end - start;
-	Vec3 ai_vec = start + factor * delta;
+	assert(start_index < nr_of_key_frames);
+	const int final_index = start_index + 1;
 
-	return { ai_vec.x, ai_vec.y, ai_vec.z };
+	if (final_index == nr_of_key_frames)
+		return m_PositionKeys[start_index].mValue;
+
+	const float start_time = m_PositionKeys[start_index].mTime;
+	const float final_time = m_PositionKeys[final_index].mTime;
+
+	const Vec3& start_position = m_PositionKeys[start_index].mValue;
+	const Vec3& final_position = m_PositionKeys[final_index].mValue;
+
+	const float a = ( inTime - start_time ) / ( final_time - start_time );
+
+	//return glm::catmullRom(
+	//    m_KeyFrames[glm::clamp(start_index - 1, 0, nr_of_key_frames - 1)].mPosition, 
+	//    m_KeyFrames[glm::clamp(start_index + 0, 0, nr_of_key_frames - 1)].mPosition, 
+	//    m_KeyFrames[glm::clamp(start_index + 1, 0, nr_of_key_frames - 1)].mPosition, 
+	//    m_KeyFrames[glm::clamp(start_index + 2, 0, nr_of_key_frames - 1)].mPosition, 
+	//    glm::clamp(a, 0.0f, 1.0f)
+	//);
+
+	return glm::lerp(start_position, final_position, glm::clamp(a, 0.0f, 1.0f));
 }
 
 

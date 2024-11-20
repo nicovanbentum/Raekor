@@ -186,6 +186,8 @@ using WString = std::wstring;
 using StringView = std::string_view;
 using StringBuilder = std::stringstream;
 
+using Mutex = std::mutex;
+
 template<typename T>
 using Slice = std::span<T>;
 using ByteSlice = Slice<const uint8_t>;

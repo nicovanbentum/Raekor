@@ -86,7 +86,10 @@ public:
 	virtual IRenderInterface* GetRenderInterface() { return nullptr; }
 
 	virtual void SetActiveEntity(Entity inEntity) {}
-	virtual Entity GetActiveEntity() { return Entity::Null; }
+	virtual Entity GetActiveEntity() const { return Entity::Null; }
+
+	virtual void SetCameraEntity(Entity inEntity) {}
+	virtual Entity GetCameraEntity() const { return Entity::Null; }
 
 	virtual void LogMessage(const String& inMessage) { std::cout << inMessage << '\n'; }
 
@@ -167,7 +170,8 @@ public:
 	virtual uint32_t GetWhiteTexture() const { return m_WhiteTexture; }
 	virtual uint32_t GetBlackTexture() const { return m_BlackTexture; }
 	
-	virtual uint64_t GetLightTexture() { return 0; };
+	virtual uint64_t GetLightTexture() { return 0; }
+	virtual uint64_t GetCameraTexture() { return 0; }
 	virtual uint64_t GetDisplayTexture() = 0;
 
 	virtual uint64_t GetDebugTextureIndex() const = 0;

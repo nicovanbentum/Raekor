@@ -84,6 +84,28 @@ bool GltfImporter::LoadFromFile(const String& inFile, Assets* inAssets)
 		m_Materials.push_back(entity);
 	}
 
+	/*
+	* PARSE NODES & MESHES
+	*/
+	for (const cgltf_scene& scene : Slice(m_GltfData->scenes, m_GltfData->scenes_count))
+		for (const cgltf_node* node : Slice(scene.nodes, scene.nodes_count))
+			if (!node->parent)
+				ParseNode(*node, m_Scene.GetRootEntity(), Mat4x4(1.0f));
+
+	Entity root_entity = m_Scene.CreateSpatialEntity(Path(inFile).filename().string());
+
+	for (Entity entity : m_CreatedNodeEntities)
+	{
+		if (!m_Scene.HasParent(entity) || m_Scene.GetParent(entity) == m_Scene.GetRootEntity())
+			 m_Scene.ParentTo(entity, root_entity);
+	}
+
+	std::cout << "[GLTF] Meshes & nodes took " << Timer::sToMilliseconds(timer.Restart()) << " ms.\n";
+
+	// Load the converted textures from disk and upload them to the GPU
+	if (inAssets != nullptr)
+		m_Scene.LoadMaterialTextures(*inAssets, Slice(m_Materials.data(), m_Materials.size()));
+
 	/**/
 	for (const cgltf_animation& gltf_animation : Slice(m_GltfData->animations, m_GltfData->animations_count))
 	{
@@ -108,10 +130,8 @@ bool GltfImporter::LoadFromFile(const String& inFile, Assets* inAssets)
 	{
 		Animation& animation = m_Scene.Get<Animation>(entity);
 
-		for (const String& bone_name : animation.GetBoneNames())
+		for (KeyFrames& keyframes : animation.GetKeyFrames())
 		{
-			KeyFrames& keyframes = animation.GetKeyFrames(bone_name);
-
 			const size_t max = glm::max(glm::max(keyframes.m_PositionKeys.size(), keyframes.m_RotationKeys.size()), keyframes.m_ScaleKeys.size());
 
 			// if at least 1 of the 3 key channels has key data, the other 2 channels need at least 1 key
@@ -128,28 +148,6 @@ bool GltfImporter::LoadFromFile(const String& inFile, Assets* inAssets)
 			}
 		}
 	}
-
-	/*
-	* PARSE NODES & MESHES
-	*/
-	for (const cgltf_scene& scene : Slice(m_GltfData->scenes, m_GltfData->scenes_count))
-		for (const cgltf_node* node : Slice(scene.nodes, scene.nodes_count))
-			if (!node->parent)
-				ParseNode(*node, m_Scene.GetRootEntity(), Mat4x4(1.0f));
-
-	Entity root_entity = m_Scene.CreateSpatialEntity(Path(inFile).filename().string());
-
-	for (Entity entity : m_CreatedNodeEntities)
-	{
-		if (!m_Scene.HasParent(entity) || m_Scene.GetParent(entity) == m_Scene.GetRootEntity())
-			 m_Scene.ParentTo(entity, root_entity);
-	}
-
-	std::cout << "[GLTF] Meshes & nodes took " << Timer::sToMilliseconds(timer.Restart()) << " ms.\n";
-
-	// Load the converted textures from disk and upload them to the GPU
-	if (inAssets != nullptr)
-		m_Scene.LoadMaterialTextures(*inAssets, Slice(m_Materials.data(), m_Materials.size()));
 
 	return true;
 }

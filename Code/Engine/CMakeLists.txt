@@ -19,6 +19,11 @@ list(APPEND CppFiles ${CMAKE_SOURCE_DIR}/ThirdParty/ufbx/ufbx.c)
 set_source_files_properties(${CMAKE_SOURCE_DIR}/ThirdParty/meshoptimizer/src/clusterizer.cpp PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
 list(APPEND CppFiles ${CMAKE_SOURCE_DIR}/ThirdParty/meshoptimizer/src/clusterizer.cpp)
 
+#file(GLOB_RECURSE RawPDBHppFiles ${CMAKE_SOURCE_DIR}/ThirdParty/raw_pdb/src/*.h)
+#file(GLOB_RECURSE RawPDBCppFiles ${CMAKE_SOURCE_DIR}/ThirdParty/raw_pdb/src/*.cpp)
+#set_source_files_properties(${RawPDBCppFiles} PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+#list(APPEND CppFiles ${RawPDBCppFiles})
+
 # Add ImGui
 set(IMGUI_DIR ${CMAKE_SOURCE_DIR}/ThirdParty/imgui)
 list(APPEND ImGuiFiles ${IMGUI_DIR}/imgui.cpp)
@@ -43,6 +48,7 @@ target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_20)
 target_sources(${PROJECT_NAME} PRIVATE ../Core.natvis)
 target_sources(${PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/ThirdParty/glm/util/glm.natvis)
 target_sources(${PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/ThirdParty/ufbx/misc/ufbx.natvis)
+# target_sources(${PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/ThirdParty/raw_pdb/raw_pdb.natvis)
 target_sources(${PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/ThirdParty/JoltPhysics/Jolt/Jolt.natvis)
 
 # MSVC stuff for root working directory, static runtime and enabling precompiled headers
@@ -94,6 +100,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC
     ${CMAKE_SOURCE_DIR}/ThirdParty/glm/glm
     ${CMAKE_SOURCE_DIR}/ThirdParty/ImGuizmo
     ${CMAKE_SOURCE_DIR}/ThirdParty/FSR2/src
+    # ${CMAKE_SOURCE_DIR}/ThirdParty/raw_pdb/src
     ${CMAKE_SOURCE_DIR}/ThirdParty/JoltPhysics
     ${CMAKE_SOURCE_DIR}/ThirdParty/DLSS/include
     ${CMAKE_SOURCE_DIR}/ThirdParty/xess/inc/xess

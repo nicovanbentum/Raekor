@@ -60,7 +60,7 @@ void ShaderGraphWidget::Draw(Widgets* inWidgets, float dt)
 
 	if (ImGui::Button(reinterpret_cast<const char*>( ICON_FA_FOLDER_OPEN " Open.." )))
 	{
-		std::string file_path = OS::sOpenFileDialog("JSON File (*.json)\0");
+		String file_path = OS::sOpenFileDialog("JSON File (*.json)\0");
 
 		if (!file_path.empty())
 		{
@@ -87,7 +87,7 @@ void ShaderGraphWidget::Draw(Widgets* inWidgets, float dt)
 
 	if (ImGui::Button((const char*)ICON_FA_SAVE " Save As.."))
 	{
-		std::string file_path = OS::sSaveFileDialog("JSON File (*.json)\0", "json");
+		String file_path = OS::sSaveFileDialog("JSON File (*.json)\0", "json");
 
 		if (!file_path.empty())
 		{

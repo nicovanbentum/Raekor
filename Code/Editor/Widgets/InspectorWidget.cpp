@@ -146,7 +146,8 @@ void InspectorWidget::DrawKeyFrameInspector(Widgets* inWidgets)
 
     if (selected_key_frame != -1)
     {
-        CameraSequence::KeyFrame& key_frame = sequencer_widget->GetSequence().GetKeyFrame(selected_key_frame);
+		Sequence& sequence = sequencer_widget->GetSequence(GetActiveEntity());
+        Sequence::KeyFrame& key_frame = sequence.GetKeyFrame(selected_key_frame);
 
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
 				
@@ -155,10 +156,7 @@ void InspectorWidget::DrawKeyFrameInspector(Widgets* inWidgets)
             ImGui::PopStyleVar();
 
             ImGui::SetNextItemRightAlign("Time  ");
-            ImGui::SliderFloat("##keyframetime", &key_frame.mTime, 0.0f, sequencer_widget->GetSequence().GetDuration());
-
-            ImGui::SetNextItemRightAlign("Angle  ");
-            ImGui::DragFloat2("##keyframeangle", glm::value_ptr(key_frame.mAngle), 0.01f, -M_PI, M_PI, "%.2f");
+            ImGui::SliderFloat("##keyframetime", &key_frame.mTime, 0.0f, sequencer_widget->GetDuration());
 
             ImGui::SetNextItemRightAlign("Position ");
             ImGui::DragVec3("##keyframepos", key_frame.mPosition, 0.001f, -FLT_MAX, FLT_MAX);
@@ -365,6 +363,31 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Mesh& ioMesh)
 
 bool InspectorWidget::DrawComponent(Entity inEntity, Camera& ioCamera)
 {
+	if (!GetScene().Has<Transform>(inEntity))
+	{
+		Vec3 position = ioCamera.GetPosition();
+		if (ImGui::DragFloat3("Position", glm::value_ptr(position), 0.001f, -FLT_MAX, FLT_MAX))
+			ioCamera.SetPosition(position);
+
+		Vec2 orientation = ioCamera.GetAngle();
+		if (ImGui::DragFloat2("Orientation", glm::value_ptr(orientation), 0.001f, -FLT_MAX, FLT_MAX))
+			ioCamera.SetAngle(orientation);
+	}
+
+	float near_plane = ioCamera.GetNear();
+	if (ImGui::DragFloat("Near Plane", &near_plane, 0.01, 0.01f, 10.0f, "%.1f"))
+		ioCamera.SetNear(near_plane);
+
+	float far_plane = ioCamera.GetFar();
+	if (ImGui::DragFloat("Far Plane", &far_plane, 0.1f, near_plane + 0.01f, Camera::cDefaultFarPlane, "%.1f"))
+		ioCamera.SetFar(far_plane);
+
+	float field_of_view = ioCamera.GetFov();
+	if (ImGui::DragFloat("Field of View", &field_of_view, 0.1f, 25.0f, 110.0f, "%.1f"))
+		ioCamera.SetFov(field_of_view);
+
+	g_DebugRenderer.AddLineCone(ioCamera.GetPosition(), ioCamera.GetForwardVector(), 1.0f, glm::radians(ioCamera.GetFov()));
+
 	return false;
 }
 

@@ -54,14 +54,14 @@ Ray::Ray(const Viewport& inViewport, Vec2 inCoords)
 
 	Vec4 clip_ray = Vec4 { ndc_to_clip.x, ndc_to_clip.y, -1.0f, 1.0f };
 
-	Vec4 view_ray = glm::inverse(inViewport.GetCamera().GetProjection()) * clip_ray;
+	Vec4 view_ray = glm::inverse(inViewport.GetProjection()) * clip_ray;
 	view_ray.z = -1.0f, view_ray.w = 0.0f;
 
-	Vec4 world_ray = glm::inverse(inViewport.GetCamera().GetView()) * view_ray;
+	Vec4 world_ray = glm::inverse(inViewport.GetView()) * view_ray;
 	world_ray = glm::normalize(world_ray);
 
 	m_Direction = world_ray;
-	m_Origin = inViewport.GetCamera().GetPosition();
+	m_Origin = inViewport.GetPosition();
 }
 
 

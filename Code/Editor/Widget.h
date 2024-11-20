@@ -1,7 +1,7 @@
 #pragma once
 
-#include "ecs.h"
-#include "rtti.h"
+#include "ECS.h"
+#include "RTTI.h"
 
 namespace RK {
 
@@ -18,7 +18,7 @@ class IWidget
 	RTTI_DECLARE_VIRTUAL_TYPE(IWidget);
 
 public:
-	IWidget(Application* inApp, const std::string& inTitle);
+	IWidget(Application* inApp, const String& inTitle);
 	virtual void Draw(Widgets* inWidgets, float inDeltaTime) = 0;
 	virtual void OnEvent(Widgets* inWidgets, const SDL_Event& inEvent) = 0;
 
@@ -30,7 +30,7 @@ public:
 	bool IsVisible() { return m_Visible; }
 	bool IsFocused() { return m_Focused; }
 
-	const std::string& GetTitle() { return m_Title; }
+	const String& GetTitle() { return m_Title; }
 
 protected:
 	// Need to be defined in the cpp to avoid circular dependencies
@@ -43,7 +43,7 @@ protected:
 	void   SetActiveEntity(Entity inEntity);
 
 	Application* m_Editor;
-	std::string m_Title;
+	String m_Title;
 	bool m_Open = true;
 	bool m_PrevOpen = true;
 	bool m_Visible = false;

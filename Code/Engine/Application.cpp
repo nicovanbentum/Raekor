@@ -75,7 +75,8 @@ Application::Application(WindowFlags inFlags)
 	OS::sSetDarkTitleBar(m_Window);
 
 	SDL_SetWindowMinimumSize(m_Window, width / 4, height / 4);
-	m_Viewport = Viewport(glm::vec2(width, height));
+	m_Viewport.SetRenderSize(UVec2(width, height));
+	m_Viewport.SetDisplaySize(UVec2(width, height));
 
 	auto quit_function = [&]()
 	{

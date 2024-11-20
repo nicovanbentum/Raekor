@@ -27,8 +27,11 @@ public:
 
 	void LogMessage(const String& inMessage) final;
 
+	void SetCameraEntity(Entity inEntity) final { m_CameraEntity = inEntity; }
+	Entity GetCameraEntity() const final { return m_CameraEntity; }
+
 	void SetActiveEntity(Entity inEntity) final { m_ActiveEntity.store(inEntity); }
-	Entity GetActiveEntity() final { return m_ActiveEntity.load(); }
+	Entity GetActiveEntity() const final { return m_ActiveEntity.load(); }
 
 	void BeginImGuiDockSpace();
 	void EndImGuiDockSpace();
@@ -39,6 +42,9 @@ protected:
 	Physics m_Physics;
 	Widgets m_Widgets;
 	IRenderInterface* m_RenderInterface;
+	
+	Camera m_Camera;
+	Entity m_CameraEntity = Entity::Null;
 
 	bool m_ViewportChanged = false;
 	bool m_ViewportFullscreen = false;

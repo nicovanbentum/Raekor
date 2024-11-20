@@ -254,7 +254,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     m_ElapsedTime += inDeltaTime;
 
     // Calculate a jittered projection matrix for TAA/FSR/DLSS/XESS
-    const Camera& camera = m_RenderGraph.GetViewport().GetCamera();
+    const Viewport& vp = m_RenderGraph.GetViewport();
     const int32_t jitter_phase_count = ffxFsr2GetJitterPhaseCount(m_RenderGraph.GetViewport().GetRenderSize().x, m_RenderGraph.GetViewport().GetDisplaySize().x);
 
     float jitter_offset_x = 0;
@@ -266,7 +266,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     const Mat4x4 jitter_matrix = glm::translate(Mat4x4(1.0f), Vec3(jitter_x, jitter_y, 0));
     
     const bool enable_jitter = m_Settings.mEnableTAA || m_Upscaler.GetActiveUpscaler();
-    const Mat4x4 final_proj_matrix = enable_jitter ? jitter_matrix * camera.GetProjection() : camera.GetProjection();
+    const Mat4x4 final_proj_matrix = enable_jitter ? jitter_matrix * vp.GetProjection() : vp.GetProjection();
 
     // Update all the frame constants and copy it in into the GPU ring buffer
     m_FrameConstants.mTime = m_ElapsedTime;
@@ -278,15 +278,15 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     m_FrameConstants.mJitter = enable_jitter ? Vec2(jitter_x, jitter_y) : Vec2(0.0f, 0.0f);
     m_FrameConstants.mSunColor = inScene->GetSunLight() ? inScene->GetSunLight()->GetColor() : Vec4(0.0f);
     m_FrameConstants.mSunDirection = Vec4(inScene->GetSunLightDirection(), 0.0f);
-    m_FrameConstants.mCameraPosition = Vec4(camera.GetPosition(), 1.0f);
+    m_FrameConstants.mCameraPosition = Vec4(vp.GetPosition(), 1.0f);
     m_FrameConstants.mViewportSize = inViewport.GetRenderSize(),
-    m_FrameConstants.mViewMatrix = camera.GetView();
-    m_FrameConstants.mInvViewMatrix = glm::inverse(camera.GetView());
+    m_FrameConstants.mViewMatrix = vp.GetView();
+    m_FrameConstants.mInvViewMatrix = glm::inverse(vp.GetView());
     m_FrameConstants.mProjectionMatrix = final_proj_matrix;
     m_FrameConstants.mInvProjectionMatrix = glm::inverse(final_proj_matrix);
     m_FrameConstants.mPrevViewProjectionMatrix = m_FrameConstants.mViewProjectionMatrix;
-    m_FrameConstants.mViewProjectionMatrix = final_proj_matrix * camera.GetView();
-    m_FrameConstants.mInvViewProjectionMatrix = glm::inverse(final_proj_matrix * camera.GetView());
+    m_FrameConstants.mViewProjectionMatrix = final_proj_matrix * vp.GetView();
+    m_FrameConstants.mInvViewProjectionMatrix = glm::inverse(final_proj_matrix * vp.GetView());
 
     if (m_FrameCounter == 0)
     {
@@ -685,12 +685,14 @@ RenderInterface::RenderInterface(Application* inApp, Device& inDevice, Renderer&
 
     // Create default textures / assets
     const String light_texture_file = TextureAsset::Convert("Assets/light.png");
-    if (!light_texture_file.empty())
-    {
-        m_LightTexture = TextureID(UploadTextureFromAsset(inApp->GetAssets()->GetAsset<TextureAsset>(light_texture_file)));
-        m_Renderer.QueueTextureUpload(m_LightTexture, 0, inApp->GetAssets()->GetAsset<TextureAsset>(light_texture_file));
-    }
+    m_LightTexture = TextureID(UploadTextureFromAsset(inApp->GetAssets()->GetAsset<TextureAsset>(light_texture_file)));
+    m_Renderer.QueueTextureUpload(m_LightTexture, 0, inApp->GetAssets()->GetAsset<TextureAsset>(light_texture_file));
+
+    const String camera_texture_file = TextureAsset::Convert("Assets/camera.png");
+    m_CameraTexture = TextureID(UploadTextureFromAsset(inApp->GetAssets()->GetAsset<TextureAsset>(camera_texture_file)));
+    m_Renderer.QueueTextureUpload(m_CameraTexture, 0, inApp->GetAssets()->GetAsset<TextureAsset>(camera_texture_file));
 }
+
 
 
 
@@ -719,6 +721,10 @@ uint64_t RenderInterface::GetLightTexture()
     return m_LightTexture.IsValid() ? m_Device.GetGPUDescriptorHandle(m_LightTexture).ptr : 0;
 }
 
+uint64_t RenderInterface::GetCameraTexture()
+{
+    return m_CameraTexture.IsValid() ? m_Device.GetGPUDescriptorHandle(m_CameraTexture).ptr : 0;
+}
 
 
 uint64_t RenderInterface::GetImGuiTextureID(uint32_t inHandle)
@@ -1413,8 +1419,8 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
         {
             ImGui::SeparatorText("Settings");
 
-            const float far_plane = inViewport.GetCamera().GetFar();
-            const float near_plane = inViewport.GetCamera().GetNear();
+            const float far_plane = inViewport.GetFar();
+            const float near_plane = inViewport.GetNear();
 
             ImGui::DragFloat("Focus Scale", &RenderSettings::mDoFFocusScale, 0.01f, 0.0f, 4.0f, "%.2f");
             ImGui::DragFloat("Focus Point", &RenderSettings::mDoFFocusPoint, 0.01f, near_plane, far_plane, "%.2f");

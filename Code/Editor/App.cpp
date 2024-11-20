@@ -208,7 +208,10 @@ void DXApp::OnUpdate(float inDeltaTime)
     for (const Animation& animation : m_Scene.GetComponents<Animation>())
     {
         if (animation.IsPlaying())
+        {
             RenderSettings::mPathTraceReset = true;
+            break;
+        }
     }
     
     m_RenderInterface.UpdateGPUStats(m_Device);

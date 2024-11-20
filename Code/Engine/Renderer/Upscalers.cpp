@@ -256,8 +256,8 @@ const FSR2Data& AddFsrPass(RenderGraph& inRenderGraph, Device& inDevice, Upscale
         fsr2_dispatch_desc.frameTimeDelta             = inData.mDeltaTime * 1000.0f;
         fsr2_dispatch_desc.preExposure                = 1.0f;
         fsr2_dispatch_desc.reset                      = false;
-        fsr2_dispatch_desc.cameraNear                 = viewport.GetCamera().GetNear();
-        fsr2_dispatch_desc.cameraFar                  = viewport.GetCamera().GetFar();
+        fsr2_dispatch_desc.cameraNear                 = viewport.GetNear();
+        fsr2_dispatch_desc.cameraFar                  = viewport.GetFar();
         fsr2_dispatch_desc.cameraFovAngleVertical     = glm::radians(viewport.GetFieldOfView());
 
         const int32_t jitter_phase_count = ffxFsr2GetJitterPhaseCount(viewport.GetRenderSize().x, viewport.GetDisplaySize().x);

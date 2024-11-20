@@ -145,19 +145,19 @@ void IEditor::OnUpdate(float inDeltaTime)
 	if (m_Physics.GetState() == Physics::Stepping)
 		m_Physics.Step(m_Scene, inDeltaTime);
 
-    // Apply sequence to camera
-    if (SequenceWidget* sequence_widget = m_Widgets.GetWidget<SequenceWidget>())
-    {
-        if (sequence_widget->IsLockedToCamera())
-            sequence_widget->ApplyToCamera(m_Viewport.GetCamera(), inDeltaTime);
-    }
+	// update camera transforms
+	m_Scene.UpdateCameras();
 
-	// if the game has not taken over the camera, use the editor controls
-	if (m_GameState != GAME_RUNNING)
-		EditorCameraController::OnUpdate(m_Viewport.GetCamera(), inDeltaTime);
-
-	// update camera matrices
-	m_Viewport.OnUpdate(inDeltaTime);
+	if (m_CameraEntity != Entity::Null)
+	{
+		m_Viewport.OnUpdate(m_Scene.Get<Camera>(m_CameraEntity));
+	}
+	else // if the game has not taken over the camera, use the editor controls
+	{
+		m_Viewport.OnUpdate(m_Camera);
+		if (m_GameState != GAME_RUNNING)
+			EditorCameraController::OnUpdate(m_Camera, inDeltaTime);
+	}
 
 	static int& update_transforms = g_CVariables->Create("update_transforms", 1, true);
 
@@ -211,7 +211,7 @@ void IEditor::OnUpdate(float inDeltaTime)
 
 	// this has to check deltas in camera matrices, so only do it if the previous checks failed
 	if (!m_ViewportChanged)
-		m_ViewportChanged = m_Viewport.GetCamera().Changed();
+		m_ViewportChanged = m_Viewport.Changed();
 
 	// ImGui::ShowDemoWindow();
 	// ImGui::ShowStyleEditor();
@@ -232,7 +232,9 @@ void IEditor::OnEvent(const SDL_Event& event)
 		if (const ViewportWidget* viewport_widget = m_Widgets.GetWidget<ViewportWidget>())
 		{
 			if (viewport_widget->IsHovered() || SDL_GetRelativeMouseMode() || !m_Settings.mShowUI)
-				EditorCameraController::OnEvent(m_Viewport.GetCamera(), event);
+			{
+				EditorCameraController::OnEvent(m_Camera, event);
+			}
 		}
 	}
 

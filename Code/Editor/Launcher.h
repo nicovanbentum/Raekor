@@ -42,7 +42,7 @@ private:
 	bool m_WasClosed = false;
 	SDL_Image m_BgImage;
 	SDL_Renderer* m_Renderer;
-	std::set<std::string> m_SortedCvarNames;
+	HashSet<String> m_SortedCvarNames;
 };
 
 }

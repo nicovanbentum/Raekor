@@ -1,13 +1,41 @@
-#include "pch.h"
+#include "PCH.h"
 #include "SequenceWidget.h"
 
 #include "OS.h"
-#include "json.h"
-#include "camera.h"
-#include "archive.h"
-#include "application.h"
+#include "JSON.h"
+#include "Scene.h"
+#include "Timer.h"
+#include "Camera.h"
+#include "Archive.h"
+#include "Components.h"
+#include "Application.h"
 
 namespace RK {
+
+void Sequence::AddKeyFrame(const Transform& inTransform, float inTime)
+{
+    m_KeyFrames.emplace_back(inTime, inTransform.scale, inTransform.rotation, inTransform.position);
+
+    std::sort(m_KeyFrames.begin(), m_KeyFrames.end(), [](const KeyFrame& inKey1, const KeyFrame& inKey2) { return inKey1.mTime < inKey2.mTime; });
+}
+
+
+void Sequence::AddKeyFrame(const KeyFrame& inKeyFrame, float inTime)
+{
+    KeyFrame keyframe = inKeyFrame;
+    keyframe.mTime = inTime;
+    m_KeyFrames.push_back(keyframe);
+
+    std::sort(m_KeyFrames.begin(), m_KeyFrames.end(), [](const KeyFrame& inKey1, const KeyFrame& inKey2) { return inKey1.mTime < inKey2.mTime; });
+}
+
+
+void Sequence::RemoveKeyFrame(uint32_t inIndex)
+{
+    m_KeyFrames.erase(m_KeyFrames.begin() + inIndex);
+
+    std::sort(m_KeyFrames.begin(), m_KeyFrames.end(), [](const KeyFrame& inKey1, const KeyFrame& inKey2) { return inKey1.mTime < inKey2.mTime; });
+}
 
 RTTI_DEFINE_TYPE_NO_FACTORY(SequenceWidget) {}
 
@@ -17,12 +45,82 @@ SequenceWidget::SequenceWidget(Application* inApp) :
 
 void SequenceWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 {
+
     m_Visible = ImGui::Begin(m_Title.c_str(), &m_Open);
 
     ImGui::SameLine();
 
-    if (ImGui::Button((const char*)(m_LockedToCamera ? ICON_FA_LOCK : ICON_FA_LOCK_OPEN)))
+    const char* sequence_animation_preview_text = "...";
+
+    Sequence& sequence = m_Sequences[GetActiveEntity()];
+
+    if (m_State == SEQUENCE_PLAYING)
+    {
+        m_Time += inDeltaTime * m_Speed;
+
+        if (m_Time > m_Duration)
+            m_Time = 0.0f;
+    }
+
+    if (m_ActiveAnimationEntity != Entity::Null)
+    {
+        if (GetScene().Has<Animation>(m_ActiveAnimationEntity))
+            sequence_animation_preview_text = GetScene().Get<Animation>(m_ActiveAnimationEntity).GetName().c_str();
+        else
+            m_ActiveAnimationEntity = Entity::Null;
+    }
+
+
+    if (ImGui::BeginCombo("##SequenceAnimationCombo", sequence_animation_preview_text))
+    {
+        for (const auto& [entity, animation] : GetScene().Each<Animation>())
+        {
+            if (ImGui::Selectable(animation.GetName().c_str(), m_ActiveAnimationEntity == entity))
+            {
+                m_ActiveAnimationEntity = entity;
+            }
+        }
+
+        if (ImGui::Selectable("New.."))
+        {
+            Entity entity = GetScene().Create();
+            Name& name = GetScene().Add<Name>(entity);
+            Animation& animation = GetScene().Add<Animation>(entity);
+
+            name.name = "NewAnim";
+            animation.SetName("NewAnim");
+
+            m_ActiveAnimationEntity = entity;
+        }
+
+        ImGui::EndCombo();
+    }
+
+    if (ImGui::BeginDragDropSource())
+    {
+        ImGui::SetDragDropPayload("drag_drop_entity", &m_ActiveAnimationEntity, sizeof(Entity));
+        ImGui::EndDragDropSource();
+    }
+
+    ImGui::SameLine();
+
+    const bool locked_to_camera = m_LockedToCamera;
+
+    if (locked_to_camera)
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.0f, 1.0f));
+
+    if (ImGui::Button((const char*)( m_LockedToCamera ? ICON_FA_LOCK : ICON_FA_LOCK_OPEN )))
+    {
         m_LockedToCamera = !m_LockedToCamera;
+
+        if (m_LockedToCamera)
+            ApplyAnimationToScene(GetScene());
+        else
+            RemoveAnimationFromScene(GetScene());
+    }
+
+    if (locked_to_camera)
+        ImGui::PopStyleColor();
 
     ImGui::SameLine();
 
@@ -40,6 +138,7 @@ void SequenceWidget::Draw(Widgets* inWidgets, float inDeltaTime)
             case SEQUENCE_PAUSED:  { m_State = SEQUENCE_PLAYING; } break;
             case SEQUENCE_STOPPED: { m_State = SEQUENCE_PLAYING; } break;
         }
+
     }
 
     ImGui::SameLine();
@@ -49,6 +148,9 @@ void SequenceWidget::Draw(Widgets* inWidgets, float inDeltaTime)
         m_State = SEQUENCE_STOPPED;
         m_Time = 0.0f;
     }
+    
+    if (GetScene().Has<Animation>(m_ActiveAnimationEntity))
+        GetScene().Get<Animation>(m_ActiveAnimationEntity).SetIsPlaying(m_State == SEQUENCE_PLAYING);
 
     if (!m_LockedToCamera)
     {
@@ -58,43 +160,20 @@ void SequenceWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
     ImGui::SameLine();
 
-    if (ImGui::Button((const char*)ICON_FA_SAVE))
-    {
-        const String file_path = OS::sSaveFileDialog("JSON File (*.json)\0", "json");
-
-        if (!file_path.empty())
-        {
-            JSON::WriteArchive archive(file_path);
-            archive << m_Sequence;
-        }
-    }
-
-    ImGui::SameLine();
-
-    if (ImGui::Button((const char*)ICON_FA_FOLDER_OPEN))
-    {
-        const String file_path = OS::sOpenFileDialog("JSON File (*.json)\0");
-
-        if (!file_path.empty())
-        {
-            JSON::ReadArchive archive(file_path);
-            archive >> m_Sequence;
-
-            m_OpenFile = fs::relative(file_path).string();
-        }
-    }
-
-    ImGui::SameLine();
-
     if (ImGui::Button("+"))
-        m_Sequence.AddKeyFrame(m_Editor->GetViewport().GetCamera(), m_Time);
+    {
+        if (GetScene().Has<Transform>(GetActiveEntity()))
+            sequence.AddKeyFrame(GetScene().Get<Transform>(GetActiveEntity()), m_Time);
+    }
 
     ImGui::SameLine();
 
     if (ImGui::Button("-"))
     {
         if (m_SelectedKeyframe != -1)
-            m_Sequence.RemoveKeyFrame(m_SelectedKeyframe);
+        {
+            sequence.RemoveKeyFrame(m_SelectedKeyframe);
+        }
 
         m_SelectedKeyframe = -1;
     }
@@ -114,7 +193,7 @@ void SequenceWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
     ImGui::SetCursorPosX(cursor_pos_x);
 
-    float duration_value = m_Sequence.GetDuration();
+    float duration_value = m_Duration;
     const char* duration_text = duration_value > 1 ? "Duration: %.1f seconds" : "Duration: %.1f second";
 
     if (m_State == SEQUENCE_PLAYING)
@@ -126,7 +205,7 @@ void SequenceWidget::Draw(Widgets* inWidgets, float inDeltaTime)
     if (ImGui::DragFloat("##sequenceduration", &duration_value, cIncrSequence, cMinSequenceLength, cMaxSequenceLength, duration_text))
     {
         if (m_State != SEQUENCE_PLAYING)
-            m_Sequence.SetDuration(duration_value);
+            m_Duration = duration_value;
     }
 
     const ImVec2 avail = ImGui::GetContentRegionAvail();
@@ -142,7 +221,7 @@ void SequenceWidget::Draw(Widgets* inWidgets, float inDeltaTime)
     // don't pass m_Time directly as DrawTimeline's return value indicates if we should update the value or not
     float time = m_Time;
     
-    if (DrawTimeline("Timeline", time, 0.0f, glm::min(m_Sequence.GetDuration(), cMaxSequenceLength)))
+    if (DrawTimeline("Timeline", time, 0.0f, glm::min(m_Duration, cMaxSequenceLength)))
         m_Time = time;
 
     ImGui::PopStyleVar();
@@ -151,8 +230,66 @@ void SequenceWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 }
 
 
+
+void SequenceWidget::ApplyAnimationToScene(Scene& inScene)
+{
+    if (m_ActiveAnimationEntity == Entity::Null)
+        return;
+
+    Animation& animation = inScene.Get<Animation>(m_ActiveAnimationEntity);
+    animation.ClearKeyFrames();
+
+    for (const auto& [entity, sequence] : m_Sequences)
+    {
+        if (!inScene.Has<Transform>(entity))
+            continue;
+
+        float sequence_duration = Timer::sToMilliseconds(m_Duration);
+        animation.SetTotalDuration(glm::max(animation.GetTotalDuration(), sequence_duration));
+
+        KeyFrames keyframes;
+        for (const Sequence::KeyFrame& kf : sequence.GetKeyFrames())
+        {
+            float time_ms = Timer::sToMilliseconds(kf.mTime);
+            keyframes.AddScaleKey(Vec3Key(time_ms, kf.mScale));
+            keyframes.AddPositionKey(Vec3Key(time_ms, kf.mPosition));
+            keyframes.AddRotationKey(QuatKey(time_ms, kf.mRotation));
+        }
+
+        animation.LoadKeyframes(std::to_string(entity), keyframes);
+
+        Transform& transform = inScene.Get<Transform>(entity);
+        transform.animation = m_ActiveAnimationEntity;
+        transform.animationChannel = std::to_string(entity);
+    }
+}
+
+
+
+void SequenceWidget::RemoveAnimationFromScene(Scene& inScene)
+{
+    if (m_ActiveAnimationEntity == Entity::Null)
+        return;
+
+    for (const auto& [entity, transform] : inScene.Each<Transform>())
+    {
+        if (transform.animation == m_ActiveAnimationEntity)
+        {
+            transform.animation = Entity::Null;
+            transform.animationChannel.clear();
+        }
+    }
+
+    Animation& animation = inScene.Get<Animation>(m_ActiveAnimationEntity);
+    animation.ClearKeyFrames();
+}
+
+
+
 bool SequenceWidget::DrawTimeline(const char* inLabel, float& inTime, const float inMinTime, const float inMaxTime)
 {
+    Sequence& sequence = m_Sequences[GetActiveEntity()];
+
     ImGuiWindow* window = ImGui::GetCurrentWindow();
     if (window->SkipItems)
         return false;
@@ -193,9 +330,9 @@ bool SequenceWidget::DrawTimeline(const char* inLabel, float& inTime, const floa
 
     uint32_t line_nr = 0u;
 
-    for (float f = 0.0f; f < m_Sequence.GetDuration(); f += cIncrSequence)
+    for (float f = 0.0f; f < m_Duration; f += cIncrSequence)
     {
-        const float x = frame_bb.Min.x + frame_bb.GetWidth() * (f / m_Sequence.GetDuration());
+        const float x = frame_bb.Min.x + frame_bb.GetWidth() * (f / m_Duration);
 
         const ImVec4 odd_color  = ImVec4(0.2f, 0.2f, 0.2f, 0.5f);
         const ImVec4 even_color = ImVec4(0.2f, 0.2f, 0.2f, 1.0f);
@@ -220,9 +357,9 @@ bool SequenceWidget::DrawTimeline(const char* inLabel, float& inTime, const floa
     bool was_right_clicked = false;
     bool hovering_any_keyframe = false;
 
-    for (int keyframe_index = 0; keyframe_index < m_Sequence.GetKeyFrameCount(); keyframe_index++)
+    for (int keyframe_index = 0; keyframe_index < sequence.GetKeyFrameCount(); keyframe_index++)
     {
-        CameraSequence::KeyFrame& keyframe = m_Sequence.GetKeyFrame(keyframe_index);
+        Sequence::KeyFrame& keyframe = sequence.GetKeyFrame(keyframe_index);
 
         const float radius = 8.0f;
         const float segments = 4;
@@ -231,7 +368,7 @@ bool SequenceWidget::DrawTimeline(const char* inLabel, float& inTime, const floa
         padded_bb.Min += style.FramePadding;
         padded_bb.Max -= style.FramePadding;
 
-        float ngon_center_x = padded_bb.Min.x + padded_bb.GetWidth() * (keyframe.mTime / m_Sequence.GetDuration());
+        float ngon_center_x = padded_bb.Min.x + padded_bb.GetWidth() * (keyframe.mTime / m_Duration);
         float ngon_center_y = padded_bb.Min.y + 0.5f * padded_bb.GetHeight();
 
         const ImVec2 ngon_bb_min = ImVec2(ngon_center_x - radius, ngon_center_y - radius);
@@ -241,12 +378,12 @@ bool SequenceWidget::DrawTimeline(const char* inLabel, float& inTime, const floa
         if (m_SelectedKeyframe == keyframe_index && ImGui::IsMouseDragging(0) && m_IsDraggingKeyframe)
         {
             ngon_center_x = ImGui::GetMousePos().x; // move the keyframe to the cursor, horizontal only
-            keyframe.mTime = (ngon_center_x - padded_bb.Min.x) / padded_bb.GetWidth() * m_Sequence.GetDuration();
-            keyframe.mTime = glm::clamp(keyframe.mTime, 0.0f, m_Sequence.GetDuration());
+            keyframe.mTime = (ngon_center_x - padded_bb.Min.x) / padded_bb.GetWidth() * m_Duration;
+            keyframe.mTime = glm::clamp(keyframe.mTime, 0.0f, m_Duration);
 
             if (m_SelectedKeyframe - 1 >= 0)
             {
-                CameraSequence::KeyFrame& prev_keyframe = m_Sequence.GetKeyFrame(m_SelectedKeyframe - 1);
+                Sequence::KeyFrame& prev_keyframe = sequence.GetKeyFrame(m_SelectedKeyframe - 1);
                 // if we moved backwards in time past a previous keyframe, swap
                 if (keyframe.mTime < prev_keyframe.mTime)
                 {
@@ -255,9 +392,9 @@ bool SequenceWidget::DrawTimeline(const char* inLabel, float& inTime, const floa
                 }
             }
 
-            if (m_SelectedKeyframe + 1 < m_Sequence.GetKeyFrameCount())
+            if (m_SelectedKeyframe + 1 < sequence.GetKeyFrameCount())
             {
-                CameraSequence::KeyFrame& next_keyframe = m_Sequence.GetKeyFrame(m_SelectedKeyframe + 1);
+                Sequence::KeyFrame& next_keyframe = sequence.GetKeyFrame(m_SelectedKeyframe + 1);
                 // if we moved forwards in time past the next keyframe, swap
                 if (keyframe.mTime > next_keyframe.mTime)
                 {
@@ -305,16 +442,16 @@ bool SequenceWidget::DrawTimeline(const char* inLabel, float& inTime, const floa
         if (ImGui::MenuItem("Delete"))
         {
             if (m_SelectedKeyframe != -1)
-                m_Sequence.RemoveKeyFrame(m_SelectedKeyframe);
+                sequence.RemoveKeyFrame(m_SelectedKeyframe);
 
             m_SelectedKeyframe = -1;
         }
 
         if (ImGui::MenuItem("Duplicate"))
         {
-            CameraSequence::KeyFrame key_frame = m_Sequence.GetKeyFrame(m_SelectedKeyframe);
+            Sequence::KeyFrame key_frame = sequence.GetKeyFrame(m_SelectedKeyframe);
             // slightly offset the time so we can actually see the duplicate and it doesn't perfectly overlap
-            m_Sequence.AddKeyFrame(m_Editor->GetViewport().GetCamera(), key_frame.mTime + 0.05f, key_frame.mPosition, key_frame.mAngle);
+            sequence.AddKeyFrame(key_frame, key_frame.mTime + 0.05f);
         }
 
         ImGui::EndPopup();
@@ -324,9 +461,7 @@ bool SequenceWidget::DrawTimeline(const char* inLabel, float& inTime, const floa
     {
         if (ImGui::MenuItem("Clear"))
         {
-            const float duration = m_Sequence.GetDuration();
-            m_Sequence = {};
-            m_Sequence.SetDuration(duration);
+            sequence = {};
         }
 
         ImGui::EndPopup();
@@ -485,7 +620,9 @@ void SequenceWidget::OnEvent(Widgets* inWidgets, const SDL_Event& inEvent)
                 if (m_Editor->GetActiveEntity() == Entity::Null)
                 {
                     if (m_SelectedKeyframe != -1)
-                        m_Sequence.RemoveKeyFrame(m_SelectedKeyframe);
+                    {
+                        m_Sequences[GetActiveEntity()].RemoveKeyFrame(m_SelectedKeyframe);
+                    }
                 
                     m_SelectedKeyframe = -1;
                 }
@@ -493,24 +630,6 @@ void SequenceWidget::OnEvent(Widgets* inWidgets, const SDL_Event& inEvent)
             }
         }
     }
-}
-
-
-void SequenceWidget::ApplyToCamera(Camera& ioCamera, float inDeltaTime)
-{
-    if (m_State == SEQUENCE_PLAYING)
-    {
-        m_Time += inDeltaTime * m_Speed;
-
-        if (m_Time > m_Sequence.GetDuration())
-            m_Time = 0.0f;
-    }
-
-    const Vec2 angle = m_Sequence.GetAngle(ioCamera, m_Time);
-    const Vec3 position = m_Sequence.GetPosition(ioCamera, m_Time);
-
-    ioCamera.SetAngle(angle);
-    ioCamera.SetPosition(position);
 }
 
 

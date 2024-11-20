@@ -298,6 +298,7 @@ static constexpr auto Components = std::make_tuple(
 	ComponentDescription<Name>              {"Name"},
 	ComponentDescription<Transform>         {"Transform"},
 	ComponentDescription<Mesh>              {"Mesh"},
+	ComponentDescription<Camera>            {"Camera"},
 	ComponentDescription<SoftBody>          {"Soft Body"},
 	ComponentDescription<Material>          {"Material"},
 	ComponentDescription<Light>				{"Light"},

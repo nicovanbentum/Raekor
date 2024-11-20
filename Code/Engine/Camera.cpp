@@ -10,39 +10,11 @@ RTTI_DEFINE_TYPE(Camera)
 {
 	RTTI_DEFINE_MEMBER(Camera, SERIALIZE_ALL, "Angle", m_Angle);
 	RTTI_DEFINE_MEMBER(Camera, SERIALIZE_ALL, "Position", m_Position);
-	RTTI_DEFINE_MEMBER(Camera, SERIALIZE_ALL, "Projection", m_Projection);
+	RTTI_DEFINE_MEMBER(Camera, SERIALIZE_ALL, "Far Plane", m_FarPlane);
+	RTTI_DEFINE_MEMBER(Camera, SERIALIZE_ALL, "Near Plane", m_NearPlane);
+	RTTI_DEFINE_MEMBER(Camera, SERIALIZE_ALL, "Aspect Ratio", m_AspectRatio);
+	RTTI_DEFINE_MEMBER(Camera, SERIALIZE_ALL, "Field of View", m_FieldOfView);
 }
-
-RTTI_DEFINE_TYPE(CameraSequence::KeyFrame)
-{
-    RTTI_DEFINE_MEMBER(CameraSequence::KeyFrame, SERIALIZE_ALL, "Time", mTime);
-    RTTI_DEFINE_MEMBER(CameraSequence::KeyFrame, SERIALIZE_ALL, "Angle", mAngle);
-    RTTI_DEFINE_MEMBER(CameraSequence::KeyFrame, SERIALIZE_ALL, "Position", mPosition);
-}
-
-RTTI_DEFINE_TYPE(CameraSequence)
-{
-    RTTI_DEFINE_MEMBER(CameraSequence, SERIALIZE_ALL, "Duration", m_Duration);
-    RTTI_DEFINE_MEMBER(CameraSequence, SERIALIZE_ALL, "Key Frames", m_KeyFrames);
-}
-
-Camera::Camera(const Vec3& inPos, const Mat4x4& inProj) :
-	m_Position(inPos),
-	m_Angle(0.0f, 0.0f)
-{
-	m_Projection = inProj;
-}
-
-
-void Camera::OnUpdate()
-{
-	m_PrevView = m_View;
-	m_PrevProjection = m_Projection;
-
-	Vec3 dir = GetForwardVector();
-	m_View = glm::lookAtRH(m_Position, m_Position + dir, { 0, 1, 0 });
-}
-
 
 
 void Camera::Zoom(float amount)
@@ -71,7 +43,7 @@ void Camera::Move(Vec2 amount)
 }
 
 
-bool Camera::Moved() const
+bool Viewport::Moved() const
 {
 	for (uint32_t x = 0; x < 4; x++)
 		for (uint32_t y = 0; y < 4; y++)
@@ -82,7 +54,7 @@ bool Camera::Moved() const
 }
 
 
-bool Camera::Changed() const
+bool Viewport::Changed() const
 {
 	for (uint32_t x = 0; x < 4; x++)
 		for (uint32_t y = 0; y < 4; y++)
@@ -93,7 +65,7 @@ bool Camera::Changed() const
 }
 
 
-Vec3 Camera::GetForwardVector()
+Vec3 Camera::GetForwardVector() const
 {
 	return glm::normalize(Vec3(cos(m_Angle.y) * sin(m_Angle.x),
 		sin(m_Angle.y), cos(m_Angle.y) * cos(m_Angle.x)));
@@ -107,31 +79,31 @@ void Camera::LookAt(Vec3 inPosition)
 }
 
 
-float Camera::GetFov() const
+float Viewport::GetFieldOfView() const
 {
 	return 2.0f * atan(1.0f / m_Projection[1][1]) * 180.0f / (float)M_PI;
 }
 
 
-float Camera::GetFar() const
+float Viewport::GetFar() const
 {
 	return m_Projection[3][2] / ( m_Projection[2][2] + 1.0f );
 }
 
 
-float Camera::GetNear() const
+float Viewport::GetNear() const
 {
 	return m_Projection[3][2] / ( m_Projection[2][2] - 1.0f );
 }
 
 
-float Camera::GetAspectRatio() const
+float Viewport::GetAspectRatio() const
 {
 	return m_Projection[1][1] / m_Projection[0][0];
 }
 
 
-Frustum Camera::GetFrustum() const
+Frustum Viewport::GetFrustum() const
 {
 	return Frustum(m_Projection * m_View, false);
 }
@@ -167,8 +139,10 @@ void EditorCameraController::OnUpdate(Camera& inCamera, float inDeltaTime)
 		const Sint16 x_axis = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTX);
 		const Sint16 y_axis = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTY);
 
-		float move_x = ( x_axis / 32767.0f ) * inCamera.GetSensitivity();
-		float move_z = ( y_axis / 32767.0f ) * inCamera.GetSensitivity();
+		float sensitivity = g_CVariables->GetValue<float>("sensitivity");
+
+		float move_x = ( x_axis / 32767.0f ) * sensitivity;
+		float move_z = ( y_axis / 32767.0f ) * sensitivity;
 
 		const Sint16 lt_axis = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERLEFT);
 		const Sint16 rt_axis = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERRIGHT);
@@ -182,18 +156,18 @@ void EditorCameraController::OnUpdate(Camera& inCamera, float inDeltaTime)
 		const Sint16 right_x = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTX);
 		const Sint16 right_y = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTY);
 
-		const float delta_yaw = ( right_x / 32767.0f ) * inCamera.GetSensitivity();
-		const float delta_pitch = ( right_y / 32767.0f ) * inCamera.GetSensitivity();
+		const float delta_yaw = ( right_x / 32767.0f ) * sensitivity;
+		const float delta_pitch = ( right_y / 32767.0f ) * sensitivity;
 
 		inCamera.Look(Vec2(delta_yaw * inDeltaTime, delta_pitch * inDeltaTime));
 
 		float move_y = 0.0f;
 
 		if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_LEFTSHOULDER))
-			move_y = -inCamera.GetSensitivity();
+			move_y = -sensitivity;
 
 		if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER))
-			move_y = inCamera.GetSensitivity();
+			move_y = sensitivity;
 
 		inCamera.Move(Vec2(-move_x * inDeltaTime, move_y * inDeltaTime));
 		inCamera.Zoom(-move_z * inDeltaTime);
@@ -231,8 +205,11 @@ bool EditorCameraController::OnEvent(Camera& inCamera, const SDL_Event& inEvent)
 	{
 		if (g_Input->IsRelativeMouseMode() && g_Input->IsButtonDown(3))
 		{
-			const float formula = glm::radians(0.022f * inCamera.mSensitivity * 2.0f);
+			const CVar& sens_cvar = g_CVariables->GetCVar("sensitivity");
+			const float formula = glm::radians(0.022f * sens_cvar.mFloatValue * 2.0f);
+			
 			inCamera.Look(glm::vec2(inEvent.motion.xrel * formula, inEvent.motion.yrel * formula));
+			
 			camera_changed = true;
 		}
 		else if (g_Input->IsRelativeMouseMode() && g_Input->IsButtonDown(2))
@@ -251,172 +228,26 @@ bool EditorCameraController::OnEvent(Camera& inCamera, const SDL_Event& inEvent)
 }
 
 
-Viewport::Viewport(Vec2 inSize) :
-	m_Camera(Vec3(0, 1.0, 0), glm::perspectiveRH(glm::radians(m_FieldOfView), m_AspectRatio, 0.1f, 4096.0f)),
-	size(inSize),
-	m_DisplaySize(inSize)
+void Viewport::OnUpdate(const Camera& inCamera)
 {
-}
-
-
-void Viewport::UpdateProjectionMatrix()
-{
-	m_Camera.GetProjection() = glm::perspectiveRH(
-		glm::radians(m_FieldOfView),
-		float(size.x) / float(size.y),
-		m_Camera.GetNear(),
-		m_Camera.GetFar()
-	);
-}
-
-
-static float GetHaltonSequence(uint32_t i, uint32_t b)
-{
-	float f = 1.0f;
-	float r = 0.0f;
-
-	while (i > 0)
-	{
-		f /= float(b);
-		r = r + f * float(i % b);
-		i = uint32_t(floorf(float(i) / float(b)));
-	}
-
-	return r;
-}
-
-
-void Viewport::OnUpdate(float dt)
-{
-	m_Camera.OnUpdate();
-
-	m_JitterIndex = m_JitterIndex + 1;
-
-	const Vec2 halton = Vec2
-	(
-		2.0f * GetHaltonSequence(m_JitterIndex + 1, 2) - 1.0f,
-		2.0f * GetHaltonSequence(m_JitterIndex + 1, 3) - 1.0f
+	m_PrevView = m_View;
+	m_PrevProjection = m_Projection;
+	
+	m_View = glm::lookAtRH(
+		inCamera.GetPosition(), 
+		inCamera.GetPosition() + inCamera.GetForwardVector(), 
+		{0, 1, 0}
 	);
 
-	m_Jitter = halton / Vec2(size);
-}
+	m_Projection = glm::perspectiveRH(
+		glm::radians(inCamera.GetFov()),
+		inCamera.GetAspectRatio(),
+		inCamera.GetNear(),
+		inCamera.GetFar()
+	);
 
-
-Mat4x4 Viewport::GetJitteredProjMatrix(const Vec2& inJitter) const
-{
-	Mat4x4 proj = m_Camera.GetProjection();
-	proj[2][0] = m_Jitter[0];
-	proj[2][1] = m_Jitter[1];
-	return proj;
-}
-
-
-void CameraSequence::AddKeyFrame(const Camera& inCamera, float inTime)
-{
-    AddKeyFrame(inCamera, inTime, inCamera.GetPosition(), inCamera.GetAngle());
-}
-
-
-void CameraSequence::AddKeyFrame(const Camera& inCamera, float inTime, Vec3 inPosition, Vec2 inAngle)
-{
-    m_KeyFrames.emplace_back(inTime, inAngle, inPosition);
-
-    std::sort(m_KeyFrames.begin(), m_KeyFrames.end(), [](const KeyFrame& inKey1, const KeyFrame& inKey2) { return inKey1.mTime < inKey2.mTime; });
-}
-
-
-void CameraSequence::RemoveKeyFrame(uint32_t inIndex)
-{
-    m_KeyFrames.erase(m_KeyFrames.begin() + inIndex);
-
-    std::sort(m_KeyFrames.begin(), m_KeyFrames.end(), [](const KeyFrame& inKey1, const KeyFrame& inKey2) { return inKey1.mTime < inKey2.mTime; });
-}
-
-
-Vec2 CameraSequence::GetAngle(const Camera& inCamera, float inTime) const
-{
-    const size_t nr_of_key_frames = m_KeyFrames.size();
-    if (nr_of_key_frames == 0)
-    {
-        return inCamera.GetAngle();
-    }
-    else if (nr_of_key_frames == 1)
-    {
-        return m_KeyFrames[0].mAngle;
-    }
-    else
-    {
-        int start_index = 0;
-        
-        for (; start_index < nr_of_key_frames - 1; start_index++)
-        {
-            if (inTime < m_KeyFrames[start_index + 1].mTime)
-                break;
-        }
-
-        assert(start_index < nr_of_key_frames);
-		int final_index = start_index + 1;
-
-        if (final_index == nr_of_key_frames)
-            return m_KeyFrames[start_index].mAngle;
-
-        float start_time = m_KeyFrames[start_index].mTime;
-        float final_time = m_KeyFrames[final_index].mTime;
-        
-		float delta_time = m_KeyFrames[final_index].mTime - m_KeyFrames[start_index].mTime;
-		float factor = glm::max((inTime - start_time) / delta_time, 0.0f);
-
-        const Vec2& start_angle = m_KeyFrames[start_index].mAngle;
-        const Vec2& final_angle = m_KeyFrames[final_index].mAngle;
-
-        return start_angle + factor * (final_angle - start_angle);
-    }
-}
-
-
-Vec3 CameraSequence::GetPosition(const Camera& inCamera, float inTime) const
-{
-    const int nr_of_key_frames = m_KeyFrames.size();
-    if (nr_of_key_frames == 0)
-    {
-        return inCamera.GetPosition();
-    }
-    else if (nr_of_key_frames == 1)
-    {
-        return m_KeyFrames[0].mPosition;
-    }
-
-    int start_index = 0;
-    
-    for (; start_index < nr_of_key_frames - 1; start_index++)
-    {
-        if (inTime < m_KeyFrames[start_index + 1].mTime)
-            break;
-    }
-
-    assert(start_index < nr_of_key_frames);
-    const int final_index = start_index + 1;
-
-    if (final_index == nr_of_key_frames)
-        return m_KeyFrames[start_index].mPosition;
-
-    const float start_time = m_KeyFrames[start_index].mTime;
-	const float final_time = m_KeyFrames[final_index].mTime;
-
-    const Vec3& start_position = m_KeyFrames[start_index].mPosition;
-    const Vec3& final_position = m_KeyFrames[final_index].mPosition;
-
-    const float a = (inTime - start_time) / (final_time - start_time);
-
-    //return glm::catmullRom(
-    //    m_KeyFrames[glm::clamp(start_index - 1, 0, nr_of_key_frames - 1)].mPosition, 
-    //    m_KeyFrames[glm::clamp(start_index + 0, 0, nr_of_key_frames - 1)].mPosition, 
-    //    m_KeyFrames[glm::clamp(start_index + 1, 0, nr_of_key_frames - 1)].mPosition, 
-    //    m_KeyFrames[glm::clamp(start_index + 2, 0, nr_of_key_frames - 1)].mPosition, 
-    //    glm::clamp(a, 0.0f, 1.0f)
-    //);
-    
-    return glm::lerp(start_position, final_position, glm::clamp(a, 0.0f, 1.0f));
+	m_InvView = glm::inverse(m_View);
+	m_InvProjection = glm::inverse(m_Projection);
 }
 
 } // namespace::Raekor

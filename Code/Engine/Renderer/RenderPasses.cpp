@@ -511,8 +511,8 @@ const GBufferDebugData& AddGBufferDebugPass(RenderGraph& inRenderGraph, Device& 
         inCmdList.PushGraphicsConstants(GbufferDebugRootConstants
         {
             .mTexture   = inRGResources.GetBindlessHeapIndex(inData.mInputTextureSRV),
-            .mFarPlane  = inRenderGraph.GetViewport().GetCamera().GetFar(),
-            .mNearPlane = inRenderGraph.GetViewport().GetCamera().GetNear(),
+            .mFarPlane  = inRenderGraph.GetViewport().GetFar(),
+            .mNearPlane = inRenderGraph.GetViewport().GetNear(),
         });
         inCmdList->DrawInstanced(3, 1, 0, 0);
     });
@@ -562,12 +562,12 @@ const ShadowMapData& AddShadowMapPass(RenderGraph& inRenderGraph, Device& inDevi
         Mat4x4 projection = glm::perspectiveRH(
             glm::radians(inRenderGraph.GetViewport().GetFieldOfView()),
             inRenderGraph.GetViewport().GetAspectRatio(),
-            inRenderGraph.GetViewport().GetCamera().GetNear(),
+            inRenderGraph.GetViewport().GetNear(),
             128.0f
         );
 
-        const Camera& camera = inRenderGraph.GetViewport().GetCamera();
-        const Mat4x4 inv_vp = glm::inverse(projection * camera.GetView());
+        const Viewport& vp = inRenderGraph.GetViewport();
+        const Mat4x4 inv_vp = glm::inverse(projection * vp.GetView());
 
         for (Vec3& corner : frustum_corners)
         {
@@ -1062,8 +1062,8 @@ const DepthOfFieldData& AddDepthOfFieldPass(RenderGraph& inRenderGraph, Device& 
             .mDepthTexture  = inRGResources.GetBindlessHeapIndex(inData.mDepthTextureSRV),
             .mInputTexture  = inRGResources.GetBindlessHeapIndex(inData.mInputTextureSRV),
             .mOutputTexture = inRGResources.GetBindlessHeapIndex(inData.mOutputTexture),
-            .mFarPlane      = viewport.GetCamera().GetFar(),
-            .mNearPlane     = viewport.GetCamera().GetNear(),
+            .mFarPlane      = viewport.GetFar(),
+            .mNearPlane     = viewport.GetNear(),
             .mFocusPoint    = RenderSettings::mDoFFocusPoint,
             .mFocusScale    = RenderSettings::mDoFFocusScale,
             .mDispatchSize  = viewport.size

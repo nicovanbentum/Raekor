@@ -1,7 +1,7 @@
 #pragma once
 
-#include "ecs.h"
-#include "rtti.h"
+#include "ECS.h"
+#include "RTTI.h"
 
 namespace RK {
 
@@ -44,6 +44,8 @@ class KeyFrames
 	void LoadFromAssimp(const aiNodeAnim* inNodeAnim);
 #endif
 	void LoadFromGltf(const cgltf_animation_channel* inNodeAnim);
+	
+	bool IsEmpty() const { return m_ScaleKeys.empty() && m_PositionKeys.empty() && m_RotationKeys.empty(); }
 
 	void AddScaleKey(const Vec3Key& inKey) { m_ScaleKeys.push_back(inKey); }
 	void AddPositionKey(const Vec3Key& inKey) { m_PositionKeys.push_back(inKey); }
@@ -84,7 +86,12 @@ public:
 	void SetName(StringView inName) { m_Name = inName; }
 
 	uint32_t GetBoneCount() const { return m_KeyFrames.size(); }
+
 	float GetTotalDuration() const { return m_TotalDuration; }
+	void SetTotalDuration(float inDuration) { m_TotalDuration = inDuration; }
+
+	auto GetBoneNames() { return std::views::keys(m_KeyFrames); }
+	auto GetKeyFrames() { return std::views::values(m_KeyFrames); }
 	
 	auto GetBoneNames() const { return std::views::keys(m_KeyFrames); }
 	auto GetKeyFrames() const { return std::views::values(m_KeyFrames); }
@@ -95,11 +102,13 @@ public:
 	float GetRunningTime() const { return m_RunningTime; }
 	void  SetRunningTime(float inTime) { m_RunningTime = inTime; }
 
+	void ClearKeyFrames() { m_KeyFrames.clear(); }
 #ifndef DEPRECATE_ASSIMP
 	void LoadKeyframes(uint32_t inBoneIndex, const aiNodeAnim* inAnimation);
 #endif
-	void LoadKeyframes(const String& inBoneName, const cgltf_animation_channel* inAnimation);
 	bool HasKeyFrames(const String& inBoneName) const { return m_KeyFrames.contains(inBoneName); }
+	void LoadKeyframes(const String& inBoneName, const cgltf_animation_channel* inAnimation);
+	void LoadKeyframes(const String& inBoneName, const KeyFrames& inKeyFrames) { m_KeyFrames[inBoneName] = inKeyFrames; }
 
 	KeyFrames& GetKeyFrames(const String& inBoneName) { return m_KeyFrames.at(inBoneName); }
 	const KeyFrames& GetKeyFrames(const String& inBoneName) const { return m_KeyFrames.at(inBoneName); }

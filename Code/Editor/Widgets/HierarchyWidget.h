@@ -1,6 +1,6 @@
 #pragma once
 
-#include "widget.h"
+#include "Widget.h"
 
 namespace RK {
 
@@ -21,7 +21,7 @@ private:
 	bool DrawFamilyNode(Scene& inScene, Entity inEntity);
 	void DrawChildlessNode(Scene& inScene, Entity inEntity);
 
-	std::string m_Filter;
+	String m_Filter;
 };
 
 }

@@ -111,7 +111,7 @@ public:
 
 	virtual void OnUpdate(float inDeltaTime) override;
 	virtual void OnEvent(const SDL_Event& inEvent) override;
-	virtual void LogMessage(const std::string& inMessage) override;
+	virtual void LogMessage(const String& inMessage) override;
 
 	void OpenFromTray();
 	HWND GetWindowHandle();
@@ -126,9 +126,9 @@ private:
 	SDL_Renderer* m_Renderer;
 	uint32_t m_NrOfFilesInFlight = 0;
 	std::mutex m_FilesInFlightMutex;
-	std::set<uint32_t> m_FilesInFlight;
-	std::vector<FileEntry> m_Files;
-	std::set<fs::path> m_CachedFiles;
+	HashSet<uint32_t> m_FilesInFlight;
+	Array<FileEntry> m_Files;
+	HashSet<Path> m_CachedFiles;
 	std::atomic<bool> m_CompileScenes = true;
 	std::atomic<bool> m_CompileScripts = false;
 	std::atomic<bool> m_CompileTextures = true;

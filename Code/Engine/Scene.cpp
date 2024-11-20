@@ -18,6 +18,7 @@ Scene::Scene(IRenderInterface* inRenderer) : m_Renderer(inRenderer), m_RootEntit
 	EnsureExists<Name>();
 	EnsureExists<Mesh>();
 	EnsureExists<Light>();
+	EnsureExists<Camera>();
 	EnsureExists<Material>();
 	EnsureExists<Skeleton>();
 	EnsureExists<SoftBody>();
@@ -101,7 +102,7 @@ Vec3 Scene::GetSunLightDirection() const
 	{
 		const Entity sunlight_entity = GetEntities<DirectionalLight>()[0];
 		const Transform& sunlight_transform = Get<Transform>(sunlight_entity);
-		sun_direction = static_cast<Quat>(sunlight_transform.rotation) * sun_direction;
+		sun_direction = sunlight_transform.GetRotationWorldSpace() * sun_direction;
 	}
 	else
 	{
@@ -185,12 +186,13 @@ void Scene::UpdateCameras()
 {
 	for (const auto& [entity, transform, camera] : Each<Transform, Camera>())
 	{
+		Quat q = transform.GetRotationWorldSpace();
 		camera.SetPosition(transform.GetPositionWorldSpace());
-	  //camera.SetAngle(transform.GetRotationWorldSpace());
-		camera.OnUpdate();
+		camera.SetAngle(Vec2(
+			glm::atan(2.0f * ( q.w * q.y - q.z * q.x ), 1.0f - 2.0f * ( q.y * q.y + q.z * q.z )),
+			glm::atan(2.0f * ( q.w * q.x + q.y * q.z ), 1.0f - 2.0f * ( q.x * q.x + q.y * q.y ))
+		));
 	}
-
-	
 }
 
 
@@ -602,7 +604,6 @@ void Scene::BindScriptToEntity(Entity inEntity, NativeScript& inScript, Applicat
 		inScript.script->m_Scene = this;
 		inScript.script->m_Input = g_Input;
 		inScript.script->m_Entity = inEntity;
-		inScript.script->m_Camera = &inApp->GetViewport().GetCamera();
 		inScript.script->m_DebugRenderer = &g_DebugRenderer;
 
 		inScript.script->OnBind();

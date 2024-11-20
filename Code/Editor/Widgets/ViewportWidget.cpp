@@ -2,17 +2,18 @@
 #include "viewportWidget.h"
 
 #include "OS.h"
-#include "gui.h"
-#include "iter.h"
-#include "scene.h"
-#include "timer.h"
-#include "input.h"
-#include "script.h"
-#include "physics.h"
-#include "components.h"
-#include "primitives.h"
-#include "application.h"
-#include "menubarWidget.h"
+#include "GUI.h"
+#include "Iter.h"
+#include "Scene.h"
+#include "Timer.h"
+#include "Input.h"
+#include "Script.h"
+#include "Editor.h"
+#include "Physics.h"
+#include "Components.h"
+#include "Primitives.h"
+#include "Application.h"
+#include "MenubarWidget.h"
 
 namespace RK {
 
@@ -146,6 +147,11 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			AddClickableQuad(viewport, entity, (ImTextureID)GetRenderInterface().GetLightTexture(), light.position, 0.1f);
 		}
 
+		for (const auto& [entity, camera] : scene.Each<Camera>())
+		{
+			AddClickableQuad(viewport, entity, (ImTextureID)GetRenderInterface().GetCameraTexture(), camera.GetPosition(), 0.1f);
+		}
+
 		for (const auto& [entity, light, transform] : scene.Each<DirectionalLight, Transform>())
 		{
 			AddClickableQuad(viewport, entity, (ImTextureID)GetRenderInterface().GetLightTexture(), transform.position, 0.1f);
@@ -153,7 +159,6 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	}
 
 	ImVec2 pos = ImGui::GetWindowPos();
-	viewport.offset = { pos.x, pos.y };
 
 	bool can_select_entity = mouseInViewport;
 	can_select_entity &= ImGui::IsMouseClicked(ImGuiMouseButton_Left);
@@ -278,8 +283,8 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 		const bool manipulated = ImGuizmo::Manipulate
 		(
-			glm::value_ptr(viewport.GetCamera().GetView()),
-			glm::value_ptr(viewport.GetCamera().GetProjection()),
+			glm::value_ptr(viewport.GetView()),
+			glm::value_ptr(viewport.GetProjection()),
 			operation, 
 			ImGuizmo::MODE::WORLD,
 			glm::value_ptr(world_space_transform)
@@ -462,17 +467,46 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 		ImGui::SeparatorText("Camera Settings");
 
-		Vec3 position = viewport.GetCamera().GetPosition();
-		if (ImGui::DragFloat3("Position", glm::value_ptr(position), 0.001f, -FLT_MAX, FLT_MAX))
-			viewport.GetCamera().SetPosition(position);
+		Entity camera_entity = m_Editor->GetCameraEntity();
 
-		Vec2 orientation = viewport.GetCamera().GetAngle();
-		if (ImGui::DragFloat2("Orientation", glm::value_ptr(orientation), 0.001f, -FLT_MAX, FLT_MAX))
-			viewport.GetCamera().SetAngle(orientation);
+		const char* camera_name = "Editor";
 
-		float field_of_view = viewport.GetFieldOfView();
-		if (ImGui::DragFloat("Field of View", &field_of_view, 0.1f)) 
-			viewport.SetFieldOfView(field_of_view);
+		if (GetScene().Has<Name, Camera>(camera_entity))
+		{
+			camera_name = GetScene().Get<Name>(camera_entity).name.c_str();
+		}
+
+		if (ImGui::BeginCombo("##ActiveCamera", camera_name))
+		{
+			if (ImGui::Selectable("Editor", camera_entity == Entity::Null))
+				m_Editor->SetCameraEntity(Entity::Null);
+
+			for (const auto& [entity, camera] : GetScene().Each<Camera>())
+			{
+				const Name& name = GetScene().Get<Name>(entity);
+
+				if (ImGui::Selectable(name.name.c_str(), camera_entity == entity))
+					m_Editor->SetCameraEntity(entity);
+			}
+
+			ImGui::EndCombo();
+		}
+#if 0 // TODO FIXME
+		if (camera_entity == Entity::Null)
+		{
+			Vec3 position = viewport.GetCamera().GetPosition();
+			if (ImGui::DragFloat3("Position", glm::value_ptr(position), 0.001f, -FLT_MAX, FLT_MAX))
+				viewport.GetCamera().SetPosition(position);
+
+			Vec2 orientation = viewport.GetCamera().GetAngle();
+			if (ImGui::DragFloat2("Orientation", glm::value_ptr(orientation), 0.001f, -FLT_MAX, FLT_MAX))
+				viewport.GetCamera().SetAngle(orientation);
+
+			float field_of_view = viewport.GetFieldOfView();
+			if (ImGui::DragFloat("Field of View", &field_of_view, 0.1f)) 
+				viewport.SetFieldOfView(field_of_view);
+		}
+#endif 
 
 		ImGui::PopStyleVar();
 		ImGui::EndPopup();
@@ -674,8 +708,8 @@ void ViewportWidget::AddClickableQuad(const Viewport& inViewport, Entity inEntit
 	model = glm::translate(model, inPos);
 
 	Vec3 view_vector = Vec3(0.0f);
-	view_vector.x = inViewport.GetCamera().GetPosition().x - inPos.x;
-	view_vector.z = inViewport.GetCamera().GetPosition().z - inPos.z;
+	view_vector.x = inViewport.GetPosition().x - inPos.x;
+	view_vector.z = inViewport.GetPosition().z - inPos.z;
 
 	const Vec3 look_at_vector = Vec3(0.0f, 0.0f, 1.0f);
 	const Vec3 view_vector_normalized = glm::normalize(view_vector);
@@ -686,7 +720,7 @@ void ViewportWidget::AddClickableQuad(const Viewport& inViewport, Entity inEntit
 	model = glm::rotate(model, acos(angle), up);
 	model = glm::scale(model, Vec3(glm::length(view_vector) * inSize));
 
-	Mat4x4 vp = inViewport.GetCamera().GetProjection() * inViewport.GetCamera().GetView();
+	Mat4x4 vp = inViewport.GetProjection() * inViewport.GetView();
 
 	std::array vertices =
 	{
@@ -701,7 +735,7 @@ void ViewportWidget::AddClickableQuad(const Viewport& inViewport, Entity inEntit
 
 	const ClickableQuad ws_quad = ClickableQuad { inEntity, vertices };
 
-	const Frustum frustum = inViewport.GetCamera().GetFrustum();
+	const Frustum frustum = inViewport.GetFrustum();
 
 	int visible_vertices = vertices.size();
 
@@ -727,7 +761,7 @@ void ViewportWidget::AddClickableQuad(const Viewport& inViewport, Entity inEntit
 	float y_uv = 1.0f;
 
 	ImGui::GetWindowDrawList()->AddImageQuad(
-		(void*)( (intptr_t)GetRenderInterface().GetLightTexture() ),
+		inTexture,
 		ImVec2(vertices[0].x, vertices[0].y),
 		ImVec2(vertices[1].x, vertices[1].y),
 		ImVec2(vertices[2].x, vertices[2].y),

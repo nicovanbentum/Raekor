@@ -441,13 +441,16 @@ public:
 	}
 
 	template<typename ...Components>
-	bool Has(Entity entity) const
+	bool Has(Entity inEntity) const
 	{
+		if (inEntity == Entity::Null)
+			return false;
+
 		bool has_all = true;
 
 		( ..., [&]()
 		{
-			if (!GetComponentStorage<Components>()->Contains(entity))
+			if (!GetComponentStorage<Components>()->Contains(inEntity))
 				has_all = false;
 		}( ) );
 

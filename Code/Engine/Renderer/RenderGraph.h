@@ -182,7 +182,7 @@ public:
     template<typename T>
     using ExecFn = std::function<void(T& inData, const RenderGraphResources& inResources, CommandList& inCmdList)>;
 
-    IRenderPass(const std::string& inName) : m_Name(inName) {}
+    IRenderPass(const String& inName) : m_Name(inName) {}
 
     virtual bool IsCompute() = 0;
     virtual bool IsGraphics() = 0;
@@ -190,7 +190,7 @@ public:
     virtual void Setup(RenderGraphBuilder& inBuilder) = 0;
     virtual void Execute(const RenderGraphResources& inResources, CommandList& inCmdList) = 0;
     
-    const std::string& GetName() const { return m_Name; }
+    const String& GetName() const { return m_Name; }
 
     bool IsCreated(RenderGraphResourceID inResource) const;
     bool IsRead(RenderGraphResourceViewID inResource) const;
@@ -216,9 +216,9 @@ private:
 
 
 protected:
-    std::string	m_Name;
-    uint32_t	m_ConstantsSize = 0;
-    bool		m_IsExternal = false;
+    String	  m_Name;
+    uint32_t  m_ConstantsSize = 0;
+    bool	  m_IsExternal = false;
 
     Array<RenderGraphResourceID>     m_CreatedResources;
     Array<RenderGraphResourceViewID> m_ReadResources;

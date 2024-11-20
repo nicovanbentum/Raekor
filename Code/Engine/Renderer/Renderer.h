@@ -144,6 +144,7 @@ public:
     void UpdateGPUStats(Device& inDevice);
 
     uint64_t GetLightTexture() override;
+    uint64_t GetCameraTexture() override;
     uint64_t GetDisplayTexture() override;
 
     uint64_t GetImGuiTextureID(uint32_t inTextureID) override;
@@ -177,6 +178,7 @@ public:
 
 private:
     TextureID m_LightTexture;
+    TextureID m_CameraTexture;
 
 private:
     Device& m_Device;
