@@ -19,17 +19,17 @@ public:
     CommandList(Device& inDevice, D3D12_COMMAND_LIST_TYPE inType);
     CommandList(Device& inDevice, D3D12_COMMAND_LIST_TYPE inType, uint32_t inFrameIndex);
 
-    operator ID3D12GraphicsCommandList* ()                { return m_CommandLists[m_CurrentCmdListIndex].Get(); }
-    operator const ID3D12GraphicsCommandList* () const    { return m_CommandLists[m_CurrentCmdListIndex].Get(); }
-    ID3D12GraphicsCommandList4* operator-> ()             { return m_CommandLists[m_CurrentCmdListIndex].Get(); }
-    const ID3D12GraphicsCommandList4* operator-> () const { return m_CommandLists[m_CurrentCmdListIndex].Get(); }
+    operator ID3D12GraphicsCommandList* ()                { return m_CommandList.Get(); }
+    operator const ID3D12GraphicsCommandList* () const    { return m_CommandList.Get(); }
+    ID3D12GraphicsCommandList4* operator-> ()             { return m_CommandList.Get(); }
+    const ID3D12GraphicsCommandList4* operator-> () const { return m_CommandList.Get(); }
 
     void Reset();
     void Begin();
     void Close();
     
     uint32_t GetFrameIndex() const { return m_FrameIndex; }
-    uint64_t GetFenceValue() const { return m_SubmitFenceValue; }
+    uint64_t GetFenceValue() const { return m_SubmittedFenceValue; }
 
     void SetViewportAndScissor(const Texture& inTexture);
     void SetViewportAndScissor(const Viewport& inViewport);
@@ -57,25 +57,24 @@ public:
 
 private:
     uint32_t m_FrameIndex = 0;
-    uint64_t m_SubmitFenceValue = 0;
-    uint32_t m_CurrentCmdListIndex = 0;
+    uint64_t m_SubmittedFenceValue = 0;
     ComPtr<ID3D12Fence> m_Fence = nullptr;
     Array<DeviceResource> m_ResourceRefs;
-    Array<ComPtr<ID3D12GraphicsCommandList4>> m_CommandLists;
-    Array<ComPtr<ID3D12CommandAllocator>> m_CommandAllocators;
+    ComPtr<ID3D12GraphicsCommandList4> m_CommandList;
+    ComPtr<ID3D12CommandAllocator> m_CommandAllocator;
 };
 
 template<typename T> requires ( sizeof(T) < sMaxRootConstantsSize&& std::default_initializable<T> )
     void CommandList::PushGraphicsConstants(const T& inValue)
 {
-    m_CommandLists[m_CurrentCmdListIndex]->SetGraphicsRoot32BitConstants(0, sizeof(T) / sizeof(DWORD), &inValue, 0);
+    m_CommandList->SetGraphicsRoot32BitConstants(0, sizeof(T) / sizeof(DWORD), &inValue, 0);
 }
 
 template<typename T> // omg c++ 20 concepts, much wow so cool
     requires ( sizeof(T) < sMaxRootConstantsSize&& std::default_initializable<T> )
 void CommandList::PushComputeConstants(const T& inValue)
 {
-    m_CommandLists[m_CurrentCmdListIndex]->SetComputeRoot32BitConstants(0, sizeof(T) / sizeof(DWORD), &inValue, 0);
+    m_CommandList->SetComputeRoot32BitConstants(0, sizeof(T) / sizeof(DWORD), &inValue, 0);
 }
 
 }

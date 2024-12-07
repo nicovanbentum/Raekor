@@ -363,6 +363,23 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Mesh& ioMesh)
 
 bool InspectorWidget::DrawComponent(Entity inEntity, Camera& ioCamera)
 {
+	const bool is_active_camera = m_Editor->GetCameraEntity() == inEntity;
+
+	if (is_active_camera)
+		ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_CheckMark));
+
+	if (ImGui::SmallButton((const char*)ICON_FA_CAMERA))
+	{
+		m_Editor->SetCameraEntity(is_active_camera ? Entity::Null : inEntity);
+	}
+
+	if (is_active_camera)
+		ImGui::PopStyleColor();
+
+	ImGui::SameLine();
+
+	ImGui::Text("Make Active");
+
 	if (!GetScene().Has<Transform>(inEntity))
 	{
 		Vec3 position = ioCamera.GetPosition();

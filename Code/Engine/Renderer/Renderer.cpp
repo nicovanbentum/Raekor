@@ -489,7 +489,7 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
     {
         gbuffer_output = AddGBufferPass(m_RenderGraph, inDevice, inScene).mOutput;
 
-        AddShadowMapPass(m_RenderGraph, inDevice, inScene);
+        // AddShadowMapPass(m_RenderGraph, inDevice, inScene);
 
         // const auto& grass_data = AddGrassRenderPass(m_RenderGraph, inDevice, gbuffer_data);
 

@@ -10,7 +10,7 @@ class Device;
 class ResourceID
 {
 public:
-    static inline uint32_t cInvalidIndex = 0xFFFFF;
+    static constexpr uint32_t cInvalidIndex = 0xFFFFF;
 
     ResourceID() : m_Index(cInvalidIndex), m_Generation(0) {}
     explicit ResourceID(uint32_t inValue) : m_Value(inValue) {}

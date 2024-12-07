@@ -11,6 +11,10 @@ class Camera
 	RTTI_DECLARE_TYPE(Camera);
 
 public:
+	static constexpr Vec3 cUp = Vec3(0.0f, 1.0f, 0.0f);
+	static constexpr Vec3 cRight = Vec3(1.0f, 0.0f, 0.0f);
+	static constexpr Vec3 cForward = Vec3(0.0f, 0.0f, -1.0f);
+
 	static constexpr float cDefaultNearPlane = 0.1f;
 	static constexpr float cDefaultFarPlane = 4096.0f;
 	static constexpr float cDefaultFieldOfView = 65.0f;

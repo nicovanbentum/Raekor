@@ -14,40 +14,33 @@ CommandList::CommandList(Device& inDevice, D3D12_COMMAND_LIST_TYPE inType) : Com
 
 CommandList::CommandList(Device& inDevice, D3D12_COMMAND_LIST_TYPE inType, uint32_t inFrameIndex) : m_FrameIndex(inFrameIndex)
 {
-    auto& command_list = m_CommandLists.emplace_back();
-    auto& command_allocator = m_CommandAllocators.emplace_back();
-    gThrowIfFailed(inDevice->CreateCommandAllocator(inType, IID_PPV_ARGS(&command_allocator)));
-    gThrowIfFailed(inDevice->CreateCommandList1(0x00, inType, D3D12_COMMAND_LIST_FLAG_NONE, IID_PPV_ARGS(&command_list)));
+    gThrowIfFailed(inDevice->CreateCommandAllocator(inType, IID_PPV_ARGS(&m_CommandAllocator)));
+    gThrowIfFailed(inDevice->CreateCommandList1(0x00, inType, D3D12_COMMAND_LIST_FLAG_NONE, IID_PPV_ARGS(&m_CommandList)));
 }
 
 
 void CommandList::Begin()
 {
-    auto& cmd_list = m_CommandLists.back();
-    gThrowIfFailed(cmd_list->Reset(m_CommandAllocators.back().Get(), nullptr));
+    gThrowIfFailed(m_CommandList->Reset(m_CommandAllocator.Get(), nullptr));
 }
 
 
 void CommandList::Reset()
 {
-    auto& cmd_list = m_CommandLists.back();
-    m_CommandAllocators.back()->Reset();
-    gThrowIfFailed(cmd_list->Reset(m_CommandAllocators.back().Get(), nullptr));
+    m_CommandAllocator->Reset();
+    gThrowIfFailed(m_CommandList->Reset(m_CommandAllocator.Get(), nullptr));
 }
 
 
 
 void CommandList::Close()
 {
-    auto& cmd_list = m_CommandLists.back();
-    gThrowIfFailed(cmd_list->Close());
+    gThrowIfFailed(m_CommandList->Close());
 }
 
 
 void CommandList::ClearBuffer(Device& inDevice, BufferID inBuffer, Vec4 inValue)
 {
-    auto& cmd_list = m_CommandLists.back();
-
     ID3D12Resource* resource_ptr = inDevice.GetD3D12Resource(inBuffer);
     D3D12_CPU_DESCRIPTOR_HANDLE cpu_buffer_handle = inDevice.GetCPUDescriptorHandle(inBuffer);
     D3D12_GPU_DESCRIPTOR_HANDLE gpu_buffer_handle = inDevice.GetGPUDescriptorHandle(inBuffer);
@@ -57,14 +50,12 @@ void CommandList::ClearBuffer(Device& inDevice, BufferID inBuffer, Vec4 inValue)
 
     inDevice->CopyDescriptorsSimple(1, cpu_temp_descriptor_handle, cpu_buffer_handle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     
-    cmd_list->ClearUnorderedAccessViewFloat(gpu_buffer_handle, cpu_temp_descriptor_handle, resource_ptr, glm::value_ptr(inValue), 0, NULL);
+    m_CommandList->ClearUnorderedAccessViewFloat(gpu_buffer_handle, cpu_temp_descriptor_handle, resource_ptr, glm::value_ptr(inValue), 0, NULL);
 }
 
 
 void CommandList::ClearTexture(Device& inDevice, TextureID inTexture, Vec4 inValue)
 {
-    auto& cmd_list = m_CommandLists.back();
-
     ID3D12Resource* resource_ptr = inDevice.GetD3D12Resource(inTexture);
     D3D12_CPU_DESCRIPTOR_HANDLE cpu_buffer_handle = inDevice.GetCPUDescriptorHandle(inTexture);
     D3D12_GPU_DESCRIPTOR_HANDLE gpu_buffer_handle = inDevice.GetGPUDescriptorHandle(inTexture);
@@ -75,15 +66,13 @@ void CommandList::ClearTexture(Device& inDevice, TextureID inTexture, Vec4 inVal
 
     inDevice->CopyDescriptorsSimple(1, cpu_temp_descriptor_handle, cpu_buffer_handle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     
-    cmd_list->ClearUnorderedAccessViewFloat(gpu_buffer_handle, cpu_temp_descriptor_handle, resource_ptr, glm::value_ptr(inValue), 0, NULL);
+    m_CommandList->ClearUnorderedAccessViewFloat(gpu_buffer_handle, cpu_temp_descriptor_handle, resource_ptr, glm::value_ptr(inValue), 0, NULL);
 }
 
 
 void CommandList::BindDefaults(Device& inDevice)
 {
-    auto& command_list = m_CommandLists[m_CurrentCmdListIndex];
-
-    command_list->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    m_CommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
     const std::array heaps =
     {
@@ -91,25 +80,23 @@ void CommandList::BindDefaults(Device& inDevice)
         *inDevice.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV)
     };
 
-    command_list->SetDescriptorHeaps(heaps.size(), heaps.data());
-    command_list->SetComputeRootSignature(inDevice.GetGlobalRootSignature());
-    command_list->SetGraphicsRootSignature(inDevice.GetGlobalRootSignature());
+    m_CommandList->SetDescriptorHeaps(heaps.size(), heaps.data());
+    m_CommandList->SetComputeRootSignature(inDevice.GetGlobalRootSignature());
+    m_CommandList->SetGraphicsRootSignature(inDevice.GetGlobalRootSignature());
 }
 
 
 void CommandList::BindToSlot(Buffer& inBuffer, EBindSlot inSlot, uint32_t inOffset)
 {
-    auto& command_list = m_CommandLists[m_CurrentCmdListIndex];
-
     switch (inSlot)
     {
         case EBindSlot::CBV0:
-            command_list->SetGraphicsRootConstantBufferView(inSlot, inBuffer->GetGPUVirtualAddress());
-            command_list->SetComputeRootConstantBufferView(inSlot, inBuffer->GetGPUVirtualAddress());
+            m_CommandList->SetGraphicsRootConstantBufferView(inSlot, inBuffer->GetGPUVirtualAddress());
+            m_CommandList->SetComputeRootConstantBufferView(inSlot, inBuffer->GetGPUVirtualAddress());
             break;
         case EBindSlot::SRV0: case EBindSlot::SRV1:
-            command_list->SetGraphicsRootShaderResourceView(inSlot, inBuffer->GetGPUVirtualAddress() + inOffset);
-            command_list->SetComputeRootShaderResourceView(inSlot, inBuffer->GetGPUVirtualAddress() + inOffset);
+            m_CommandList->SetGraphicsRootShaderResourceView(inSlot, inBuffer->GetGPUVirtualAddress() + inOffset);
+            m_CommandList->SetComputeRootShaderResourceView(inSlot, inBuffer->GetGPUVirtualAddress() + inOffset);
             break;
         default: assert(false);
     }
@@ -128,7 +115,7 @@ void CommandList::BindIndexBuffer(const Buffer& inBuffer)
     };
 
     assert(index_view.SizeInBytes <= inBuffer.GetSize());
-    m_CommandLists[m_CurrentCmdListIndex]->IASetIndexBuffer(&index_view);
+    m_CommandList->IASetIndexBuffer(&index_view);
 }
 
 
@@ -151,8 +138,8 @@ void CommandList::BindVertexAndIndexBuffers(Device& inDevice, const RK::Mesh& in
         .StrideInBytes = inMesh.GetVertexStride()
     };
 
-    m_CommandLists[m_CurrentCmdListIndex]->IASetIndexBuffer(&index_view);
-    m_CommandLists[m_CurrentCmdListIndex]->IASetVertexBuffers(0, 1, &vertex_view);
+    m_CommandList->IASetIndexBuffer(&index_view);
+    m_CommandList->IASetVertexBuffers(0, 1, &vertex_view);
 }
 
 
@@ -161,8 +148,8 @@ void CommandList::SetViewportAndScissor(const Texture& inTexture)
     const D3D12_VIEWPORT vp = CD3DX12_VIEWPORT(inTexture.GetD3D12Resource().Get());
     const D3D12_RECT scissor = CD3DX12_RECT(vp.TopLeftX, vp.TopLeftY, vp.Width, vp.Height);
 
-    m_CommandLists[m_CurrentCmdListIndex]->RSSetViewports(1, &vp);
-    m_CommandLists[m_CurrentCmdListIndex]->RSSetScissorRects(1, &scissor);
+    m_CommandList->RSSetViewports(1, &vp);
+    m_CommandList->RSSetScissorRects(1, &scissor);
 }
 
 
@@ -171,20 +158,17 @@ void CommandList::SetViewportAndScissor(const Viewport& inViewport)
     const CD3DX12_RECT scissor = CD3DX12_RECT(0, 0, inViewport.GetRenderSize().x, inViewport.GetRenderSize().y);
     const CD3DX12_VIEWPORT viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, float(inViewport.GetRenderSize().x), float(inViewport.GetRenderSize().y));
 
-    m_CommandLists[m_CurrentCmdListIndex]->RSSetViewports(1, &viewport);
-    m_CommandLists[m_CurrentCmdListIndex]->RSSetScissorRects(1, &scissor);
+    m_CommandList->RSSetViewports(1, &viewport);
+    m_CommandList->RSSetScissorRects(1, &scissor);
 }
 
 
 void CommandList::Submit(Device& inDevice, ID3D12CommandQueue* inQueue)
 {
-    auto& command_list = m_CommandLists[m_CurrentCmdListIndex];
-    assert(command_list->GetType() == inQueue->GetDesc().Type);
+    assert(m_CommandList->GetType() == inQueue->GetDesc().Type);
 
-    const std::array cmd_lists = { static_cast<ID3D12CommandList*>( command_list.Get() )};
+    const std::array cmd_lists = { static_cast<ID3D12CommandList*>( m_CommandList.Get() )};
     inQueue->ExecuteCommandLists(cmd_lists.size(), cmd_lists.data());
-
-    m_SubmitFenceValue++;
 }
 
 } // namespace Raekor

@@ -1176,7 +1176,7 @@ const BloomPassData& AddBloomPass(RenderGraph& inRenderGraph, Device& inDevice, 
 
 const DebugPrimitivesData& AddDebugOverlayPass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inRenderTarget, RenderGraphResourceID inDepthTarget)
 {
-    constexpr int cPrimitiveBufferSize = 3 * UINT16_MAX;
+    constexpr size_t cPrimitiveBufferSize = 3 * UINT16_MAX;
 
     return inRenderGraph.AddGraphicsPass<DebugPrimitivesData>("DEBUG PRIMITIVES PASS",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, DebugPrimitivesData& inData)
@@ -1205,7 +1205,9 @@ const DebugPrimitivesData& AddDebugOverlayPass(RenderGraph& inRenderGraph, Devic
         if (line_vertices.empty())
             return;
 
-        inRenderGraph.GetPerPassAllocator().AllocAndCopy(line_vertices.size_bytes(), line_vertices.data(), inData.mLineVertexDataOffset);
+        const int size_in_bytes = glm::min(line_vertices.size_bytes(), cPrimitiveBufferSize);
+
+        inRenderGraph.GetPerPassAllocator().AllocAndCopy(size_in_bytes, line_vertices.data(), inData.mLineVertexDataOffset);
 
         inCmdList->SetPipelineState(inData.mPipeline.Get());
         inCmdList.PushGraphicsConstants(DebugPrimitivesRootConstants { .mBufferOffset = inData.mLineVertexDataOffset });

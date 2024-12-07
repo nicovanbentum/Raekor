@@ -205,6 +205,9 @@ template<typename Type>
 using Atomic = std::atomic<Type>;
 
 template<typename Type>
+using Stack = std::stack<Type>;
+
+template<typename Type>
 using Array = std::vector<Type>;
 
 template<typename Type, size_t Count>

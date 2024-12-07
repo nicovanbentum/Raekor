@@ -469,7 +469,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 		Entity camera_entity = m_Editor->GetCameraEntity();
 
-		const char* camera_name = "Editor";
+		const char* camera_name = "<built-in>";
 
 		if (GetScene().Has<Name, Camera>(camera_entity))
 		{
@@ -478,7 +478,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 		if (ImGui::BeginCombo("##ActiveCamera", camera_name))
 		{
-			if (ImGui::Selectable("Editor", camera_entity == Entity::Null))
+			if (ImGui::Selectable("<built-in>", camera_entity == Entity::Null))
 				m_Editor->SetCameraEntity(Entity::Null);
 
 			for (const auto& [entity, camera] : GetScene().Each<Camera>())

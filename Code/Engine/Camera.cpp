@@ -19,8 +19,8 @@ RTTI_DEFINE_TYPE(Camera)
 
 void Camera::Zoom(float amount)
 {
-	Vec3 dir = GetForwardVector();
-	m_Position += dir * ( amount * mZoomSpeed );
+	Vec3 forward = GetForwardVector();
+	m_Position += forward * ( amount * mZoomSpeed );
 }
 
 
@@ -35,10 +35,10 @@ void Camera::Look(Vec2 amount)
 
 void Camera::Move(Vec2 amount)
 {
-	Vec3 dir = GetForwardVector();
-	// sideways
-	m_Position += glm::normalize(glm::cross(dir, { 0.0f, 1.0f, 0.0f })) * ( amount.x * -mMoveSpeed );
-	// up and down
+	Vec3 forward = GetForwardVector();
+	Vec3 right = glm::normalize(glm::cross(forward, cUp));
+	
+	m_Position += right * ( amount.x * -mMoveSpeed );
 	m_Position.y += float(amount.y * mMoveSpeed);
 }
 

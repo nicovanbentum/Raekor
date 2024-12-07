@@ -227,7 +227,7 @@ void IEditor::OnEvent(const SDL_Event& event)
 {
 	ImGui_ImplSDL2_ProcessEvent(&event);
 
-	if (m_GameState != GAME_RUNNING)
+	if (m_GameState != GAME_RUNNING && m_CameraEntity == Entity::Null)
 	{
 		if (const ViewportWidget* viewport_widget = m_Widgets.GetWidget<ViewportWidget>())
 		{
