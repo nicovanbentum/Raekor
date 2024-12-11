@@ -55,7 +55,6 @@ public:
     void UploadInstances(Application* inApp, Device& inDevice, CommandList& inCmdList);
     void UploadMaterials(Application* inApp, Device& inDevice, CommandList& inCmdList, bool inDisableAlbedo);
 
-private:
     BufferID GrowBuffer(Device& inDevice, BufferID inBuffer, const Buffer::Desc& inDesc);
 
 private:

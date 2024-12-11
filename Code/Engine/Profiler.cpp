@@ -10,8 +10,17 @@ void Profiler::Reset()
 	if (m_IsEnabled)
 	{
 		m_HistoryCPUSections = m_CPUSections;
+		std::scoped_lock lock(m_SectionsMutex);
 		m_CPUSections.clear(); 
 	}
+}
+
+
+int Profiler::AllocateCPU() 
+{ 
+	std::scoped_lock lock(m_SectionsMutex); 
+	m_CPUSections.emplace_back(); 
+	return m_CPUSections.size() - 1; 
 }
 
 

@@ -152,6 +152,9 @@ struct Mesh : public Component
 	void CalculateBoundingBox();
 
 	uint32_t GetVertexStride() const;
+
+	bool IsLoaded() const { return vertexBuffer != 0 && indexBuffer != 0 && BottomLevelAS != 0; }
+
 };
 
 

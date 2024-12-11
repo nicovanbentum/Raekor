@@ -14,7 +14,7 @@ public:
 	template<typename T>
 	BinaryReadArchive& operator>> (T& ioRHS)
 	{
-		std::string type;
+		String type;
 		ReadFileBinary(m_File, type);
 
 		if (RTTI* rtti = g_RTTIFactory.GetRTTI(type.c_str()))

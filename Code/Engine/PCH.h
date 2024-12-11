@@ -208,6 +208,9 @@ template<typename Type>
 using Stack = std::stack<Type>;
 
 template<typename Type>
+using Queue = std::queue<Type>;
+
+template<typename Type>
 using Array = std::vector<Type>;
 
 template<typename Type, size_t Count>

@@ -65,6 +65,8 @@ public:
 
     [[nodiscard]] TypedID Add(const T& inT)
     {
+        std::scoped_lock lock(m_Mutex);
+
         TypedID id;
 
         if (m_FreeIndices.empty())
@@ -89,6 +91,8 @@ public:
 
     void Remove(TypedID inID)
     {
+        std::scoped_lock lock(m_Mutex);
+
         assert(inID.IsValid());
         assert(inID.m_Index < m_Storage.size());
 
@@ -129,6 +133,7 @@ protected:
     Array<uint16_t> m_Generations;
     Array<uint32_t> m_FreeIndices;
     Array<T> m_Storage;
+    Mutex m_Mutex;
 };
 
 

@@ -247,6 +247,12 @@ void Scene::UpdateTransforms()
 }
 
 
+void Scene::UpdateStreaming()
+{
+
+}
+
+
 void Scene::UpdateAnimations(float inDeltaTime)
 {
 	PROFILE_FUNCTION_CPU();
@@ -590,6 +596,126 @@ void Scene::OpenFromFile(const String& inFilePath, Assets& ioAssets, Application
 }
 
 
+void Scene::OpenFromFileAsync(const String& inFilePath, Assets& ioAssets, Application* inApp)
+{
+	PROFILE_FUNCTION_CPU();
+
+	// set file path properties
+	m_ActiveSceneFilePath = inFilePath;
+	assert(fs::is_regular_file(inFilePath));
+
+	// open archive
+	BinaryReadArchive archive(inFilePath);
+	File& file = archive.GetFile();
+
+	// read header
+	SceneHeader header;
+	ReadFileBinary(file, header);
+
+	// check for errors
+	if (header.MagicNumber != SceneHeader::sMagicNumber)
+	{
+		if (inApp)
+			inApp->LogMessage(std::format("[Scene] Magic number mismatch!"));
+		return;
+	}
+
+	if (header.Version != SceneHeader::sVersion)
+	{
+		if (inApp)
+			inApp->LogMessage(std::format("[Scene] Format version mismatch!!"));
+		return;
+	}
+
+	// clear the current scene
+	Clear();
+	m_Hierarchy.clear();
+
+	// read in Entity's
+	ReadFileBinary(file, m_Entities);
+
+	Timer timer;
+
+	// read in hierarchy
+	Array<EntityHierarchy::Pair> pairs;
+	ReadFileBinary(file, pairs);
+	m_Hierarchy.insert(pairs);
+
+	std::cout << std::format("[Scene] Load Hierarchy data took {:.3f} seconds.\n", timer.GetElapsedTime());
+
+	// read in tables
+	Array<SceneTable> tables;
+	file.seekg(header.IndexTableStart);
+	ReadFileBinary(file, tables);
+
+	// read in components
+	for (const SceneTable& table : tables)
+	{
+		file.seekg(table.Start);
+		m_Components[table.Hash]->Read(archive);
+	}
+
+	std::cout << std::format("[Scene] Load ECStorage data took {:.3f} seconds.\n", timer.GetElapsedTime());
+
+	for (const auto& [entity, script] : Each<NativeScript>())
+	{
+		if (ScriptAsset::Ptr asset = ioAssets.GetAsset<ScriptAsset>(script.file))
+		{
+			for (const String& type_str : asset->GetRegisteredTypes())
+			{
+				script.types.push_back(type_str);
+			}
+
+			if (inApp)
+				BindScriptToEntity(entity, script, inApp);
+		}
+	}
+
+	timer.Restart();
+
+	// load mesh data to RAM and schedule VRAM uploads
+	g_ThreadPool.QueueJob([this]() 
+	{
+		for (const auto& [entity, mesh] : Each<Mesh>())
+		{
+			if (m_Renderer)
+				m_Renderer->UploadMeshBuffers(entity, mesh);
+
+			if (Skeleton* skeleton = GetPtr<Skeleton>(entity))
+				m_Renderer->UploadSkeletonBuffers(entity, *skeleton, mesh);
+		}
+	});
+
+	Job::Barrier barrier = Job::Barrier(Count<Material>());
+
+	// load textures data to RAM
+	for (const auto& [entity, material] : Each<Material>())
+	{
+		barrier.AddJob(g_ThreadPool.QueueJob([&]()
+		{
+			ioAssets.GetAsset<TextureAsset>(material.albedoFile);
+			ioAssets.GetAsset<TextureAsset>(material.normalFile);
+			ioAssets.GetAsset<TextureAsset>(material.emissiveFile);
+			ioAssets.GetAsset<TextureAsset>(material.metallicFile);
+			ioAssets.GetAsset<TextureAsset>(material.roughnessFile);
+		}));
+	}
+
+	if (m_Renderer)
+	{
+		g_ThreadPool.QueueJob([this, &ioAssets, barrier]() 
+		{
+			barrier.Wait();
+
+			for (const auto& [entity, material] : Each<Material>())
+			{
+				m_Renderer->UploadMaterialTextures(entity, material, ioAssets);
+			}
+		});
+	}
+}
+
+
 void Scene::BindScriptToEntity(Entity inEntity, NativeScript& inScript, Application* inApp)
 {
 	if (inScript.script)
@@ -633,7 +759,7 @@ void Scene::Optimize()
 }
 
 
-bool SceneImporter::LoadFromFile(const std::string& inFile, Assets* inAssets)
+bool SceneImporter::LoadFromFile(const String& inFile, Assets* inAssets)
 {
 	/*
 	* LOAD GLTF FROM DISK

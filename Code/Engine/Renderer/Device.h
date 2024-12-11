@@ -124,6 +124,7 @@ private:
 
     DescriptorHeap m_ClearHeap;
     uint64_t m_UploadBuffersSize = 0;
+    ComPtr<ID3D12Fence1> m_UploadFence;
     Array<UploadBuffer> m_UploadBuffers;
     StaticArray<DescriptorHeap, D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES> m_Heaps;
     StaticArray<ComPtr<ID3D12CommandSignature>, COMMAND_SIGNATURE_COUNT> m_CommandSignatures;

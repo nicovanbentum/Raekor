@@ -29,6 +29,7 @@ struct BackBufferData
     uint64_t    mFenceValue = 0;
     TextureID   mBackBuffer;
     CommandList mCopyCmdList;
+    CommandList mUpdateCmdList;
     CommandList mDirectCmdList;
 };
 
@@ -85,14 +86,14 @@ public:
     void SetShouldRecompile(bool inValue) { m_ShouldRecompile = inValue; }
     void SetShouldCaptureNextFrame(bool inValue) { m_ShouldCaptureNextFrame = inValue; }
 
-    void QueueBlasUpdate(Entity inEntity) { m_PendingBlasUpdates.push_back(inEntity); }
-    void QueueMeshUpload(Entity inEntity) { m_PendingMeshUploads.push_back(inEntity); }
-    void QueueSkeletonUpload(Entity inEntity) { m_PendingSkeletonUploads.push_back(inEntity); }
-    void QueueMaterialUpload(Entity inEntity) { m_PendingMaterialUploads.push_back(inEntity); }
+    void QueueBlasUpdate(Entity inEntity) { std::scoped_lock lock(m_UploadMutex); m_PendingBlasUpdates.push_back(inEntity); }
+    void QueueMeshUpload(Entity inEntity) { std::scoped_lock lock(m_UploadMutex); m_PendingMeshUploads.push_back(inEntity); }
+    void QueueSkeletonUpload(Entity inEntity) { std::scoped_lock lock(m_UploadMutex); m_PendingSkeletonUploads.push_back(inEntity); }
+    void QueueMaterialUpload(Entity inEntity) { std::scoped_lock lock(m_UploadMutex); m_PendingMaterialUploads.push_back(inEntity); }
 
-    void QueueTextureUpload(TextureID inTexture, uint32_t inMip, const ByteSlice& inData) { m_PendingTextureUploads.emplace_back(TextureUpload { inMip, inTexture, inData }); }
-    void QueueTextureUpload(TextureID inTexture, uint32_t inMip, const TextureAsset::Ptr& inAsset) { m_PendingTextureUploads.emplace_back(TextureUpload{ inMip, inTexture, inAsset->GetDataSlice() }); }
-    void QueueTextureUpload(TextureID inTexture, uint32_t inMip, const void* inData, size_t inSize) { m_PendingTextureUploads.emplace_back(TextureUpload { inMip, inTexture, {(uint8_t*)inData, inSize} }); }
+    void QueueTextureUpload(TextureID inTexture, uint32_t inMip, const ByteSlice& inData) { std::scoped_lock lock(m_UploadMutex); m_PendingTextureUploads.emplace_back(TextureUpload { inMip, inTexture, inData }); }
+    void QueueTextureUpload(TextureID inTexture, uint32_t inMip, const TextureAsset::Ptr& inAsset) { std::scoped_lock lock(m_UploadMutex); m_PendingTextureUploads.emplace_back(TextureUpload{ inMip, inTexture, inAsset->GetDataSlice() }); }
+    void QueueTextureUpload(TextureID inTexture, uint32_t inMip, const void* inData, size_t inSize) { std::scoped_lock lock(m_UploadMutex); m_PendingTextureUploads.emplace_back(TextureUpload { inMip, inTexture, {(uint8_t*)inData, inSize} }); }
 
     TextureID GetEntityTexture() const;
     TextureID GetDisplayTexture() const;
@@ -110,6 +111,7 @@ public:
 
 private:
     SDL_Window*                 m_Window;
+    Mutex                       m_UploadMutex;
     Array<Entity>               m_PendingBlasUpdates;
     Array<Entity>               m_PendingMeshUploads;
     Array<Entity>               m_PendingSkeletonUploads;

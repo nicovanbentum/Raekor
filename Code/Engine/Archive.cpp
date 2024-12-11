@@ -24,7 +24,7 @@ void* JSON::ReadArchive::ReadNextObject(RTTI** rtti)
 
     // token index is on the type key
     assert(m_JSON.GetToken(m_TokenIndex).type == JSMN_STRING);  
-    const std::string& type_name = m_JSON.GetString(m_TokenIndex);
+    const String& type_name = m_JSON.GetString(m_TokenIndex);
 
     // look up the RTTI and allocate an instance from it
     *rtti = g_RTTIFactory.GetRTTI(type_name.c_str());

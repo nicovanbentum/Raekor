@@ -114,4 +114,26 @@ void ThreadPool::ThreadLoop(uint32_t inThreadIndex)
 	} while (!m_Quit);
 }
 
+void Job::Barrier::Wait() const
+{
+	bool all_finished = false;
+
+	do
+	{
+		bool finished = true;
+
+		for (const auto& job : m_Jobs)
+		{
+			if (!job->m_Finished)
+			{
+				finished = false;
+				break;
+			}
+		}
+
+		all_finished = finished;
+
+	} while (!all_finished);
+}
+
 } // raekor

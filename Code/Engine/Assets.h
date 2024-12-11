@@ -22,7 +22,7 @@ public:
 	const Path& GetPath() const { return m_Path; }
 	const String& GetPathAsString() { if (m_String.empty()) m_String = m_Path.string(); return m_String; }
 
-	static std::string GetCachedPath(const String& inAssetPath, const char* inExtension)
+	static String GetCachedPath(const String& inAssetPath, const char* inExtension)
 	{
 		return fs::relative(inAssetPath).replace_extension(inExtension).string().replace(0, 6, "Cached");
 	}

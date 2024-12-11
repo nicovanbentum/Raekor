@@ -36,13 +36,15 @@ public:
 	bool IsEnabled() const { return m_IsEnabled; }
 	void SetEnabled(bool inEnabled) { m_IsEnabled = inEnabled; }
 
-	int AllocateCPU() { m_CPUSections.emplace_back(); return m_CPUSections.size() - 1; }
+	int AllocateCPU();
 	CPUProfileSection& GetSectionCPU(int inIndex) { return m_CPUSections[inIndex]; }
 	const Array<CPUProfileSection>& GetCPUProfileSections() const { return m_HistoryCPUSections; }
 
 private:
 	int m_Depth = 0;
 	bool m_IsEnabled = true;
+
+	Mutex m_SectionsMutex;
 	Array<CPUProfileSection> m_CPUSections;
 	Array<CPUProfileSection> m_HistoryCPUSections;
 };

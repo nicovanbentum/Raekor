@@ -295,7 +295,7 @@ void Animation::OnUpdate(float inDeltaTime)
 }
 
 
-void Animation::LoadKeyframes(const std::string& inBoneName, const cgltf_animation_channel* inAnimation)
+void Animation::LoadKeyframes(const String& inBoneName, const cgltf_animation_channel* inAnimation)
 {
 	// use insert here to protect against overwriting the same bone index for different channels
 	m_KeyFrames.insert({ inBoneName, KeyFrames() });

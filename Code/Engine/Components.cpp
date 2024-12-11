@@ -485,7 +485,7 @@ void Mesh::CalculateTangents()
 
 void Mesh::CalculateNormals()
 {
-	normals.resize(positions.size(), glm::vec3(0.0f));
+	normals.resize(positions.size(), Vec3(0.0f));
 
 	for (int i = 0; i < indices.size(); i += 3)
 	{

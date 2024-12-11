@@ -38,6 +38,7 @@ public:
 	// Per frame systems
 	void UpdateLights();
 	void UpdateCameras();
+	void UpdateStreaming();
 	void UpdateTransforms();
 	void UpdateAnimations(float inDeltaTime);
 	void UpdateNativeScripts(float inDeltaTime);
@@ -71,6 +72,7 @@ public:
 	// save Scene to disk
 	void SaveToFile(const String& inFile, Assets& ioAssets, Application* inApp = nullptr);
 	void OpenFromFile(const String& inFile, Assets& ioAssets, Application* inApp = nullptr);
+	void OpenFromFileAsync(const String& inFile, Assets& ioAssets, Application* inApp = nullptr);
 
 	// script utilities
 	void BindScriptToEntity(Entity inEntity, NativeScript& inScript, Application* inApp);

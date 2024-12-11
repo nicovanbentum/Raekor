@@ -79,6 +79,9 @@ Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inW
         backbuffer_data.mCopyCmdList = CommandList(inDevice, D3D12_COMMAND_LIST_TYPE_DIRECT, index);
         backbuffer_data.mCopyCmdList->SetName(L"RK::DX12::CommandList(COPY)");
 
+        backbuffer_data.mUpdateCmdList = CommandList(inDevice, D3D12_COMMAND_LIST_TYPE_DIRECT, index);
+        backbuffer_data.mUpdateCmdList->SetName(L"RK::DX12::CommandList(DIRECT)");
+
         rtv_resource->SetName(L"BACKBUFFER");
     }
 
@@ -240,10 +243,12 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     // at this point we know the GPU is no longer working on this frame, so free/release stuff here
      if (m_FrameCounter > 0)
     {
-        inDevice.RetireUploadBuffers(backbuffer_data.mCopyCmdList);
+         inDevice.RetireUploadBuffers(backbuffer_data.mCopyCmdList);
         inDevice.RetireUploadBuffers(backbuffer_data.mDirectCmdList);
+         inDevice.RetireUploadBuffers(backbuffer_data.mUpdateCmdList);
         backbuffer_data.mCopyCmdList.ReleaseTrackedResources();
         backbuffer_data.mDirectCmdList.ReleaseTrackedResources();
+        backbuffer_data.mUpdateCmdList.ReleaseTrackedResources();
     }
 
     // clear the clear heap every 2 frames, TODO: bad design pls fix
@@ -329,56 +334,64 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     static const int& update_skinning = g_CVariables->Create("update_skinning", 1, true);
     // Start recording pending scene changes to the copy cmd list
     CommandList& copy_cmd_list = GetBackBufferData().mCopyCmdList;
+    CommandList& update_cmd_list = GetBackBufferData().mUpdateCmdList;
 
     copy_cmd_list.Reset();
+    update_cmd_list.Reset();
 
-    // upload vertex buffers, index buffers, and BLAS for meshes
     {
-        PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( copy_cmd_list ), PIX_COLOR(0, 255, 0), "UPLOAD MESHES");
+        std::scoped_lock lock = std::scoped_lock(m_UploadMutex);
 
-        for (Entity entity : m_PendingMeshUploads)
-            inScene.UploadMesh(inApp, inDevice, inScene->Get<Mesh>(entity), inScene->GetPtr<Skeleton>(entity), copy_cmd_list);
-    }
+        // upload vertex buffers, index buffers, and BLAS for meshes
+        {
+            PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( copy_cmd_list ), PIX_COLOR(0, 255, 0), "UPLOAD MESHES");
+
+            for (Entity entity : m_PendingMeshUploads)
+                inScene.UploadMesh(inApp, inDevice, inScene->Get<Mesh>(entity), inScene->GetPtr<Skeleton>(entity), copy_cmd_list);
+        }
     
-    // upload skeleton bone attributes and bone transform buffers
-    for (Entity entity : m_PendingSkeletonUploads)
-        inScene.UploadSkeleton(inApp, inDevice, inScene->Get<Skeleton>(entity), copy_cmd_list);
+        // upload skeleton bone attributes and bone transform buffers
+        for (Entity entity : m_PendingSkeletonUploads)
+            inScene.UploadSkeleton(inApp, inDevice, inScene->Get<Skeleton>(entity), copy_cmd_list);
     
-    // update bottom level AS for entities that have both a mesh and skeleton
-    if (update_skinning)
-    {
-        PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( copy_cmd_list ), PIX_COLOR(0, 255, 0), "BUILD BLASes");
+        // update bottom level AS for entities that have both a mesh and skeleton
+        if (update_skinning)
+        {
+            PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( copy_cmd_list ), PIX_COLOR(0, 255, 0), "BUILD BLASes");
         
-        for (Entity entity : m_PendingBlasUpdates)
-            inScene.UpdateBLAS(inApp, inDevice, inScene->Get<Mesh>(entity), inScene->GetPtr<Skeleton>(entity), copy_cmd_list);
+            for (Entity entity : m_PendingBlasUpdates)
+                inScene.UpdateBLAS(inApp, inDevice, inScene->Get<Mesh>(entity), inScene->GetPtr<Skeleton>(entity), copy_cmd_list);
+        }
+
+        // upload pixel data for texture assets 
+        {
+            PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( copy_cmd_list ), PIX_COLOR(0, 255, 0), "UPLOAD TEXTURES");
+
+            for (TextureUpload& texture_upload : m_PendingTextureUploads)
+                inScene.UploadTexture(inApp, inDevice, texture_upload, copy_cmd_list);
+        }
+
+        // upload pixel data for textures that are associated with materials
+        {
+            PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( copy_cmd_list ), PIX_COLOR(0, 255, 0), "UPLOAD MATERIALS");
+
+            for (Entity entity : m_PendingMaterialUploads)
+                inScene.UploadMaterial(inApp, inDevice, inScene->Get<Material>(entity), copy_cmd_list);
+        }
+
+        // clear all pending uploads for this frame, memory will be re-used
+        m_PendingBlasUpdates.clear();
+        m_PendingMeshUploads.clear();
+        m_PendingTextureUploads.clear();
+        m_PendingSkeletonUploads.clear();
+        m_PendingMaterialUploads.clear();
     }
-
-    // upload pixel data for texture assets 
-    {
-        PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( copy_cmd_list ), PIX_COLOR(0, 255, 0), "UPLOAD TEXTURES");
-
-        for (TextureUpload& texture_upload : m_PendingTextureUploads)
-            inScene.UploadTexture(inApp, inDevice, texture_upload, copy_cmd_list);
-    }
-
-    // upload pixel data for textures that are associated with materials
-    {
-        PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( copy_cmd_list ), PIX_COLOR(0, 255, 0), "UPLOAD MATERIALS");
-
-        for (Entity entity : m_PendingMaterialUploads)
-            inScene.UploadMaterial(inApp, inDevice, inScene->Get<Material>(entity), copy_cmd_list);
-    }
-
-    // clear all pending uploads for this frame, memory will be re-used
-    m_PendingBlasUpdates.clear();
-    m_PendingMeshUploads.clear();
-    m_PendingTextureUploads.clear();
-    m_PendingSkeletonUploads.clear();
-    m_PendingMaterialUploads.clear();
 
     //// Record uploads for the RT scene 
     if (upload_tlas)
     {
+        std::scoped_lock lock = std::scoped_lock(m_UploadMutex);
+
         inScene.UploadInstances(inApp, inDevice, copy_cmd_list);
         inScene.UploadMaterials(inApp, inDevice, copy_cmd_list, m_Settings.mDisableAlbedo);
         inScene.UploadTLAS(inApp, inDevice, copy_cmd_list);
@@ -388,6 +401,9 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     //// Submit all copy commands
     copy_cmd_list.Close();
     copy_cmd_list.Submit(inDevice, inDevice.GetGraphicsQueue());
+
+    update_cmd_list.Close();
+    update_cmd_list.Submit(inDevice, inDevice.GetGraphicsQueue());
 
     // Start recording graphics commands
     CommandList& direct_cmd_list = GetBackBufferData().mDirectCmdList;

@@ -216,6 +216,9 @@ void RayTracedScene::UploadTLAS(Application* inApp, Device& inDevice, CommandLis
 
     for (const auto& [entity, mesh] : m_Scene.Each<Mesh>())
     {
+        if (!mesh.IsLoaded())
+            continue;
+
         const Transform* transform = m_Scene.GetPtr<Transform>(entity);
         if (!transform)
             continue;
@@ -337,6 +340,9 @@ void RayTracedScene::UploadInstances(Application* inApp, Device& inDevice, Comma
 
     for (const auto& [entity, mesh] : m_Scene.Each<Mesh>())
     {
+        if (!mesh.IsLoaded())
+            continue;
+
         const Transform* transform = m_Scene.GetPtr<Transform>(entity);
 
         if (!transform)
@@ -396,11 +402,11 @@ void RayTracedScene::UploadMaterials(Application* inApp, Device& inDevice, Comma
         rt_material.mRoughness = material.roughness;
         rt_material.mEmissive = Vec4(material.emissive, 1.0);
 
-        rt_material.mAlbedoTexture = inDevice.GetBindlessHeapIndex(TextureID(material.gpuAlbedoMap));
-        rt_material.mNormalsTexture = inDevice.GetBindlessHeapIndex(TextureID(material.gpuNormalMap));
-        rt_material.mEmissiveTexture = inDevice.GetBindlessHeapIndex(TextureID(material.gpuEmissiveMap));
-        rt_material.mMetallicTexture = inDevice.GetBindlessHeapIndex(TextureID(material.gpuMetallicMap));
-        rt_material.mRoughnessTexture = inDevice.GetBindlessHeapIndex(TextureID(material.gpuRoughnessMap));
+        rt_material.mAlbedoTexture = inDevice.GetBindlessHeapIndex(TextureID(material.gpuAlbedoMap ? material.gpuAlbedoMap : Material::Default.gpuAlbedoMap));
+        rt_material.mNormalsTexture = inDevice.GetBindlessHeapIndex(TextureID(material.gpuNormalMap ? material.gpuNormalMap : Material::Default.gpuNormalMap));
+        rt_material.mEmissiveTexture = inDevice.GetBindlessHeapIndex(TextureID(material.gpuEmissiveMap ? material.gpuEmissiveMap : Material::Default.gpuEmissiveMap));
+        rt_material.mMetallicTexture = inDevice.GetBindlessHeapIndex(TextureID(material.gpuMetallicMap ? material.gpuMetallicMap : Material::Default.gpuMetallicMap));
+        rt_material.mRoughnessTexture = inDevice.GetBindlessHeapIndex(TextureID(material.gpuRoughnessMap ? material.gpuRoughnessMap : Material::Default.gpuRoughnessMap));
 
         if (inDisableAlbedo)
         {

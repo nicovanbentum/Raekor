@@ -12,9 +12,20 @@ public:
 	void Run() { m_Function(); m_Finished = true; }
 	void WaitCPU() const { while (!m_Finished) {} }
 
+	class Barrier
+	{
+	public:
+		Barrier(uint32_t inJobCount) { m_Jobs.reserve(inJobCount); }
+		void AddJob(Job::Ptr inJob) { m_Jobs.push_back(inJob); }
+		void Wait() const;
+
+	private:
+		Array<Job::Ptr> m_Jobs;
+	};
+
 private:
 	Function m_Function;
-	bool m_Finished = false;
+	Atomic<bool> m_Finished = false;
 };
 
 
@@ -39,7 +50,7 @@ public:
 
 	/* Scoped lock on the global mutex,
 		useful for ensuring thread safety inside a job function. */
-	std::mutex& GetMutex() { return m_Mutex; }
+	Mutex& GetMutex() { return m_Mutex; }
 
 	void SetActiveThreadCount(uint32_t inValue) { m_ActiveThreadCount = std::min(inValue, GetThreadCount()); }
 
@@ -51,11 +62,11 @@ private:
 	void ThreadLoop(uint32_t inThreadIndex);
 
 	bool m_Quit = false;
-	std::mutex m_Mutex;
-	std::queue<JobPtr> m_JobQueue;
-	std::vector<std::thread> m_Threads;
-	std::atomic<int32_t> m_ActiveJobCount;
-	std::atomic<uint8_t> m_ActiveThreadCount;
+	Mutex m_Mutex;
+	Queue<JobPtr> m_JobQueue;
+	Array<std::thread> m_Threads;
+	Atomic<int32_t> m_ActiveJobCount;
+	Atomic<uint8_t> m_ActiveThreadCount;
 	std::condition_variable m_ConditionVariable;
 };
 

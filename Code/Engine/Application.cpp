@@ -229,7 +229,7 @@ void IRenderInterface::UploadMaterialTextures(Entity inEntity, Material& inMater
 {
 	assert(Material::Default.IsLoaded() && "Default material not loaded, did the programmer forget to initialize its gpu maps before opening a scene?");
 
-	auto UploadTexture = [&](const std::string& inFile, bool inIsSRGB, uint8_t inSwizzle, uint32_t inDefaultMap, uint32_t& ioGpuMap)
+	auto UploadTexture = [&](const String& inFile, bool inIsSRGB, uint8_t inSwizzle, uint32_t inDefaultMap, uint32_t& ioGpuMap)
 	{
 		if (TextureAsset::Ptr asset = inAssets.GetAsset<TextureAsset>(inFile))
 			ioGpuMap = UploadTextureFromAsset(asset, inIsSRGB, inSwizzle);

@@ -398,20 +398,17 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
 
         for (const auto& [entity, mesh] : inScene->Each<Mesh>())
         {
-            const Name& name = inScene->Get<Name>(entity);
-            const Transform* transform = inScene->GetPtr<Transform>(entity);
-
-            if (!transform)
+            // done streaming?
+            if (!mesh.IsLoaded())
                 continue;
 
-            if (!BufferID(mesh.BottomLevelAS).IsValid())
+            // located in the scene?
+            if (!inScene->Has<Transform>(entity))
                 continue;
 
+            // not marked for vis buffer?
             if (!mesh.meshlets.empty())
                 continue;
-
-            //if (material && material->isTransparent)
-                //continue;
 
             const Material* material = inScene->GetPtr<Material>(mesh.material);
 
@@ -426,6 +423,7 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
             else
                 continue;
 
+            const Name& name = inScene->Get<Name>(entity);
             const char* debug_name = mesh.name.empty() ? name.name.c_str() : mesh.name.c_str();
             PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( inCmdList ), PIX_COLOR(0, 255, 0), debug_name);
 
