@@ -29,11 +29,18 @@ float2 CalculateViewToScreenUV(float3 inPos, float4x4 inViewToClipMatrix)
     return clip_pos.xy;
 }
 
+float3x3 Adjugate(float4x4 m)
+{
+    return float3x3(cross(m[1].xyz, m[2].xyz),
+                    cross(m[2].xyz, m[0].xyz),
+                    cross(m[0].xyz, m[1].xyz));
+}
 
-void TransformToWorldSpace(inout RTVertex inVertex, float4x4 inLocalToWorldMatrix, float4x4 inInvLocalToWorldMatrix)
+
+void TransformToWorldSpace(inout RTVertex inVertex, float4x4 inLocalToWorldMatrix)
 {
     inVertex.mPos = mul(inLocalToWorldMatrix, float4(inVertex.mPos, 1.0)).xyz;
-    inVertex.mNormal = mul((float3x3) transpose(inInvLocalToWorldMatrix), inVertex.mNormal);
+    inVertex.mNormal = mul(Adjugate(inLocalToWorldMatrix), inVertex.mNormal);
     inVertex.mTangent = mul(inLocalToWorldMatrix, float4(inVertex.mTangent, 0.0)).xyz;
 }
 

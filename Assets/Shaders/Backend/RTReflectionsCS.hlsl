@@ -75,7 +75,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
         RTMaterial material = materials[geometry.mMaterialIndex];
         
         // transform to world space
-        TransformToWorldSpace(vertex, geometry.mLocalToWorldTransform, geometry.mInvLocalToWorldTransform);
+        TransformToWorldSpace(vertex, geometry.mWorldTransform);
         vertex.mNormal = normalize(vertex.mNormal);
         vertex.mTangent = normalize(vertex.mTangent);
         vertex.mTangent = normalize(vertex.mTangent - dot(vertex.mTangent, vertex.mNormal) * vertex.mNormal);

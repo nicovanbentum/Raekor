@@ -357,8 +357,7 @@ void RayTracedScene::UploadInstances(Application* inApp, Device& inDevice, Comma
             .mIndexBuffer = inDevice.GetBindlessHeapIndex(BufferID(mesh.indexBuffer)),
             .mVertexBuffer = inDevice.GetBindlessHeapIndex(BufferID(vertex_buffer)),
             .mMaterialIndex = uint32_t(material_index),
-            .mLocalToWorldTransform = transform->worldTransform,
-            .mInvLocalToWorldTransform = glm::inverse(transform->worldTransform)
+            .mWorldTransform = transform->worldTransform,
         });
     }
 

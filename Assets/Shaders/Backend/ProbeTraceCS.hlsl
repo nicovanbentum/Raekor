@@ -51,7 +51,7 @@ void main(uint3 threadID : SV_DispatchThreadID) {
         
         RTGeometry geometry = geometries[query.CommittedInstanceID()];
         RTVertex vertex = CalculateVertexFromGeometry(geometry, query.CommittedPrimitiveIndex(), query.CommittedTriangleBarycentrics());
-        TransformToWorldSpace(vertex, geometry.mLocalToWorldTransform, geometry.mInvLocalToWorldTransform);
+        TransformToWorldSpace(vertex, geometry.mWorldTransform);
         RTMaterial material = materials[geometry.mMaterialIndex];
         
         BRDF brdf;

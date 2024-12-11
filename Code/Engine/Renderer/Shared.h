@@ -62,8 +62,7 @@ struct RTGeometry
     uint     mIndexBuffer;
     uint     mVertexBuffer;
     uint     mMaterialIndex;
-    float4x4 mLocalToWorldTransform;
-    float4x4 mInvLocalToWorldTransform;
+    float4x4 mWorldTransform;
 };
 
 
