@@ -50,8 +50,8 @@ PS_OUTPUT main(in VS_OUTPUT input) {
     
     FrameConstants fc = gGetFrameConstants();
 
-    float3x3 TBN = transpose(float3x3(input.tangent, input.bitangent, input.normal));
-    float3 normal = normalize(mul(TBN, sampled_normal.xyz));
+    float3x3 TBN = float3x3(input.tangent, input.bitangent, input.normal);
+    float3 normal = normalize(mul(sampled_normal.xyz, TBN));
     // normal = normalize(input.normal);
 
     float4 albedo = material.mAlbedo * sampled_albedo;

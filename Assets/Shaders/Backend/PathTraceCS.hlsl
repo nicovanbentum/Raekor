@@ -71,9 +71,6 @@ void main(uint3 threadID : SV_DispatchThreadID)
 
             // transform to world space
             TransformToWorldSpace(vertex, geometry.mWorldTransform);
-            vertex.mNormal = normalize(vertex.mNormal);
-            vertex.mTangent = normalize(vertex.mTangent);
-            vertex.mTangent = normalize(vertex.mTangent - dot(vertex.mTangent, vertex.mNormal) * vertex.mNormal);
             
             // Setup the BRDF
             BRDF brdf;

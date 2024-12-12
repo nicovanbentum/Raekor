@@ -113,10 +113,10 @@ struct BRDF {
         sampled_normal = ReconstructNormalBC5(sampled_normal.xy);
         
         float3 bitangent = normalize(cross(inVertex.mNormal, inVertex.mTangent));
-        float3x3 TBN = transpose(float3x3(inVertex.mTangent, bitangent, inVertex.mNormal));
+        float3x3 TBN = float3x3(inVertex.mTangent, bitangent, inVertex.mNormal);
         
         mAlbedo = inMaterial.mAlbedo * sampled_albedo;
-        mNormal = normalize(mul(TBN, sampled_normal.xyz));
+        mNormal = normalize(mul(sampled_normal.xyz, TBN));
         // mNormal = inVertex.mNormal;
         mEmissive = inMaterial.mEmissive.rgb * sampled_emissive;
         mMetallic = inMaterial.mMetallic * sampled_metallic;
