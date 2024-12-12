@@ -40,8 +40,8 @@ float3x3 Adjugate(float4x4 m)
 void TransformToWorldSpace(inout RTVertex inVertex, float4x4 inLocalToWorldMatrix)
 {
     inVertex.mPos = mul(inLocalToWorldMatrix, float4(inVertex.mPos, 1.0)).xyz;
-    inVertex.mNormal = mul(Adjugate(inLocalToWorldMatrix), inVertex.mNormal);
-    inVertex.mTangent = mul(inLocalToWorldMatrix, float4(inVertex.mTangent, 0.0)).xyz;
+    inVertex.mNormal = normalize(mul(Adjugate(inLocalToWorldMatrix), inVertex.mNormal));
+    inVertex.mTangent = normalize(mul(inLocalToWorldMatrix, float4(inVertex.mTangent, 0.0)).xyz);
 }
 
 
