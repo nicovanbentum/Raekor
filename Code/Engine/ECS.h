@@ -299,13 +299,13 @@ public:
 	template<typename Component>
 	ComponentStorage<Component>* GetComponentStorage()
 	{
-		return m_Components.at(gGetTypeHash<Component>())->GetDerived<Component>();
+		return m_Components.at(RTTI_HASH<Component>())->GetDerived<Component>();
 	}
 
 	template<typename Component>
 	const ComponentStorage<Component>* GetComponentStorage() const
 	{
-		return m_Components.at(gGetTypeHash<Component>())->GetDerived<Component>();
+		return m_Components.at(RTTI_HASH<Component>())->GetDerived<Component>();
 	}
 
 	template<typename Component>
@@ -351,7 +351,7 @@ public:
 	void Register()
 	{
 		if (!m_Components.contains(gGetTypeHash<Component>()))
-			m_Components[gGetRTTI<Component>().mHash] = new ComponentStorage<Component>();
+			m_Components[RTTI_HASH<Component>()] = new ComponentStorage<Component>();
 	}
 
 	template<typename Component>
@@ -375,7 +375,7 @@ public:
 	template<typename Component>
 	bool Any() const
 	{
-		return m_Components.contains(gGetTypeHash<Component>()) && Count<Component>() > 0;
+		return m_Components.contains(RTTI_HASH<Component>()) && Count<Component>() > 0;
 	}
 
 	template<typename ...Components>
@@ -459,7 +459,7 @@ public:
 
 	bool Has(Entity inEntity, const RTTI* inRTTI)
 	{
-		if (!inRTTI->IsDerivedFrom(&RTTI_OF(Component)))
+		if (!inRTTI->IsDerivedFrom<Component>())
 			return false;
 
 		if (!m_Components.contains(inRTTI->GetHash()))
@@ -654,8 +654,8 @@ public:
 	template<typename Component>
 	void EnsureExists()
 	{
-		if (!m_Components.contains(gGetTypeHash<Component>()))
-			m_Components[gGetRTTI<Component>().mHash] = new ComponentStorage<Component>();
+		if (!m_Components.contains(RTTI_HASH<Component>()))
+			m_Components[RTTI_HASH<Component>()] = new ComponentStorage<Component>();
 	}
 
 	template<typename Component>

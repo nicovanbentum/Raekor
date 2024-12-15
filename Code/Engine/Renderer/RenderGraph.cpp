@@ -4,6 +4,7 @@
 #include "OS.h"
 #include "Iter.h"
 #include "Timer.h"
+#include "Shader.h"
 #include "Shared.h"
 #include "Profiler.h"
 
@@ -620,15 +621,15 @@ void IRenderPass::SetRenderTargets(Device& inDevice, const RenderGraphResources&
 
 
 
-D3D12_GRAPHICS_PIPELINE_STATE_DESC IRenderPass::CreatePipelineStateDesc(Device& inDevice, const ByteSlice& inVertexShader, const ByteSlice& inPixelShader)
+D3D12_GRAPHICS_PIPELINE_STATE_DESC IRenderPass::CreatePipelineStateDesc(Device& inDevice, const GraphicsProgram& inShaderProgram)
 {
-    assert(IsGraphics() && "Cannot create a Graphics PSO description for a Compute RenderPass");
-
     D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state =
     {
         .pRootSignature = inDevice.GetGlobalRootSignature(),
-        .VS = CD3DX12_SHADER_BYTECODE(inVertexShader.data(), inVertexShader.size()),
-        .PS = CD3DX12_SHADER_BYTECODE(inPixelShader.data(), inPixelShader.size()),
+        .VS = inShaderProgram.GetVertexShader().GetShaderByteCode(),
+        .PS = inShaderProgram.GetPixelShader().GetShaderByteCode(),
+        .DS = inShaderProgram.GetDomainShader().GetShaderByteCode(),
+        .HS = inShaderProgram.GetHullShader().GetShaderByteCode(),
         .BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT),
         .SampleMask = UINT_MAX,
         .RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT),
@@ -654,11 +655,13 @@ D3D12_GRAPHICS_PIPELINE_STATE_DESC IRenderPass::CreatePipelineStateDesc(Device& 
 
 
 
-D3D12_COMPUTE_PIPELINE_STATE_DESC IRenderPass::CreatePipelineStateDesc(Device& inDevice, const ByteSlice& inComputeShader)
+D3D12_COMPUTE_PIPELINE_STATE_DESC IRenderPass::CreatePipelineStateDesc(Device& inDevice, const ComputeProgram& inShaderProgram)
 {
-    assert(IsCompute() && "Cannot create a Compute PSO description for a Graphics RenderPass");
-    D3D12_SHADER_BYTECODE cs_bytecode = CD3DX12_SHADER_BYTECODE(inComputeShader.data(), inComputeShader.size());
-    return D3D12_COMPUTE_PIPELINE_STATE_DESC { .pRootSignature = inDevice.GetGlobalRootSignature(), .CS = cs_bytecode };
+    return D3D12_COMPUTE_PIPELINE_STATE_DESC 
+    { 
+        .pRootSignature = inDevice.GetGlobalRootSignature(), 
+        .CS = inShaderProgram.GetComputeShader().GetShaderByteCode()
+    };
 }
 
 

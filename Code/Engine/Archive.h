@@ -54,7 +54,7 @@ public:
 	template<typename T> requires HasRTTI<T>
 	BinaryWriteArchive& operator<< (const T& ioRHS)
 	{
-		RTTI& rtti = gGetRTTI<T>();
+		RTTI& rtti = RTTI_OF<T>();
 		String type = String(rtti.GetTypeName());
 
 		WriteFileBinary(m_File, type);
@@ -150,14 +150,14 @@ ReadArchive& ReadArchive::operator>> (T& ioRHS)
 	assert(m_JSON.GetToken(m_TokenIndex).type == JSMN_STRING);
 	const String& type_name = m_JSON.GetString(m_TokenIndex);
 
-	const RTTI& rtti = gGetRTTI<T>();
+	const RTTI& rtti = RTTI_OF<T>();
 
 	// We only get here if we found a matching type
 	assert(m_JSON.GetToken(m_TokenIndex).type == JSMN_STRING);  // token index is on the type key
 	m_TokenIndex++; // increment index to type object
 
 	// This nees to be calling the T& version of GetTokenToValue, 
-	// which it should because we're calling gGetRTTI<T> so it has to be a registered complex type.. right?
+	// which it should because we're calling RTTI_OF<T> so it has to be a registered complex type.. right?
 	m_TokenIndex = m_JSON.GetTokenToValue(m_TokenIndex, ioRHS);
 
 	return *this;
@@ -167,7 +167,7 @@ ReadArchive& ReadArchive::operator>> (T& ioRHS)
 template<typename T> requires HasRTTI<T>
 WriteArchive& WriteArchive::operator<< (T& inRHS)
 {
-	const RTTI& rtti = gGetRTTI<T>();
+	const RTTI& rtti = RTTI_OF<T>();
 
 	for (const char* type_name : m_Types)
 	{

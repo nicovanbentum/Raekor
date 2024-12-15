@@ -35,10 +35,10 @@ public:
 		ReadFileBinary(inFile, GetRef<T>(inClass));
 	}
 
-	virtual RTTI* GetRTTI() override { return m_RTTI; }
+	RTTI* GetRTTI() override { return m_RTTI; }
 
-	virtual void* GetPtr(void* inClass) override { return &( static_cast<Class*>( inClass )->*m_Member ); }
-	virtual const void* GetPtr(const void* inClass) override { return &( static_cast<const Class*>( inClass )->*m_Member ); }
+	void* GetPtr(void* inClass) override { return &( static_cast<Class*>( inClass )->*m_Member ); }
+	const void* GetPtr(const void* inClass) override { return &( static_cast<const Class*>( inClass )->*m_Member ); }
 
 
 private:

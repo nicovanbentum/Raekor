@@ -154,8 +154,8 @@ RTTI_DEFINE_TYPE(Test)
 
 void RunArchiveTests()
 {
-    g_RTTIFactory.Register(RTTI_OF(Test));
-    g_RTTIFactory.Register(RTTI_OF(TestStrings));
+    g_RTTIFactory.Register(RTTI_OF<Test>());
+    g_RTTIFactory.Register(RTTI_OF<TestStrings>());
 
     const auto TEMP_FILE = OS::sGetTempPath() / "test.bin";
 

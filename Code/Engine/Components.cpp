@@ -147,20 +147,20 @@ RTTI_DEFINE_TYPE(DDGISceneSettings)
 
 void gRegisterComponentTypes()
 {
-	g_RTTIFactory.Register(RTTI_OF(Entity));
-	g_RTTIFactory.Register(RTTI_OF(Name));
-	g_RTTIFactory.Register(RTTI_OF(Transform));
-	g_RTTIFactory.Register(RTTI_OF(Mesh));
-	g_RTTIFactory.Register(RTTI_OF(Material));
-	g_RTTIFactory.Register(RTTI_OF(Animation));
-	g_RTTIFactory.Register(RTTI_OF(RigidBody));
-	g_RTTIFactory.Register(RTTI_OF(DirectionalLight));
-	g_RTTIFactory.Register(RTTI_OF(Light));
-	g_RTTIFactory.Register(RTTI_OF(SoftBody));
-	g_RTTIFactory.Register(RTTI_OF(Skeleton));
-	g_RTTIFactory.Register(RTTI_OF(Skeleton::Bone));
-	g_RTTIFactory.Register(RTTI_OF(NativeScript));
-	g_RTTIFactory.Register(RTTI_OF(DDGISceneSettings));
+	g_RTTIFactory.Register(RTTI_OF<Entity>());
+	g_RTTIFactory.Register(RTTI_OF<Name>());
+	g_RTTIFactory.Register(RTTI_OF<Transform>());
+	g_RTTIFactory.Register(RTTI_OF<Mesh>());
+	g_RTTIFactory.Register(RTTI_OF<Material>());
+	g_RTTIFactory.Register(RTTI_OF<Animation>());
+	g_RTTIFactory.Register(RTTI_OF<RigidBody>());
+	g_RTTIFactory.Register(RTTI_OF<DirectionalLight>());
+	g_RTTIFactory.Register(RTTI_OF<Light>());
+	g_RTTIFactory.Register(RTTI_OF<SoftBody>());
+	g_RTTIFactory.Register(RTTI_OF<Skeleton>());
+	g_RTTIFactory.Register(RTTI_OF<Skeleton::Bone>());
+	g_RTTIFactory.Register(RTTI_OF<NativeScript>());
+	g_RTTIFactory.Register(RTTI_OF<DDGISceneSettings>());
 }
 
 

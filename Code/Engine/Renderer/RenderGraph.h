@@ -207,8 +207,8 @@ public:
     D3D12_RESOURCE_TRANSITION_BARRIER::StateAfter could be overwritten by the graph if it finds a better match during graph compilation. */
     void AddExitBarrier(const D3D12_RESOURCE_BARRIER& inBarrier) { m_ExitBarriers.push_back(inBarrier); }
 
-    D3D12_COMPUTE_PIPELINE_STATE_DESC  CreatePipelineStateDesc(Device& inDevice, const ByteSlice& inComputeShader);
-    D3D12_GRAPHICS_PIPELINE_STATE_DESC CreatePipelineStateDesc(Device& inDevice, const ByteSlice& inVertexShader, const ByteSlice& inPixelShader);
+    D3D12_COMPUTE_PIPELINE_STATE_DESC  CreatePipelineStateDesc(Device& inDevice, const ComputeProgram& inShaderProgram);
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC CreatePipelineStateDesc(Device& inDevice, const GraphicsProgram& inShaderProgram);
 
 private:
     void FlushBarriers(Device& inDevice, CommandList& inCmdList, const Slice<D3D12_RESOURCE_BARRIER>& inBarriers) const;

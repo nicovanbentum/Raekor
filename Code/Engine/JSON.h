@@ -167,7 +167,7 @@ inline uint32_t JSONData::GetTokenToValue(uint32_t inTokenIdx, T& inValue)
 	if (object_token.type != JSMN_OBJECT)
 		return SkipToken(inTokenIdx);
 
-	RTTI& rtti = gGetRTTI<T>();
+	RTTI& rtti = RTTI_OF<T>();
 	inTokenIdx++; // increment index to first key (name of the first class member)
 
 	for (int key_index = 0; key_index < object_token.size; key_index++)
@@ -322,7 +322,7 @@ inline void JSONWriter::GetValueToJSON(const T& inMember)
 {
 	Write("\n").IndentAndWrite("{\n").PushIndent();
 
-	RTTI& rtti = gGetRTTI<T>();
+	RTTI& rtti = RTTI_OF<T>();
 	for (uint32_t i = 0; i < rtti.GetMemberCount(); i++)
 	{
 		// potentially skip

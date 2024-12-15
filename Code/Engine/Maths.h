@@ -213,3 +213,8 @@ inline glm::quat gFromString(const std::string& inValue)
 }
 
 } // namespace Raekor
+
+RTTI_DECLARE_TYPE_PRIMITIVE(RK::Vec2);
+RTTI_DECLARE_TYPE_PRIMITIVE(RK::Vec3);
+RTTI_DECLARE_TYPE_PRIMITIVE(RK::Vec4);
+RTTI_DECLARE_TYPE_PRIMITIVE(RK::Mat4x4);

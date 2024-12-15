@@ -300,7 +300,7 @@ void IEditor::OnEvent(const SDL_Event& event)
 			{
 				for (auto widget : m_Widgets)
 				{
-					if (widget->GetRTTI() != RTTI_OF(ViewportWidget))
+					if (widget->GetRTTI() != RTTI_OF<ViewportWidget>())
 					{
 						if (m_ViewportFullscreen)
 							widget->Restore();

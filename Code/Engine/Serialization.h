@@ -150,7 +150,7 @@ concept HasRTTI = requires ( T t ) { t.GetRTTI(); };
 template<typename T> requires HasRTTI<T>
 inline void ReadFileBinary(File& ioFile, T& ioData)
 {
-	auto& rtti = gGetRTTI<T>();
+	auto& rtti = RTTI_OF<T>();
 	for (const auto& member : rtti)
 	{
 		if (member->GetSerializeType() & SERIALIZE_BINARY)
@@ -160,7 +160,7 @@ inline void ReadFileBinary(File& ioFile, T& ioData)
 template<typename T> requires HasRTTI<T>
 inline void WriteFileBinary(File& ioFile, const T& inData)
 {
-	auto& rtti = gGetRTTI<T>();
+	auto& rtti = RTTI_OF<T>();
 	for (const auto& member : rtti)
 	{
 		if (member->GetSerializeType() & SERIALIZE_BINARY)

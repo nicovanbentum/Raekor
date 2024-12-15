@@ -39,7 +39,12 @@ public:
 	RTTI*     GetBaseClass(uint32_t inIndex) const;
 	uint32_t  GetBaseClassCount() const { return uint32_t(m_BaseClasses.size()); }
 
+	template<typename T>
+	bool	  IsTypeOf() const { return IsTypeOf(&RTTI_OF<T>()); }
 	bool	  IsTypeOf(RTTI* InRTTI) const { return this == InRTTI; }
+
+	template<typename T>
+	bool	  IsDerivedFrom() const { return IsDerivedFrom(&RTTI_OF<T>()); }
 	bool      IsDerivedFrom(RTTI* inRTTI) const;
 
 	bool operator==(const RTTI& rhs) const { return mHash == rhs.mHash; }
@@ -80,6 +85,11 @@ public:
 	virtual RTTI* GetRTTI() { return nullptr; }
 
 	template<typename T>
+	T* Get(void* inClass) { return static_cast<T*>( GetPtr(inClass) ); }
+	template<typename T>
+	const T* Get(const void* inClass) { return static_cast<const T*>( GetPtr(inClass) ); }
+
+	template<typename T>
 	T& GetRef(void* inClass) { return *static_cast<T*>( GetPtr(inClass) ); }
 	template<typename T>
 	const T& GetRef(const void* inClass) { return *static_cast<const T*>( GetPtr(inClass) ); }
@@ -102,6 +112,8 @@ protected:
 class RTTIFactory
 {
 public:
+	template<typename T>
+	void Register() { Register(RTTI_OF<T>()); }
 	void Register(RTTI& inRTTI);
 
 	RTTI* GetRTTI(uint32_t inHash);
@@ -113,7 +125,7 @@ public:
 	inline auto end() const { return std::views::values(m_RegisteredTypes).end(); }
 
 private:
-	std::unordered_map<uint32_t, RTTI*> m_RegisteredTypes;
+	HashMap<uint32_t, RTTI*> m_RegisteredTypes;
 };
 
 extern RTTIFactory g_RTTIFactory;
@@ -193,7 +205,7 @@ public:                                                                         
 
 
 #define RTTI_DEFINE_TYPE_INHERITANCE(derived_class_type, base_class_type) \
-    inRTTI.AddBaseClass(RTTI_OF(base_class_type))
+    inRTTI.AddBaseClass(RTTI_OF<base_class_type>())
 
 #define RTTI_DEFINE_MEMBER(class_type, serial_type, custom_type_string, member_type) \
     inRTTI.AddMember(new ClassMember<class_type, decltype(class_type::member_type)>(#member_type, custom_type_string, &class_type::member_type, nullptr, serial_type))
@@ -201,33 +213,31 @@ public:                                                                         
 #define RTTI_DEFINE_SCRIPT_MEMBER(class_type, serial_type, rtti_of, custom_type_string, member_type) \
     inRTTI.AddMember(new ClassMember<class_type, decltype(class_type::member_type)>(#member_type, custom_type_string, &class_type::member_type, rtti_of, serial_type))
 
-#define RTTI_DECLARE_TYPE_PRIMITIVE(type) RTTI& sGetRTTI(const type* inType)
+#define RTTI_DECLARE_TYPE_PRIMITIVE(type) \
+	RK::RTTI& sGetRTTI(type* inType); \
+	RK::RTTI& sGetRTTI(const type* inType) 
 
-#define RTTI_DEFINE_TYPE_PRIMITIVE(type)	\
-	RTTI& sGetRTTI(const type* inType) {	\
-		static RTTI rtti = RTTI(#type);		\
-			return rtti;					\
-	}
+#define RTTI_DEFINE_TYPE_PRIMITIVE(type)		\
+	RK::RTTI& sGetRTTI(type* inType) {			\
+		static RK::RTTI rtti = RK::RTTI(#type);	\
+			return rtti;						\
+	}											\
+	RK::RTTI& sGetRTTI(const type* inType) {	\
+		static RK::RTTI rtti = RK::RTTI(#type);	\
+			return rtti;						\
+	}										
+
+RTTI_DECLARE_TYPE_PRIMITIVE(int);
+RTTI_DECLARE_TYPE_PRIMITIVE(bool);
+RTTI_DECLARE_TYPE_PRIMITIVE(float);
+RTTI_DECLARE_TYPE_PRIMITIVE(uint32_t);
+
+void gRegisterPrimitiveTypes();
 
 /// RTTI GETTERS / HELPERS ///
 
-#define RTTI_OF(name) sGetRTTI((name*)nullptr)
-
-#define RTTI_HASH(name) gHash32Bit(#name)
+template<typename T>
+RK::RTTI& RTTI_OF() { return sGetRTTI(( std::remove_cv_t<T>* )nullptr); }
 
 template<typename T>
-RK::RTTI& gGetRTTI() { return sGetRTTI(( std::remove_cv_t<T>* )nullptr); }
-
-template<typename T>
-uint32_t gGetTypeHash() { return gGetRTTI<T>().mHash; }
-
-
-namespace RK
-{
-	RTTI_DECLARE_TYPE_PRIMITIVE(int);
-	RTTI_DECLARE_TYPE_PRIMITIVE(bool);
-	RTTI_DECLARE_TYPE_PRIMITIVE(float);
-	RTTI_DECLARE_TYPE_PRIMITIVE(uint32_t);
-
-	void gRegisterPrimitiveTypes();
-}
+uint32_t RTTI_HASH() { return RTTI_OF<T>().mHash; }

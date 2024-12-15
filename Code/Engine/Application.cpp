@@ -30,7 +30,7 @@ Application::Application(WindowFlags inFlags)
 	gRegisterPrimitiveTypes();
 	gRegisterComponentTypes();
 
-	g_RTTIFactory.Register(RTTI_OF(ConfigSettings));
+	g_RTTIFactory.Register(RTTI_OF<ConfigSettings>());
 
 	if (OS::sCheckCommandLineOption("-run_tests"))
 	{

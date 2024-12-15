@@ -13,22 +13,14 @@ class SystemShadersDX12;
 extern ShaderCompiler g_ShaderCompiler;
 extern SystemShadersDX12 g_SystemShaders;
 
-
-enum EShaderProgramType
-{
-    SHADER_PROGRAM_INVALID,
-    SHADER_PROGRAM_GRAPHICS,
-    SHADER_PROGRAM_COMPUTE
-};
-RTTI_DECLARE_ENUM(EShaderProgramType);
-RTTI_ENUM_STRING_CONVERSIONS(EShaderProgramType);
-
-
 enum EShaderType
 {
     SHADER_TYPE_VERTEX,
+    SHADER_TYPE_HULL,
+    SHADER_TYPE_DOMAIN,
     SHADER_TYPE_PIXEL,
-    SHADER_TYPE_COMPUTE
+    SHADER_TYPE_COMPUTE,
+    SHADER_TYPE_COUNT
 };
 
 class IResource
@@ -36,60 +28,79 @@ class IResource
     RTTI_DECLARE_VIRTUAL_TYPE(IResource);
 
 public:
-    virtual bool OnCompile() { return true; }
+    virtual bool OnCompile(Device& inDevice) { return true; }
+    virtual bool OnHotLoad(Device& inDevice) { return false; }
     virtual bool IsCompiled() const { return true; }
 };
 
 
-class ShaderProgram : public IResource
+class Shader
 {
-    RTTI_DECLARE_VIRTUAL_TYPE(ShaderProgram);
+    RTTI_DECLARE_VIRTUAL_TYPE(Shader);
+    friend class ComputeProgram;
+    friend class GraphicsProgram;
+
+public:
+    bool OnCompile(Device& inDevice, EShaderType inType, const String& inProgramDefines);
+
+    bool IsCompiled() const { return !mBinary.empty(); }
+    bool HasFilePath() const { return !mFilePath.empty(); }
+
+    uint64_t GetHash() const { return mHash; }
+    const Path& GetFilePath() const { return mFilePath; }
+    fs::file_time_type GetFileTime() const { return mFileTime; }
+    D3D12_SHADER_BYTECODE GetShaderByteCode() const { return CD3DX12_SHADER_BYTECODE(mBinary.data(), mBinary.size()); }
+
+private:
+    Path mFilePath; // JSON
+    String mDefines; // JSON
+    uint64_t mHash; // BINARY
+    Array<uint8_t> mBinary; // BINARY
+    fs::file_time_type mFileTime; // RUNTIME
+};
+
+
+class GraphicsProgram : public IResource
+{
+    RTTI_DECLARE_VIRTUAL_TYPE(GraphicsProgram);
     friend class SystemShadersDX12;
 
 public:
-    bool GetGraphicsProgram(ByteSlice& ioVertexShaderByteCode, ByteSlice& ioPixelShaderByteCode) const;
-    bool GetComputeProgram(ByteSlice& ioComputeShaderByteCode) const;
+    const Shader& GetVertexShader() const { return m_VertexShader; }
+    const Shader& GetHullShader() const { return m_HullShader; }
+    const Shader& GetDomainShader() const { return m_DomainShader; }
+    const Shader& GetPixelShader() const { return m_PixelShader; }
 
-    inline bool IsCompute() const { return mProgramType == SHADER_PROGRAM_COMPUTE; } 
-    inline bool IsGraphics() const { return mProgramType == SHADER_PROGRAM_GRAPHICS; }
-
-    uint64_t GetPixelShaderHash() const { return mPixelShaderHash; }
-    uint64_t GetVertexShaderHash() const { return mVertexShaderHash; }
-    uint64_t GetComputeShaderHash() const { return mComputeShaderHash; }
-
-    EShaderProgramType GetProgramType() const { return mProgramType; }
-
-    bool CompilePSO(Device& inDevice, const char* inDebugName = nullptr);
-
-    ID3D12PipelineState* GetComputePSO() { return m_ComputePipeline.Get(); }
-
-    bool OnCompile() override;
-    bool IsCompiled() const override;
+    bool OnCompile(Device& inDevice) override;
+    bool OnHotLoad(Device& inDevice) override;
+    bool IsCompiled() const override { return m_VertexShader.IsCompiled() && m_PixelShader.IsCompiled(); }
 
 private:
-    // JSON fields
-    std::string mDefines = "";
-    Path mVertexShaderFilePath;
-    Path mPixelShaderFilePath;
-    Path mComputeShaderFilePath;
-
-    // Binary fields
-    EShaderProgramType mProgramType;
-    uint64_t mVertexShaderHash;
-    uint64_t mPixelShaderHash;
-    uint64_t mComputeShaderHash;
-    Array<uint8_t> mVertexShader;
-    Array<uint8_t> mPixelShader;
-    Array<uint8_t> mComputeShader;
-
-    // runtime fields
-    fs::file_time_type mVertexShaderFileTime;
-    fs::file_time_type mPixelShaderFileTime;
-    fs::file_time_type mComputeShaderFileTime;
-
-    ComPtr<ID3D12PipelineState> m_ComputePipeline = nullptr;
+    String m_Defines;
+    Shader m_VertexShader, m_PixelShader;
+    Shader m_HullShader, m_DomainShader;
 };
 
+class ComputeProgram : public IResource
+{
+    RTTI_DECLARE_VIRTUAL_TYPE(ComputeProgram);
+    friend class SystemShadersDX12;
+
+public:
+    const Shader& GetComputeShader() const { return m_ComputeShader; }
+
+    bool CompilePSO(Device& inDevice, const char* inDebugName = nullptr);
+    ID3D12PipelineState* GetComputePSO() { return m_ComputePipeline.Get(); }
+
+    bool OnCompile(Device& inDevice) override;
+    bool OnHotLoad(Device& inDevice) override;
+    bool IsCompiled() const override { return m_ComputeShader.IsCompiled(); }
+
+private:
+    String m_Defines;
+    Shader m_ComputeShader;
+    ComPtr<ID3D12PipelineState> m_ComputePipeline = nullptr;
+};
 
 class ShaderCompiler
 {
@@ -120,61 +131,58 @@ struct SystemShadersDX12 : public IResource
     NO_COPY_NO_MOVE(SystemShadersDX12);
     RTTI_DECLARE_VIRTUAL_TYPE(SystemShadersDX12);
 
-    ShaderProgram mClearBufferShader;
-    ShaderProgram mClearTextureShader;
+    ComputeProgram mClearBufferShader;
+    ComputeProgram mClearTextureShader;
 
-    ShaderProgram mImGuiShader;
-    ShaderProgram mGrassShader;
-    ShaderProgram mGBufferShader;
-    ShaderProgram mSkinningShader;
-    ShaderProgram mLightingShader;
-    ShaderProgram mLightCullShader;
-    ShaderProgram mShadowMapShader;
-    ShaderProgram mDownsampleShader;
-    ShaderProgram mTAAResolveShader;
-    ShaderProgram mFinalComposeShader;
-    ShaderProgram mDebugPrimitivesShader;
+    GraphicsProgram mImGuiShader;
+    GraphicsProgram mGrassShader;
+    GraphicsProgram mGBufferShader;
+    ComputeProgram  mSkinningShader;
+    GraphicsProgram mLightingShader;
+    ComputeProgram  mLightCullShader;
+    GraphicsProgram mShadowMapShader;
+    ComputeProgram  mDownsampleShader;
+    GraphicsProgram mTAAResolveShader;
+    GraphicsProgram mFinalComposeShader;
+    GraphicsProgram mDebugPrimitivesShader;
 
-    ShaderProgram mSSRTraceShader;
-    ShaderProgram mSSAOTraceShader;
+    ComputeProgram mSSRTraceShader;
+    ComputeProgram mSSAOTraceShader;
 
-    ShaderProgram mSkyCubeShader;
-    ShaderProgram mConvolveCubeShader;
+    ComputeProgram mSkyCubeShader;
+    ComputeProgram mConvolveCubeShader;
 
-    ShaderProgram mProbeDebugShader;
-    ShaderProgram mProbeDebugRaysShader;
+    GraphicsProgram mProbeDebugShader;
+    GraphicsProgram mProbeDebugRaysShader;
 
-    ShaderProgram mProbeTraceShader;
-    ShaderProgram mProbeSampleShader;
-    ShaderProgram mProbeUpdateDepthShader;
-    ShaderProgram mProbeUpdateIrradianceShader;
+    ComputeProgram mProbeTraceShader;
+    ComputeProgram mProbeSampleShader;
+    ComputeProgram mProbeUpdateDepthShader;
+    ComputeProgram mProbeUpdateIrradianceShader;
 
-    ShaderProgram mRTReflectionsShader;
-    ShaderProgram mRTPathTraceShader;
-    ShaderProgram mRTAmbientOcclusionShader;
+    ComputeProgram mRTReflectionsShader;
+    ComputeProgram mRTPathTraceShader;
+    ComputeProgram mRTAmbientOcclusionShader;
 
-    ShaderProgram mTraceShadowRaysShader;
-    ShaderProgram mClearShadowTilesShader;
-    ShaderProgram mClassifyShadowTilesShader;
-    ShaderProgram mDenoiseShadowTilesShader;
+    ComputeProgram mTraceShadowRaysShader;
+    ComputeProgram mClearShadowTilesShader;
+    ComputeProgram mClassifyShadowTilesShader;
+    ComputeProgram mDenoiseShadowTilesShader;
 
-    ShaderProgram mGBufferDebugDepthShader;
-    ShaderProgram mGBufferDebugAlbedoShader;
-    ShaderProgram mGBufferDebugNormalsShader;
-    ShaderProgram mGBufferDebugEmissiveShader;
-    ShaderProgram mGBufferDebugVelocityShader;
-    ShaderProgram mGBufferDebugMetallicShader;
-    ShaderProgram mGBufferDebugRoughnessShader;
+    GraphicsProgram mGBufferDebugDepthShader;
+    GraphicsProgram mGBufferDebugAlbedoShader;
+    GraphicsProgram mGBufferDebugNormalsShader;
+    GraphicsProgram mGBufferDebugEmissiveShader;
+    GraphicsProgram mGBufferDebugVelocityShader;
+    GraphicsProgram mGBufferDebugMetallicShader;
+    GraphicsProgram mGBufferDebugRoughnessShader;
 
-    ShaderProgram mDepthOfFieldShader;
-    ShaderProgram mBloomUpSampleShader;
-    ShaderProgram mBloomDownsampleShader;
-    ShaderProgram mChromaticAberrationShader;
+    ComputeProgram mDepthOfFieldShader;
+    ComputeProgram mBloomUpSampleShader;
+    ComputeProgram mBloomDownsampleShader;
 
-    bool HotLoad(Device& inDevice);
-    bool CompilePSOs(Device& inDevice);
-
-    bool OnCompile() override;
+    bool OnHotLoad(Device& inDevice) override;
+    bool OnCompile(Device& inDevice) override;
     bool IsCompiled() const override;
 };
 

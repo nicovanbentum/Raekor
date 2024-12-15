@@ -91,17 +91,10 @@ Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inW
     if (!m_FenceEvent)
         gThrowIfFailed(HRESULT_FROM_WIN32(GetLastError()));
 
-    g_CVariables->CreateFn("fn_compile_psos", [this, &inDevice]()
-    {
-        WaitForIdle(inDevice);
-        g_SystemShaders.CompilePSOs(inDevice);
-        g_ThreadPool.WaitForJobs();
-    });
-
     g_CVariables->CreateFn("fn_hotload_shaders", [this, &inDevice]()
     {
         WaitForIdle(inDevice);
-        g_SystemShaders.HotLoad(inDevice);
+        g_SystemShaders.OnHotLoad(inDevice);
         SetShouldResize(true);
         g_ThreadPool.WaitForJobs();
     });
@@ -200,7 +193,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     // Check if any of the shader sources were updated and recompile them if necessary.
     // the OS file stamp checks are expensive so we only turn this on in debug builds.
     static bool force_hotload = OS::sCheckCommandLineOption("-force_enable_hotload");
-    bool need_recompile = IF_DEBUG_ELSE(g_SystemShaders.HotLoad(inDevice), force_hotload ? g_SystemShaders.HotLoad(inDevice) : false);
+    bool need_recompile = IF_DEBUG_ELSE(g_SystemShaders.OnHotLoad(inDevice), force_hotload ? g_SystemShaders.OnHotLoad(inDevice) : false);
     if ( need_recompile )
         std::cout << std::format("Hotloaded system shaders.\n");
 

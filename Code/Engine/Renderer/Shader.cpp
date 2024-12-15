@@ -13,33 +13,36 @@ namespace RK::DX12 {
 ShaderCompiler g_ShaderCompiler;
 SystemShadersDX12 g_SystemShaders;
 
-RTTI_DEFINE_ENUM(EShaderProgramType)
-{
-    RTTI_DEFINE_ENUM_MEMBER(EShaderProgramType, SERIALIZE_ALL, "Invalid", SHADER_PROGRAM_INVALID);
-    RTTI_DEFINE_ENUM_MEMBER(EShaderProgramType, SERIALIZE_ALL, "Graphics", SHADER_PROGRAM_GRAPHICS);
-    RTTI_DEFINE_ENUM_MEMBER(EShaderProgramType, SERIALIZE_ALL, "Compute", SHADER_PROGRAM_COMPUTE);
-}
-
 RTTI_DEFINE_TYPE(IResource)
 {
     // Base class interface only
 }
 
-RTTI_DEFINE_TYPE(ShaderProgram)
+RTTI_DEFINE_TYPE(Shader)
 {
-    RTTI_DEFINE_TYPE_INHERITANCE(ShaderProgram, IResource);
-
-    RTTI_DEFINE_MEMBER(ShaderProgram, SERIALIZE_JSON, "Defines", mDefines);
-    RTTI_DEFINE_MEMBER(ShaderProgram, SERIALIZE_JSON, "Vertex Shader File", mVertexShaderFilePath);
-    RTTI_DEFINE_MEMBER(ShaderProgram, SERIALIZE_JSON, "Pixel Shader File", mPixelShaderFilePath);
-    RTTI_DEFINE_MEMBER(ShaderProgram, SERIALIZE_JSON, "Compute Shader File", mComputeShaderFilePath);
-
-    RTTI_DEFINE_MEMBER(ShaderProgram, SERIALIZE_BINARY, "Program Type", mProgramType);
-    RTTI_DEFINE_MEMBER(ShaderProgram, SERIALIZE_BINARY, "Vertex Shader", mVertexShader);
-    RTTI_DEFINE_MEMBER(ShaderProgram, SERIALIZE_BINARY, "Pixel Shader", mPixelShader);
-    RTTI_DEFINE_MEMBER(ShaderProgram, SERIALIZE_BINARY, "Compute Shader", mComputeShader);
+    RTTI_DEFINE_MEMBER(Shader, SERIALIZE_JSON, "Defines", mDefines);
+    RTTI_DEFINE_MEMBER(Shader, SERIALIZE_JSON, "File Path", mFilePath);
+    RTTI_DEFINE_MEMBER(Shader, SERIALIZE_BINARY, "Binary", mBinary);
 }
 
+RTTI_DEFINE_TYPE(GraphicsProgram)
+{
+    RTTI_DEFINE_TYPE_INHERITANCE(GraphicsProgram, IResource);
+
+    RTTI_DEFINE_MEMBER(GraphicsProgram, SERIALIZE_JSON, "Defines", m_Defines);
+    RTTI_DEFINE_MEMBER(GraphicsProgram, SERIALIZE_ALL, "Vertex Shader", m_VertexShader);
+    RTTI_DEFINE_MEMBER(GraphicsProgram, SERIALIZE_ALL, "Pixel Shader", m_PixelShader);
+    RTTI_DEFINE_MEMBER(GraphicsProgram, SERIALIZE_ALL, "Hull Shader", m_HullShader);
+    RTTI_DEFINE_MEMBER(GraphicsProgram, SERIALIZE_ALL, "Domain Shader", m_DomainShader);
+}
+
+RTTI_DEFINE_TYPE(ComputeProgram)
+{
+    RTTI_DEFINE_TYPE_INHERITANCE(ComputeProgram, IResource);
+
+    RTTI_DEFINE_MEMBER(ComputeProgram, SERIALIZE_JSON, "Defines", m_Defines);
+    RTTI_DEFINE_MEMBER(ComputeProgram, SERIALIZE_ALL, "Compute Shader", m_ComputeShader);
+}
 
 RTTI_DEFINE_TYPE(SystemShadersDX12)
 {
@@ -95,106 +98,74 @@ RTTI_DEFINE_TYPE(SystemShadersDX12)
 }
 
 
-bool ShaderProgram::GetGraphicsProgram(ByteSlice& ioVertexShaderByteCode, ByteSlice& ioPixelShaderByteCode) const
+
+bool Shader::OnCompile(Device& inDevice, EShaderType inType, const String& inProgramDefines)
 {
-    ioVertexShaderByteCode = ByteSlice(mVertexShader);
-    ioPixelShaderByteCode = ByteSlice(mPixelShader);
-    return IsCompiled();
-}
+    mFileTime = fs::last_write_time(mFilePath);
 
+    ComPtr<IDxcBlob> blob = g_ShaderCompiler.CompileShader(mFilePath, inType, mDefines + inProgramDefines, mHash);
 
-bool ShaderProgram::GetComputeProgram(ByteSlice& ioComputeShaderByteCode) const
-{
-    ioComputeShaderByteCode = ByteSlice(mComputeShader);
-    return IsCompiled();
-}
-
-
-
-bool ShaderProgram::CompilePSO(Device& inDevice, const char* inDebugName)
-{
-    if (IsCompute())
-    {
-        m_ComputePipeline = nullptr;
-
-        Timer timer;
-
-        D3D12_COMPUTE_PIPELINE_STATE_DESC pso_desc = { 
-            .pRootSignature = inDevice.GetGlobalRootSignature(), 
-            .CS = CD3DX12_SHADER_BYTECODE(mComputeShader.data(), mComputeShader.size())
-        };
-
-        gThrowIfFailed(inDevice->CreateComputePipelineState(&pso_desc, IID_PPV_ARGS(&m_ComputePipeline)));
-
-        std::cout << std::format("[DX12] Compute PSO {} compilation took {:.2f} ms \n", inDebugName, Timer::sToMilliseconds(timer.GetElapsedTime()));
-
-        if (m_ComputePipeline && inDebugName)
-            m_ComputePipeline->SetPrivateData(WKPDID_D3DDebugObjectName, strlen(inDebugName), inDebugName);
-
-        return m_ComputePipeline != nullptr;
-    }
-
-    return true;
-}
-
-
-bool ShaderProgram::OnCompile()
-{
-    if (!mVertexShaderFilePath.empty() && !mPixelShaderFilePath.empty() && mComputeShaderFilePath.empty())
-    {
-        mProgramType = SHADER_PROGRAM_GRAPHICS;
-    }
-    else if (mVertexShaderFilePath.empty() && mPixelShaderFilePath.empty() && !mComputeShaderFilePath.empty())
-    {
-        mProgramType = SHADER_PROGRAM_COMPUTE;
-    }
-
-    if (mProgramType == SHADER_PROGRAM_INVALID)
+    if (blob == nullptr)
         return false;
 
-    auto CopyByteCode = [](const ComPtr<IDxcBlob>& inByteCode, Array<uint8_t>& ioResult)
-    {
-        if (inByteCode)
-        {
-            ioResult.resize(inByteCode->GetBufferSize());
-            std::memcpy(ioResult.data(), inByteCode->GetBufferPointer(), inByteCode->GetBufferSize());
-        }
+    mBinary.resize(blob->GetBufferSize());
+    std::memcpy(mBinary.data(), blob->GetBufferPointer(), blob->GetBufferSize());
+
+    return IsCompiled();
+}
+
+
+bool ComputeProgram::CompilePSO(Device& inDevice, const char* inDebugName)
+{
+    Timer timer;
+    m_ComputePipeline = nullptr;
+
+    D3D12_COMPUTE_PIPELINE_STATE_DESC pso_desc = { 
+        .pRootSignature = inDevice.GetGlobalRootSignature(), 
+        .CS = m_ComputeShader.GetShaderByteCode()
     };
 
-    switch (mProgramType)
+    gThrowIfFailed(inDevice->CreateComputePipelineState(&pso_desc, IID_PPV_ARGS(&m_ComputePipeline)));
+
+    if (m_ComputePipeline && inDebugName)
     {
-        case SHADER_PROGRAM_GRAPHICS:
-        {
-            mVertexShaderFileTime = fs::last_write_time(mVertexShaderFilePath);
-            mPixelShaderFileTime = fs::last_write_time(mPixelShaderFilePath);
+        std::cout << std::format("[DX12] Compute PSO {} compilation took {:.2f} ms \n", inDebugName, Timer::sToMilliseconds(timer.GetElapsedTime()));
+        m_ComputePipeline->SetPrivateData(WKPDID_D3DDebugObjectName, strlen(inDebugName), inDebugName);
+    }
 
-            ComPtr<IDxcBlob> vertex_shader_blob = g_ShaderCompiler.CompileShader(mVertexShaderFilePath, SHADER_TYPE_VERTEX, mDefines, mVertexShaderHash);
-            ComPtr<IDxcBlob> pixel_shader_blob = g_ShaderCompiler.CompileShader(mPixelShaderFilePath, SHADER_TYPE_PIXEL, mDefines, mPixelShaderHash);
+    return m_ComputePipeline != nullptr;
+}
 
-            if (!vertex_shader_blob || !pixel_shader_blob)
-                return false;
 
-            CopyByteCode(vertex_shader_blob, mVertexShader);
-            CopyByteCode(pixel_shader_blob, mPixelShader);
+bool GraphicsProgram::OnCompile(Device& inDevice)
+{
+    auto CompileShader = [this](Shader& inShader, EShaderType inType) -> bool
+    {
+        inShader.mFileTime = fs::last_write_time(inShader.mFilePath);
 
-            return !mVertexShader.empty() && !mPixelShader.empty();
-        } break;
+        ComPtr<IDxcBlob> blob = g_ShaderCompiler.CompileShader(inShader.mFilePath, inType, m_Defines, inShader.mHash);
 
-        case SHADER_PROGRAM_COMPUTE:
-        {
-            mComputeShaderFileTime = fs::last_write_time(mComputeShaderFilePath);
+        if (blob == nullptr)
+            return false;
 
-            ComPtr<IDxcBlob> compute_shader_blob = g_ShaderCompiler.CompileShader(mComputeShaderFilePath, SHADER_TYPE_COMPUTE, mDefines, mComputeShaderHash);
+        inShader.mBinary.resize(blob->GetBufferSize());
+        std::memcpy(inShader.mBinary.data(), blob->GetBufferPointer(), blob->GetBufferSize());
 
-            if (!compute_shader_blob)
-                return false;
+        return inShader.IsCompiled();
+    };
 
-            CopyByteCode(compute_shader_blob, mComputeShader);
+    const bool vs_compiled = m_VertexShader.OnCompile(inDevice, SHADER_TYPE_VERTEX, m_Defines);
+    const bool ps_compiled = m_PixelShader.OnCompile(inDevice, SHADER_TYPE_PIXEL, m_Defines);
 
-            return !mComputeShader.empty();
-        } break;
+    if (!vs_compiled || !ps_compiled)
+        return false;
 
-        default:
+    if (m_HullShader.HasFilePath() && m_DomainShader.HasFilePath())
+    {
+        const bool hs_compiled = m_HullShader.OnCompile(inDevice, SHADER_TYPE_HULL, m_Defines);
+        const bool ds_compiled = m_DomainShader.OnCompile(inDevice, SHADER_TYPE_DOMAIN, m_Defines);
+
+        if (!hs_compiled || !ds_compiled)
             return false;
     }
 
@@ -202,17 +173,24 @@ bool ShaderProgram::OnCompile()
 }
 
 
-bool ShaderProgram::IsCompiled() const
+bool GraphicsProgram::OnHotLoad(Device& inDevice)
 {
-    switch (mProgramType)
-    {
-        case SHADER_PROGRAM_GRAPHICS:
-            return !mVertexShader.empty() && !mPixelShader.empty();
-        case SHADER_PROGRAM_COMPUTE:
-            return !mComputeShader.empty();
-        default:
-            return false;
-    }
+    return false;
+}
+
+
+bool ComputeProgram::OnCompile(Device& inDevice)
+{
+    if (!m_ComputeShader.OnCompile(inDevice, SHADER_TYPE_COMPUTE, m_Defines))
+        return false;
+
+    return CompilePSO(inDevice);
+}
+
+
+bool ComputeProgram::OnHotLoad(Device& inDevice)
+{
+    return false;
 }
 
 
@@ -250,6 +228,8 @@ ComPtr<IDxcBlob> ShaderCompiler::CompileShader(const Path& inPath, const String&
     switch (inShaderType)
     {
         case SHADER_TYPE_VERTEX:  arguments.push_back(L"vs_6_6"); break;
+        case SHADER_TYPE_HULL:    arguments.push_back(L"hs_6_6"); break;
+        case SHADER_TYPE_DOMAIN:  arguments.push_back(L"ds_6_6"); break;
         case SHADER_TYPE_PIXEL:   arguments.push_back(L"ps_6_6"); break;
         case SHADER_TYPE_COMPUTE: arguments.push_back(L"cs_6_6"); break;
         default: assert(false);
@@ -403,10 +383,12 @@ ID3D12PipelineState* ShaderCompiler::GetGraphicsPipeline(Device& inDevice, IRend
     }
     else
     {
-        ByteSlice pixel_shader((const uint8_t*)m_ShaderCache[inPixelShaderHash]->GetBufferPointer(), m_ShaderCache[inPixelShaderHash]->GetBufferSize());
-        ByteSlice vertex_shader((const uint8_t*)m_ShaderCache[inVertexShaderHash]->GetBufferPointer(), m_ShaderCache[inVertexShaderHash]->GetBufferSize());
+        GraphicsProgram program;
+        D3D12_GRAPHICS_PIPELINE_STATE_DESC desc = inRenderPass->CreatePipelineStateDesc(inDevice, program);
 
-        D3D12_GRAPHICS_PIPELINE_STATE_DESC desc = inRenderPass->CreatePipelineStateDesc(inDevice, vertex_shader, pixel_shader);
+        desc.VS = CD3DX12_SHADER_BYTECODE(m_ShaderCache[inVertexShaderHash]->GetBufferPointer(), m_ShaderCache[inVertexShaderHash]->GetBufferSize());
+        desc.PS = CD3DX12_SHADER_BYTECODE(m_ShaderCache[inPixelShaderHash]->GetBufferPointer(), m_ShaderCache[inPixelShaderHash]->GetBufferSize());
+
         inDevice->CreateGraphicsPipelineState(&desc, IID_PPV_ARGS(m_PipelineCache[shader_hash].GetAddressOf()));
 
         return m_PipelineCache[shader_hash].Get();
@@ -417,46 +399,16 @@ ID3D12PipelineState* ShaderCompiler::GetGraphicsPipeline(Device& inDevice, IRend
 }
 
 
-bool SystemShadersDX12::HotLoad(Device& inDevice)
+bool SystemShadersDX12::OnHotLoad(Device& inDevice)
 {
     // g_ShaderCompiler.DisableShaderCache();
 
-    for (const auto& member : GetRTTI())
+    for (const auto& member : this->GetRTTI())
     {
-        ShaderProgram& program = member->GetRef<ShaderProgram>(this);
+        IResource* shader_program = member->Get<IResource>(this);
 
-        auto GetFileTimeStamp = [](const Path& inPath)
-        {
-            std::error_code error_code;
-            fs::file_time_type timestamp = fs::last_write_time(inPath, error_code);
-
-            while (error_code)
-                timestamp = fs::last_write_time(inPath, error_code);
-
-            return timestamp;
-        };
-
-        bool should_recompile = false;
-
-        if (!program.mVertexShaderFilePath.empty() && program.mVertexShaderFileTime < GetFileTimeStamp(program.mVertexShaderFilePath))
-            should_recompile = true;
-
-        if (!program.mPixelShaderFilePath.empty() && program.mPixelShaderFileTime < GetFileTimeStamp(program.mPixelShaderFilePath))
-            should_recompile = true;
-
-        if (!program.mComputeShaderFilePath.empty() && program.mComputeShaderFileTime < GetFileTimeStamp(program.mComputeShaderFilePath))
-            should_recompile = true;
-
-        if (should_recompile)
-        {
-            if (program.OnCompile())
-            {
-                if (program.IsCompute())
-                    return program.CompilePSO(inDevice, member->GetCustomName());
-                else
-                    return true;
-            }
-        }
+        if (shader_program->OnHotLoad(inDevice))
+            return true;
     }
 
     // g_ShaderCompiler.EnableShaderCache();
@@ -465,34 +417,16 @@ bool SystemShadersDX12::HotLoad(Device& inDevice)
 
 
 
-bool SystemShadersDX12::CompilePSOs(Device& inDevice)
+bool SystemShadersDX12::OnCompile(Device& inDevice)
 {
     for (const auto& member : GetRTTI())
     {
-        g_ThreadPool.QueueJob([this, &inDevice, &member]()
+        g_ThreadPool.QueueJob([&]()
         {
-            ShaderProgram& shader_program = member->GetRef<ShaderProgram>(this);
+            IResource* shader_program = member->Get<IResource>(this);
 
-            if (shader_program.GetProgramType() == SHADER_PROGRAM_COMPUTE && shader_program.IsCompiled())
-                shader_program.CompilePSO(inDevice, member->GetCustomName());
-        });
-    }
-
-    return true;
-}
-
-
-
-bool SystemShadersDX12::OnCompile()
-{
-    for (const auto& member : GetRTTI())
-    {
-        g_ThreadPool.QueueJob([this, &member]()
-        {
-            ShaderProgram& shader_program = member->GetRef<ShaderProgram>(this);
-
-            if (!shader_program.IsCompiled())
-                shader_program.OnCompile();
+            if (!shader_program->IsCompiled())
+                shader_program->OnCompile(inDevice);
         });
     }
 
@@ -507,7 +441,10 @@ bool SystemShadersDX12::IsCompiled() const
     bool is_compiled = true;
 
     for (const auto& member : GetRTTI())
-        is_compiled &= member->GetRef<ShaderProgram>(this).IsCompiled();
+    {
+        const IResource* shader_program = member->Get<IResource>(this);
+        is_compiled &= shader_program->IsCompiled();
+    }
 
     return is_compiled;
 }

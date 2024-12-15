@@ -7,7 +7,8 @@ namespace RK::DX12 {
 
 class CommandList;
 class IRenderPass;
-class ShaderProgram;
+class ComputeProgram;
+class GraphicsProgram;
 
 class Device
 {

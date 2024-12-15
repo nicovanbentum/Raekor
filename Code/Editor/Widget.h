@@ -67,7 +67,7 @@ public:
 	T* GetWidget()
 	{
 		for (const auto& widget : m_Widgets)
-			if (widget->GetRTTI() == gGetRTTI<T>())
+			if (widget->GetRTTI() == RTTI_OF<T>())
 				return std::static_pointer_cast<T>( widget ).get();
 
 		return nullptr;

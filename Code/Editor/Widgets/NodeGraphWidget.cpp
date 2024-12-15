@@ -136,7 +136,8 @@ void ShaderGraphWidget::Draw(Widgets* inWidgets, float dt)
 
 		for (const auto& [index, shader_node] : gEnumerate(GetBuilder().GetShaderNodes()))
 		{
-			if (shader_node->GetRTTI() == RTTI_OF(PixelShaderOutputShaderNode) || shader_node->GetRTTI() == RTTI_OF(VertexShaderOutputShaderNode))
+			if (shader_node->GetRTTI() == RTTI_OF<PixelShaderOutputShaderNode>() || 
+				shader_node->GetRTTI() == RTTI_OF<VertexShaderOutputShaderNode>())
 			{
 				queue.push(index);
 			}

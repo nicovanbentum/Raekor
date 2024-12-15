@@ -54,9 +54,9 @@ DXApp::DXApp() :
     delete g_Profiler;
     g_Profiler = new DXProfiler();
 
-    g_RTTIFactory.Register(RTTI_OF(ShaderProgram));
-    g_RTTIFactory.Register(RTTI_OF(SystemShadersDX12));
-    g_RTTIFactory.Register(RTTI_OF(EShaderProgramType));
+    g_RTTIFactory.Register(RTTI_OF<ComputeProgram>());
+    g_RTTIFactory.Register(RTTI_OF<GraphicsProgram>());
+    g_RTTIFactory.Register(RTTI_OF<SystemShadersDX12>());
 
     Timer timer;
 
@@ -64,11 +64,7 @@ DXApp::DXApp() :
     read_archive >> g_SystemShaders;
 
     // compile shaders
-    g_SystemShaders.OnCompile();
-    g_ThreadPool.WaitForJobs();
-
-    // compile PSOs
-    g_SystemShaders.CompilePSOs(m_Device);
+    g_SystemShaders.OnCompile(m_Device);
     g_ThreadPool.WaitForJobs();
 
     if (!g_SystemShaders.IsCompiled())

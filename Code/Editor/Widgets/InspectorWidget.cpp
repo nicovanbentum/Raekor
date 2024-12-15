@@ -107,7 +107,7 @@ bool InspectorWidget::DrawEntityInspector(Widgets* inWidgets)
 	{
 		for (const RTTI* rtti : g_RTTIFactory)
 		{
-			if (!rtti->IsDerivedFrom(&RTTI_OF(SceneComponent)))
+			if (!rtti->IsDerivedFrom(&RTTI_OF<SceneComponent>()))
 				continue;
 
 			if (scene.Has(active_entity, rtti))
@@ -1125,7 +1125,7 @@ bool InspectorWidget::DrawComponent(Entity inEntity, NativeScript& inScript)
 			{
 				gForEachType<int, float, bool, Entity>([&](auto type)
 				{
-					if (*member_rtti == RTTI_OF(decltype( type )))
+					if (*member_rtti == RTTI_OF<decltype(type)>())
 					{
 						DrawScriptMember(member->GetCustomName(), member->GetRef<decltype( type )>(inScript.script));
 						return;

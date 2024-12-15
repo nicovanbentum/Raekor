@@ -1,9 +1,11 @@
-#include "pch.h"
+#include "PCH.h"
 #include "ShaderGraphNodes.h"
 #include "ShaderGraph.h"
 #include "Editor/GUI.h"
-#include "Engine/iter.h"
-#include "Engine/member.h"
+#include "Engine/RTTI.h"
+#include "Engine/Iter.h"
+#include "Engine/Maths.h"
+#include "Engine/Member.h"
 
 namespace RK {
 
@@ -168,30 +170,30 @@ RTTI_DEFINE_TYPE(VertexShaderOutputShaderNode)
 
 void gRegisterShaderNodeTypes()
 {
-	g_RTTIFactory.Register(RTTI_OF(ShaderNode));
-	g_RTTIFactory.Register(RTTI_OF(ShaderNodePin));
-	g_RTTIFactory.Register(RTTI_OF(ShaderGraphBuilder));
+	g_RTTIFactory.Register(RTTI_OF<ShaderNode>());
+	g_RTTIFactory.Register(RTTI_OF<ShaderNodePin>());
+	g_RTTIFactory.Register(RTTI_OF<ShaderGraphBuilder>());
 
-	g_RTTIFactory.Register(RTTI_OF(FloatValueShaderNode));
-	g_RTTIFactory.Register(RTTI_OF(FloatOpShaderNode));
-	g_RTTIFactory.Register(RTTI_OF(FloatFunctionShaderNode));
-	g_RTTIFactory.Register(RTTI_OF(GetTimeShaderNode));
-	g_RTTIFactory.Register(RTTI_OF(GetPositionShaderNode));
-	g_RTTIFactory.Register(RTTI_OF(GetTexCoordShaderNode));
-	g_RTTIFactory.Register(RTTI_OF(GetNormalShaderNode));
-	g_RTTIFactory.Register(RTTI_OF(GetTangentShaderNode));
-	g_RTTIFactory.Register(RTTI_OF(GetDeltaTimeShaderNode));
-	g_RTTIFactory.Register(RTTI_OF(GetPixelCoordShaderNode));
-	g_RTTIFactory.Register(RTTI_OF(GetTexCoordinateShaderNode));
-	g_RTTIFactory.Register(RTTI_OF(VectorValueShaderNode));
-	g_RTTIFactory.Register(RTTI_OF(VectorFunctionShaderNode));
-	g_RTTIFactory.Register(RTTI_OF(VectorSplitShaderNode));
-	g_RTTIFactory.Register(RTTI_OF(VectorOpShaderNode));
-	g_RTTIFactory.Register(RTTI_OF(ProcedureShaderNode));
-	g_RTTIFactory.Register(RTTI_OF(GradientNoiseShaderNode));
-	g_RTTIFactory.Register(RTTI_OF(CompareShaderNode));
-	g_RTTIFactory.Register(RTTI_OF(PixelShaderOutputShaderNode));
-	g_RTTIFactory.Register(RTTI_OF(VertexShaderOutputShaderNode));
+	g_RTTIFactory.Register(RTTI_OF<FloatValueShaderNode>());
+	g_RTTIFactory.Register(RTTI_OF<FloatOpShaderNode>());
+	g_RTTIFactory.Register(RTTI_OF<FloatFunctionShaderNode>());
+	g_RTTIFactory.Register(RTTI_OF<GetTimeShaderNode>());
+	g_RTTIFactory.Register(RTTI_OF<GetPositionShaderNode>());
+	g_RTTIFactory.Register(RTTI_OF<GetTexCoordShaderNode>());
+	g_RTTIFactory.Register(RTTI_OF<GetNormalShaderNode>());
+	g_RTTIFactory.Register(RTTI_OF<GetTangentShaderNode>());
+	g_RTTIFactory.Register(RTTI_OF<GetDeltaTimeShaderNode>());
+	g_RTTIFactory.Register(RTTI_OF<GetPixelCoordShaderNode>());
+	g_RTTIFactory.Register(RTTI_OF<GetTexCoordinateShaderNode>());
+	g_RTTIFactory.Register(RTTI_OF<VectorValueShaderNode>());
+	g_RTTIFactory.Register(RTTI_OF<VectorFunctionShaderNode>());
+	g_RTTIFactory.Register(RTTI_OF<VectorSplitShaderNode>());
+	g_RTTIFactory.Register(RTTI_OF<VectorOpShaderNode>());
+	g_RTTIFactory.Register(RTTI_OF<ProcedureShaderNode>());
+	g_RTTIFactory.Register(RTTI_OF<GradientNoiseShaderNode>());
+	g_RTTIFactory.Register(RTTI_OF<CompareShaderNode>());
+	g_RTTIFactory.Register(RTTI_OF<PixelShaderOutputShaderNode>());
+	g_RTTIFactory.Register(RTTI_OF<VertexShaderOutputShaderNode>());
 }
 
 

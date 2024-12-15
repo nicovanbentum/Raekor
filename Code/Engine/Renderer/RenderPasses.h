@@ -132,6 +132,7 @@ const TransitionResourceData& AddTransitionResourceData(RenderGraph& inRenderGra
 );
 
 
+
 ////////////////////////////////////////
 /// Compute Sky Cube Pass
 ////////////////////////////////////////

@@ -240,10 +240,7 @@ const GBufferData& AddMeshletsRasterPass(RenderGraph& inRenderGraph, Device& inD
         ioRGBuilder.RenderTarget(inData.mOutput.mVelocityTexture); // SV_Target1
         ioRGBuilder.DepthStencilTarget(inData.mOutput.mDepthTexture);
 
-        ByteSlice vertex_shader, pixel_shader;
-        g_SystemShaders.mGBufferShader.GetGraphicsProgram(vertex_shader, pixel_shader);
-
-        D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inRenderPass->CreatePipelineStateDesc(inDevice, vertex_shader, pixel_shader);
+        D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inRenderPass->CreatePipelineStateDesc(inDevice, g_SystemShaders.mGBufferShader);
         inDevice->CreateGraphicsPipelineState(&pso_state, IID_PPV_ARGS(inData.mPipeline.GetAddressOf()));
         inData.mPipeline->SetName(L"PSO_MESHLETS_RASTER");
     },
@@ -369,13 +366,7 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
         ioRGBuilder.RenderTarget(inData.mOutput.mSelectionTexture); // SV_Target2
         ioRGBuilder.DepthStencilTarget(inData.mOutput.mDepthTexture);
 
-        ByteSlice vertex_shader, pixel_shader;
-        g_SystemShaders.mGBufferShader.GetGraphicsProgram(vertex_shader, pixel_shader);
-
-        const ShaderProgram& shader_program = g_SystemShaders.mGBufferShader;
-
-
-        D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inRenderPass->CreatePipelineStateDesc(inDevice, vertex_shader, pixel_shader);
+        D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inRenderPass->CreatePipelineStateDesc(inDevice, g_SystemShaders.mGBufferShader);
         inDevice->CreateGraphicsPipelineState(&pso_state, IID_PPV_ARGS(inData.mPipeline.GetAddressOf()));
         inData.mPipeline->SetName(L"PSO_GBUFFER");
 
@@ -415,8 +406,8 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
             if (material == nullptr)
                 material = &Material::Default;
 
-            uint64_t pixel_shader = material->pixelShader ? material->pixelShader : g_SystemShaders.mGBufferShader.GetPixelShaderHash();
-            uint64_t vertex_shader = material->vertexShader ? material->vertexShader : g_SystemShaders.mGBufferShader.GetVertexShaderHash();
+            uint64_t pixel_shader = material->pixelShader ? material->pixelShader : g_SystemShaders.mGBufferShader.GetPixelShader().GetHash();
+            uint64_t vertex_shader = material->vertexShader ? material->vertexShader : g_SystemShaders.mGBufferShader.GetVertexShader().GetHash();
 
             if (ID3D12PipelineState* pipeline_state = g_ShaderCompiler.GetGraphicsPipeline(inDevice, inData.mRenderPass, vertex_shader, pixel_shader))
                 inCmdList->SetPipelineState(pipeline_state);
@@ -480,25 +471,24 @@ const GBufferDebugData& AddGBufferDebugPass(RenderGraph& inRenderGraph, Device& 
             default: assert(false);
         }
 
-        ByteSlice vertex_shader, pixel_shader;
+        D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_desc;
         switch (inDebugTexture)
         {
-            case DEBUG_TEXTURE_GBUFFER_DEPTH:     g_SystemShaders.mGBufferDebugDepthShader.GetGraphicsProgram(vertex_shader, pixel_shader);      break;
-            case DEBUG_TEXTURE_GBUFFER_ALBEDO:    g_SystemShaders.mGBufferDebugAlbedoShader.GetGraphicsProgram(vertex_shader, pixel_shader);     break;
-            case DEBUG_TEXTURE_GBUFFER_NORMALS:   g_SystemShaders.mGBufferDebugNormalsShader.GetGraphicsProgram(vertex_shader, pixel_shader);    break;
-            case DEBUG_TEXTURE_GBUFFER_EMISSIVE:  g_SystemShaders.mGBufferDebugEmissiveShader.GetGraphicsProgram(vertex_shader, pixel_shader);   break;
-            case DEBUG_TEXTURE_GBUFFER_VELOCITY:  g_SystemShaders.mGBufferDebugVelocityShader.GetGraphicsProgram(vertex_shader, pixel_shader);   break;
-            case DEBUG_TEXTURE_GBUFFER_METALLIC:  g_SystemShaders.mGBufferDebugMetallicShader.GetGraphicsProgram(vertex_shader, pixel_shader);   break;
-            case DEBUG_TEXTURE_GBUFFER_ROUGHNESS: g_SystemShaders.mGBufferDebugRoughnessShader.GetGraphicsProgram(vertex_shader, pixel_shader);  break;
+            case DEBUG_TEXTURE_GBUFFER_DEPTH: pso_desc = inRenderPass->CreatePipelineStateDesc(inDevice, g_SystemShaders.mGBufferDebugDepthShader); break;
+            case DEBUG_TEXTURE_GBUFFER_ALBEDO: pso_desc = inRenderPass->CreatePipelineStateDesc(inDevice, g_SystemShaders.mGBufferDebugAlbedoShader); break;
+            case DEBUG_TEXTURE_GBUFFER_NORMALS: pso_desc = inRenderPass->CreatePipelineStateDesc(inDevice, g_SystemShaders.mGBufferDebugNormalsShader); break;
+            case DEBUG_TEXTURE_GBUFFER_EMISSIVE: pso_desc = inRenderPass->CreatePipelineStateDesc(inDevice, g_SystemShaders.mGBufferDebugEmissiveShader); break;
+            case DEBUG_TEXTURE_GBUFFER_VELOCITY: pso_desc = inRenderPass->CreatePipelineStateDesc(inDevice, g_SystemShaders.mGBufferDebugVelocityShader); break;
+            case DEBUG_TEXTURE_GBUFFER_METALLIC: pso_desc = inRenderPass->CreatePipelineStateDesc(inDevice, g_SystemShaders.mGBufferDebugMetallicShader); break;
+            case DEBUG_TEXTURE_GBUFFER_ROUGHNESS: pso_desc = inRenderPass->CreatePipelineStateDesc(inDevice, g_SystemShaders.mGBufferDebugRoughnessShader); break;
             default: assert(false);
         }
 
-        D3D12_GRAPHICS_PIPELINE_STATE_DESC state = inRenderPass->CreatePipelineStateDesc(inDevice, vertex_shader, pixel_shader);
-        state.InputLayout = {}; // clear the input layout, we generate the fullscreen triangle inside the vertex shader
-        state.DepthStencilState.DepthEnable = FALSE;
-        state.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+        pso_desc.InputLayout = {}; // clear the input layout, we generate the fullscreen triangle inside the vertex shader
+        pso_desc.DepthStencilState.DepthEnable = FALSE;
+        pso_desc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 
-        inDevice->CreateGraphicsPipelineState(&state, IID_PPV_ARGS(&inData.mPipeline));
+        inDevice->CreateGraphicsPipelineState(&pso_desc, IID_PPV_ARGS(&inData.mPipeline));
         inData.mPipeline->SetName(L"PSO_GBUFFER_DEBUG");
     },
 
@@ -533,10 +523,7 @@ const ShadowMapData& AddShadowMapPass(RenderGraph& inRenderGraph, Device& inDevi
 
         ioRGBuilder.DepthStencilTarget(inData.mOutputTexture);
 
-        ByteSlice vertex_shader, pixel_shader;
-        g_SystemShaders.mShadowMapShader.GetGraphicsProgram(vertex_shader, pixel_shader);
-
-        D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_desc = inRenderPass->CreatePipelineStateDesc(inDevice, vertex_shader, pixel_shader);
+        D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_desc = inRenderPass->CreatePipelineStateDesc(inDevice, g_SystemShaders.mShadowMapShader);
 
         inDevice->CreateGraphicsPipelineState(&pso_desc, IID_PPV_ARGS(inData.mPipeline.GetAddressOf()));
     },
@@ -723,10 +710,7 @@ const GrassData& AddGrassRenderPass(RenderGraph& inGraph, Device& inDevice, cons
         inData.mRenderTextureSRV = ioRGBuilder.RenderTarget(inGBuffer.mRenderTexture);
         inData.mDepthTextureSRV  = ioRGBuilder.DepthStencilTarget(inGBuffer.mDepthTexture);
 
-        ByteSlice vertex_shader, pixel_shader;
-        g_SystemShaders.mGrassShader.GetGraphicsProgram(vertex_shader, pixel_shader);
-
-        D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_desc = inRenderPass->CreatePipelineStateDesc(inDevice, vertex_shader, pixel_shader);
+        D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_desc = inRenderPass->CreatePipelineStateDesc(inDevice, g_SystemShaders.mGrassShader);
         pso_desc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 
         inDevice->CreateGraphicsPipelineState(&pso_desc, IID_PPV_ARGS(&inData.mPipeline));
@@ -772,10 +756,6 @@ const DownsampleData& AddDownsamplePass(RenderGraph& inRenderGraph, Device& inDe
         {
             // inRGBuilder.Write(inSourceTexture, mip);
         }
-
-        ByteSlice compute_shader;
-        g_SystemShaders.mDownsampleShader.GetComputeProgram(compute_shader);
-        D3D12_COMPUTE_PIPELINE_STATE_DESC state = inRenderPass->CreatePipelineStateDesc(inDevice, compute_shader);
     },
 
     [&inRenderGraph, &inDevice](DownsampleData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
@@ -908,9 +888,7 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
         inData.mGBufferDepthTextureSRV      = ioRGBuilder.Read(inGBuffer.mDepthTexture);
         inData.mGBufferRenderTextureSRV     = ioRGBuilder.Read(inGBuffer.mRenderTexture);
 
-        ByteSlice vertex_shader, pixel_shader;
-        g_SystemShaders.mLightingShader.GetGraphicsProgram(vertex_shader, pixel_shader);
-        D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inRenderPass->CreatePipelineStateDesc(inDevice, vertex_shader, pixel_shader);
+        D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inRenderPass->CreatePipelineStateDesc(inDevice, g_SystemShaders.mLightingShader);
 
         pso_state.InputLayout = {}; // clear the input layout, we generate the fullscreen triangle inside the vertex shader
         pso_state.DepthStencilState.DepthEnable = FALSE;
@@ -980,9 +958,7 @@ const TAAResolveData& AddTAAResolvePass(RenderGraph& inRenderGraph, Device& inDe
         inData.mDepthTextureSRV    =  ioRGBuilder.Read(inGBuffer.mDepthTexture);
         inData.mVelocityTextureSRV =  ioRGBuilder.Read(inGBuffer.mVelocityTexture);
 
-        ByteSlice vertex_shader, pixel_shader;
-        g_SystemShaders.mTAAResolveShader.GetGraphicsProgram(vertex_shader, pixel_shader);
-        D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inRenderPass->CreatePipelineStateDesc(inDevice, vertex_shader, pixel_shader);
+        D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inRenderPass->CreatePipelineStateDesc(inDevice, g_SystemShaders.mTAAResolveShader);
 
         pso_state.InputLayout = {}; // clear the input layout, we generate the fullscreen triangle inside the vertex shader
         pso_state.DepthStencilState.DepthEnable = FALSE;
@@ -1182,9 +1158,7 @@ const DebugPrimitivesData& AddDebugOverlayPass(RenderGraph& inRenderGraph, Devic
         inData.mRenderTarget = ioRGBuilder.RenderTarget(inRenderTarget);
         inData.mDepthTarget = ioRGBuilder.DepthStencilTarget(inDepthTarget);
 
-        ByteSlice vertex_shader, pixel_shader;
-        g_SystemShaders.mDebugPrimitivesShader.GetGraphicsProgram(vertex_shader, pixel_shader);
-        D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inRenderPass->CreatePipelineStateDesc(inDevice, vertex_shader, pixel_shader);
+        D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inRenderPass->CreatePipelineStateDesc(inDevice, g_SystemShaders.mDebugPrimitivesShader);
 
         pso_state.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
         pso_state.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
@@ -1239,9 +1213,7 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, 
         inData.mInputTextureSRV = inBuilder.Read(inInputTexture);
         inData.mBloomTextureSRV = inBuilder.Read(inBloomTexture);
 
-        ByteSlice vertex_shader, pixel_shader;
-        g_SystemShaders.mFinalComposeShader.GetGraphicsProgram(vertex_shader, pixel_shader);
-        D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inRenderPass->CreatePipelineStateDesc(inDevice, vertex_shader, pixel_shader);
+        D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inRenderPass->CreatePipelineStateDesc(inDevice, g_SystemShaders.mFinalComposeShader);
 
         pso_state.InputLayout = {}; // clear the input layout, we generate the fullscreen triangle inside the vertex shader
         pso_state.DepthStencilState.DepthEnable = FALSE;
@@ -1372,10 +1344,7 @@ const ImGuiData& AddImGuiPass(RenderGraph& inRenderGraph, Device& inDevice, Rend
             D3D12_INPUT_ELEMENT_DESC { "COLOR", 0, DXGI_FORMAT_R32_UINT, 0, offsetof(ImDrawVert, col), D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
         };
 
-        ByteSlice vertex_shader, pixel_shader;
-        g_SystemShaders.mImGuiShader.GetGraphicsProgram(vertex_shader, pixel_shader);
-
-        D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inRenderPass->CreatePipelineStateDesc(inDevice, vertex_shader, pixel_shader);
+        D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inRenderPass->CreatePipelineStateDesc(inDevice, g_SystemShaders.mImGuiShader);
         pso_state.InputLayout = D3D12_INPUT_LAYOUT_DESC
         {
             .pInputElementDescs = input_layout.data(),

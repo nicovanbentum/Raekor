@@ -115,21 +115,17 @@ void* RTTIFactory::Construct(const char* inType)
 		return nullptr;
 }
 
+} // namespace Raekor
 
 RTTI_DEFINE_TYPE_PRIMITIVE(int);
 RTTI_DEFINE_TYPE_PRIMITIVE(bool);
 RTTI_DEFINE_TYPE_PRIMITIVE(float);
 RTTI_DEFINE_TYPE_PRIMITIVE(uint32_t);
 
-
 void gRegisterPrimitiveTypes()
 {
-	g_RTTIFactory.Register(RTTI_OF(int));
-	g_RTTIFactory.Register(RTTI_OF(bool));
-	g_RTTIFactory.Register(RTTI_OF(float));
-	g_RTTIFactory.Register(RTTI_OF(uint32_t));
+	RK::g_RTTIFactory.Register<int>();
+	RK::g_RTTIFactory.Register<bool>();
+	RK::g_RTTIFactory.Register<float>();
+	RK::g_RTTIFactory.Register<uint32_t>();
 }
-
-
-} // namespace Raekor
-
