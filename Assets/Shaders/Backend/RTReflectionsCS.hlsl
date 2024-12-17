@@ -6,6 +6,7 @@
 #include "Include/Material.hlsli"
 #include "Include/RayTracing.hlsli"
 
+FRAME_CONSTANTS(fc)
 ROOT_CONSTANTS(ReflectionsRootConstants, rc)
 
 [numthreads(8,8,1)]
@@ -18,14 +19,12 @@ void main(uint3 threadID : SV_DispatchThreadID)
     Texture2D<float> gbuffer_depth_texture = ResourceDescriptorHeap[rc.mGbufferDepthTexture];
     RWTexture2D<float4> result_texture = ResourceDescriptorHeap[rc.mResultTexture];
     
-    RaytracingAccelerationStructure TLAS = ResourceDescriptorHeap[rc.mTLAS];
-    StructuredBuffer<RTGeometry> geometries = ResourceDescriptorHeap[rc.mInstancesBuffer];
-    StructuredBuffer<RTMaterial> materials  = ResourceDescriptorHeap[rc.mMaterialsBuffer];
+    RaytracingAccelerationStructure TLAS = ResourceDescriptorHeap[fc.mTLAS];
+    StructuredBuffer<RTGeometry> geometries = ResourceDescriptorHeap[fc.mInstancesBuffer];
+    StructuredBuffer<RTMaterial> materials  = ResourceDescriptorHeap[fc.mMaterialsBuffer];
 
     TextureCube<float3> skycube_texture    = ResourceDescriptorHeap[rc.mSkyCubeTexture];
     
-    const FrameConstants fc = gGetFrameConstants();
-
     uint rng = TeaHash(((threadID.y << 16) | threadID.x), fc.mFrameCounter + 1);
     
     const float2 pixel_center = float2(threadID.xy) + float2(0.5, 0.5);

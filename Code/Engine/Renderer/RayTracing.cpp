@@ -63,7 +63,6 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
                 .mShadowMaskTexture = inResources.GetBindlessHeapIndex(inData.mOutputTexture),
                 .mGbufferDepthTexture = inResources.GetBindlessHeapIndex(inData.mGBufferDepthTextureSRV),
                 .mGbufferRenderTexture = inResources.GetBindlessHeapIndex(inData.mGBufferRenderTextureSRV),
-                .mTLAS = inScene.GetTLASDescriptorIndex(),
                 .mDispatchSize = viewport.GetRenderSize()
             });
 
@@ -295,7 +294,6 @@ const RTAOData& AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDe
             .mAOmaskTexture         = inRGResources.GetBindlessHeapIndex(inData.mOutputTexture),
             .mGbufferDepthTexture   = inRGResources.GetBindlessHeapIndex(inData.mGbufferDepthTextureSRV),
             .mGbufferRenderTexture  = inRGResources.GetBindlessHeapIndex(inData.mGBufferRenderTextureSRV),
-            .mTLAS                  = inScene.GetTLASDescriptorIndex(),
             .mDispatchSize          = viewport.size
         });
 
@@ -336,9 +334,6 @@ const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& in
         const Viewport& viewport = inRenderGraph.GetViewport();
 
         inCmdList.PushComputeConstants(ReflectionsRootConstants {
-            .mTLAS = inScene.GetTLASDescriptorIndex(),
-            .mInstancesBuffer = inScene.GetInstancesDescriptorIndex(),
-            .mMaterialsBuffer = inScene.GetMaterialsDescriptorIndex(),
             .mResultTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTexture(inData.mOutputTexture)),
             .mSkyCubeTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mSkyCubeTextureSRV)),
             .mGbufferDepthTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mGBufferDepthTextureSRV)),
@@ -388,22 +383,13 @@ const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevi
 
         PathTraceRootConstants constants =
         {
-            .mTLAS = inScene.GetTLASDescriptorIndex(),
+            .mReset = RenderSettings::mPathTraceReset,
             .mBounces = RenderSettings::mPathTraceBounces,
-            .mInstancesBuffer = inScene.GetInstancesDescriptorIndex(),
-            .mMaterialsBuffer = inScene.GetMaterialsDescriptorIndex(),
             .mResultTexture = inDevice.GetBindlessHeapIndex(inResources.GetTexture(inData.mOutputTexture)),
             .mAccumulationTexture = inDevice.GetBindlessHeapIndex(inResources.GetTexture(inData.mAccumulationTexture)),
             .mSkyCubeTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mSkyCubeTextureSRV)),
             .mDispatchSize = viewport.size,
-            .mReset = RenderSettings::mPathTraceReset
         };
-
-        if (inScene.HasLights())
-        {
-            constants.mLightsCount = inScene.GetLightsCount();
-            constants.mLightsBuffer = inScene.GetLightsDescriptorIndex();
-        }
 
         inCmdList.PushComputeConstants(constants);
 
@@ -502,8 +488,6 @@ DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTr
 
         ProbeTraceRootConstants root_constants =
         {
-            .mInstancesBuffer = inScene.GetInstancesDescriptorIndex(),
-            .mTLAS = inScene.GetTLASDescriptorIndex(),
             .mDebugProbeIndex = Index3Dto1D(RenderSettings::mDDGIDebugProbe, RenderSettings::mDDGIProbeCount),
             .mSkyCubeTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mSkyCubeTextureSRV)),
             .mRandomRotationMatrix = inData.mRandomRotationMatrix,
@@ -518,13 +502,7 @@ DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTr
                 .mProbesIrradianceTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mProbesIrradianceTextureSRV))
             }
         };
-
-        if (inScene->Count<Material>())
-            root_constants.mMaterialsBuffer = inScene.GetMaterialsDescriptorIndex();
         
-        if (root_constants.mLightsCount = inScene->Count<Light>())
-            root_constants.mLightsBuffer = inScene.GetLightsDescriptorIndex();
-
         inCmdList.PushComputeConstants(root_constants);
 
         const int total_probe_count = root_constants.mDDGIData.mProbeCount.x * root_constants.mDDGIData.mProbeCount.y * root_constants.mDDGIData.mProbeCount.z;

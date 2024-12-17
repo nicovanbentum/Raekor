@@ -7,20 +7,41 @@
 #include "Include/Material.hlsli"
 #include "Include/RayTracing.hlsli"
 
+FRAME_CONSTANTS(fc)
 ROOT_CONSTANTS(ProbeTraceRootConstants, rc)
+
+void ResetDebugLineCount()
+{
+    RWByteAddressBuffer args_buffer = ResourceDescriptorHeap[fc.mDebugLinesIndirectArgsBuffer];
+
+    uint original_value;
+    args_buffer.InterlockedExchange(0, 0, original_value); // sets VertexCountPerInstance to 0
+    args_buffer.InterlockedExchange(4, 1, original_value); // sets InstanceCount to 1
+}
+
+
+void AddDebugLine(float3 inP1, float3 inP2, float4 inColor1, float4 inColor2)
+{
+    RWByteAddressBuffer args_buffer = ResourceDescriptorHeap[fc.mDebugLinesIndirectArgsBuffer];
+    RWStructuredBuffer<float4> vertex_buffer = ResourceDescriptorHeap[fc.mDebugLinesVertexBuffer];
+    
+    uint vertex_offset;
+    args_buffer.InterlockedAdd(0, 2, vertex_offset);
+    
+    vertex_buffer[vertex_offset] = float4(inP1, asfloat(Float4ToRGBA8(inColor1)));
+    vertex_buffer[vertex_offset + 1] = float4(inP2, asfloat(Float4ToRGBA8(inColor2)));
+}
 
 [numthreads(DDGI_TRACE_SIZE, 1, 1)]
 void main(uint3 threadID : SV_DispatchThreadID) {
-    RaytracingAccelerationStructure TLAS = ResourceDescriptorHeap[rc.mTLAS];
-    StructuredBuffer<RTGeometry> geometries = ResourceDescriptorHeap[rc.mInstancesBuffer];
-    StructuredBuffer<RTMaterial> materials  = ResourceDescriptorHeap[rc.mMaterialsBuffer];
+    RaytracingAccelerationStructure TLAS = ResourceDescriptorHeap[fc.mTLAS];
+    StructuredBuffer<RTGeometry> geometries = ResourceDescriptorHeap[fc.mInstancesBuffer];
+    StructuredBuffer<RTMaterial> materials  = ResourceDescriptorHeap[fc.mMaterialsBuffer];
     
     RWTexture2D<float> depth_texture       = ResourceDescriptorHeap[rc.mDDGIData.mRaysDepthTexture];
     RWTexture2D<float3> irradiance_texture = ResourceDescriptorHeap[rc.mDDGIData.mRaysIrradianceTexture];
 
     TextureCube<float3> skycube_texture    = ResourceDescriptorHeap[rc.mSkyCubeTexture];
-
-    FrameConstants fc = gGetFrameConstants();
 
     uint ray_index = threadID.x;
     uint probe_index = threadID.y;

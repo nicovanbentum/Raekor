@@ -6,27 +6,27 @@
 #include "Include/Sky.hlsli"
 #include "Include/RayTracing.hlsli"
 
+FRAME_CONSTANTS(fc)
 ROOT_CONSTANTS(PathTraceRootConstants, rc)
-
-
 
 [numthreads(8,8,1)]
 void main(uint3 threadID : SV_DispatchThreadID) 
 {
     if (any(threadID.xy >= rc.mDispatchSize.xy))
         return;
-    
+
     RWTexture2D<float4> result_texture       = ResourceDescriptorHeap[rc.mResultTexture];
+    TextureCube<float3> skycube_texture      = ResourceDescriptorHeap[rc.mSkyCubeTexture];
     RWTexture2D<float4> accumulation_texture = ResourceDescriptorHeap[rc.mAccumulationTexture];
     
-    RaytracingAccelerationStructure TLAS    = ResourceDescriptorHeap[rc.mTLAS];
-    StructuredBuffer<RTLight> lights        = ResourceDescriptorHeap[rc.mLightsBuffer];
-    StructuredBuffer<RTGeometry> geometries = ResourceDescriptorHeap[rc.mInstancesBuffer];
-    StructuredBuffer<RTMaterial> materials  = ResourceDescriptorHeap[rc.mMaterialsBuffer];
+    RaytracingAccelerationStructure TLAS    = ResourceDescriptorHeap[fc.mTLAS];
+    StructuredBuffer<RTLight> lights        = ResourceDescriptorHeap[fc.mLightsBuffer];
+    StructuredBuffer<RTGeometry> geometries = ResourceDescriptorHeap[fc.mInstancesBuffer];
+    StructuredBuffer<RTMaterial> materials  = ResourceDescriptorHeap[fc.mMaterialsBuffer];
 
-    TextureCube<float3> skycube_texture    = ResourceDescriptorHeap[rc.mSkyCubeTexture];
-    
-    const FrameConstants fc = gGetFrameConstants();
+    uint lights_count = 0;
+    uint rtlight_stride = 0;
+    lights.GetDimensions(lights_count, rtlight_stride);
     
     uint rng = TeaHash(((threadID.y << 16) | threadID.x), fc.mFrameCounter + 1);
 
@@ -99,7 +99,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
             
             // for (uint i = 0; i < 8; i++)
             {
-                uint random_light_index = uint(round(float(rc.mLightsCount - 1) * pcg_float(rng)));
+                uint random_light_index = uint(round(float(lights_count - 1) * pcg_float(rng)));
                 RTLight light = lights[random_light_index];
                 
                 switch (light.mType)

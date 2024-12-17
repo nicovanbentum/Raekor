@@ -6,7 +6,8 @@ namespace RK::DX12 {
 enum EBindSlot
 {
     Start = 1, 
-    CBV0 = Start, 
+    CBV0 = Start,
+    CBV1,
     SRV0,
     SRV1, 
     Count
@@ -17,6 +18,7 @@ static constexpr uint32_t sFrameCount = 2;
 // Alignment constants as per DX12 spec
 static constexpr uint32_t sConstantBufferAlignment = 256;
 static constexpr uint32_t sByteAddressBufferAlignment = 4;
+static constexpr uint32_t sConstantAddressBufferAlignment = 256;
 // Hardcoded limit for the number of RTVs / DSVs. Surely 255 should be more than enough..
 static constexpr uint32_t sMaxRTVHeapSize = 0xFF;
 static constexpr uint32_t sMaxDSVHeapSize = 0xFF;

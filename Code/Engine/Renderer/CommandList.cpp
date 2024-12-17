@@ -90,7 +90,7 @@ void CommandList::BindToSlot(Buffer& inBuffer, EBindSlot inSlot, uint32_t inOffs
 {
     switch (inSlot)
     {
-        case EBindSlot::CBV0:
+        case EBindSlot::CBV0: case EBindSlot::CBV1:
             m_CommandList->SetGraphicsRootConstantBufferView(inSlot, inBuffer->GetGPUVirtualAddress());
             m_CommandList->SetComputeRootConstantBufferView(inSlot, inBuffer->GetGPUVirtualAddress());
             break;

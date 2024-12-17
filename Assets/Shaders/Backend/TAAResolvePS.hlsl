@@ -2,6 +2,7 @@
 #include "Include/Packing.hlsli"
 #include "Include/Common.hlsli"
 
+FRAME_CONSTANTS(fc)
 ROOT_CONSTANTS(TAAResolveConstants, rc)
 
 // From GPU Gems: https://developer.download.nvidia.com/books/HTML/gpugems/gpugems_ch24.html
@@ -22,8 +23,6 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
     Texture2D depth_texture = ResourceDescriptorHeap[rc.mDepthTexture];
     Texture2D history_texture = ResourceDescriptorHeap[rc.mHistoryTexture];
     Texture2D velocity_texture = ResourceDescriptorHeap[rc.mVelocityTexture];
-    
-    FrameConstants fc = gGetFrameConstants();
     
     float3 color_sample = color_texture[inParams.mPixelCoords.xy].rgb;
     

@@ -7,6 +7,8 @@ struct VS_OUTPUT
     float4 mColor : COLOR0;
 };
 
+PASS_CONSTANTS(pc)
+FRAME_CONSTANTS(fc)
 ROOT_CONSTANTS(DebugPrimitivesRootConstants, rc)
 
 VS_OUTPUT main(
@@ -17,11 +19,9 @@ in uint inVertexID : SV_VertexID
 )
 {
     VS_OUTPUT output;
-    
-    FrameConstants fc = gGetFrameConstants();
 
 #ifndef DEBUG_PROBE_RAYS
-    float4 inVertex = PassConstantsBuffer.Load<float4>(rc.mBufferOffset + sizeof(float4) * inVertexID);
+    float4 inVertex = pc.Load<float4>(rc.mBufferOffset + sizeof(float4) * inVertexID);
 #endif
     
     output.mWorldPos = mul(fc.mViewProjectionMatrix, float4(inVertex.xyz, 1.0));

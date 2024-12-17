@@ -124,13 +124,14 @@ struct FrameConstants
     float     mTime;
     float     mDeltaTime;
     float     mSunConeAngle;
-    float     mPad0;
-    uint      mFrameIndex;
+    uint      mTLAS;
     uint      mFrameCounter;
     uint      mDebugLinesVertexBuffer;
     uint      mDebugLinesIndirectArgsBuffer;
+    uint      mLightsBuffer;
+    uint      mInstancesBuffer;
+    uint      mMaterialsBuffer;
     uint2     mViewportSize;
-    uint2     mPad1;
     float2    mJitter;
     float2    mPrevJitter;
     float4    mSunColor;
@@ -144,7 +145,6 @@ struct FrameConstants
     float4x4  mInvViewProjectionMatrix;
     float4x4  mPrevViewProjectionMatrix;
 };
-
 
 struct DebugPrimitivesRootConstants
 {
@@ -236,8 +236,6 @@ struct SkinningRootConstants
 
 struct GbufferRootConstants
 {
-    uint     mInstancesBuffer;
-    uint     mMaterialsBuffer;
     uint     mInstanceIndex;
     uint     mEntity;
 };
@@ -245,8 +243,6 @@ struct GbufferRootConstants
 
 struct ShadowMapRootConstants
 {
-    uint     mInstancesBuffer;
-    uint     mMaterialsBuffer;
     uint     mInstanceIndex;
     uint     mPad0;
     float4x4 mViewProjMatrix;
@@ -266,7 +262,7 @@ struct ShadowMaskRootConstants
     uint  mShadowMaskTexture;
     uint  mGbufferDepthTexture;
     uint  mGbufferRenderTexture;
-    uint  mTLAS;
+    uint  mPad0;
     uint2 mDispatchSize;
 };
 
@@ -286,38 +282,30 @@ struct AmbientOcclusionRootConstants
     uint  mAOmaskTexture;
     uint  mGbufferDepthTexture;
     uint  mGbufferRenderTexture;
-    uint  mTLAS;
+    uint  mPad0;
     uint2 mDispatchSize;
 };
 
 
 struct ReflectionsRootConstants
 {
-    uint  mTLAS;
-    uint  mInstancesBuffer;
-    uint  mMaterialsBuffer;
     uint  mResultTexture;
     uint  mSkyCubeTexture;
     uint  mGbufferDepthTexture;
     uint  mGbufferRenderTexture;
-    uint  mPad0;
     uint2 mDispatchSize;
 };
 
 
 struct PathTraceRootConstants
 {
-    uint  mTLAS;
+    uint  mReset;
     uint  mBounces;
-    uint  mLightsBuffer;
-    uint  mInstancesBuffer;
-    uint  mMaterialsBuffer;
     uint  mResultTexture;
     uint  mAccumulationTexture;
     uint  mSkyCubeTexture;
+    uint  mPad0;
     uint2 mDispatchSize;
-    uint  mReset;
-    uint mLightsCount;
 };
 
 
@@ -379,8 +367,6 @@ struct SpdRootConstants
 
 struct TiledLightCullingRootConstants
 {
-    uint  mLightsCount;
-    uint  mLightsBuffer;
     uint  mLightGridBuffer;
     uint  mLightIndicesBuffer;
     uint2 mFullResSize;
@@ -391,8 +377,6 @@ struct TiledLightCullingRootConstants
 
 struct LightingRootConstants
 {
-    uint  mLightsCount;
-    uint  mLightsBuffer;
     uint  mSkyCubeTexture;
     uint  mShadowMaskTexture;
     uint  mReflectionsTexture;
@@ -422,14 +406,10 @@ struct GrassRenderRootConstants
 
 struct ProbeTraceRootConstants
 {
-    uint     mInstancesBuffer;
-    uint     mMaterialsBuffer;
-    uint     mTLAS;
     uint     mDebugProbeIndex;
-    uint     mLightsBuffer;
-    uint     mLightsCount;
     uint     mSkyCubeTexture;
     uint     mConvolvedSkyCubeTexture;
+    uint     mPad0;
     float4x4 mRandomRotationMatrix;
     DDGIData mDDGIData;
 };

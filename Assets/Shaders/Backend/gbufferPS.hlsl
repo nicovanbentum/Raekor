@@ -18,14 +18,14 @@ struct PS_OUTPUT {
     uint selection : SV_Target2;
 };
 
+FRAME_CONSTANTS(fc)
 ROOT_CONSTANTS(GbufferRootConstants, rc)
-
 
 PS_OUTPUT main(in VS_OUTPUT input) {
     PS_OUTPUT output;
 
-    StructuredBuffer<RTGeometry> geometries = ResourceDescriptorHeap[rc.mInstancesBuffer];
-    StructuredBuffer<RTMaterial> materials = ResourceDescriptorHeap[rc.mMaterialsBuffer];
+    StructuredBuffer<RTGeometry> geometries = ResourceDescriptorHeap[fc.mInstancesBuffer];
+    StructuredBuffer<RTMaterial> materials = ResourceDescriptorHeap[fc.mMaterialsBuffer];
     
     RTGeometry geometry = geometries[rc.mInstanceIndex];
     RTMaterial material = materials[geometry.mMaterialIndex];
@@ -47,8 +47,6 @@ PS_OUTPUT main(in VS_OUTPUT input) {
         
     //sampled_normal = sampled_normal * 2.0 - 1.0;
     sampled_normal = ReconstructNormalBC5(sampled_normal.xy);
-    
-    FrameConstants fc = gGetFrameConstants();
 
     float3x3 TBN = float3x3(input.tangent, input.bitangent, input.normal);
     float3 normal = normalize(mul(sampled_normal.xyz, TBN));

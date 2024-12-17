@@ -2,6 +2,7 @@
 #include "Include/Common.hlsli"
 #include "Include/Material.hlsli"
 
+FRAME_CONSTANTS(fc)
 ROOT_CONSTANTS(ShadowsDenoiseRootConstants, rc)
 
 #define NORMAL_DISTANCE 0.1f
@@ -50,8 +51,6 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID, uint3 groupID : SV_Group
     Texture2D<float4>  gbuffer_texture   = ResourceDescriptorHeap[rc.mGBufferTexture];
     Texture2D<float2>  velocity_texture  = ResourceDescriptorHeap[rc.mVelocityTexture];
     Texture2D<uint>    selection_texture = ResourceDescriptorHeap[rc.mSelectionTexture];
-    
-    FrameConstants fc = gGetFrameConstants();
     
     uint tile_index = groupID.x;
     uint2 group_coord = UIntToUInt2(tiles_buffer[tile_index]);

@@ -10,14 +10,12 @@ struct VS_OUTPUT {
     float3 bitangent        : BINORMAL;
 };
 
-
+FRAME_CONSTANTS(fc)
 ROOT_CONSTANTS(GbufferRootConstants, rc)
 
 VS_OUTPUT main(in uint inVertexID : SV_VertexID)
 {
-    FrameConstants fc = gGetFrameConstants();
-    
-    StructuredBuffer<RTGeometry> geometries = ResourceDescriptorHeap[rc.mInstancesBuffer];
+    StructuredBuffer<RTGeometry> geometries = ResourceDescriptorHeap[fc.mInstancesBuffer];
     RTGeometry geometry = geometries[rc.mInstanceIndex];
     
     StructuredBuffer<RTVertex> vertex_buffer = ResourceDescriptorHeap[geometry.mVertexBuffer];

@@ -299,8 +299,6 @@ const GBufferData& AddMeshletsRasterPass(RenderGraph& inRenderGraph, Device& inD
 
             const GbufferRootConstants root_constants = 
             {
-                .mInstancesBuffer = inScene.GetInstancesDescriptorIndex(),
-                .mMaterialsBuffer = inScene.GetMaterialsDescriptorIndex(),
                 .mInstanceIndex   = uint32_t(instance_index)
             };
 
@@ -423,8 +421,6 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
 
             inCmdList.PushGraphicsConstants(GbufferRootConstants
             {
-                .mInstancesBuffer = inScene.GetInstancesDescriptorIndex(),
-                .mMaterialsBuffer = inScene.GetMaterialsDescriptorIndex(),
                 .mInstanceIndex = uint32_t(instance_index),
                 .mEntity = uint32_t(entity)
             });
@@ -594,8 +590,6 @@ const ShadowMapData& AddShadowMapPass(RenderGraph& inRenderGraph, Device& inDevi
         {
             ShadowMapRootConstants root_constants =
             {
-                .mInstancesBuffer = inScene.GetTLASDescriptorIndex(),
-                .mMaterialsBuffer = inScene.GetMaterialsDescriptorIndex(),
                 .mViewProjMatrix = light_ortho_matrix * light_view_matrix
             };
 
@@ -910,12 +904,6 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
             .mIndirectDiffuseTexture  = inRGResources.GetBindlessHeapIndex(inData.mIndirectDiffuseTextureSRV),
             .mAmbientOcclusionTexture = inRGResources.GetBindlessHeapIndex(inData.mAmbientOcclusionTextureSRV),
         };
-
-        if (inScene.HasLights())
-        {
-            root_constants.mLightsCount = inScene.GetLightsCount();
-            root_constants.mLightsBuffer = inScene.GetLightsDescriptorIndex();
-        }
 
         root_constants.mLights = inLightCullData.mRootConstants;
 

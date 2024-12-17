@@ -6,6 +6,7 @@
 #include "Include/Sky.hlsli"
 #include "Include/RayTracing.hlsli"
 
+FRAME_CONSTANTS(fc)
 ROOT_CONSTANTS(ProbeSampleRootConstants, rc)
 
 [numthreads(8, 8, 1)]
@@ -17,8 +18,6 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID) {
     Texture2D<float4> gbuffer_texture           = ResourceDescriptorHeap[rc.mGBufferTexture];
     RWTexture2D<float> ddgi_depth_texture       = ResourceDescriptorHeap[rc.mDDGIData.mProbesDepthTexture];
     RWTexture2D<float3> ddgi_irradiance_texture = ResourceDescriptorHeap[rc.mDDGIData.mProbesIrradianceTexture];
-    
-    FrameConstants fc = gGetFrameConstants();
     
     const float depth = depth_texture[dispatchThreadID.xy];
     RWTexture2D<float4> output_texture = ResourceDescriptorHeap[rc.mOutputTexture];

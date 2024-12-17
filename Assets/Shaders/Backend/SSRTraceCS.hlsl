@@ -3,7 +3,7 @@
 #include "Include/Random.hlsli"
 #include "Include/Bindless.hlsli"
 
-
+FRAME_CONSTANTS(fc)
 ROOT_CONSTANTS(SSRTraceRootConstants, rc)
 
 [numthreads(8, 8, 1)]
@@ -16,8 +16,6 @@ void main(uint3 threadID : SV_DispatchThreadID)
     Texture2D<float4> scene_texture    = ResourceDescriptorHeap[rc.mSceneTexture];
     Texture2D<float4> gbuffer_texture  = ResourceDescriptorHeap[rc.mGBufferTexture];
     RWTexture2D<float4> output_texture = ResourceDescriptorHeap[rc.mOutputTexture];
-    
-    FrameConstants fc = gGetFrameConstants();
     
     float2 pixel_center = float2(threadID.xy) + float2(0.5, 0.5);
     float2 screen_uv = pixel_center / rc.mDispatchSize;

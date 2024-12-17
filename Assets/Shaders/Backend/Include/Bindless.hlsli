@@ -32,16 +32,7 @@ SamplerState SamplerLinearClamp       : register(s4);
 SamplerState SamplerAnisoWrap         : register(s5);
 SamplerState SamplerAnisoClamp        : register(s6);
 
-SRV0(FrameConstantsBuffer)
-SRV1(PassConstantsBuffer)
-
-FrameConstants gGetFrameConstants() {
-    return FrameConstantsBuffer.Load<FrameConstants>(0);
-}
-
-template<typename T>
-T gGetPassConstants(uint inOffset) {
-    return PassConstantsBuffer.Load<T>(inOffset);
-}
+#define PASS_CONSTANTS(name) SRV1(name)
+#define FRAME_CONSTANTS(name) CBV1(FrameConstants, name)
 
 #endif // BINDLESS_HLSLI

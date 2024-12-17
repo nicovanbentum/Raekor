@@ -104,6 +104,7 @@ public:
     const RenderGraph&  GetRenderGraph() const  { return m_RenderGraph; }
     uint64_t            GetFrameCounter() const { return m_FrameCounter; }
     BackBufferData&     GetBackBufferData()     { return m_BackBufferData[m_FrameIndex]; }
+    BackBufferData&     GetPrevBackBufferData() { return m_BackBufferData[m_PrevFrameIndex]; }
 
 public:
     static constexpr uint32_t sFrameCount = 2;
@@ -120,6 +121,7 @@ private:
     RenderGraphResourceID       m_EntityTexture;
     RenderGraphResourceViewID   m_DisplayTexture;
     uint32_t                    m_FrameIndex = 0;
+    uint32_t                    m_PrevFrameIndex = 0;
     uint64_t                    m_FrameCounter = 0;
     Job::Ptr                    m_PresentJobPtr = nullptr;
     float                       m_ElapsedTime = 0;

@@ -974,7 +974,7 @@ void RenderGraph::Execute(Device& inDevice, CommandList& inCmdList)
 
     inCmdList.BindDefaults(inDevice);
     inCmdList.BindToSlot(inDevice.GetBuffer(m_GlobalConstantsAllocator.GetBuffer()), EBindSlot::CBV0);
-    inCmdList.BindToSlot(inDevice.GetBuffer(m_PerFrameAllocator.GetBuffer()), EBindSlot::SRV0, m_PerFrameAllocatorOffset);
+    inCmdList.BindToSlot(inDevice.GetBuffer(m_PerFrameAllocator.GetBuffer()), EBindSlot::CBV1, m_PerFrameAllocatorOffset);
     inCmdList.BindToSlot(inDevice.GetBuffer(m_PerPassAllocator.GetBuffer()), EBindSlot::SRV1);
 
     for (const auto& [index, renderpass] : gEnumerate(m_RenderPasses))

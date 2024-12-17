@@ -5,13 +5,12 @@ struct VS_OUTPUT
     float4 position      : SV_Position;
 };
 
+FRAME_CONSTANTS(fc)
 ROOT_CONSTANTS(ShadowMapRootConstants, rc)
 
 VS_OUTPUT main(in uint inVertexID : SV_VertexID)
 {
-    FrameConstants fc = gGetFrameConstants();
-    
-    StructuredBuffer<RTGeometry> geometries = ResourceDescriptorHeap[rc.mInstancesBuffer];
+    StructuredBuffer<RTGeometry> geometries = ResourceDescriptorHeap[fc.mInstancesBuffer];
     RTGeometry geometry = geometries[rc.mInstanceIndex];
     
     StructuredBuffer<RTVertex> vertex_buffer = ResourceDescriptorHeap[geometry.mVertexBuffer];

@@ -4,6 +4,7 @@
 #include "Include/Random.hlsli"
 #include "Include/DDGI.hlsli"
 
+FRAME_CONSTANTS(fc)
 ROOT_CONSTANTS(ProbeUpdateRootConstants, rc)
 
 groupshared float lds_ProbeDepthRays[DDGI_RAYS_PER_PROBE];
@@ -35,8 +36,6 @@ void main(uint3 threadID : SV_DispatchThreadID, uint inGroupIndex : SV_GroupInde
     
     GroupMemoryBarrierWithGroupSync();
 
-    FrameConstants fc = gGetFrameConstants();
-    
     // The 2D pixel coordinate on the probe's total texel area (with border)
     uint2 probe_pixel = threadID.xy % DDGI_DEPTH_TEXELS.xx;
     

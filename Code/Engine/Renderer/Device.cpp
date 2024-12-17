@@ -141,7 +141,7 @@ Device::Device()
 
         switch (bind_slot)
         {
-            case EBindSlot::CBV0:
+            case EBindSlot::CBV0: case EBindSlot::CBV1:
                 param.Descriptor.ShaderRegister = b_registers++;
                 param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
                 break;
@@ -198,6 +198,12 @@ Device::Device()
 
         m_Device->CreateCommandSignature(&cmdsig_desc, nullptr, IID_PPV_ARGS(m_CommandSignatures[cmd_sig].GetAddressOf()));
     }
+}
+
+
+void Device::OnUpdate()
+{
+    m_FrameIndex = ++m_FrameCounter % sFrameCount;
 }
 
 

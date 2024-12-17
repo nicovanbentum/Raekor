@@ -4,9 +4,11 @@
 #include "Include/DDGI.hlsli"
 #include "Include/Sky.hlsli"
 
+FRAME_CONSTANTS(fc)
 ROOT_CONSTANTS(LightingRootConstants, rc)
 
-float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
+float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 
+{
     Texture2D<float>    ao_texture                = ResourceDescriptorHeap[rc.mAmbientOcclusionTexture];
     Texture2D<float>    depth_texture             = ResourceDescriptorHeap[rc.mGbufferDepthTexture];
     Texture2D<float2>   shadow_texture            = ResourceDescriptorHeap[rc.mShadowMaskTexture];
@@ -15,13 +17,16 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
     Texture2D<float4>   indirect_diffuse_texture  = ResourceDescriptorHeap[rc.mIndirectDiffuseTexture];
     // Texture2D<float4>   diffuse_gi_texture        = ResourceDescriptorHeap[rc.mIndirectDiffuseTexture];
     TextureCube<float3> skycube_texture           = ResourceDescriptorHeap[rc.mSkyCubeTexture];
-    StructuredBuffer<RTLight> lights              = ResourceDescriptorHeap[rc.mLightsBuffer];
+    StructuredBuffer<RTLight> lights              = ResourceDescriptorHeap[fc.mLightsBuffer];
+
+    uint lights_count = 0;
+    uint rtlight_stride = 0;
+    lights.GetDimensions(lights_count, rtlight_stride);
 
     BRDF brdf;
     brdf.Unpack(asuint(gbuffer_texture[inParams.mPixelCoords.xy]));
     
     float depth = depth_texture[inParams.mPixelCoords.xy];
-    FrameConstants fc = gGetFrameConstants();
     const float3 ws_pos = ReconstructWorldPosition(inParams.mScreenUV, depth, fc.mInvViewProjectionMatrix);
     
     if (depth == 1.0) 
@@ -49,7 +54,7 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
     uint index_offset = rc.mLights.mDispatchSize.x * LIGHT_CULL_MAX_LIGHTS * group_index.y + group_index.x * LIGHT_CULL_MAX_LIGHTS;
     
     // evaluate Point and Spot lights
-    for (int light_idx = 0; light_idx < rc.mLightsCount; light_idx++)
+    for (int light_idx = 0; light_idx < lights_count; light_idx++)
     //for (uint light_idx = 0; light_idx < light_count; light_idx++)
     {
         RTLight light = lights[light_idx];

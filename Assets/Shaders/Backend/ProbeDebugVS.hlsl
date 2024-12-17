@@ -15,13 +15,12 @@ struct VS_INPUT {
     float3 tangent  : TANGENT;
 };
 
+FRAME_CONSTANTS(fc)
 ROOT_CONSTANTS(DDGIData, rc)
 
 VS_OUTPUT main (in VS_INPUT input, uint instance_id : SV_InstanceID) {
     VS_OUTPUT output;
     output.index = instance_id;
-    
-    FrameConstants fc = gGetFrameConstants();
     
     uint3 probe_coord = Index1DTo3D(instance_id, rc.mProbeCount);
     float3 probe_ws_pos = rc.mCornerPosition + rc.mProbeSpacing * probe_coord;

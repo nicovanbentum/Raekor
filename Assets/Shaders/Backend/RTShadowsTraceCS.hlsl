@@ -4,6 +4,7 @@
 #include "Include/Common.hlsli"
 #include "Include/Random.hlsli"
 
+FRAME_CONSTANTS(fc)
 ROOT_CONSTANTS(ShadowMaskRootConstants, rc)
 
 groupshared uint g_RayHitsMask;
@@ -22,9 +23,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID, uint3 groupID : SV_Group
     Texture2D<float4> gbuffer_texture = ResourceDescriptorHeap[rc.mGbufferRenderTexture];
     Texture2D<float> gbuffer_depth_texture = ResourceDescriptorHeap[rc.mGbufferDepthTexture];
     RWTexture2D<uint> result_texture = ResourceDescriptorHeap[rc.mShadowMaskTexture];
-    RaytracingAccelerationStructure TLAS = ResourceDescriptorHeap[rc.mTLAS];
-    
-    FrameConstants fc = gGetFrameConstants();
+    RaytracingAccelerationStructure TLAS = ResourceDescriptorHeap[fc.mTLAS];
 
     const float2 pixel_center = float2(dispatchThreadID.xy) + float2(0.5, 0.5);
     float2 screen_uv = pixel_center / rc.mDispatchSize;

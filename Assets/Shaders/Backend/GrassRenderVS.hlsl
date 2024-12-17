@@ -8,6 +8,7 @@ struct VS_OUTPUT {
     float height : Field0;
 };
 
+FRAME_CONSTANTS(fc)
 ROOT_CONSTANTS(GrassRenderRootConstants, grc)
 
 static const float2 vertex_array[] =
@@ -46,8 +47,6 @@ struct VS_INPUT {
 VS_OUTPUT main(VS_INPUT input)
 {
     VS_OUTPUT output;
-
-    FrameConstants fc = gGetFrameConstants();
     
     uint hash_state = input.instance_id;
     hash_state = pcg_hash(hash_state);

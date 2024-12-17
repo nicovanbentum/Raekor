@@ -20,6 +20,11 @@ public:
     ID3D12Device5* operator-> ()             { return m_Device.Get(); }
     const ID3D12Device5* operator-> () const { return m_Device.Get(); }
 
+    void OnUpdate();
+
+    uint32_t GetFrameIndex() const { return m_FrameIndex; }
+    uint32_t GetFrameCounter() const { return m_FrameCounter; }
+
     [[nodiscard]] bool IsDLSSSupported() const { return mIsDLSSSupported; }
     [[nodiscard]] bool IsDLSSInitialized() const { return mIsDLSSInitialized; }
     [[nodiscard]] bool IsTearingSupported() const { return mIsTearingSupported; }
@@ -111,6 +116,9 @@ private:
     void ReleaseDescriptorImmediate(Texture::Usage inUsage, DescriptorID inDescriptorID);
 
 private:
+    uint32_t m_FrameIndex = 0;
+    uint64_t m_FrameCounter = 0;
+
     BOOL mIsDLSSSupported = false;
     BOOL mIsDLSSInitialized = false;
     BOOL mIsTearingSupported = false;

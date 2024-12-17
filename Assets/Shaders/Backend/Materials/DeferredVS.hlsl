@@ -21,8 +21,6 @@ ROOT_CONSTANTS(GbufferRootConstants, rc)
 
 VS_OUTPUT main(in uint inVertexID : SV_VertexID)
 {
-    FrameConstants fc = gGetFrameConstants();
-    
     StructuredBuffer<RTGeometry> geometries = ResourceDescriptorHeap[rc.mInstancesBuffer];
     RTGeometry geometry = geometries[rc.mInstanceIndex];
     

@@ -6,6 +6,7 @@ struct VS_OUTPUT {
     float4 position : SV_Position;
 };
 
+FRAME_CONSTANTS(fc)
 ROOT_CONSTANTS(ShadowMapRootConstants, rc)
 
 

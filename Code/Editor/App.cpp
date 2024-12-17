@@ -195,6 +195,8 @@ void DXApp::OnUpdate(float inDeltaTime)
 {
     IEditor::OnUpdate(inDeltaTime);
 
+    m_Device.OnUpdate();
+
     for (const auto& [entity, mesh, skeleton] : m_Scene.Each<Mesh, Skeleton>())
         m_Renderer.QueueBlasUpdate(entity);
 

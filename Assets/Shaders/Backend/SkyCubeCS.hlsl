@@ -2,6 +2,7 @@
 #include "Include/Common.hlsli"
 #include "Include/Bindless.hlsli"
 
+FRAME_CONSTANTS(fc)
 ROOT_CONSTANTS(SkyCubeRootConstants, rc)
 
 float3 GetCubemapDirection(float2 inUV, uint inFace)
@@ -31,8 +32,6 @@ void main(uint3 gid : SV_DispatchThreadID)
     
     float2 uv = (float2(gid.xy) + 0.5) / float2(width, height);
     float3 dir = normalize(GetCubemapDirection(uv, gid.z));
-    
-    FrameConstants fc = gGetFrameConstants();
     
     float3 transmittance;
     sky_cube_texture[gid] = IntegrateScattering(0.xxx, normalize(dir), INFINITY, rc.mSunLightDirection, rc.mSunLightColor.rgb, transmittance);

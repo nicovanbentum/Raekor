@@ -270,14 +270,17 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     m_FrameConstants.mTime = m_ElapsedTime;
     m_FrameConstants.mDeltaTime = inDeltaTime;
     m_FrameConstants.mSunConeAngle = m_Settings.mSunConeAngle;
-    m_FrameConstants.mFrameIndex = m_FrameCounter % sFrameCount;
+    m_FrameConstants.mTLAS = inScene.GetTLASDescriptorIndex();
     m_FrameConstants.mFrameCounter = m_FrameCounter;
     m_FrameConstants.mPrevJitter = m_FrameConstants.mJitter;
     m_FrameConstants.mJitter = enable_jitter ? Vec2(jitter_x, jitter_y) : Vec2(0.0f, 0.0f);
     m_FrameConstants.mSunColor = inScene->GetSunLight() ? inScene->GetSunLight()->GetColor() : Vec4(0.0f);
     m_FrameConstants.mSunDirection = Vec4(inScene->GetSunLightDirection(), 0.0f);
     m_FrameConstants.mCameraPosition = Vec4(vp.GetPosition(), 1.0f);
-    m_FrameConstants.mViewportSize = inViewport.GetRenderSize(),
+    m_FrameConstants.mViewportSize = inViewport.GetRenderSize();
+    m_FrameConstants.mLightsBuffer = inScene.GetLightsDescriptorIndex();
+    m_FrameConstants.mMaterialsBuffer = inScene.GetMaterialsDescriptorIndex();
+    m_FrameConstants.mInstancesBuffer = inScene.GetInstancesDescriptorIndex();
     m_FrameConstants.mViewMatrix = vp.GetView();
     m_FrameConstants.mInvViewMatrix = glm::inverse(vp.GetView());
     m_FrameConstants.mProjectionMatrix = final_proj_matrix;
@@ -298,6 +301,9 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
         //m_FrameConstants.mDebugLinesIndirectArgsBuffer = inDevice.GetBindlessHeapIndex(m_RenderGraph.GetResources().GetBuffer(debug_lines_pass->GetData().mIndirectArgsBuffer));
     }
 
+    // memcpy the frame constants into upload memory
+    m_RenderGraph.GetPerFrameAllocator().AllocAndCopy(m_FrameConstants, m_RenderGraph.GetPerFrameAllocatorOffset());
+
     // update RenderSettings
     RenderSettings::mActiveEntity = inApp->GetActiveEntity();
 
@@ -312,8 +318,6 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
         RenderSettings::mDDGICornerPosition = ddgi_transform.position;
     }
 
-    // memcpy the frame constants into upload memory
-    m_RenderGraph.GetPerFrameAllocator().AllocAndCopy(m_FrameConstants, m_RenderGraph.GetPerFrameAllocatorOffset());
 
     // handle PIX capture requests
     if (m_ShouldCaptureNextFrame)
@@ -428,9 +432,13 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
 
         gThrowIfFailed(m_Swapchain->Present(sync_interval, present_flags));
 
-        GetBackBufferData().mFenceValue++;
+        m_PrevFrameIndex = m_FrameIndex;
         m_FrameIndex = m_Swapchain->GetCurrentBackBufferIndex();
-        gThrowIfFailed(inDevice.GetGraphicsQueue()->Signal(m_Fence.Get(), GetBackBufferData().mFenceValue));
+
+        const uint64_t new_fence_value = GetBackBufferData().mFenceValue + 1;
+        GetPrevBackBufferData().mFenceValue = new_fence_value;
+
+        gThrowIfFailed(inDevice.GetGraphicsQueue()->Signal(m_Fence.Get(), new_fence_value));
     }
     // );
 
