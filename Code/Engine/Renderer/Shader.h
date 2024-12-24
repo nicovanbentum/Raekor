@@ -45,6 +45,7 @@ public:
 
     bool IsCompiled() const { return !mBinary.empty(); }
     bool HasFilePath() const { return !mFilePath.empty(); }
+    bool IsOutOfDate() const;
 
     uint64_t GetHash() const { return mHash; }
     const Path& GetFilePath() const { return mFilePath; }

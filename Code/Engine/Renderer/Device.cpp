@@ -768,11 +768,17 @@ void Device::RetireUploadBuffers(CommandList& inCmdList)
 
 
 
-void RingAllocator::CreateBuffer(Device& inDevice, uint32_t inCapacity)
+void RingAllocator::CreateBuffer(Device& inDevice, uint32_t inCapacity, uint32_t inAlignment)
 {
+    m_Alignment = inAlignment;
     m_TotalCapacity = inCapacity;
 
-    m_Buffer = inDevice.CreateBuffer(Buffer::Desc {.size = inCapacity, .usage = Buffer::Usage::UPLOAD, .debugName = "RingAllocatorBuffer" });
+    m_Buffer = inDevice.CreateBuffer(Buffer::Desc 
+    { 
+        .size = gAlignUp(inCapacity, inAlignment), 
+        .usage = Buffer::Usage::UPLOAD, 
+        .debugName = "RingAllocatorBuffer"
+    });
 
     CD3DX12_RANGE buffer_range = CD3DX12_RANGE(0, 0);
     gThrowIfFailed(inDevice.GetBuffer(m_Buffer)->Map(0, &buffer_range, reinterpret_cast<void**>( &m_DataPtr )));
@@ -789,7 +795,7 @@ void RingAllocator::DestroyBuffer(Device& inDevice)
     inDevice.ReleaseBuffer(m_Buffer);
 
     m_Buffer = BufferID();
-    m_Size = 0;
+    m_Offset = 0;
     m_DataPtr = nullptr;
     m_TotalCapacity = 0;
 }
@@ -801,17 +807,17 @@ ByteAddressBuffer buffer;
 T data = buffer.Load<T>(ioOffset);
 */
 
- void RingAllocator::AllocAndCopy(uint32_t inSize, const void* inData, uint32_t& ioOffset, uint32_t inAlignment)
+ uint32_t RingAllocator::AllocAndCopy(uint32_t inSize, const void* inData)
 {
-    const auto size = gAlignUp(inSize, inAlignment);
+    const auto size = gAlignUp(inSize, m_Alignment);
     //assert(m_Size + size <= m_TotalCapacity);
-    m_Size += size;
+    m_Offset += size;
 
-    if (m_Size >= m_TotalCapacity)
-        m_Size = 0;
+    if (m_Offset >= m_TotalCapacity)
+        m_Offset = 0;
 
-    memcpy(m_DataPtr + m_Size, inData, inSize);
-    ioOffset = m_Size;
+    memcpy(m_DataPtr + m_Offset, inData, inSize);
+    return m_Offset;
 }
 
 

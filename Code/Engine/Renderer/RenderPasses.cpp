@@ -1165,12 +1165,11 @@ const DebugPrimitivesData& AddDebugOverlayPass(RenderGraph& inRenderGraph, Devic
         if (line_vertices.empty())
             return;
 
-        const int size_in_bytes = glm::min(line_vertices.size_bytes(), cPrimitiveBufferSize);
-
-        inRenderGraph.GetPerPassAllocator().AllocAndCopy(size_in_bytes, line_vertices.data(), inData.mLineVertexDataOffset);
-
         inCmdList->SetPipelineState(inData.mPipeline.Get());
-        inCmdList.PushGraphicsConstants(DebugPrimitivesRootConstants { .mBufferOffset = inData.mLineVertexDataOffset });
+        
+        const int size_in_bytes = glm::min(line_vertices.size_bytes(), cPrimitiveBufferSize);
+        uint32_t vertex_data_offset = inRenderGraph.GetPerPassAllocator().AllocAndCopy(size_in_bytes, line_vertices.data());
+        inCmdList.PushGraphicsConstants(DebugPrimitivesRootConstants { .mBufferOffset = vertex_data_offset });
 
         inCmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
         inCmdList->DrawInstanced(line_vertices.size(), 1, 0, 0);

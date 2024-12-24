@@ -92,7 +92,7 @@ struct Light : public SceneComponent
 	Vec3 direction = { 0.0f, -1.0f, 0.0f }; // used for Directional and Spot light
 	Vec4 position = { 0.0f, 0.0f, 0.0f, 0.0f }; // Used for Spot and Point light
 	Vec4 colour = { 1.0f, 1.0f, 1.0f, 1.0f }; // rgb = color, a = intensity
-	Vec4 attributes = { 1.0f, 0.0f, 0.0f, 0.0f }; // radius/range, spot inner cone angle, spot outer cone angle
+	Vec4 attributes = { 1.0f, 0.1f, 0.0f, 0.0f }; // x = radius, y = range, z = inner radius / cone angle, w = outer cone angle
 };
 
 

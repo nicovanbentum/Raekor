@@ -147,7 +147,7 @@ private:
 class RingAllocator
 {
 public:
-    void CreateBuffer(Device& inDevice, uint32_t inCapacity);
+    void CreateBuffer(Device& inDevice, uint32_t inCapacity, uint32_t inAlignment);
     void DestroyBuffer(Device& inDevice);
     /*
         Allocates memory and memcpy's inData to the mapped buffer. ioOffset contains the offset from the starting pointer.
@@ -155,19 +155,21 @@ public:
         ByteAddressBuffer buffer;
         T data = buffer.Load<T>(ioOffset);
     */
-    void AllocAndCopy(uint32_t inSize, const void* inData, uint32_t& ioOffset, uint32_t inAlignment = sByteAddressBufferAlignment);
+    uint32_t AllocAndCopy(uint32_t inSize, const void* inData);
 
     template<typename T>
-    void AllocAndCopy(const T& inStruct, uint32_t& ioOffset, uint32_t inAlignment = sByteAddressBufferAlignment)
+    uint32_t AllocAndCopy(const T& inStruct)
     {
-        AllocAndCopy(sizeof(T), (void*)&inStruct, ioOffset, inAlignment);
+        return AllocAndCopy(sizeof(T), (void*)&inStruct);
     }
 
+    uint32_t GetOffset() const { return m_Offset; }
     BufferID GetBuffer() const { return m_Buffer; }
 
 private:
     BufferID m_Buffer;
-    uint32_t m_Size = 0;
+    uint32_t m_Offset = 0;
+    uint32_t m_Alignment = 0;
     uint8_t* m_DataPtr = nullptr;
     uint32_t m_TotalCapacity = 0;
 };

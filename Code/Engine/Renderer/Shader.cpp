@@ -173,6 +173,17 @@ bool GraphicsProgram::OnCompile(Device& inDevice)
 }
 
 
+bool Shader::IsOutOfDate() const 
+{
+    std::error_code error_code;
+    fs::file_time_type timestamp = fs::last_write_time(mFilePath, error_code);
+    while (error_code)
+        timestamp = fs::last_write_time(mFilePath, error_code);
+
+    return !mFilePath.empty() && mFileTime < timestamp;
+}
+
+
 bool GraphicsProgram::OnHotLoad(Device& inDevice)
 {
     return false;
@@ -190,7 +201,14 @@ bool ComputeProgram::OnCompile(Device& inDevice)
 
 bool ComputeProgram::OnHotLoad(Device& inDevice)
 {
-    return false;
+    uint64_t cs_hash = m_ComputeShader.GetHash();
+
+    if (m_ComputeShader.IsOutOfDate())
+        OnCompile(inDevice);
+
+    bool new_hash = cs_hash != m_ComputeShader.GetHash();
+
+    return new_hash && IsCompiled();
 }
 
 

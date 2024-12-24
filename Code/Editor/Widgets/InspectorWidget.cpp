@@ -1028,7 +1028,8 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Light& inLight)
 	{
 		case LIGHT_TYPE_POINT:
 		{
-			scene_changed |= ImGui::DragFloat("Radius", &inLight.attributes.x, 0.001f, 0.0f, 100.0f);
+			scene_changed |= ImGui::DragFloat("Inner Radius", &inLight.attributes.y, 0.001f, 0.0f, 100.0f);
+			scene_changed |= ImGui::DragFloat("Outer Radius", &inLight.attributes.x, 0.001f, 0.0f, 100.0f);
 		} break;
 
 		case LIGHT_TYPE_SPOT:

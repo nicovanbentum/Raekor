@@ -936,15 +936,13 @@ bool RenderGraph::Compile(Device& inDevice, const GlobalConstants& inGlobalConst
         total_constants_size += pass->m_ConstantsSize;
 
     if (!m_PerPassAllocator.GetBuffer().IsValid())
-        m_PerPassAllocator.CreateBuffer(inDevice, std::max(total_constants_size * sFrameCount, 1u));
+        m_PerPassAllocator.CreateBuffer(inDevice, std::max(total_constants_size * sFrameCount, 1u), sByteAddressBufferAlignment);
 
     if (!m_GlobalConstantsAllocator.GetBuffer().IsValid())
         m_GlobalConstantsAllocator.CreateBuffer(inDevice);
     
     if (!m_PerFrameAllocator.GetBuffer().IsValid())
-        m_PerFrameAllocator.CreateBuffer(inDevice, sizeof(FrameConstants) * sFrameCount);
-
-    m_PerFrameAllocatorOffset = 0;
+        m_PerFrameAllocator.CreateBuffer(inDevice, sizeof(FrameConstants) * sFrameCount, sConstantAddressBufferAlignment);
 
     m_GlobalConstantsAllocator.Copy(GlobalConstants {});
 
@@ -974,7 +972,7 @@ void RenderGraph::Execute(Device& inDevice, CommandList& inCmdList)
 
     inCmdList.BindDefaults(inDevice);
     inCmdList.BindToSlot(inDevice.GetBuffer(m_GlobalConstantsAllocator.GetBuffer()), EBindSlot::CBV0);
-    inCmdList.BindToSlot(inDevice.GetBuffer(m_PerFrameAllocator.GetBuffer()), EBindSlot::CBV1, m_PerFrameAllocatorOffset);
+    inCmdList.BindToSlot(inDevice.GetBuffer(m_PerFrameAllocator.GetBuffer()), EBindSlot::CBV1, m_PerFrameAllocator.GetOffset());
     inCmdList.BindToSlot(inDevice.GetBuffer(m_PerPassAllocator.GetBuffer()), EBindSlot::SRV1);
 
     for (const auto& [index, renderpass] : gEnumerate(m_RenderPasses))

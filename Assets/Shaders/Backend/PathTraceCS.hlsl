@@ -107,13 +107,15 @@ void main(uint3 threadID : SV_DispatchThreadID)
                     case RT_LIGHT_TYPE_POINT:
                     {
                             float3 Wi = SamplePointLight(light, vertex.mPos);
+                        
+                            float t_min = light.mAttributes.y;
                             float t_max = length(light.mPosition.xyz - vertex.mPos);
                             
                             float point_radius = light.mAttributes.x * sqrt(pcg_float(rng));
                             float point_angle = pcg_float(rng) * 2.0f * M_PI;
                             float2 disk_point = float2(point_radius * cos(point_angle), point_radius * sin(point_angle));
                                 
-                            bool hit = TraceShadowRay(TLAS, vertex.mPos + vertex.mNormal * 0.01, Wi, 2.0f, t_max);
+                            bool hit = TraceShadowRay(TLAS, vertex.mPos + vertex.mNormal * 0.01, Wi, t_min, t_max);
                         
                             if (!hit)
                                 irradiance += EvaluatePointLight(brdf, light, Wi, Wo, t_max);
@@ -128,8 +130,10 @@ void main(uint3 threadID : SV_DispatchThreadID)
                             float point_radius = 0.022f;
                             float point_angle = pcg_float(rng) * 2.0f * M_PI;
                             float2 disk_point = float2(point_radius * cos(point_angle), point_radius * sin(point_angle));
+                        
+                            float3 light_dir = float3(Wi.x + disk_point.x, Wi.y, Wi.z + disk_point.y);
                                         
-                            bool hit = TraceShadowRay(TLAS, vertex.mPos + vertex.mNormal * 0.01, float3(Wi.x + disk_point.x, Wi.y, Wi.z + disk_point.y), 2.0f, t_max);
+                            bool hit = TraceShadowRay(TLAS, vertex.mPos + vertex.mNormal * 0.01, light_dir, 2.0f, t_max);
                         
                             if (!hit)
                                 irradiance += EvaluateSpotLight(brdf, light, Wi, Wo, t_max);

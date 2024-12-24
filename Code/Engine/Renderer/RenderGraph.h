@@ -295,19 +295,13 @@ public:
     RenderGraph(Device& inDevice, const Viewport& inViewport, uint32_t inFrameCount);
 
     template<typename T, typename PassType>
-    const T& AddPass(const std::string& inName, const IRenderPass::SetupFn<T>& inSetup, const IRenderPass::ExecFn<T>& inExecute);
+    const T& AddPass(const String& inName, const IRenderPass::SetupFn<T>& inSetup, const IRenderPass::ExecFn<T>& inExecute);
 
     template<typename T>
-    const T& AddGraphicsPass(const std::string& inName, const IRenderPass::SetupFn<T>& inSetup, const IRenderPass::ExecFn<T>& inExecute);
+    const T& AddGraphicsPass(const String& inName, const IRenderPass::SetupFn<T>& inSetup, const IRenderPass::ExecFn<T>& inExecute);
 
     template<typename T>
-    const T& AddComputePass(const std::string& inName, const IRenderPass::SetupFn<T>& inSetup, const IRenderPass::ExecFn<T>& inExecute);
-
-    template<typename T> requires HasRTTI<T> T* GetData();
-    template<typename T> requires HasRTTI<T> const T* GetData() const;
-
-    template<typename T> requires HasRTTI<T> RenderPass<T>* GetPass();
-    template<typename T> requires HasRTTI<T> RenderPass<T>* GetPass() const;
+    const T& AddComputePass(const String& inName, const IRenderPass::SetupFn<T>& inSetup, const IRenderPass::ExecFn<T>& inExecute);
 
     /* Clears the graph by destroying all the render passes and their associated resources. After clearing the user is free to call Compile again. */
     void Clear(Device& inDevice);
@@ -319,14 +313,13 @@ public:
     void Execute(Device& inDevice, CommandList& inCmdList);
 
     /* Dump the entire graph to GraphViz text, can be written directly to a file and opened using the VS Code extension. */
-    std::string	ToGraphVizText(const Device& inDevice, TextureID inBackBuffer) const;
+    String	ToGraphVizText(const Device& inDevice, TextureID inBackBuffer) const;
 
     const Viewport& GetViewport() const { return m_Viewport; }
     const RenderGraphResources& GetResources() const { return m_RenderGraphResources; }
 
     RingAllocator& GetPerPassAllocator() { return m_PerPassAllocator; }
     RingAllocator& GetPerFrameAllocator() { return m_PerFrameAllocator; }
-    uint32_t& GetPerFrameAllocatorOffset() { return m_PerFrameAllocatorOffset; }
     GlobalConstantsAllocator& GetGlobalConstantsAllocator() { return m_GlobalConstantsAllocator; }
 
 private:
@@ -337,7 +330,6 @@ private:
     BufferID m_TimestampReadbackBuffer;
     ComPtr<ID3D12QueryHeap> m_TimestampQueryHeap = nullptr;
 
-    uint32_t m_PerFrameAllocatorOffset = 0;
     RingAllocator m_PerFrameAllocator;
     RingAllocator m_PerPassAllocator;
     GlobalConstantsAllocator m_GlobalConstantsAllocator;
@@ -350,7 +342,7 @@ private:
 
 
 template<typename T, typename PassType>
-const T& RenderGraph::AddPass(const std::string& inName, const IRenderPass::SetupFn<T>& inSetup, const IRenderPass::ExecFn<T>& inExecute)
+const T& RenderGraph::AddPass(const String& inName, const IRenderPass::SetupFn<T>& inSetup, const IRenderPass::ExecFn<T>& inExecute)
 {
     // have to use index here, taking the emplace_back ref would invalidate it if we add aditional passes inside of the setup function
     const int pass_index = m_RenderPasses.size();
@@ -367,14 +359,14 @@ const T& RenderGraph::AddPass(const std::string& inName, const IRenderPass::Setu
 
 
 template<typename T>
-const T& RenderGraph::AddGraphicsPass(const std::string& inName, const IRenderPass::SetupFn<T>& inSetup, const IRenderPass::ExecFn<T>& inExecute)
+const T& RenderGraph::AddGraphicsPass(const String& inName, const IRenderPass::SetupFn<T>& inSetup, const IRenderPass::ExecFn<T>& inExecute)
 {
     return RenderGraph::AddPass<T, GraphicsRenderPass<T>>(inName, inSetup, inExecute);
 }
 
 
 template<typename T>
-const T& RenderGraph::AddComputePass(const std::string& inName, const IRenderPass::SetupFn<T>& inSetup, const IRenderPass::ExecFn<T>& inExecute)
+const T& RenderGraph::AddComputePass(const String& inName, const IRenderPass::SetupFn<T>& inSetup, const IRenderPass::ExecFn<T>& inExecute)
 {
     return RenderGraph::AddPass<T, ComputeRenderPass<T>>(inName, inSetup, inExecute);
 }

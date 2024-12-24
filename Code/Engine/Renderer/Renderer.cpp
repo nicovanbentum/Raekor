@@ -94,8 +94,10 @@ Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inW
     g_CVariables->CreateFn("fn_hotload_shaders", [this, &inDevice]()
     {
         WaitForIdle(inDevice);
-        g_SystemShaders.OnHotLoad(inDevice);
-        SetShouldResize(true);
+        
+        if (g_SystemShaders.OnHotLoad(inDevice))
+            SetShouldResize(true);
+        
         g_ThreadPool.WaitForJobs();
     });
 }
@@ -302,7 +304,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     }
 
     // memcpy the frame constants into upload memory
-    m_RenderGraph.GetPerFrameAllocator().AllocAndCopy(m_FrameConstants, m_RenderGraph.GetPerFrameAllocatorOffset());
+    m_RenderGraph.GetPerFrameAllocator().AllocAndCopy(m_FrameConstants);
 
     // update RenderSettings
     RenderSettings::mActiveEntity = inApp->GetActiveEntity();
