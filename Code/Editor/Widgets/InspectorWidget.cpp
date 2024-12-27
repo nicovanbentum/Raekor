@@ -7,6 +7,7 @@
 #include "Iter.h"
 #include "Scene.h"
 #include "Script.h"
+#include "Editor.h"
 #include "Archive.h"
 #include "Physics.h"
 #include "Animation.h"
@@ -23,7 +24,7 @@ namespace RK {
 RTTI_DEFINE_TYPE_NO_FACTORY(InspectorWidget) {}
 
 
-InspectorWidget::InspectorWidget(Application* inApp) : IWidget(inApp, reinterpret_cast<const char*>( ICON_FA_INFO_CIRCLE " Inspector " )) {}
+InspectorWidget::InspectorWidget(Editor* inEditor) : IWidget(inEditor, reinterpret_cast<const char*>( ICON_FA_INFO_CIRCLE " Inspector " )) {}
 
 
 void InspectorWidget::Draw(Widgets* inWidgets, float inDeltaTime)
@@ -317,16 +318,16 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Mesh& ioMesh)
 
 		ImGui::PopStyleColor();
 		
-		if (ImGui::BeginPopupContextItem(NULL, ImGuiPopupFlags_MouseButtonLeft))
+		if (ImGui::BeginPopupContextItem(NULL, ImGuiPopupFlags_MouseButtonRight))
 		{
-			if (ImGui::MenuItem("Create"))
+			if (ImGui::MenuItem("New Material.."))
 			{
 				ioMesh.material = GetScene().Create();
 
 				Name& name = GetScene().Add<Name>(ioMesh.material);
 				Material& material = GetScene().Add<Material>(ioMesh.material);
 
-				name.name = "NewMaterial";
+				name.name = std::to_string(ioMesh.material);
 				material = Material::Default;
 
 				scene_changed = true;
@@ -755,7 +756,7 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Material& inMaterial)
 			ImGui::PopStyleColor();
 	};
 
-	auto DrawTextureInteraction = [&](uint32_t& inGpuMap, uint8_t& inSwizzle, uint32_t inDefaultMap, std::string& inFile, uint32_t& imguiID)
+	auto DrawTextureInteraction = [&](uint32_t& inGpuMap, uint8_t& inSwizzle, uint32_t inDefaultMap, String& inFile, uint32_t& imguiID)
 	{
 		/*ImGui::PushID(imguiID++);
 		DrawSwizzleChannel("R", inSwizzle, TEXTURE_SWIZZLE_RRRR);
@@ -791,7 +792,9 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Material& inMaterial)
 				{
 					inFile = asset_path;
 					const bool is_srgb = inGpuMap == inMaterial.gpuAlbedoMap;
-					inGpuMap = m_Editor->GetRenderInterface()->UploadTextureFromAsset(GetAssets().GetAsset<TextureAsset>(asset_path), is_srgb);
+
+					TextureAsset::Ptr asset = GetAssets().GetAsset<TextureAsset>(asset_path);
+					inGpuMap = m_Editor->GetRenderInterface()->UploadTextureFromAsset(asset, is_srgb);
 				}
 				else
 					ImGui::OpenPopup("Error");
@@ -1021,8 +1024,8 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Light& inLight)
 	constexpr std::array type_names = { "None", "Spot", "Point" };
 	scene_changed |= ImGui::Combo("Type", (int*)&inLight.type, type_names.data(), type_names.size());
 
-	scene_changed |= ImGui::ColorEdit3("Colour", glm::value_ptr(inLight.colour), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
-	scene_changed |= ImGui::DragFloat("Intensity", &inLight.colour.a, 0.001f);
+	scene_changed |= ImGui::ColorEdit3("Colour", glm::value_ptr(inLight.color), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
+	scene_changed |= ImGui::DragFloat("Intensity", &inLight.color.a, 0.001f);
 
 	switch (inLight.type)
 	{
@@ -1168,10 +1171,46 @@ bool InspectorWidget::DrawComponent(Entity inEntity, DirectionalLight& inDirecti
 	bool scene_changed = false;
 
 	ImGui::SetNextItemRightAlign("Colour     ");
-	scene_changed |= ImGui::ColorEdit3("##Colour", glm::value_ptr(inDirectionalLight.colour), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
+	scene_changed |= ImGui::ColorEdit3("##Colour", glm::value_ptr(inDirectionalLight.color), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
 
 	ImGui::SetNextItemRightAlign("Intensity  ");
-	scene_changed |= ImGui::DragFloat("##Intensity", &inDirectionalLight.colour.a, 0.001f, 0.0f, FLT_MAX);
+	scene_changed |= ImGui::DragFloat("##Intensity", &inDirectionalLight.color.a, 0.001f, 0.0f, FLT_MAX);
+
+	if (ImGui::Button("Load Cubemap.."))
+	{
+		String file_path = OS::sOpenFileDialog("DDS Files(*.dds)\0*.dds\0");
+
+		if (!file_path.empty())
+		{
+			const String asset_path = TextureAsset::GetCachedPath(file_path);
+
+			if (!fs::exists(asset_path))
+			{
+				fs::create_directories(Path(asset_path).parent_path());
+				fs::copy_file(file_path, asset_path);
+			}
+			
+			if (!asset_path.empty())
+			{
+				inDirectionalLight.cubeMapFile = asset_path;
+				TextureAsset::Ptr asset = GetAssets().GetAsset<TextureAsset>(asset_path);
+				inDirectionalLight.cubeMap = m_Editor->GetRenderInterface()->UploadTextureFromAsset(asset);
+				m_Editor->GetRenderInterface()->OnResize(m_Editor->GetViewport()); // trigger a rendergraph recompile.. TODO FIXME
+			}
+			else
+				ImGui::OpenPopup("Error");
+		}
+	}
+
+	ImGui::SameLine();
+	ImGui::AlignTextToFramePadding();
+
+	const char* file_text = inDirectionalLight.cubeMapFile.empty() ? "N/A" : inDirectionalLight.cubeMapFile.c_str();
+	const char* tooltip_text = inDirectionalLight.cubeMapFile.empty() ? "No file loaded." : inDirectionalLight.cubeMapFile.c_str();
+
+	ImGui::Text(file_text);
+	if (ImGui::IsItemHovered())
+		ImGui::SetTooltip(tooltip_text);
 
 	return scene_changed;
 }

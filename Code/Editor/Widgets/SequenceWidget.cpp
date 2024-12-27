@@ -6,6 +6,7 @@
 #include "Scene.h"
 #include "Timer.h"
 #include "Camera.h"
+#include "Editor.h"
 #include "Archive.h"
 #include "Components.h"
 #include "Application.h"
@@ -39,8 +40,8 @@ void Sequence::RemoveKeyFrame(uint32_t inIndex)
 
 RTTI_DEFINE_TYPE_NO_FACTORY(SequenceWidget) {}
 
-SequenceWidget::SequenceWidget(Application* inApp) : 
-    IWidget(inApp, (const char*)( ICON_FA_FILM "  Sequencer " )) {}
+SequenceWidget::SequenceWidget(Editor* inEditor) : 
+    IWidget(inEditor, (const char*)( ICON_FA_FILM "  Sequencer " )) {}
 
 
 void SequenceWidget::Draw(Widgets* inWidgets, float inDeltaTime)

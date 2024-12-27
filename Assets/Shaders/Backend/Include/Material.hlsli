@@ -110,6 +110,7 @@ struct BRDF {
         float sampled_roughness = roughness_texture.Sample(SamplerPointWrapNoMips, inVertex.mTexCoord).r; // value swizzled across all channels, just get Red
         
         //sampled_normal = sampled_normal * 2.0 - 1.0;
+        mNormal = inVertex.mNormal;
         sampled_normal = ReconstructNormalBC5(sampled_normal.xy);
         
         float3 bitangent = normalize(cross(inVertex.mNormal, inVertex.mTangent));
@@ -170,11 +171,12 @@ struct BRDF {
     
     
     /* Returns the BRDF value, also outputs new outgoing direction and pdf */
-    void Sample(inout uint rng, float3 Wo, out float3 Wi, out float3 weight) {
+    void Sample(inout uint rng, float3 Wo, out float3 Wi, out float3 brdf) {
         const float rand = pcg_float(rng);
 
         // randomly decide to specular bounce
-        if (mRoughness < 1.0 && rand > 0.5) {
+        if (mRoughness < 1.0 && rand > 0.5)
+        {
             float3 Wh;
             SampleSpecular(rng, Wo, Wi, Wh);
 
@@ -183,13 +185,13 @@ struct BRDF {
 
             float alpha = mRoughness * mRoughness;
             float3 F0 = lerp(0.04.xxx, mAlbedo.rgb, mMetallic);
-            weight = F_Schlick(VdotH, F0) * Smith_G1_GGX(alpha, NdotL, alpha * alpha, NdotL * NdotL);
+            brdf = F_Schlick(VdotH, F0) * Smith_G1_GGX(alpha, NdotL, alpha * alpha, NdotL * NdotL);
         }
-        else 
+        else
         {
             // importance sample the hemisphere around the normal for diffuse
             SampleDiffuse(rng, Wo, Wi);
-            weight = ((1.0 - mMetallic) * mAlbedo.rgb);
+            brdf = ((1.0 - mMetallic) * mAlbedo.rgb);
         }
     }
 };

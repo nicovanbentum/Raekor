@@ -566,6 +566,18 @@ void Scene::OpenFromFile(const String& inFilePath, Assets& ioAssets, Application
 	// load material texture data to vram
 	LoadMaterialTextures(ioAssets, GetEntities<Material>());
 
+	for (const auto& [entity, light] : Each<DirectionalLight>())
+	{
+		if (light.cubeMapFile.empty())
+			continue;
+
+		if (TextureAsset::Ptr asset = ioAssets.GetAsset<TextureAsset>(light.cubeMapFile))
+		{
+			light.cubeMap = m_Renderer->UploadTextureFromAsset(asset);
+			m_Renderer->OnResize(inApp->GetViewport());
+		}
+	}
+
 	timer.Restart();
 
 	// load mesh data to vram

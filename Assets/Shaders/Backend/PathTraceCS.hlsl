@@ -24,10 +24,6 @@ void main(uint3 threadID : SV_DispatchThreadID)
     StructuredBuffer<RTGeometry> geometries = ResourceDescriptorHeap[fc.mInstancesBuffer];
     StructuredBuffer<RTMaterial> materials  = ResourceDescriptorHeap[fc.mMaterialsBuffer];
 
-    uint lights_count = 0;
-    uint rtlight_stride = 0;
-    lights.GetDimensions(lights_count, rtlight_stride);
-    
     uint rng = TeaHash(((threadID.y << 16) | threadID.x), fc.mFrameCounter + 1);
 
     const float2 pixel_center = float2(threadID.xy) + float2(0.5, 0.5);
@@ -48,7 +44,10 @@ void main(uint3 threadID : SV_DispatchThreadID)
     float3 total_irradiance = 0.0.xxx;
     float3 total_throughput = 1.0.xxx;
     
-    for (uint bounce = 0; bounce < rc.mBounces; bounce++)
+    float opacity = 1.0;
+    int alpha_bounces = 0;
+    
+    for (int bounce = 0; bounce < rc.mBounces; bounce++)
     {
         uint ray_flags = RAY_FLAG_FORCE_OPAQUE;
     
@@ -57,7 +56,6 @@ void main(uint3 threadID : SV_DispatchThreadID)
         query.TraceRayInline(TLAS, ray_flags, 0xFF, ray);
         query.Proceed();
         
-        float opacity = 1.0;
         float3 irradiance = 0.0.xxx;
         float3 throughput = 1.0.xxx;
     
@@ -76,8 +74,8 @@ void main(uint3 threadID : SV_DispatchThreadID)
             BRDF brdf;
             brdf.FromHit(vertex, material);
             
-            brdf.mAlbedo.rgb *= opacity;
-            opacity = opacity * (1 - brdf.mAlbedo.a);
+            // brdf.mAlbedo.rgb *= opacity;
+            // opacity = opacity * (1 - brdf.mAlbedo.a);
             
             // brdf.mAlbedo.rgb *= 4.0f;
             //wtf
@@ -86,6 +84,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
             
             const float3 Wo = -ray.Direction;
 
+           // if (0)
             {
                 // sample a ray direction towards the sun disk
                 float3 Wi = SampleDirectionalLight(fc.mSunDirection.xyz, fc.mSunConeAngle, pcg_float2(rng));
@@ -99,7 +98,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
             
             // for (uint i = 0; i < 8; i++)
             {
-                uint random_light_index = uint(round(float(lights_count - 1) * pcg_float(rng)));
+                uint random_light_index = uint(round(float(fc.mNrOfLights - 1) * pcg_float(rng)));
                 RTLight light = lights[random_light_index];
                 
                 switch (light.mType)
@@ -142,6 +141,15 @@ void main(uint3 threadID : SV_DispatchThreadID)
                 }
             }
 
+            // handle alpha cutoff
+            // don't update lighting and start a new ray (not a bounce!) in the same direction
+            if (brdf.mAlbedo.a < 0.5)
+            {
+                bounce = bounce - 1;
+                ray.Origin = vertex.mPos + ray.Direction * 0.01; // TODO: find a more robust method?
+                continue;
+            }
+            else
             { // sample the BRDF to get new outgoing direction , update ray dir and pos
                 float3 Wi;
                 brdf.Sample(rng, Wo, Wi, throughput);
@@ -150,6 +158,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
                 ray.Direction = Wi;
             }
             
+
             // // Russian roulette
             if (bounce > 3) {
                 const float r = pcg_float(rng);
@@ -167,11 +176,11 @@ void main(uint3 threadID : SV_DispatchThreadID)
         else // Handle miss case 
         {
             // Calculate sky
-            irradiance = skycube_texture.SampleLevel(SamplerLinearClamp, -ray.Direction, 0);
-            irradiance = max(irradiance, 0.0.xxx) * fc.mSunColor.a;
+            irradiance = skycube_texture.SampleLevel(SamplerLinearWrap, normalize(ray.Direction), 0);
+            irradiance = max(irradiance, 0.0.xxx);
             
             // Stop tracing
-            bounce = rc.mBounces + 1;
+            bounce = rc.mBounces + 100;
         }
       
         // Update irradiance and throughput

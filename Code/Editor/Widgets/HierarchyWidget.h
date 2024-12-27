@@ -4,12 +4,14 @@
 
 namespace RK {
 
+class Editor;
+
 class HierarchyWidget : public IWidget
 {
 public:
 	RTTI_DECLARE_VIRTUAL_TYPE(HierarchyWidget);
 
-	HierarchyWidget(Application* inApp);
+	HierarchyWidget(Editor* inEditor);
 	virtual void Draw(Widgets* inWidgets, float inDeltaTime) override;
 	virtual void OnEvent(Widgets* inWidgets, const SDL_Event& inEvent) override;
 
@@ -22,6 +24,7 @@ private:
 	void DrawChildlessNode(Scene& inScene, Entity inEntity);
 
 	String m_Filter;
+	ImGuiSelectionBasicStorage m_Selection;
 };
 
 }

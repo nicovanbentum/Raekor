@@ -20,9 +20,9 @@ void EndFrame()
 }
 
 
-void SetFont(const std::string& inPath)
+void SetFont(const String& inPath)
 {
-	auto& io = ImGui::GetIO();
+	ImGuiIO& io = ImGui::GetIO();
 	ImFont* pFont = io.Fonts->AddFontFromFileTTF(inPath.c_str(), 15.0f);
 	if (!io.Fonts->Fonts.empty())
 	{
@@ -114,20 +114,20 @@ void SetDarkTheme()
 }
 
 
-glm::ivec2 GetMousePosWindow(const Viewport& viewport, ImVec2 windowPos)
+IVec2 GetMousePosWindow(const Viewport& inViewport, ImVec2 inMousePos)
 {
 	// get mouse position in window
-	glm::ivec2 mousePosition;
-	SDL_GetMouseState(&mousePosition.x, &mousePosition.y);
+	IVec2 mouse_pos;
+	SDL_GetMouseState(&mouse_pos.x, &mouse_pos.y);
 
 	// get mouse position relative to viewport
-	glm::ivec2 rendererMousePosition = { ( mousePosition.x - windowPos.x ), ( mousePosition.y - windowPos.y ) };
+	IVec2 window_mouse_pos = { ( mouse_pos.x - inMousePos.x ), ( mouse_pos.y - inMousePos.y ) };
 
 	// flip mouse coords for opengl
-	rendererMousePosition.y = std::max(viewport.GetRenderSize().y - rendererMousePosition.y, 0u);
-	rendererMousePosition.x = std::max(rendererMousePosition.x, 0);
+	window_mouse_pos.y = std::max(inViewport.GetRenderSize().y - window_mouse_pos.y, 0u);
+	window_mouse_pos.x = std::max(window_mouse_pos.x, 0);
 
-	return rendererMousePosition;
+	return window_mouse_pos;
 }
 
 } // namespace Raekor
@@ -188,7 +188,7 @@ bool ImGui::DragVec3(const char* label, glm::vec3& v, float step, float min, flo
 	ImGui::PushID(label);
 	ImGui::PushMultiItemsWidths(v.length(), ImGui::CalcItemWidth());
 
-	static const auto colors = std::array 
+	static const std::array colors =
 	{
 		ImVec4 { 0.5f, 0.0f, 0.0f, 1.0f },
 		ImVec4 { 0.0f, 0.5f, 0.0f, 1.0f },
@@ -201,7 +201,7 @@ bool ImGui::DragVec3(const char* label, glm::vec3& v, float step, float min, flo
 		if (i > 0)
 			ImGui::SameLine(0, g.Style.ItemInnerSpacing.x);
 
-		const auto type = ImGuiDataType_Float;
+		const ImGuiDataType type = ImGuiDataType_Float;
 		ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 2.0f);
 		ImGui::PushStyleColor(ImGuiCol_Border, colors[i]);
 		value_changed |= ImGui::DragScalar("", type, (void*)&v[i], step, &min, &max, format, 0);
@@ -250,16 +250,14 @@ bool ImGui::DragDropTargetButton(const char* label, const char* text, bool hasva
 	const bool hovered = ItemHoverable(frame_bb, id, ImGuiItemFlags_None);
 
 	// Draw frame
-	const ImU32 frame_col = GetColorU32(g.ActiveId == id ? ImGuiCol_FrameBgActive : hovered ? ImGuiCol_FrameBgHovered : ImGuiCol_FrameBg);
-	RenderNavHighlight(frame_bb, id, ImGuiNavHighlightFlags_AlwaysDraw);
+	RenderNavHighlight(frame_bb, id, ImGuiNavHighlightFlags_AlwaysDraw | ImGuiNavHighlightFlags_Compact);
 
-	if (hasvalue)
-		ImGui::PushStyleColor(ImGuiCol_Border, ImGui::GetStyleColorVec4(ImGuiCol_CheckMark));
+	ImU32 frame_col = GetColorU32(g.ActiveId == id ? ImGuiCol_FrameBgActive : hovered ? ImGuiCol_FrameBgHovered : ImGuiCol_FrameBg);
 
+	if (!hasvalue)
+		frame_col = ImGui::GetColorU32(ImVec4(0.5, 0, 0, 1));
+	
 	RenderFrame(frame_bb.Min, frame_bb.Max, frame_col, true, style.FrameRounding);
-
-	if (hasvalue)
-		ImGui::PopStyleColor();
 
 	ImGui::PushStyleColor(ImGuiCol_Text, hasvalue ? ImGui::GetStyleColorVec4(ImGuiCol_Text) : ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
 
@@ -270,5 +268,5 @@ bool ImGui::DragDropTargetButton(const char* label, const char* text, bool hasva
 	if (label_size.x > 0.0f)
 		RenderText(ImVec2(frame_bb.Max.x + style.ItemInnerSpacing.x, frame_bb.Min.y + style.FramePadding.y), label);
 
-	return ImGui::IsMouseClicked(ImGuiMouseButton_Left) && hovered;
+	return ImGui::IsMouseClicked(ImGuiMouseButton_Left) && hovered && hasvalue;
 }

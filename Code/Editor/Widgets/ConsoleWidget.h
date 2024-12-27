@@ -4,12 +4,14 @@
 
 namespace RK {
 
+class Editor;
+
 class ConsoleWidget : public IWidget
 {
 public:
 	RTTI_DECLARE_VIRTUAL_TYPE(ConsoleWidget);
 
-	ConsoleWidget(Application* inApp);
+	ConsoleWidget(Editor* inEditor);
 	virtual void Draw(Widgets* inWidgets, float inDeltaTime) override;
 	virtual void OnEvent(Widgets* inWidgets, const SDL_Event& inEvent) override {}
 

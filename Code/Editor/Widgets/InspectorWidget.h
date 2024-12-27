@@ -1,12 +1,13 @@
 #pragma once
 
-#include "widget.h"
+#include "Widget.h"
 
 namespace RK {
 
 class RTTI;
 class Scene;
 class Camera;
+class Editor;
 class Animation;
 
 struct Name;
@@ -26,7 +27,7 @@ class InspectorWidget : public IWidget
 public:
 	RTTI_DECLARE_VIRTUAL_TYPE(InspectorWidget);
 
-	InspectorWidget(Application* inApp);
+	InspectorWidget(Editor* inEditor);
 	virtual void Draw(Widgets* inWidgets, float inDeltaTime) override;
 	virtual void OnEvent(Widgets* inWidgets, const SDL_Event& inEvent) override {}
 

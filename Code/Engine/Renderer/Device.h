@@ -53,7 +53,9 @@ public:
     [[nodiscard]] TextureID CreateTextureView(D3D12ResourceRef inResource, const Texture::Desc& inDesc);
 
     void UploadBufferData(CommandList& inCmdList, const Buffer& inBuffer, uint32_t inOffset, const void* inData, uint32_t inSize);
-    void UploadTextureData(CommandList& inCmdList, const Texture& inTexture, uint32_t inSubResource, const void* inData);
+    void UploadTextureData(const Texture& inTexture, uint32_t inMip, uint32_t inLayer, const void* inData);
+
+    void FlushUploads(CommandList& inCmdList);
     void RetireUploadBuffers(CommandList& inCmdList);
 
     /* USE WITH CAUTION. NEXT CREATE* CALL WILL DELETE THE OLD RESOURCE. ONLY USE WHEN YOU KNOW THE GPU IS NO LONGER USING THE RESOURCE!! */
@@ -135,6 +137,8 @@ private:
     uint64_t m_UploadBuffersSize = 0;
     ComPtr<ID3D12Fence1> m_UploadFence;
     Array<UploadBuffer> m_UploadBuffers;
+    Array<BufferUpload> m_BufferUploads;
+    Array<TextureUpload> m_TextureUploads;
     StaticArray<DescriptorHeap, D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES> m_Heaps;
     StaticArray<ComPtr<ID3D12CommandSignature>, COMMAND_SIGNATURE_COUNT> m_CommandSignatures;
 

@@ -8,6 +8,7 @@
 #include "Scene.h"
 #include "Input.h"
 #include "Timer.h"
+#include "Editor.h"
 #include "Assimp.h"
 #include "Physics.h"
 #include "Compiler.h"
@@ -21,11 +22,10 @@ namespace RK {
 
 RTTI_DEFINE_TYPE_NO_FACTORY(MenubarWidget) {}
 
-MenubarWidget::MenubarWidget(Application* inApp) :
-	IWidget(inApp, "Menubar")
+MenubarWidget::MenubarWidget(Editor* inEditor) :
+	IWidget(inEditor, "Menubar")
 {
 }
-
 
 void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 {

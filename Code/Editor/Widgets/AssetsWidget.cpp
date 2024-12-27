@@ -1,9 +1,10 @@
-#include "pch.h"
-#include "assetsWidget.h"
+#include "PCH.h"
+#include "AssetsWidget.h"
 
-#include "iter.h"
-#include "scene.h"
-#include "components.h"
+#include "Iter.h"
+#include "Scene.h"
+#include "Editor.h"
+#include "Components.h"
 #include "Application.h"
 #include "IconsFontAwesome5.h"
 
@@ -11,7 +12,7 @@ namespace RK {
 
 RTTI_DEFINE_TYPE_NO_FACTORY(MaterialsWidget) {}
 
-MaterialsWidget::MaterialsWidget(Application* inApp) : IWidget(inApp, reinterpret_cast<const char*>( ICON_FA_PALETTE "  Materials " )) {}
+MaterialsWidget::MaterialsWidget(Editor* inEditor) : IWidget(inEditor, reinterpret_cast<const char*>( ICON_FA_PALETTE "  Materials " )) {}
 
 void MaterialsWidget::UpdateLayoutSizes(float avail_width)
 {

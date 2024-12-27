@@ -107,6 +107,17 @@ struct DDS_HEADER
 
 static_assert( sizeof(DDS_HEADER) == 124 );
 
+enum DDS_RESOURCE_DIMENSION
+{
+	DDS_DIMENSION_TEXTURE1D = 2,
+	DDS_DIMENSION_TEXTURE2D = 3,
+	DDS_DIMENSION_TEXTURE3D = 4
+};
+
+enum DDS_HEADER_DXT10_MISC_FLAGS
+{
+	DDS_RESOURCE_MISC_TEXTURECUBE = 0x4
+};
 
 struct DDS_HEADER_DXT10
 {
@@ -116,6 +127,7 @@ struct DDS_HEADER_DXT10
 	unsigned int arraySize;
 	unsigned int miscFlags2;
 };
+
 
 
 struct DDSFileInfo

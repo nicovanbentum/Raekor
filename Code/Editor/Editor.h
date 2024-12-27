@@ -1,22 +1,22 @@
 #pragma once
 
+#include "GUI.h"
+#include "Scene.h"
+#include "Assets.h"
+#include "Widget.h"
+#include "Physics.h"
+#include "Compiler.h"
 #include "Application.h"
-#include "physics.h"
-#include "assets.h"
-#include "scene.h"
-#include "gui.h"
-#include "widget.h"
-#include "compiler.h"
 
 namespace RK {
 
-class IEditor : public Application
+class Editor : public Application
 {
 public:
 	friend class IWidget;
 
-	IEditor(WindowFlags inWindowFlags, IRenderInterface* inRenderInterface);
-	virtual ~IEditor();
+	Editor(WindowFlags inWindowFlags, IRenderInterface* inRenderInterface);
+	virtual ~Editor();
 
 	void OnUpdate(float dt) override;
 	void OnEvent(const SDL_Event& event) override;
@@ -27,8 +27,11 @@ public:
 
 	void LogMessage(const String& inMessage) final;
 
-	void SetCameraEntity(Entity inEntity) final { m_CameraEntity = inEntity; }
-	Entity GetCameraEntity() const final { return m_CameraEntity; }
+	Camera& GetCamera() { return m_Camera; }
+	const Camera& GetCamera() const { return m_Camera; }
+
+	void SetCameraEntity(Entity inEntity) { m_CameraEntity = inEntity; }
+	Entity GetCameraEntity() const { return m_CameraEntity; }
 
 	void SetActiveEntity(Entity inEntity) final { m_ActiveEntity.store(inEntity); }
 	Entity GetActiveEntity() const final { return m_ActiveEntity.load(); }

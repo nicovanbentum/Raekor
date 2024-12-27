@@ -88,9 +88,6 @@ public:
 	virtual void SetActiveEntity(Entity inEntity) {}
 	virtual Entity GetActiveEntity() const { return Entity::Null; }
 
-	virtual void SetCameraEntity(Entity inEntity) {}
-	virtual Entity GetCameraEntity() const { return Entity::Null; }
-
 	virtual void LogMessage(const String& inMessage) { std::cout << inMessage << '\n'; }
 
 	void SetGameState(EGameState inState) { m_GameState = inState; }
@@ -121,9 +118,9 @@ protected:
 
 struct GPUInfo
 {
-	std::string mVendor;
-	std::string mProduct;
-	std::string mActiveAPI;
+	String mVendor;
+	String mProduct;
+	String mActiveAPI;
 };
 
 struct GPUStats
@@ -131,13 +128,13 @@ struct GPUStats
     uint64_t mFrameCounter = 0;
 	uint64_t mTotalVideoMemory = 0;
 	uint64_t mAvailableVideoMemory = 0;
-	std::atomic<uint64_t> mLiveBuffers = 0;
-	std::atomic<uint64_t> mLiveTextures = 0;
+	Atomic<uint64_t> mLiveBuffers = 0;
+	Atomic<uint64_t> mLiveTextures = 0;
 
-	std::atomic<uint64_t> mLiveRTVHeap = 0;
-	std::atomic<uint64_t> mLiveDSVHeap = 0;
-	std::atomic<uint64_t> mLiveSamplerHeap = 0;
-	std::atomic<uint64_t> mLiveResourceHeap = 0;
+	Atomic<uint64_t> mLiveRTVHeap = 0;
+	Atomic<uint64_t> mLiveDSVHeap = 0;
+	Atomic<uint64_t> mLiveSamplerHeap = 0;
+	Atomic<uint64_t> mLiveResourceHeap = 0;
 
 };
 

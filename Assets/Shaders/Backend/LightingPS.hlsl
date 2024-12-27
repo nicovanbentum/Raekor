@@ -19,10 +19,6 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0
     TextureCube<float3> skycube_texture           = ResourceDescriptorHeap[rc.mSkyCubeTexture];
     StructuredBuffer<RTLight> lights              = ResourceDescriptorHeap[fc.mLightsBuffer];
 
-    uint lights_count = 0;
-    uint rtlight_stride = 0;
-    lights.GetDimensions(lights_count, rtlight_stride);
-
     BRDF brdf;
     brdf.Unpack(asuint(gbuffer_texture[inParams.mPixelCoords.xy]));
     
@@ -31,7 +27,7 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0
     
     if (depth == 1.0) 
     {    
-        float3 sky_color = skycube_texture.SampleLevel(SamplerLinearClamp, -ws_pos, 0);
+        float3 sky_color = skycube_texture.SampleLevel(SamplerLinearClamp, ws_pos, 0);
         return float4(max(sky_color, 0.0.xxx), 1.0);
     }
 
@@ -54,7 +50,7 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0
     uint index_offset = rc.mLights.mDispatchSize.x * LIGHT_CULL_MAX_LIGHTS * group_index.y + group_index.x * LIGHT_CULL_MAX_LIGHTS;
     
     // evaluate Point and Spot lights
-    for (int light_idx = 0; light_idx < lights_count; light_idx++)
+    for (int light_idx = 0; light_idx < fc.mNrOfLights; light_idx++)
     //for (uint light_idx = 0; light_idx < light_count; light_idx++)
     {
         RTLight light = lights[light_idx];

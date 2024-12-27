@@ -19,7 +19,7 @@ void EndFrame();
 void SetFont(const String& inFilePath);
 void SetDarkTheme();
 
-glm::ivec2 GetMousePosWindow(const Viewport& viewport, ImVec2 windowPos);
+IVec2 GetMousePosWindow(const Viewport& viewport, ImVec2 windowPos);
 
 
 } // namespace GUI

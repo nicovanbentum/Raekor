@@ -4,6 +4,8 @@
 
 namespace RK {
 
+class Editor;
+
 struct ClickableQuad
 {
 	Entity mEntity;
@@ -15,7 +17,7 @@ class ViewportWidget : public IWidget
 public:
 	RTTI_DECLARE_VIRTUAL_TYPE(ViewportWidget);
 
-	ViewportWidget(Application* inApp);
+	ViewportWidget(Editor* inEditor);
 	virtual void Draw(Widgets* inWidgets, float dt) override;
 	virtual void OnEvent(Widgets* inWidgets, const SDL_Event& ev) override;
 

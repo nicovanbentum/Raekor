@@ -100,24 +100,36 @@ const SkyCubeData& AddSkyCubePass(RenderGraph& inRenderGraph, Device& inDevice, 
     return inRenderGraph.AddComputePass<SkyCubeData>("SKY CUBE PASS",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, SkyCubeData& inData)
     {  
+        if (const DirectionalLight* sun_light = inScene.GetSunLight())
+        {
+            if (sun_light->cubeMap)
+            {
+                inData.mSkyCubeTexture = ioRGBuilder.Import(inDevice, TextureID(sun_light->cubeMap));
+                return;
+            }
+        }
+
         inData.mSkyCubeTexture = ioRGBuilder.Create(Texture::DescCube(DXGI_FORMAT_R32G32B32A32_FLOAT, 64, 64, Texture::SHADER_READ_WRITE));
     },
     [&inDevice, &inScene](SkyCubeData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {   
         if (const DirectionalLight* sun_light = inScene.GetSunLight())
         {
-            inCmdList.PushComputeConstants(SkyCubeRootConstants
+            if (!sun_light->cubeMap)
             {
-                .mSkyCubeTexture    = inResources.GetBindlessHeapIndex(inData.mSkyCubeTexture),
-                .mSunLightDirection = sun_light->GetDirection(),
-                .mSunLightColor     = sun_light->GetColor()
-            });
+                inCmdList.PushComputeConstants(SkyCubeRootConstants
+                {
+                    .mSkyCubeTexture    = inResources.GetBindlessHeapIndex(inData.mSkyCubeTexture),
+                    .mSunLightDirection = sun_light->GetDirection(),
+                    .mSunLightColor     = sun_light->GetColor()
+                });
 
-            inCmdList->SetPipelineState(g_SystemShaders.mSkyCubeShader.GetComputePSO());
+                inCmdList->SetPipelineState(g_SystemShaders.mSkyCubeShader.GetComputePSO());
 
-            const Texture::Desc& texture_desc = inDevice.GetTexture(inResources.GetTexture(inData.mSkyCubeTexture)).GetDesc();
+                const Texture::Desc& texture_desc = inDevice.GetTexture(inResources.GetTexture(inData.mSkyCubeTexture)).GetDesc();
 
-            inCmdList->Dispatch(texture_desc.width / 8, texture_desc.height / 8, texture_desc.depthOrArrayLayers);
+                inCmdList->Dispatch(texture_desc.width / 8, texture_desc.height / 8, texture_desc.depthOrArrayLayers);
+            }
         }
     });
 }
@@ -1188,7 +1200,7 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, 
     {
         inData.mOutputTexture = inBuilder.Create(Texture::Desc
         {
-            .format = DXGI_FORMAT_R16G16B16A16_FLOAT,
+            .format = DXGI_FORMAT_R8G8B8A8_UNORM,
             .width  = inRenderGraph.GetViewport().GetDisplaySize().x,
             .height = inRenderGraph.GetViewport().GetDisplaySize().y,
             .usage  = Texture::RENDER_TARGET,

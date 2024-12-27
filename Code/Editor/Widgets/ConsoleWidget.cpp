@@ -1,14 +1,14 @@
-#include "pch.h"
-#include "consoleWidget.h"
-#include "iter.h"
-#include "Application.h"
+#include "PCH.h"
+#include "ConsoleWidget.h"
+#include "Iter.h"
+#include "Editor.h"
 
 namespace RK {
 
 RTTI_DEFINE_TYPE_NO_FACTORY(ConsoleWidget) {}
 
 
-ConsoleWidget::ConsoleWidget(Application* inApp) : IWidget(inApp, reinterpret_cast<const char*>( ICON_FA_TERMINAL "  Console " )) {}
+ConsoleWidget::ConsoleWidget(Editor* inEditor) : IWidget(inEditor, reinterpret_cast<const char*>( ICON_FA_TERMINAL "  Console " )) {}
 
 
 void ConsoleWidget::Draw(Widgets* inWidgets, float inDeltaTime)

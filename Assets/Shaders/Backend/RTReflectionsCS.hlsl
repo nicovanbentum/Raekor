@@ -100,7 +100,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
     }
     else
     {
-        float3 sky_color = skycube_texture.SampleLevel(SamplerLinearClamp, -ray.Direction, 0);
+        float3 sky_color = skycube_texture.SampleLevel(SamplerLinearClamp, ray.Direction, 0);
         irradiance += max(sky_color, 0.0.xxx) * fc.mSunColor.a;
     }
     

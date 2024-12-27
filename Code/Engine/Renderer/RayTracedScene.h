@@ -46,9 +46,7 @@ public:
 
     void UploadMesh(Application* inApp, Device& inDevice, Mesh& inMesh, Skeleton* inSkeleton, CommandList& inCmdList);
     void UpdateBLAS(Application* inApp, Device& inDevice, Mesh& inMesh, Skeleton* inSkeleton, CommandList& inCmdList);
-    void UploadTexture(Application* inApp, Device& inDevice, TextureUpload& inUpload, CommandList& inCmdList);
     void UploadSkeleton(Application* inApp, Device& inDevice, Skeleton& inSkeleton, CommandList& inCmdList);
-    void UploadMaterial(Application* inApp, Device& inDevice, Material& inMaterial, CommandList& inCmdList);
 
     void UploadTLAS(Application* inApp, Device& inDevice, CommandList& inCmdList);
     void UploadLights(Application* inApp, Device& inDevice, CommandList& inCmdList);

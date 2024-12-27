@@ -678,16 +678,15 @@ void Device::UploadBufferData(CommandList& inCmdList, const Buffer& inBuffer, ui
 
 
 
-void Device::UploadTextureData(CommandList& inCmdList, const Texture& inTexture, uint32_t inSubResource, const void* inData)
+void Device::UploadTextureData(const Texture& inTexture, uint32_t inMip, uint32_t inLayer, const void* inData)
 {
-    inCmdList.TrackResource(inTexture);
-
     uint32_t nr_of_rows = 0u;
     uint64_t row_size = 0ull, total_size = 0ull;
     D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint = {};
 
     D3D12_RESOURCE_DESC desc = inTexture.GetD3D12Resource()->GetDesc();
-    m_Device->GetCopyableFootprints(&desc, inSubResource, 1, 0, &footprint, &nr_of_rows, &row_size, &total_size);
+    uint32_t subresource = D3D12CalcSubresource(inMip, inLayer, 0, desc.MipLevels, desc.DepthOrArraySize);
+    m_Device->GetCopyableFootprints(&desc, subresource, 1, 0, &footprint, &nr_of_rows, &row_size, &total_size);
 
     for (UploadBuffer& buffer : m_UploadBuffers) 
     {
@@ -702,10 +701,11 @@ void Device::UploadTextureData(CommandList& inCmdList, const Texture& inTexture,
                 memcpy(copy_dst, copy_src, row_size);
             }
 
-            CD3DX12_TEXTURE_COPY_LOCATION src(GetD3D12Resource(buffer.mID), footprint);
-            CD3DX12_TEXTURE_COPY_LOCATION dst(inTexture.GetD3D12Resource().Get(), inSubResource);
-
-            inCmdList->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
+            m_TextureUploads.emplace_back(TextureUpload 
+            {
+                .mBufferPart = CD3DX12_TEXTURE_COPY_LOCATION(GetD3D12Resource(buffer.mID), footprint),
+                .mTexturePart = CD3DX12_TEXTURE_COPY_LOCATION(inTexture.GetD3D12Resource().Get(), subresource)
+            });
 
             buffer.mSize += total_size;
             buffer.mRetired = false;
@@ -731,15 +731,16 @@ void Device::UploadTextureData(CommandList& inCmdList, const Texture& inTexture,
         memcpy(copy_dst, copy_src, row_size);
     }
 
-    CD3DX12_TEXTURE_COPY_LOCATION src(buffer.GetD3D12Resource().Get(), footprint);
-    CD3DX12_TEXTURE_COPY_LOCATION dst(inTexture.GetD3D12Resource().Get(), inSubResource);
-
-    inCmdList->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
+    m_TextureUploads.emplace_back(TextureUpload
+        {
+            .mBufferPart = CD3DX12_TEXTURE_COPY_LOCATION(buffer.GetD3D12Resource().Get(), footprint),
+            .mTexturePart = CD3DX12_TEXTURE_COPY_LOCATION(inTexture.GetD3D12Resource().Get(), subresource)
+        });
 
     m_UploadBuffers.emplace_back(UploadBuffer
     {
         .mRetired    = false,
-        .mFrameIndex = inCmdList.GetFrameIndex(),
+        .mFrameIndex = m_FrameIndex,
         .mSize       = total_size,
         .mCapacity   = total_size,
         .mPtr        = mapped_ptr,
@@ -747,9 +748,27 @@ void Device::UploadTextureData(CommandList& inCmdList, const Texture& inTexture,
     });
 
     m_UploadBuffersSize += buffer.GetD3D12Allocation()->GetSize();
+}
 
-    auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(inTexture.GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ, inSubResource);
-    inCmdList->ResourceBarrier(1, &barrier);
+
+
+void Device::FlushUploads(CommandList& inCmdList)
+{
+    for (const TextureUpload& upload : m_TextureUploads)
+    {
+        inCmdList->CopyTextureRegion(&upload.mTexturePart, 0, 0, 0, &upload.mBufferPart, nullptr);
+
+        auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+            upload.mTexturePart.pResource, 
+            D3D12_RESOURCE_STATE_COPY_DEST, 
+            D3D12_RESOURCE_STATE_GENERIC_READ, 
+            upload.mTexturePart.SubresourceIndex
+        );
+
+        inCmdList->ResourceBarrier(1, &barrier);
+    }
+
+    m_TextureUploads.clear();
 }
 
 

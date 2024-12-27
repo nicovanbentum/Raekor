@@ -65,12 +65,15 @@ struct DirectionalLight : public SceneComponent
 {
 	RTTI_DECLARE_TYPE(DirectionalLight);
 
-	const Vec4& GetColor() const { return colour; }
+	const Vec4& GetColor() const { return color; }
 	const Vec4& GetDirection() const { return direction; }
 
+	String cubeMapFile;
+	uint32_t cubeMap = 0;
 
+	Vec4 color = { 1.0f, 1.0f, 1.0f, 1.0f };
 	Vec4 direction = { 0.25f, -0.9f, 0.0f, 0.0f };
-	Vec4 colour = { 1.0f, 1.0f, 1.0f, 1.0f };
+
 };
 
 
@@ -91,7 +94,7 @@ struct Light : public SceneComponent
 	ELightType type = LIGHT_TYPE_NONE;
 	Vec3 direction = { 0.0f, -1.0f, 0.0f }; // used for Directional and Spot light
 	Vec4 position = { 0.0f, 0.0f, 0.0f, 0.0f }; // Used for Spot and Point light
-	Vec4 colour = { 1.0f, 1.0f, 1.0f, 1.0f }; // rgb = color, a = intensity
+	Vec4 color = { 1.0f, 1.0f, 1.0f, 1.0f }; // rgb = color, a = intensity
 	Vec4 attributes = { 1.0f, 0.1f, 0.0f, 0.0f }; // x = radius, y = range, z = inner radius / cone angle, w = outer cone angle
 };
 

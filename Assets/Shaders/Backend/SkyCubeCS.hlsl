@@ -31,8 +31,8 @@ void main(uint3 gid : SV_DispatchThreadID)
     sky_cube_texture.GetDimensions(width, height, layers);
     
     float2 uv = (float2(gid.xy) + 0.5) / float2(width, height);
-    float3 dir = normalize(GetCubemapDirection(uv, gid.z));
+    float3 dir = GetCubemapDirection(uv, gid.z);
     
     float3 transmittance;
-    sky_cube_texture[gid] = IntegrateScattering(0.xxx, normalize(dir), INFINITY, rc.mSunLightDirection, rc.mSunLightColor.rgb, transmittance);
+    sky_cube_texture[gid] = IntegrateScattering(0.xxx, normalize(-dir), INFINITY, rc.mSunLightDirection, rc.mSunLightColor.rgb, transmittance);
 }

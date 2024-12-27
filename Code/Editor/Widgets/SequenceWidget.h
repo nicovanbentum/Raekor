@@ -51,7 +51,7 @@ public:
     static constexpr float cMinSequenceLength = 1.0f;
     static constexpr float cMaxSequenceLength = 60.0f;
 
-    SequenceWidget(Application* inApp);
+    SequenceWidget(Editor* inEditor);
 
     virtual void Draw(Widgets* inWidgets, float dt) override;
     virtual void OnEvent(Widgets* inWidgets, const SDL_Event& ev) override;

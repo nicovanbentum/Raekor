@@ -37,6 +37,7 @@ struct RenderSettings
 
     static inline bool mPathTraceReset = false;
     static inline uint32_t mPathTraceBounces = 2u;
+    static inline uint32_t mPathTraceAlphaBounces = 4u;
 
     static inline float mDDGIDebugRadius = 0.25f;
     static inline IVec3 mDDGIDebugProbe = IVec3(10, 10, 5);
@@ -139,11 +140,10 @@ const TransitionResourceData& AddTransitionResourceData(RenderGraph& inRenderGra
 struct SkyCubeData
 {
     RenderGraphResourceID mSkyCubeTexture;
-    ComPtr<ID3D12PipelineState> mPipeline;
 };
 
 const SkyCubeData& AddSkyCubePass(RenderGraph& inRenderGraph, Device& inDevice,
-    const Scene& inScene
+    const Scene& inScene 
 );
 
 

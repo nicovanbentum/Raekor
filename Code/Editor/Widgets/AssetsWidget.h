@@ -1,10 +1,11 @@
 #pragma once
 
-#include "widget.h"
-#include "cvars.h"
+#include "Widget.h"
+#include "CVars.h"
 
 namespace RK {
 
+class Editor;
 class Material;
 class Animation;
 
@@ -13,7 +14,7 @@ class MaterialsWidget : public IWidget
 	RTTI_DECLARE_VIRTUAL_TYPE(MaterialsWidget);
 
 public:
-	MaterialsWidget(Application* inApp);
+	MaterialsWidget(Editor* inEditor);
 	
 	virtual void Draw(Widgets* inWidgets, float dt) override;
 	virtual void OnEvent(Widgets* inWidgets, const SDL_Event& ev) override {}

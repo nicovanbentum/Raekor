@@ -377,9 +377,8 @@ struct BufferUpload
 
 struct TextureUpload
 {
-    uint32_t mMip = 0;
-    TextureID mTexture;
-    ByteSlice mData;
+    CD3DX12_TEXTURE_COPY_LOCATION mBufferPart;
+    CD3DX12_TEXTURE_COPY_LOCATION mTexturePart;
 };
 
 struct UploadBuffer

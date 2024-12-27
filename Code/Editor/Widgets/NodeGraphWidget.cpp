@@ -3,6 +3,7 @@
 #include "ShaderGraphNodes.h"
 #include "Application.h"
 #include "Archive.h"
+#include "Editor.h"
 #include "Member.h"
 #include "Iter.h"
 #include "OS.h"
@@ -12,8 +13,8 @@ namespace RK {
 RTTI_DEFINE_TYPE_NO_FACTORY(ShaderGraphWidget) {}
 
 
-ShaderGraphWidget::ShaderGraphWidget(Application* inApp) : 
-	IWidget(inApp, reinterpret_cast<const char*>( ICON_FA_SITEMAP "  Shader Graph " ))
+ShaderGraphWidget::ShaderGraphWidget(Editor* inEditor) : 
+	IWidget(inEditor, reinterpret_cast<const char*>( ICON_FA_SITEMAP "  Shader Graph " ))
 { 
 	auto& ImNodesColors = ImNodes::GetStyle().Colors;
 
@@ -45,10 +46,10 @@ ShaderGraphWidget::ShaderGraphWidget(Application* inApp) :
 	ImNodes::GetStyle().PinCircleRadius = 4.5f;
 	ImNodes::GetStyle().PinQuadSideLength = 9.0f;
 
-	GetBuilder().ResetSnapshots();
-	GetBuilder().StoreSnapshot();
+	m_Builder.ResetSnapshots();
+	m_Builder.StoreSnapshot();
 
-	ImNodes::EditorContextSet(&GetImNodesContext());
+	ImNodes::EditorContextSet(&m_ImNodesContext);
 }
 
 
@@ -67,9 +68,9 @@ void ShaderGraphWidget::Draw(Widgets* inWidgets, float dt)
 			m_OpenFilePath = fs::relative(file_path);
 			JSON::ReadArchive archive(file_path);
 
-			GetBuilder().OpenFromFileJSON(archive);
-			GetBuilder().ResetSnapshots();
-			GetBuilder().StoreSnapshot();
+			m_Builder.OpenFromFileJSON(archive);
+			m_Builder.ResetSnapshots();
+			m_Builder.StoreSnapshot();
 		}
 	}
 
@@ -92,7 +93,7 @@ void ShaderGraphWidget::Draw(Widgets* inWidgets, float dt)
 		if (!file_path.empty())
 		{
 			JSON::WriteArchive archive(file_path);
-			GetBuilder().SaveToFileJSON(archive);
+			m_Builder.SaveToFileJSON(archive);
 		}
 	}
 
@@ -115,7 +116,7 @@ void ShaderGraphWidget::Draw(Widgets* inWidgets, float dt)
 				
 				buffer << ifs.rdbuf();
 				m_GeneratedCode = buffer.str();
-				GetBuilder().GenerateCodeFromTemplate(m_GeneratedCode);
+				m_Builder.GenerateCodeFromTemplate(m_GeneratedCode);
 
 				std::ofstream ofs(file_path);
 				ofs << m_GeneratedCode;
@@ -134,7 +135,7 @@ void ShaderGraphWidget::Draw(Widgets* inWidgets, float dt)
 
 		std::queue<uint32_t> queue;
 
-		for (const auto& [index, shader_node] : gEnumerate(GetBuilder().GetShaderNodes()))
+		for (const auto& [index, shader_node] : gEnumerate(m_Builder.GetShaderNodes()))
 		{
 			if (shader_node->GetRTTI() == RTTI_OF<PixelShaderOutputShaderNode>() || 
 				shader_node->GetRTTI() == RTTI_OF<VertexShaderOutputShaderNode>())
@@ -156,7 +157,7 @@ void ShaderGraphWidget::Draw(Widgets* inWidgets, float dt)
 
 			const ImVec2 dimensions = ImNodes::GetNodeDimensions(object_index);
 
-			ShaderNode* shader_node = GetBuilder().GetShaderNode(object_index);
+			ShaderNode* shader_node = m_Builder.GetShaderNode(object_index);
 
 			if (depth_size == 0)
 			{
@@ -166,7 +167,7 @@ void ShaderGraphWidget::Draw(Widgets* inWidgets, float dt)
 			else
 				cursor.y += dimensions.x + 50.0f;
 
-			for (const ShaderNodePin& input_pin : GetBuilder().GetShaderNode(object_index)->GetInputPins())
+			for (const ShaderNodePin& input_pin : m_Builder.GetShaderNode(object_index)->GetInputPins())
 			{
 				/*if (m_Builder.HasIncomingPin(input_pin.GetIndex()))
 					queue.push(input_pin.GetConnectedNode());*/
@@ -188,9 +189,9 @@ void ShaderGraphWidget::Draw(Widgets* inWidgets, float dt)
 	{
 		ImGui::PushStyleVar(ImGuiStyleVar_SeparatorTextAlign, ImVec2(0.5f, 0.5f));
 
-		bool show_node_indices = GetBuilder().GetShowNodeIndices();
+		bool show_node_indices = m_Builder.GetShowNodeIndices();
 		ImGui::Checkbox("Show Node Indices", &show_node_indices);
-		GetBuilder().SetShowNodeIndices(show_node_indices);
+		m_Builder.SetShowNodeIndices(show_node_indices);
 
 		ImGui::Checkbox("Show Generated Code", &m_ShowGeneratedCode);
 
@@ -217,8 +218,7 @@ void ShaderGraphWidget::Draw(Widgets* inWidgets, float dt)
 		{
 			if (ImGui::Selectable(shader_graph_names[i], m_ActiveGraph == (EShaderGraph)i))
 			{
-				m_ActiveGraph = (EShaderGraph)i;
-				ImNodes::EditorContextSet(&GetImNodesContext());
+				SetActiveShaderGraph((EShaderGraph)i);
 			}
 		}
 
@@ -260,8 +260,8 @@ void ShaderGraphWidget::Draw(Widgets* inWidgets, float dt)
 	{
 		if (ImGui::MenuItem(inName))
 		{
-			GetBuilder().CreateShaderNode<T>();
-			ImNodes::SetNodeScreenSpacePos(GetBuilder().GetShaderNodes().size() - 1, m_ClickedMousePos);
+			ShaderNode* node = m_Builder.CreateShaderNode<T>();
+			ImNodes::SetNodeScreenSpacePos(m_Builder.GetShaderNodes().size() - 1, m_ClickedMousePos);
 
 			return true;
 		}
@@ -273,6 +273,8 @@ void ShaderGraphWidget::Draw(Widgets* inWidgets, float dt)
 	{
 		ImGui::PushStyleColor(ImGuiCol_Text, ShaderNode::sTextureColor);
 
+		ShaderNodeMenuItem.template operator() < RerouteShaderNode > ( "Reroute" );
+
 		if (ImGui::CollapsingHeader("Other", ImGuiTreeNodeFlags_DefaultOpen))
 		{
 			ImGui::PopStyleColor();
@@ -281,6 +283,8 @@ void ShaderGraphWidget::Draw(Widgets* inWidgets, float dt)
 			ShaderNodeMenuItem.template operator() < ProcedureShaderNode > ( "Procedure" );
 			ShaderNodeMenuItem.template operator() < GradientNoiseShaderNode > ( "Gradient Noise" );
 		}
+		else
+			ImGui::PopStyleColor();
 
 		ImGui::PushStyleColor(ImGuiCol_Text, ShaderNode::sScalarColor);
 
@@ -319,13 +323,17 @@ void ShaderGraphWidget::Draw(Widgets* inWidgets, float dt)
 			if (m_ActiveGraph == SHADER_GRAPH_VERTEX)
 			{
 				ShaderNodeMenuItem.template operator() < GetPositionShaderNode > ( "Position" );
-				ShaderNodeMenuItem.template operator() < GetNormalShaderNode > ( "Normal" );
+				ShaderNodeMenuItem.template operator() < GetVertexNormalShaderNode > ( "Normal" );
 				ShaderNodeMenuItem.template operator() < GetTangentShaderNode > ( "Tangent" );
 				ShaderNodeMenuItem.template operator() < GetTexCoordShaderNode > ( "TexCoord" );
 			}
 
 			if (m_ActiveGraph == SHADER_GRAPH_PIXEL)
 			{
+				ShaderNodeMenuItem.template operator() < GetAlbedoShaderNode > ( "Albedo" );
+				ShaderNodeMenuItem.template operator() < GetPixelNormalShaderNode > ( "Normal" );
+				ShaderNodeMenuItem.template operator() < GetMetallicShaderNode > ( "Metallic" );
+				ShaderNodeMenuItem.template operator() < GetRoughnessShaderNode > ( "Roughness" );
 				ShaderNodeMenuItem.template operator() < GetPixelCoordShaderNode > ( "Pixel Coord" );
 				ShaderNodeMenuItem.template operator() < GetTexCoordinateShaderNode > ( "Texture Coord" );
 			}
@@ -355,8 +363,9 @@ void ShaderGraphWidget::Draw(Widgets* inWidgets, float dt)
 		ImGui::EndPopup();
 	}
 
-	if (ImGui::IsMouseClicked(ImGuiMouseButton_Right) && ImNodes::IsEditorHovered())
+	if (m_DroppedLinkID >= 0 || (ImGui::IsMouseClicked(ImGuiMouseButton_Right) && ImNodes::IsEditorHovered()))
 	{
+		m_DroppedLinkID = -1;
 		ImGui::OpenPopup("Create Node");
 		m_ClickedMousePos = ImGui::GetMousePos();
 	}
@@ -370,37 +379,40 @@ void ShaderGraphWidget::Draw(Widgets* inWidgets, float dt)
 	ImGui::PushStyleColor(ImGuiCol_FrameBgActive, IM_COL32(38, 38, 38, 255));
 	ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, IM_COL32(50, 50, 50, 255));
 
-	GetBuilder().BeginDraw();
+	m_Builder.BeginDraw();
 
-	for (const auto& [index, shader_node] : gEnumerate(GetBuilder().GetShaderNodes()))
+	for (const auto& [index, shader_node] : gEnumerate(m_Builder.GetShaderNodes()))
 	{
 		if (ImNodes::IsNodeSelected(index))
 			ImNodes::PushColorStyle(ImNodesCol_NodeOutline, IM_COL32(190, 190, 190, 200));
-		else if (GetContext().HoveredNode.first&& GetContext().HoveredNode.second == index)
+		else if (m_Context.HoveredNode.first && m_Context.HoveredNode.second == index)
 			ImNodes::PushColorStyle(ImNodesCol_NodeOutline, IM_COL32(178, 178, 178, 90));
 
-		shader_node->DrawImNode(GetBuilder());
+		shader_node->DrawImNode(m_Builder);
 
 		if (ImNodes::IsNodeSelected(index))
 			ImNodes::PopColorStyle();
-		else if (GetContext().HoveredNode.first && GetContext().HoveredNode.second == index)
+		else if (m_Context.HoveredNode.first && m_Context.HoveredNode.second == index)
 			ImNodes::PopColorStyle();
 	}
 
-	GetBuilder().EndDraw();
+	m_Builder.EndDraw();
 
 	ImGui::PopStyleVar(2);
 	ImGui::PopStyleColor(3);
 
-	for (const auto& [index, link] : gEnumerate(GetBuilder().GetLinks()))
+	for (const auto& [index, link] : gEnumerate(m_Builder.GetLinks()))
 	{
-		const ShaderNodePin* input_pin = GetBuilder().GetInputPin(link.second);
-		const ShaderNodePin* output_pin = GetBuilder().GetOutputPin(link.first);
+		const ShaderNode* to_node = m_Builder.GetShaderNode(link.toNodeIndex);
+		const ShaderNode* from_node = m_Builder.GetShaderNode(link.fromNodeIndex);
+
+		const ShaderNodePin& input_pin = to_node->GetInputPin(link.toPinIndex);
+		const ShaderNodePin& output_pin = from_node->GetOutputPin(link.fromPinIndex);
 
 		ImU32 link_color = ImNodes::GetStyle().Colors[ImNodesCol_Link];
 
-		if (ShaderNodePin::sIsCompatible(output_pin->GetKind(), input_pin->GetKind()))
-			link_color = ImGui::GetColorU32(input_pin->GetColor());
+		if (ShaderNodePin::sIsCompatible(output_pin.GetKind(), input_pin.GetKind()))
+			link_color = ImGui::GetColorU32(input_pin.GetColor());
 
 		const ImVec4 color = ImGui::ColorConvertU32ToFloat4(link_color);
 		const ImVec4 hovered_color = ImVec4(color.x * 1.5, color.y * 1.5, color.z * 1.5, color.y * 1.5);
@@ -413,7 +425,8 @@ void ShaderGraphWidget::Draw(Widgets* inWidgets, float dt)
 		ImNodes::PushColorStyle(ImNodesCol_LinkHovered, link_hovered_color);
 		ImNodes::PushColorStyle(ImNodesCol_LinkSelected, link_selected_color);
 
-		ImNodes::Link(index, link.first, link.second);
+		// TODO
+		// ImNodes::Link(index, link.first, link.second);
 
 		ImNodes::PopColorStyle();
 		ImNodes::PopColorStyle();
@@ -432,31 +445,32 @@ void ShaderGraphWidget::Draw(Widgets* inWidgets, float dt)
 		ImGui::End();
 	}
 
-	GetContext().hoveredLink.first = ImNodes::IsLinkHovered(&GetContext().hoveredLink.second);
-	GetContext().HoveredNode.first = ImNodes::IsNodeHovered(&GetContext().HoveredNode.second);
+	m_Context.hoveredLink.first = ImNodes::IsLinkHovered(&m_Context.hoveredLink.second);
+	m_Context.HoveredNode.first = ImNodes::IsNodeHovered(&m_Context.HoveredNode.second);
 
 	if (ImNodes::IsLinkCreated(&m_StartNodeID, &m_StartPinID, &m_EndNodeID, &m_EndPinID))
 	{
-		GetBuilder().StoreSnapshot();
-		GetBuilder().ConnectPins(m_StartPinID, m_EndPinID);
+		m_Builder.StoreSnapshot();
+		// TODO
 	}
 
 	int deleted_node_id;
 	if (ImNodes::IsLinkDestroyed(&deleted_node_id))
 	{
-		const Slice<const Pair<int, int>>& links = GetBuilder().GetLinks();
-		const Pair<int, int>& link = links[deleted_node_id];
-		GetBuilder().DisconnectPins(link.first, link.second);
+		m_Builder.StoreSnapshot();
+		// TODO
 	}
 
-	GetContext().SelectedNodes.resize(ImNodes::NumSelectedNodes());
-	GetContext().SelectedLinks.resize(ImNodes::NumSelectedLinks());
+	ImNodes::IsLinkDropped(&m_DroppedLinkID);
 
-	if (!GetContext().SelectedNodes.empty())
-		ImNodes::GetSelectedNodes(GetContext().SelectedNodes.data());
+	m_Context.SelectedNodes.resize(ImNodes::NumSelectedNodes());
+	m_Context.SelectedLinks.resize(ImNodes::NumSelectedLinks());
 
-	if (!GetContext().SelectedLinks.empty())
-		ImNodes::GetSelectedLinks(GetContext().SelectedLinks.data());
+	if (!m_Context.SelectedNodes.empty())
+		ImNodes::GetSelectedNodes(m_Context.SelectedNodes.data());
+
+	if (!m_Context.SelectedLinks.empty())
+		ImNodes::GetSelectedLinks(m_Context.SelectedLinks.data());
 
 	ImGui::End();
 }
@@ -470,31 +484,22 @@ void ShaderGraphWidget::OnEvent(Widgets* inWidgets, const SDL_Event& ev)
 		{
 			case SDLK_DELETE:
 			{
-				std::sort(GetContext().SelectedNodes.begin(), GetContext().SelectedNodes.end(), [](int lhs, int rhs) { return lhs > rhs; });
-				std::sort(GetContext().SelectedLinks.begin(), GetContext().SelectedLinks.end(), [](int lhs, int rhs) { return lhs > rhs; });
+				std::sort(m_Context.SelectedNodes.begin(), m_Context.SelectedNodes.end(), [](int lhs, int rhs) { return lhs > rhs; });
+				std::sort(m_Context.SelectedLinks.begin(), m_Context.SelectedLinks.end(), [](int lhs, int rhs) { return lhs > rhs; });
 
-				for (int selected_link : GetContext().SelectedLinks)
+				for (int selected_link : m_Context.SelectedLinks)
 				{
-					Slice<const Pair<int,int>> links = GetBuilder().GetLinks();
-					const Pair<int, int> link = links[selected_link];
-					GetBuilder().DisconnectPins(link.first, link.second);
+					// TODO
 				}
 
-				for (int selected_node : GetContext().SelectedNodes)
+				for (int selected_node : m_Context.SelectedNodes)
 				{
-					for (Pair<int, int> link : GetBuilder().GetLinks())
+					for (const ShaderGraphLink& link : m_Builder.GetLinks())
 					{
-						const ShaderNodePin* input_pin = GetBuilder().GetInputPin(link.second);
-						const ShaderNodePin* output_pin = GetBuilder().GetOutputPin(link.first);
-
-						int input_node_index = GetBuilder().GetShaderNodeIndex(*input_pin);
-						int output_node_index = GetBuilder().GetShaderNodeIndex(*output_pin);
-
-						if (input_node_index == selected_node || output_node_index == selected_node)
-							GetBuilder().DisconnectPins(link.first, link.second);
+						// TODO
 					}
 
-					GetBuilder().DestroyShaderNode(selected_node);
+					m_Builder.DestroyShaderNode(selected_node);
 				}
 
 				//m_ShaderNodes = new_nodes;
@@ -505,7 +510,7 @@ void ShaderGraphWidget::OnEvent(Widgets* inWidgets, const SDL_Event& ev)
 			{
 				if (SDL_GetModState() & KMOD_LCTRL)
 				{
-					GetBuilder() = GetBuilder().Undo();
+					m_Builder = m_Builder.Undo();
 				}
 			} break;
 
@@ -513,11 +518,19 @@ void ShaderGraphWidget::OnEvent(Widgets* inWidgets, const SDL_Event& ev)
 			{
 				if (SDL_GetModState() & KMOD_LCTRL)
 				{
-					GetBuilder() = GetBuilder().Redo();
+					m_Builder = m_Builder.Redo();
 				}
 			} break;
 		}
 	}
+}
+
+void ShaderGraphWidget::SetActiveShaderGraph(EShaderGraph inShaderGraph)
+{
+	m_Context = m_Contexts[inShaderGraph];
+	m_Builder = m_Builders[inShaderGraph];
+	m_ImNodesContext = m_ImNodesContexts[inShaderGraph];
+	ImNodes::EditorContextSet(&m_ImNodesContext);
 }
 
 }

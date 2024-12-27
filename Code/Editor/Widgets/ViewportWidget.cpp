@@ -19,8 +19,8 @@ namespace RK {
 
 RTTI_DEFINE_TYPE_NO_FACTORY(ViewportWidget) {}
 
-ViewportWidget::ViewportWidget(Application* inApp) :
-	IWidget(inApp, reinterpret_cast<const char*>( ICON_FA_VIDEO " Viewport " )) {}
+ViewportWidget::ViewportWidget(Editor* inEditor) :
+	IWidget(inEditor, reinterpret_cast<const char*>( ICON_FA_VIDEO " Viewport " )) {}
 
 
 void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
@@ -476,7 +476,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			camera_name = GetScene().Get<Name>(camera_entity).name.c_str();
 		}
 
-		if (ImGui::BeginCombo("##ActiveCamera", camera_name))
+		if (ImGui::BeginCombo("##ActiveCamera", camera_name)) 
 		{
 			if (ImGui::Selectable("<built-in>", camera_entity == Entity::Null))
 				m_Editor->SetCameraEntity(Entity::Null);
@@ -491,22 +491,23 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 			ImGui::EndCombo();
 		}
-#if 0 // TODO FIXME
+
 		if (camera_entity == Entity::Null)
 		{
-			Vec3 position = viewport.GetCamera().GetPosition();
+			Camera& camera = m_Editor->GetCamera();
+
+			Vec3 position = camera.GetPosition();
 			if (ImGui::DragFloat3("Position", glm::value_ptr(position), 0.001f, -FLT_MAX, FLT_MAX))
-				viewport.GetCamera().SetPosition(position);
+				camera.SetPosition(position);
 
-			Vec2 orientation = viewport.GetCamera().GetAngle();
+			Vec2 orientation = camera.GetAngle();
 			if (ImGui::DragFloat2("Orientation", glm::value_ptr(orientation), 0.001f, -FLT_MAX, FLT_MAX))
-				viewport.GetCamera().SetAngle(orientation);
+				camera.SetAngle(orientation);
 
-			float field_of_view = viewport.GetFieldOfView();
+			float field_of_view = camera.GetFov();
 			if (ImGui::DragFloat("Field of View", &field_of_view, 0.1f)) 
-				viewport.SetFieldOfView(field_of_view);
+				camera.SetFov(field_of_view);
 		}
-#endif 
 
 		ImGui::PopStyleVar();
 		ImGui::EndPopup();

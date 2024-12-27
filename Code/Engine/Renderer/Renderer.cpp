@@ -280,6 +280,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     m_FrameConstants.mSunDirection = Vec4(inScene->GetSunLightDirection(), 0.0f);
     m_FrameConstants.mCameraPosition = Vec4(vp.GetPosition(), 1.0f);
     m_FrameConstants.mViewportSize = inViewport.GetRenderSize();
+    m_FrameConstants.mNrOfLights = inScene->Count<Light>();
     m_FrameConstants.mLightsBuffer = inScene.GetLightsDescriptorIndex();
     m_FrameConstants.mMaterialsBuffer = inScene.GetMaterialsDescriptorIndex();
     m_FrameConstants.mInstancesBuffer = inScene.GetInstancesDescriptorIndex();
@@ -362,28 +363,13 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
                 inScene.UpdateBLAS(inApp, inDevice, inScene->Get<Mesh>(entity), inScene->GetPtr<Skeleton>(entity), copy_cmd_list);
         }
 
-        // upload pixel data for texture assets 
-        {
-            PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( copy_cmd_list ), PIX_COLOR(0, 255, 0), "UPLOAD TEXTURES");
-
-            for (TextureUpload& texture_upload : m_PendingTextureUploads)
-                inScene.UploadTexture(inApp, inDevice, texture_upload, copy_cmd_list);
-        }
-
-        // upload pixel data for textures that are associated with materials
-        {
-            PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( copy_cmd_list ), PIX_COLOR(0, 255, 0), "UPLOAD MATERIALS");
-
-            for (Entity entity : m_PendingMaterialUploads)
-                inScene.UploadMaterial(inApp, inDevice, inScene->Get<Material>(entity), copy_cmd_list);
-        }
+        inDevice.FlushUploads(copy_cmd_list);
 
         // clear all pending uploads for this frame, memory will be re-used
         m_PendingBlasUpdates.clear();
         m_PendingMeshUploads.clear();
         m_PendingTextureUploads.clear();
         m_PendingSkeletonUploads.clear();
-        m_PendingMaterialUploads.clear();
     }
 
     //// Record uploads for the RT scene 
@@ -697,7 +683,7 @@ RenderInterface::RenderInterface(Application* inApp, Device& inDevice, Renderer&
     char description[128];
     WideCharToMultiByte(CP_ACP, 0, adapter_desc.Description, -1, description, 128, &ch, NULL);
 
-    gpu_info.mProduct = std::string(description);
+    gpu_info.mProduct = String(description);
     gpu_info.mActiveAPI = "DirectX 12 Ultimate";
 
     SetGPUInfo(gpu_info);
@@ -705,11 +691,9 @@ RenderInterface::RenderInterface(Application* inApp, Device& inDevice, Renderer&
     // Create default textures / assets
     const String light_texture_file = TextureAsset::Convert("Assets/light.png");
     m_LightTexture = TextureID(UploadTextureFromAsset(inApp->GetAssets()->GetAsset<TextureAsset>(light_texture_file)));
-    m_Renderer.QueueTextureUpload(m_LightTexture, 0, inApp->GetAssets()->GetAsset<TextureAsset>(light_texture_file));
 
     const String camera_texture_file = TextureAsset::Convert("Assets/camera.png");
     m_CameraTexture = TextureID(UploadTextureFromAsset(inApp->GetAssets()->GetAsset<TextureAsset>(camera_texture_file)));
-    m_Renderer.QueueTextureUpload(m_CameraTexture, 0, inApp->GetAssets()->GetAsset<TextureAsset>(camera_texture_file));
 }
 
 
@@ -858,8 +842,6 @@ void RenderInterface::UploadSkeletonBuffers(Entity inEntity, Skeleton& inSkeleto
 void RenderInterface::UploadMaterialTextures(Entity inEntity, Material& inMaterial, Assets& inAssets)
 {
     IRenderInterface::UploadMaterialTextures(inEntity, inMaterial, inAssets);
-    // UploadMaterialTextures only creates the gpu texture and srv, data upload happens in RayTracedScene::UploadMaterial at the start of the frame
-    m_Renderer.QueueMaterialUpload(inEntity);
 }
 
 
@@ -885,34 +867,61 @@ uint32_t RenderInterface::UploadTextureFromAsset(const TextureAsset::Ptr& inAsse
     const uint8_t* data_ptr = inAsset->GetData();
     const DDS_HEADER* header_ptr = inAsset->GetHeader();
 
-    const uint32_t mipmap_levels = header_ptr->dwMipMapCount;
-    const String& debug_name = inAsset->GetPathAsString();
+    Texture::Desc desc = {};
+    desc.swizzle = inSwizzle;
+    desc.usage = Texture::SHADER_READ_ONLY;
 
-    DXGI_FORMAT format = inIsSRGB ? DXGI_FORMAT_BC3_UNORM_SRGB : DXGI_FORMAT_BC3_UNORM;
+    desc.width = header_ptr->dwWidth;
+    desc.height = header_ptr->dwHeight;
+    desc.mipLevels = header_ptr->dwMipMapCount;
+    desc.debugName = inAsset->GetPathAsString().c_str();
+
+    desc.format = inIsSRGB ? DXGI_FORMAT_BC3_UNORM_SRGB : DXGI_FORMAT_BC3_UNORM;
     EDDSFormat dds_format = (EDDSFormat)header_ptr->ddspf.dwFourCC;
 
     switch (dds_format)
     {
-        case EDDSFormat::DDS_FORMAT_ATI2: format = DXGI_FORMAT_BC5_UNORM; break;
+        case EDDSFormat::DDS_FORMAT_ATI2: desc.format = DXGI_FORMAT_BC5_UNORM; break;
         default: break;
     }
 
     if (dds_format == EDDSFormat::DDS_FORMAT_DX10)
-        format = (DXGI_FORMAT)inAsset->GetHeaderDXT10()->dxgiFormat;
+    {
+        DDS_HEADER_DXT10* extended_header_ptr = inAsset->GetHeaderDXT10();
+        desc.format = (DXGI_FORMAT)extended_header_ptr->dxgiFormat;
+        desc.depthOrArrayLayers = extended_header_ptr->arraySize;
+
+        if (extended_header_ptr->miscFlag == DDS_RESOURCE_MISC_TEXTURECUBE)
+        {
+            desc.depthOrArrayLayers = 6;
+            desc.dimension = Texture::TEX_DIM_CUBE;
+        }
+    }
 
    /* if (format == DXGI_FORMAT_BC7_UNORM && inIsSRGB)
         format = DXGI_FORMAT_BC7_UNORM_SRGB;*/
 
-    const TextureID texture = m_Device.CreateTexture(Texture::Desc
+    const TextureID texture = m_Device.CreateTexture(desc);
+
+    for (uint32_t layer = 0; layer < desc.depthOrArrayLayers; layer++)
     {
-        .swizzle    = inSwizzle,
-        .format     = format,
-        .width      = header_ptr->dwWidth,
-        .height     = header_ptr->dwHeight,
-        .mipLevels  = mipmap_levels,
-        .usage      = Texture::SHADER_READ_ONLY,
-        .debugName  = debug_name.c_str()
-    });
+        for (uint32_t mip = 0; mip < desc.mipLevels; mip++)
+        {
+            const int width = std::max(header_ptr->dwWidth >> mip, 1ul);
+            const int height = std::max(header_ptr->dwHeight >> mip, 1ul);
+
+            m_Device.UploadTextureData(m_Device.GetTexture(texture), mip, layer, data_ptr);
+
+            if (desc.dimension == Texture::TEX_DIM_CUBE)
+            {
+                data_ptr += width * height * 16;
+            }
+            else
+            {
+                data_ptr += width * height;
+            }
+        }
+    }
 
     return texture.GetValue();
 }
@@ -976,6 +985,9 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
             ImGui::SetTooltip("GBuffer is needed for certain editor functionality.");
 
         if (ImGui::SliderInt("Bounces", (int*)&RenderSettings::mPathTraceBounces, 1, 8))
+            RenderSettings::mPathTraceReset = true;
+
+        if (ImGui::SliderInt("Alpha Bounces", (int*)&RenderSettings::mPathTraceAlphaBounces, 0, 64))
             RenderSettings::mPathTraceReset = true;
 
         ImGui::EndMenu();
@@ -1056,7 +1068,7 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
             {
                 if (light.type == LIGHT_TYPE_SPOT || light.type == LIGHT_TYPE_POINT)
                 {
-                    light.colour.a /= 1000.0f;
+                    light.color.a /= 1000.0f;
                 }
             }
         }
@@ -1075,6 +1087,12 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
         {
             for (const auto& [entity, material] : inScene.Each<Material>())
                 material.albedo = Vec4(1.0f);
+        }
+
+        if (ImGui::Button("Material albedo 2"))
+        {
+            for (const auto& [entity, material] : inScene.Each<Material>())
+                material.albedo *= Vec4(2.0f);
         }
 
         if (ImGui::Button("Flip mesh uvs Y"))

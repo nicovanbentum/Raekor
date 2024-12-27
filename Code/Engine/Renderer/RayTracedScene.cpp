@@ -164,45 +164,6 @@ void RayTracedScene::UploadSkeleton(Application* inApp, Device& inDevice, Skelet
 }
 
 
-void RayTracedScene::UploadTexture(Application* inApp, Device& inDevice, TextureUpload& inUpload, CommandList& inCmdList)
-{
-    if (inUpload.mTexture.IsValid() && !inUpload.mData.empty())
-    {
-        const Texture& texture = inDevice.GetTexture(inUpload.mTexture);
-        inDevice.UploadTextureData(inCmdList, texture, inUpload.mMip, inUpload.mData.data());
-    }
-}
-
-
-void RayTracedScene::UploadMaterial(Application* inApp, Device& inDevice, Material& inMaterial, CommandList& inCmdList)
-{
-    auto UploadMaterialTexture = [inApp, &inDevice, &inCmdList](const TextureAsset::Ptr& inAsset, const Texture& inTexture)
-    {
-        if (inAsset)
-        {
-            const uint8_t* data_ptr = inAsset->GetData();
-            const DDS_HEADER* header_ptr = inAsset->GetHeader();
-
-            const uint32_t mipmap_levels = header_ptr->dwMipMapCount;
-
-            for (uint32_t mip = 0; mip < mipmap_levels; mip++)
-            {
-                const IVec2 dimensions = IVec2(std::max(header_ptr->dwWidth >> mip, 1ul), std::max(header_ptr->dwHeight >> mip, 1ul));
-
-                inDevice.UploadTextureData(inCmdList, inTexture, mip, data_ptr);
-
-                data_ptr += dimensions.x * dimensions.y;
-            }
-        }
-    };
-
-    UploadMaterialTexture(inApp->GetAssets()->GetAsset<TextureAsset>(inMaterial.albedoFile), inDevice.GetTexture(TextureID(inMaterial.gpuAlbedoMap)));
-    UploadMaterialTexture(inApp->GetAssets()->GetAsset<TextureAsset>(inMaterial.normalFile), inDevice.GetTexture(TextureID(inMaterial.gpuNormalMap)));
-    UploadMaterialTexture(inApp->GetAssets()->GetAsset<TextureAsset>(inMaterial.emissiveFile), inDevice.GetTexture(TextureID(inMaterial.gpuEmissiveMap)));
-    UploadMaterialTexture(inApp->GetAssets()->GetAsset<TextureAsset>(inMaterial.metallicFile), inDevice.GetTexture(TextureID(inMaterial.gpuMetallicMap)));
-    UploadMaterialTexture(inApp->GetAssets()->GetAsset<TextureAsset>(inMaterial.roughnessFile), inDevice.GetTexture(TextureID(inMaterial.gpuRoughnessMap)));
-}
-
 
 void RayTracedScene::UploadTLAS(Application* inApp, Device& inDevice, CommandList& inCmdList)
 {

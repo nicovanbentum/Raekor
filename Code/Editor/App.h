@@ -12,7 +12,7 @@
 
 namespace RK::DX12 {
 
-class DXApp : public IEditor
+class DXApp : public Editor
 {
 public:
     DXApp();
@@ -45,7 +45,7 @@ private:
 class DeviceResourcesWidget : public IWidget
 {
 public:
-    DeviceResourcesWidget(Application* inApp) : IWidget(inApp, "GPU Resources ") {}
+    DeviceResourcesWidget(Editor* inEditor) : IWidget(inEditor, "GPU Resources ") {}
     void Draw(Widgets* inWidgets, float inDeltaTime);
     void OnEvent(Widgets* inWidgets, const SDL_Event& inEvent) {}
 

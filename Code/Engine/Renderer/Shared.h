@@ -125,18 +125,26 @@ struct FrameConstants
     float     mDeltaTime;
     float     mSunConeAngle;
     uint      mTLAS;
+
     uint      mFrameCounter;
     uint      mDebugLinesVertexBuffer;
     uint      mDebugLinesIndirectArgsBuffer;
     uint      mLightsBuffer;
+    
     uint      mInstancesBuffer;
     uint      mMaterialsBuffer;
     uint2     mViewportSize;
+    
+    uint      mNrOfLights;
+    uint3     mPad0;
+
     float2    mJitter;
     float2    mPrevJitter;
+    
     float4    mSunColor;
     float4    mSunDirection;
     float4    mCameraPosition;
+    
     float4x4  mViewMatrix;
     float4x4  mInvViewMatrix;
     float4x4  mProjectionMatrix;
@@ -301,10 +309,10 @@ struct PathTraceRootConstants
 {
     uint  mReset;
     uint  mBounces;
+    uint  mAlphaBounces;
     uint  mResultTexture;
     uint  mAccumulationTexture;
     uint  mSkyCubeTexture;
-    uint  mPad0;
     uint2 mDispatchSize;
 };
 

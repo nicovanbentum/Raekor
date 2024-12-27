@@ -37,7 +37,8 @@ RTTI_DEFINE_TYPE(DirectionalLight)
 {
 	RTTI_DEFINE_TYPE_INHERITANCE(DirectionalLight, SceneComponent);
 	RTTI_DEFINE_MEMBER(DirectionalLight, SERIALIZE_ALL, "Direction", direction);
-	RTTI_DEFINE_MEMBER(DirectionalLight, SERIALIZE_ALL, "Color", colour);
+	RTTI_DEFINE_MEMBER(DirectionalLight, SERIALIZE_ALL, "Color", color);
+	RTTI_DEFINE_MEMBER(DirectionalLight, SERIALIZE_ALL, "Skybox", cubeMapFile);
 }
 
 
@@ -55,7 +56,7 @@ RTTI_DEFINE_TYPE(Light)
 	RTTI_DEFINE_MEMBER(Light, SERIALIZE_ALL, "Type", type);
 	RTTI_DEFINE_MEMBER(Light, SERIALIZE_ALL, "Direction", direction);
 	RTTI_DEFINE_MEMBER(Light, SERIALIZE_ALL, "Position", position);
-	RTTI_DEFINE_MEMBER(Light, SERIALIZE_ALL, "Color", colour);
+	RTTI_DEFINE_MEMBER(Light, SERIALIZE_ALL, "Color", color);
 	RTTI_DEFINE_MEMBER(Light, SERIALIZE_ALL, "Attributes", attributes);
 }
 

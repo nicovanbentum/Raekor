@@ -45,7 +45,7 @@ private:
 };
 
 DXApp::DXApp() :
-    IEditor(WindowFlag::RESIZE, &m_RenderInterface),
+    Editor(WindowFlag::RESIZE, &m_RenderInterface),
     m_Device(),
     m_Renderer(m_Device, m_Viewport, m_Window),
     m_RayTracedScene(m_Scene),
@@ -104,7 +104,7 @@ DXApp::DXApp() :
 
     assert(m_Device.GetBindlessHeapIndex(bluenoise_texture) == BINDLESS_BLUE_NOISE_TEXTURE_INDEX);
 
-    m_Renderer.QueueTextureUpload(bluenoise_texture, 0, blue_noise_samples.data(), blue_noise_samples.size() * sizeof(Vec4));
+    m_Device.UploadTextureData(m_Device.GetTexture(bluenoise_texture), 0, 0, blue_noise_samples.data());
 
     LogMessage(std::format("[CPU] Blue noise texture took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
 
@@ -115,10 +115,6 @@ DXApp::DXApp() :
     m_DefaultBlackTexture = TextureID(m_RenderInterface.UploadTextureFromAsset(m_Assets.GetAsset<TextureAsset>(black_texture_file)));
     m_DefaultWhiteTexture = TextureID(m_RenderInterface.UploadTextureFromAsset(m_Assets.GetAsset<TextureAsset>(white_texture_file)));
     m_DefaultNormalTexture = TextureID(m_RenderInterface.UploadTextureFromAsset(m_Assets.GetAsset<TextureAsset>(normal_texture_file)));
-
-    m_Renderer.QueueTextureUpload(m_DefaultBlackTexture, 0, m_Assets.GetAsset<TextureAsset>(black_texture_file));
-    m_Renderer.QueueTextureUpload(m_DefaultWhiteTexture, 0, m_Assets.GetAsset<TextureAsset>(white_texture_file));
-    m_Renderer.QueueTextureUpload(m_DefaultNormalTexture, 0, m_Assets.GetAsset<TextureAsset>(normal_texture_file));
 
     assert(m_DefaultBlackTexture.IsValid() && m_DefaultBlackTexture.GetIndex() != 0);
     assert(m_DefaultWhiteTexture.IsValid() && m_DefaultWhiteTexture.GetIndex() != 0);
@@ -193,7 +189,7 @@ DXApp::~DXApp()
 
 void DXApp::OnUpdate(float inDeltaTime)
 {
-    IEditor::OnUpdate(inDeltaTime);
+    Editor::OnUpdate(inDeltaTime);
 
     m_Device.OnUpdate();
 
@@ -220,7 +216,7 @@ void DXApp::OnUpdate(float inDeltaTime)
 
 void DXApp::OnEvent(const SDL_Event& inEvent)
 {
-    IEditor::OnEvent(inEvent);
+    Editor::OnEvent(inEvent);
 
     if (inEvent.type == SDL_KEYDOWN && !inEvent.key.repeat)
     {

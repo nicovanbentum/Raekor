@@ -23,7 +23,7 @@
 
 namespace RK {
 
-IEditor::IEditor(WindowFlags inWindowFlags, IRenderInterface* inRenderInterface) :
+Editor::Editor(WindowFlags inWindowFlags, IRenderInterface* inRenderInterface) :
 	Application(inWindowFlags /* | WindowFlag::BORDERLESS */),
 	m_Scene(inRenderInterface),
 	m_Physics(inRenderInterface),
@@ -99,7 +99,7 @@ IEditor::IEditor(WindowFlags inWindowFlags, IRenderInterface* inRenderInterface)
 			{
 				auto EnumThreadWindowCallback = [](HWND hwnd, LPARAM lParam) -> BOOL 
 				{
-					IEditor* editor = (IEditor*)lParam;
+					Editor* editor = (Editor*)lParam;
 					editor->m_CompilerWindow = hwnd;
 					return false;
 				};
@@ -118,7 +118,7 @@ IEditor::IEditor(WindowFlags inWindowFlags, IRenderInterface* inRenderInterface)
 }
 
 
-IEditor::~IEditor()
+Editor::~Editor()
 {
 	if (m_CompilerProcess)
 	{
@@ -128,7 +128,7 @@ IEditor::~IEditor()
 }
 
 
-void IEditor::OnUpdate(float inDeltaTime)
+void Editor::OnUpdate(float inDeltaTime)
 {
 	// clear all profile sections
 	g_Profiler->Reset();
@@ -169,6 +169,17 @@ void IEditor::OnUpdate(float inDeltaTime)
 		// update Light and DirectionalLight components
 		m_Scene.UpdateLights();
 	}
+
+	/*int cGridSize = 20;
+	float cGridCellSize = 0.5f;
+
+	int cGridHalfSize = cGridSize / 2;
+	for (float i = -cGridHalfSize; i <= cGridHalfSize; i += cGridCellSize)
+	{
+		Vec4 color = Vec4(0.2, 0.2, 0.2, 1.0);
+		g_DebugRenderer.AddLine(Vec3(i, 0, -cGridHalfSize), Vec3(i, 0, cGridHalfSize), color);
+		g_DebugRenderer.AddLine(Vec3(-cGridHalfSize, 0, i), Vec3(cGridHalfSize, 0, i), color);
+	}*/
 
 	// render any scene dependent debug shapes
 	if (GetActiveEntity() != Entity::Null && m_ActiveEntity != m_Scene.GetRootEntity())
@@ -218,12 +229,12 @@ void IEditor::OnUpdate(float inDeltaTime)
 	
 	GUI::EndFrame();
 
-	// Applications that implement IEditor should call IEditor::OnUpdate first, then do their own rendering
+	// Applications that implement Editor should call Editor::OnUpdate first, then do their own rendering
 }
 
 
 
-void IEditor::OnEvent(const SDL_Event& event)
+void Editor::OnEvent(const SDL_Event& event)
 {
 	ImGui_ImplSDL2_ProcessEvent(&event);
 
@@ -244,7 +255,7 @@ void IEditor::OnEvent(const SDL_Event& event)
 		{
 			for (;;)
 			{
-				auto temp_event = SDL_Event {};
+				SDL_Event temp_event;
 				SDL_PollEvent(&temp_event);
 
 				if (temp_event.window.event == SDL_WINDOWEVENT_RESTORED)
@@ -414,7 +425,7 @@ void IEditor::OnEvent(const SDL_Event& event)
 }
 
 
-void IEditor::LogMessage(const String& inMessage)
+void Editor::LogMessage(const String& inMessage)
 {
 	Application::LogMessage(inMessage);
 
@@ -435,7 +446,7 @@ void IEditor::LogMessage(const String& inMessage)
 }
 
 
-void IEditor::BeginImGuiDockSpace()
+void Editor::BeginImGuiDockSpace()
 {
 	ImGuiWindowFlags flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
 	flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize |
@@ -502,7 +513,7 @@ void IEditor::BeginImGuiDockSpace()
 }
 
 
-void IEditor::EndImGuiDockSpace()
+void Editor::EndImGuiDockSpace()
 {
 	ImGui::End();
 }

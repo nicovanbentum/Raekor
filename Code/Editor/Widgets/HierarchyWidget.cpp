@@ -1,16 +1,17 @@
 #include "pch.h"
-#include "hierarchyWidget.h"
+#include "HierarchyWidget.h"
 #include "Application.h"
-#include "components.h"
-#include "scene.h"
-#include "input.h"
+#include "Components.h"
+#include "Scene.h"
+#include "Editor.h"
+#include "Input.h"
 
 namespace RK {
 
 RTTI_DEFINE_TYPE_NO_FACTORY(HierarchyWidget) {}
 
-HierarchyWidget::HierarchyWidget(Application* inApp) :
-	IWidget(inApp, reinterpret_cast<const char*>( ICON_FA_STREAM " Scene " ))
+HierarchyWidget::HierarchyWidget(Editor* inEditor) :
+	IWidget(inEditor, reinterpret_cast<const char*>( ICON_FA_STREAM " Scene " ))
 {
 }
 
@@ -26,6 +27,8 @@ void HierarchyWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 	ImGui::PushStyleColor(ImGuiCol_Header, ImGui::GetColorU32(ImGuiCol_TabHovered));
 	ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImGui::GetColorU32(ImGuiCol_TabHovered));
+
+	ImGuiMultiSelectIO* ms_io = ImGui::BeginMultiSelect(ImGuiMultiSelectFlags_ScopeWindow | ImGuiMultiSelectFlags_BoxSelect1d | ImGuiMultiSelectFlags_NoRangeSelect | ImGuiMultiSelectFlags_ClearOnClickVoid, m_Selection.Size, 100);
 
 	Scene::TraverseFunction Traverse = [](void* inContext, Scene& inScene, Entity inEntity) 
 	{
@@ -49,6 +52,14 @@ void HierarchyWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 	GetScene().TraverseDepthFirst(GetScene().GetRootEntity(), Traverse, this);
 
+	ms_io = ImGui::EndMultiSelect();
+
+	if (ms_io->Requests.size())
+		m_Selection.ApplyRequests(ms_io);
+
+	if (m_Selection.Size > 1)
+		SetActiveEntity(Entity::Null);
+
 	ImGui::PopStyleColor(2);
 
 	DropTargetWindow(GetScene());
@@ -61,15 +72,17 @@ bool HierarchyWidget::DrawFamilyNode(Scene& inScene, Entity inEntity)
 {
 	const String name = inScene.Has<Name>(inEntity) ? inScene.Get<Name>(inEntity).name : "N/A";
 	const Entity active = m_Editor->GetActiveEntity();
+	const bool is_selected = active == inEntity || m_Selection.Contains(inEntity);
 
-	const ImGuiTreeNodeFlags selected = active == inEntity ? ImGuiTreeNodeFlags_Selected : 0;
-	const ImGuiTreeNodeFlags tree_flags = selected | ImGuiTreeNodeFlags_OpenOnArrow;
-
+	const ImGuiTreeNodeFlags tree_selected = is_selected ? ImGuiTreeNodeFlags_Selected : 0;
+	const ImGuiTreeNodeFlags tree_flags = tree_selected | ImGuiTreeNodeFlags_OpenOnArrow;
 	const float font_size = ImGui::GetFontSize();
 
-	if (ImGui::Selectable((const char*)ICON_FA_CUBE "   ", active == inEntity, ImGuiSelectableFlags_None, ImVec2(font_size, font_size))) {}
+	//ImGui::Selectable((const char*)ICON_FA_CUBE "   ", is_selected, ImGuiSelectableFlags_None, ImVec2(font_size, font_size));
 
-	ImGui::SameLine();
+	//ImGui::SameLine();
+	
+	ImGui::SetNextItemSelectionUserData(inEntity);
 
 	const bool opened = ImGui::TreeNodeEx(name.c_str(), tree_flags);
 
@@ -79,8 +92,9 @@ bool HierarchyWidget::DrawFamilyNode(Scene& inScene, Entity inEntity)
 
 		if (ImGui::MenuItem("Delete"))
 		{
-			GetScene().DestroySpatialEntity(inEntity);
+			m_Selection.Clear();
 			m_Editor->SetActiveEntity(Entity::Null);
+			GetScene().DestroySpatialEntity(inEntity);
 		}
 
 		if (ImGui::MenuItem("Select Children"))
@@ -91,7 +105,10 @@ bool HierarchyWidget::DrawFamilyNode(Scene& inScene, Entity inEntity)
 	}
 
 	if (ImGui::IsItemClicked())
+	{
+		m_Selection.Clear();
 		m_Editor->SetActiveEntity(active == inEntity ? Entity::Null : inEntity);
+	}
 
 	DropTargetNode(inScene, inEntity);
 
@@ -105,15 +122,23 @@ void HierarchyWidget::DrawChildlessNode(Scene& inScene, Entity inEntity)
 
 	Entity active_entity = m_Editor->GetActiveEntity();
 	const float font_size = ImGui::GetFontSize();
+	const bool is_selected = active_entity == inEntity || m_Selection.Contains(inEntity);
 
-	if (ImGui::Selectable((const char*)ICON_FA_CUBE "   ", active_entity == inEntity, ImGuiSelectableFlags_None, ImVec2(font_size, font_size))) {}
+	//if (ImGui::Selectable((const char*)ICON_FA_CUBE "   ", is_selected, ImGuiSelectableFlags_None, ImVec2(font_size, font_size))) {}
 
-	ImGui::SameLine();
+	//ImGui::SameLine();
 
 	String name = inScene.Has<Name>(inEntity) ? inScene.Get<Name>(inEntity).name : "N/A";
 
-	if (ImGui::Selectable(name.c_str(), inEntity == active_entity))
-		m_Editor->SetActiveEntity(active_entity == inEntity ? Entity::Null : inEntity);
+	ImGui::SetNextItemSelectionUserData(inEntity);
+
+	const ImGuiTreeNodeFlags tree_selected = is_selected ? ImGuiTreeNodeFlags_Selected : 0;
+	const ImGuiTreeNodeFlags tree_flags = tree_selected | ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_Bullet;
+
+	const bool opened = ImGui::TreeNodeEx(name.c_str(), tree_flags);
+	ImGui::TreePop();
+	//if (ImGui::Selectable(name.c_str(), inEntity == active_entity || m_Selection.Contains(inEntity)))
+		//m_Editor->SetActiveEntity(active_entity == inEntity ? Entity::Null : inEntity);
 
 	if (ImGui::BeginPopupContextItem())
 	{
@@ -121,11 +146,23 @@ void HierarchyWidget::DrawChildlessNode(Scene& inScene, Entity inEntity)
 
 		if (ImGui::MenuItem("Delete"))
 		{
-			GetScene().DestroySpatialEntity(inEntity);
-			m_Editor->SetActiveEntity(Entity::Null);
+			void* it = NULL; ImGuiID id; 
+			while (m_Selection.GetNextSelectedItem(&it, &id)) 
+			{ 
+				m_Editor->SetActiveEntity(Entity::Null);
+				GetScene().DestroySpatialEntity(Entity(id));
+			}
+
+			m_Selection.Clear();
 		}
 
 		ImGui::EndPopup();
+	}
+
+	if (ImGui::IsItemClicked())
+	{
+		m_Selection.Clear();
+		m_Editor->SetActiveEntity(active_entity == inEntity ? Entity::Null : inEntity);
 	}
 
 	ImGui::PopID();
@@ -208,8 +245,12 @@ void HierarchyWidget::OnEvent(Widgets* inWidgets, const SDL_Event& inEvent)
 		{
 			case SDLK_DELETE:
 			{
-				GetScene().Destroy(GetActiveEntity());
-				SetActiveEntity(Entity::Null);
+				void* it = NULL; ImGuiID id;
+				while (m_Selection.GetNextSelectedItem(&it, &id))
+				{
+					GetScene().DestroySpatialEntity(Entity(id));
+					m_Editor->SetActiveEntity(Entity::Null);
+				}
 			} break;
 		}
 	}
