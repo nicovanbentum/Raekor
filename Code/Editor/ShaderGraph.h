@@ -23,23 +23,25 @@ public:
 	static constexpr ImU32 sVertexShaderColor = IM_COL32(201, 181, 15, 255);
 
 public:
-	ShaderNodePin* GetInputPin(int inIndex) { return inIndex >= GetInputPins().size() ? nullptr : &GetInputPins()[inIndex]; }
-	ShaderNodePin* GetOutputPin(int inIndex) { return inIndex >= GetOutputPins().size() ? nullptr : &GetOutputPins()[inIndex]; }
+	ShaderNodePin& GetInputPin(int inIndex) { return GetInputPins()[inIndex]; }
+	ShaderNodePin& GetOutputPin(int inIndex) { return GetOutputPins()[inIndex]; }
+
+	const ShaderNodePin& GetInputPin(int inIndex) const { return GetInputPins()[inIndex]; }
+	const ShaderNodePin& GetOutputPin(int inIndex) const { return GetOutputPins()[inIndex]; }
 
 	virtual Slice<ShaderNodePin> GetInputPins() { return Slice<ShaderNodePin>(); }
 	virtual Slice<ShaderNodePin> GetOutputPins() { return Slice<ShaderNodePin>(); }
 
+	virtual Slice<const ShaderNodePin> GetInputPins() const { return Slice<ShaderNodePin>(); }
+	virtual Slice<const ShaderNodePin> GetOutputPins() const { return Slice<ShaderNodePin>(); }
+
 	virtual void DrawImNode(ShaderGraphBuilder& inBuilder) {}
 	virtual String GenerateCode(ShaderGraphBuilder& inBuilder) { return ""; }
-
-	int GetIndex() const { return m_Index; }
-	void SetIndex(int inIndex) { m_Index = inIndex; }
 
 	bool GetIsCollapsed() const { return m_IsCollapsed; }
 	void SetIsCollapsed(bool inValue) { m_IsCollapsed = inValue; }
 
 protected:
-	int m_Index = -1;
 	bool m_IsCollapsed = false;
 };
 
@@ -81,11 +83,14 @@ public:
 
 	static bool sIsCompatible(EKind inFrom, EKind inTo);
 
-	int GetIndex() const { return m_Index; }
-	void SetIndex(int inIndex) { m_Index = inIndex; }
+	int GetGlobalIndex() const { return m_Index; }
+	void SetGlobalIndex(int inIndex) { m_Index = inIndex; }
 
 	EKind GetKind() const { return m_Kind; }
 	void SetKind(EKind inKind) { m_Kind = inKind; }
+
+	bool HasLink() const { return m_LinkIndex > -1; }
+	int GetLinkIndex() const { return m_LinkIndex; }
 
 	ImU32 GetColor() const { return m_KindColors[m_Kind]; }
 	StringView GetKindName() const { return sKindNames[m_Kind]; }
@@ -107,6 +112,7 @@ private:
 
 private:
 	int m_Index = -1;
+	int m_LinkIndex = -1;
 	EKind m_Kind = AUTO;
 	String m_VariableName;
 };
@@ -117,6 +123,16 @@ enum EShaderGraph
 	SHADER_GRAPH_VERTEX,
 	SHADER_GRAPH_PIXEL,
 	SHADER_GRAPH_COUNT
+};
+
+struct ShaderGraphLink
+{
+	RTTI_DECLARE_TYPE(ShaderGraphLink);
+
+	int fromNodeIndex;
+	int fromPinIndex;
+	int toNodeIndex;
+	int toPinIndex;
 };
 
 class ShaderGraphBuilder
@@ -131,33 +147,12 @@ public:
 
 	void DestroyShaderNode(int inIndex);
 
-	int GetShaderNodeIndex(const ShaderNodePin& inPin) const { return M_ShaderNodePins[inPin.GetIndex()].first; }
-	int GetShaderNodePinIndex(const ShaderNodePin& inPin) const { return M_ShaderNodePins[inPin.GetIndex()].second; }
-
 	ShaderNode* GetShaderNode(int inIndex) { return m_ShaderNodes[inIndex].get(); }
 	const ShaderNode* GetShaderNode(int inIndex) const { return m_ShaderNodes[inIndex].get(); }
 
-	ShaderNode* GetShaderNode(const ShaderNodePin& inPin) { return GetShaderNode(M_ShaderNodePins[inPin.GetIndex()].second); }
-	const ShaderNode* GetShaderNode(const ShaderNodePin& inPin) const { return GetShaderNode(M_ShaderNodePins[inPin.GetIndex()].second); }
+	const ShaderNodePin* GetIncomingPin(const ShaderNodePin& inPin);
 
-	const ShaderNodePin* GetInputPin(int inIndex) { return GetShaderNode(M_ShaderNodePins[inIndex].first)->GetInputPin(M_ShaderNodePins[inIndex].second); }
-	const ShaderNodePin* GetOutputPin(int inIndex) { return GetShaderNode(M_ShaderNodePins[inIndex].first)->GetOutputPin(M_ShaderNodePins[inIndex].second); }
-
-	int GetIncomingPin(int inIndex) const { return m_IncomingLinks.at(inIndex); }
-	Slice<const int> GetOutgoingPins(int inIndex) const { return m_OutgoingLinks.at(inIndex); }
-
-	bool HasIncomingPin(int inIndex) const { return m_IncomingLinks.contains(inIndex); }
-	bool HasOutgoingPins(int inIndex) const { return m_OutgoingLinks.contains(inIndex) && !m_OutgoingLinks.at(inIndex).empty(); }
-
-	void ConnectPins(int inStartPin, int inEndPin);
-	void DisconnectPins(int inStartPin, int inEndPin);
-
-	const ShaderNodePin* GetIncomingPin(const ShaderNodePin& inPin) { return HasIncomingPin(inPin.GetIndex()) ? GetOutputPin(GetIncomingPin(inPin.GetIndex())) : nullptr; }
-
-	Slice<const std::shared_ptr<ShaderNode>> GetShaderNodes() const { return m_ShaderNodes; }
-
-	void RequestPassConstants() { m_RequiresPassConstants = true; }
-	void RequestFrameConstants() { m_RequiresFrameConstants = true; }
+	Slice<const SharedPtr<ShaderNode>> GetShaderNodes() const { return m_ShaderNodes; }
 
 	//////////////////////
 	// IMGUI/IMNODES FUNCTIONS
@@ -179,7 +174,10 @@ public:
 	void BeginDraw();
 	void EndDraw() {}
 
-	Slice<const Pair<int, int>> GetLinks() const { return Slice(m_Links); }
+	ShaderGraphLink& GetLink(int inIndex) { return m_Links[inIndex]; }
+	const ShaderGraphLink& GetLink(int inIndex) const { return m_Links[inIndex]; }
+
+	const Array<ShaderGraphLink>& GetLinks() const { return m_Links; }
 
 	bool GetShowNodeIndices() const { return m_ShowNodeIndices; }
 	void SetShowNodeIndices(bool inValue) { m_ShowNodeIndices = inValue; }
@@ -217,20 +215,18 @@ private:
 	bool m_RequiresPassConstants = false;
 	bool m_RequiresFrameConstants = false;
 
+
 	int m_LineNr = 0;
 	int m_NodeIndex = -1;
 	int m_InputPinIndex = -1;
+	int m_GlobalPinIndex = -1;
 	int m_OutputPinIndex = -1;
-
 
 	String m_Layout;
 	String m_ErrorMessage;
+	
 	Array<String> m_Functions;
-	Array<Pair<int, int>> m_Links; // global pin index <-> global pin index
-	Array<Pair<int, int>> M_ShaderNodePins; // global pin index -> <node index, local pin index>
-
-	HashMap<int, int> m_IncomingLinks; // global pin index -> global pin index
-	HashMap<int, Array<int>> m_OutgoingLinks; // global pin index -> global pin indices
+	Array<ShaderGraphLink> m_Links;
 	Array<SharedPtr<ShaderNode>> m_ShaderNodes;
 };
 

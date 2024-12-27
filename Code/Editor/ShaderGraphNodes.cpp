@@ -9,6 +9,12 @@
 
 namespace RK {
 
+RTTI_DEFINE_TYPE(RerouteShaderNode)
+{
+	RTTI_DEFINE_TYPE_INHERITANCE(RerouteShaderNode, ShaderNode);
+	RTTI_DEFINE_MEMBER(RerouteShaderNode, SERIALIZE_ALL, "Output Pin", m_OutputPin);
+}
+
 RTTI_DEFINE_TYPE(FloatValueShaderNode)
 {
 	RTTI_DEFINE_TYPE_INHERITANCE(FloatValueShaderNode, ShaderNode);
@@ -54,9 +60,9 @@ RTTI_DEFINE_TYPE(GetPositionShaderNode)
 	RTTI_DEFINE_TYPE_INHERITANCE(GetPositionShaderNode, SingleOutputShaderNode);
 }
 
-RTTI_DEFINE_TYPE(GetNormalShaderNode)
+RTTI_DEFINE_TYPE(GetVertexNormalShaderNode)
 {
-	RTTI_DEFINE_TYPE_INHERITANCE(GetNormalShaderNode, SingleOutputShaderNode);
+	RTTI_DEFINE_TYPE_INHERITANCE(GetVertexNormalShaderNode, SingleOutputShaderNode);
 }
 
 RTTI_DEFINE_TYPE(GetTexCoordShaderNode)
@@ -82,6 +88,26 @@ RTTI_DEFINE_TYPE(GetPixelCoordShaderNode)
 RTTI_DEFINE_TYPE(GetTexCoordinateShaderNode)
 {
 	RTTI_DEFINE_TYPE_INHERITANCE(GetTexCoordinateShaderNode, SingleOutputShaderNode);
+}
+
+RTTI_DEFINE_TYPE(GetAlbedoShaderNode)
+{
+	RTTI_DEFINE_TYPE_INHERITANCE(GetAlbedoShaderNode, SingleOutputShaderNode);
+}
+
+RTTI_DEFINE_TYPE(GetPixelNormalShaderNode)
+{
+	RTTI_DEFINE_TYPE_INHERITANCE(GetPixelNormalShaderNode, SingleOutputShaderNode);
+}
+
+RTTI_DEFINE_TYPE(GetMetallicShaderNode)
+{
+	RTTI_DEFINE_TYPE_INHERITANCE(GetMetallicShaderNode, SingleOutputShaderNode);
+}
+
+RTTI_DEFINE_TYPE(GetRoughnessShaderNode)
+{
+	RTTI_DEFINE_TYPE_INHERITANCE(GetRoughnessShaderNode, SingleOutputShaderNode);
 }
 
 RTTI_DEFINE_TYPE(CompareShaderNode)
@@ -174,15 +200,20 @@ void gRegisterShaderNodeTypes()
 	g_RTTIFactory.Register(RTTI_OF<ShaderNodePin>());
 	g_RTTIFactory.Register(RTTI_OF<ShaderGraphBuilder>());
 
+	g_RTTIFactory.Register(RTTI_OF<RerouteShaderNode>());
 	g_RTTIFactory.Register(RTTI_OF<FloatValueShaderNode>());
 	g_RTTIFactory.Register(RTTI_OF<FloatOpShaderNode>());
 	g_RTTIFactory.Register(RTTI_OF<FloatFunctionShaderNode>());
 	g_RTTIFactory.Register(RTTI_OF<GetTimeShaderNode>());
 	g_RTTIFactory.Register(RTTI_OF<GetPositionShaderNode>());
 	g_RTTIFactory.Register(RTTI_OF<GetTexCoordShaderNode>());
-	g_RTTIFactory.Register(RTTI_OF<GetNormalShaderNode>());
+	g_RTTIFactory.Register(RTTI_OF<GetVertexNormalShaderNode>());
 	g_RTTIFactory.Register(RTTI_OF<GetTangentShaderNode>());
 	g_RTTIFactory.Register(RTTI_OF<GetDeltaTimeShaderNode>());
+	g_RTTIFactory.Register(RTTI_OF<GetAlbedoShaderNode>());
+	g_RTTIFactory.Register(RTTI_OF<GetPixelNormalShaderNode>());
+	g_RTTIFactory.Register(RTTI_OF<GetMetallicShaderNode>());
+	g_RTTIFactory.Register(RTTI_OF<GetRoughnessShaderNode>());
 	g_RTTIFactory.Register(RTTI_OF<GetPixelCoordShaderNode>());
 	g_RTTIFactory.Register(RTTI_OF<GetTexCoordinateShaderNode>());
 	g_RTTIFactory.Register(RTTI_OF<VectorValueShaderNode>());
@@ -194,6 +225,37 @@ void gRegisterShaderNodeTypes()
 	g_RTTIFactory.Register(RTTI_OF<CompareShaderNode>());
 	g_RTTIFactory.Register(RTTI_OF<PixelShaderOutputShaderNode>());
 	g_RTTIFactory.Register(RTTI_OF<VertexShaderOutputShaderNode>());
+}
+
+
+void RerouteShaderNode::DrawImNode(ShaderGraphBuilder& inBuilder)
+{
+	inBuilder.BeginNode();
+
+	inBuilder.BeginInputPin();
+	ImGui::Text(" ");
+	inBuilder.EndInputPin();
+
+	ImGui::SameLine();
+
+	inBuilder.BeginOutputPin();
+	ImGui::Text(" ");
+	inBuilder.EndOutputPin();
+
+	inBuilder.EndNode();
+}
+
+
+String RerouteShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
+{
+	if (const ShaderNodePin* pin = inBuilder.GetIncomingPin(m_InputPin))
+	{
+		m_InputPin.SetKind(pin->GetKind());
+		m_OutputPin.SetKind(pin->GetKind());
+		m_OutputPin.SetOutVariableName(pin->GetOutVariableName());
+	}
+	
+	return "";
 }
 
 
@@ -300,7 +362,7 @@ void FloatFunctionShaderNode::DrawImNode(ShaderGraphBuilder& ioBuilder)
 
 	ImGui::PopStyleColor(3);
 
-	ImNodes::EndNode();
+	ioBuilder.EndNode();
 }
 
 
@@ -439,9 +501,12 @@ String VectorOpShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
 		String& var_code = variables_code[index];
 		ShaderNodePin& var_pin = m_InputPins[index];
 
-		if (const ShaderNodePin* pin = inBuilder.GetIncomingPin(var_pin))
+		if (var_pin.HasLink())
 		{
-			var_code = pin->GetOutVariableName();
+			ShaderGraphLink& link = inBuilder.GetLink(var_pin.GetLinkIndex());
+			ShaderNode* node = inBuilder.GetShaderNode(link.fromNodeIndex);
+			ShaderNodePin& pin = node->GetOutputPin(link.fromPinIndex);
+			var_code = pin.GetOutVariableName();
 		}
 		else
 		{
@@ -536,11 +601,14 @@ void VectorSplitShaderNode::DrawImNode(ShaderGraphBuilder& ioBuilder)
 
 String VectorSplitShaderNode::GenerateCode(ShaderGraphBuilder& ioBuilder)
 {
-	if (const ShaderNodePin* incoming_pin = ioBuilder.GetIncomingPin(m_InputPin))
+	if (m_InputPin.HasLink())
 	{
-		m_OutputPins[0].SetOutVariableName(std::format("{}.x", incoming_pin->GetOutVariableName()));
-		m_OutputPins[1].SetOutVariableName(std::format("{}.y", incoming_pin->GetOutVariableName()));
-		m_OutputPins[2].SetOutVariableName(std::format("{}.z", incoming_pin->GetOutVariableName()));
+		const ShaderGraphLink& link = ioBuilder.GetLink(m_InputPin.GetLinkIndex());
+		const ShaderNodePin& pin = ioBuilder.GetShaderNode(link.fromNodeIndex)->GetOutputPin(link.fromPinIndex);
+
+		m_OutputPins[0].SetOutVariableName(std::format("{}.x", pin.GetOutVariableName()));
+		m_OutputPins[1].SetOutVariableName(std::format("{}.y", pin.GetOutVariableName()));
+		m_OutputPins[2].SetOutVariableName(std::format("{}.z", pin.GetOutVariableName()));
 	}
 
 	return ""; // does not emit any new code directly

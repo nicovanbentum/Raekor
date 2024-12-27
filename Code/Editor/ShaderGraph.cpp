@@ -7,6 +7,8 @@ namespace RK {
 
 RTTI_DEFINE_TYPE(ShaderNode) {}
 
+RTTI_DEFINE_TYPE(ShaderGraphLink) {}
+
 RTTI_DEFINE_TYPE(ShaderNodePin)
 {
 	RTTI_DEFINE_MEMBER(ShaderNodePin, SERIALIZE_ALL, "Kind", m_Kind);
@@ -33,6 +35,14 @@ bool ShaderNodePin::sIsCompatible(EKind inFrom, EKind inTo)
 	return false;
 }
 
+const ShaderNodePin* ShaderGraphBuilder::GetIncomingPin(const ShaderNodePin& inPin)
+{
+	if (!inPin.HasLink())
+		return nullptr;
+
+	// TODO
+	return nullptr;
+}
 
 void ShaderGraphBuilder::DestroyShaderNode(int inIndex)
 {
@@ -44,41 +54,6 @@ void ShaderGraphBuilder::DestroyShaderNode(int inIndex)
 
 	if (node_count > 1)
 		ImNodes::SetNodeScreenSpacePos(inIndex, ImNodes::GetNodeScreenSpacePos(back_index));
-}
-
-
-void ShaderGraphBuilder::ConnectPins(int inStartPin, int inEndPin)
-{
-	m_IncomingLinks[inEndPin] = inStartPin;
-	m_OutgoingLinks[inStartPin].push_back(inEndPin);
-
-	m_Links.emplace_back(inStartPin, inEndPin);
-}
-
-
-void ShaderGraphBuilder::DisconnectPins(int inStartPin, int inEndPin)
-{
-	for (int& pin : m_OutgoingLinks[inStartPin])
-	{
-		if (pin == inEndPin)
-		{
-			pin = m_OutgoingLinks[inStartPin].back();
-			m_OutgoingLinks[inStartPin].pop_back();
-			break;
-		}
-	}
-
-	m_IncomingLinks.erase(inEndPin);
-
-	for (auto& link : m_Links)
-	{
-		if (link.first == inStartPin && link.second == inEndPin)
-		{
-			link = m_Links.back();
-			m_Links.pop_back();
-			break;
-		}
-	}
 }
 
 
@@ -123,27 +98,25 @@ void ShaderGraphBuilder::BeginNode(StringView inTitle, ImU32 inColor)
 
 bool ShaderGraphBuilder::BeginInputPin()
 {
-	ShaderNodePin* input_pin = m_ShaderNodes[m_NodeIndex]->GetInputPin(++m_InputPinIndex);
-	ImNodes::PushColorStyle(ImNodesCol_Pin,input_pin->GetColor());
+	ShaderNodePin& input_pin = m_ShaderNodes[m_NodeIndex]->GetInputPin(++m_InputPinIndex);
+	ImNodes::PushColorStyle(ImNodesCol_Pin,input_pin.GetColor());
 
-	input_pin->SetIndex(M_ShaderNodePins.size());
-	M_ShaderNodePins.emplace_back(std::make_pair(m_NodeIndex, m_InputPinIndex));
+	input_pin.SetGlobalIndex(++m_GlobalPinIndex);
+	ImNodes::BeginInputAttribute(input_pin.GetGlobalIndex(), ImNodesPinShape_CircleFilled);
 	
-	ImNodes::BeginInputAttribute(input_pin->GetIndex(), ImNodesPinShape_CircleFilled);
-	return HasIncomingPin(input_pin->GetIndex());
+	return input_pin.HasLink();
 }
 
 
 bool ShaderGraphBuilder::BeginOutputPin()
 {
-	ShaderNodePin* output_pin = m_ShaderNodes[m_NodeIndex]->GetOutputPin(++m_OutputPinIndex);
-	ImNodes::PushColorStyle(ImNodesCol_Pin, output_pin->GetColor());
+	ShaderNodePin& output_pin = m_ShaderNodes[m_NodeIndex]->GetOutputPin(++m_OutputPinIndex);
+	ImNodes::PushColorStyle(ImNodesCol_Pin, output_pin.GetColor());
 	
-	output_pin->SetIndex(M_ShaderNodePins.size());
-	M_ShaderNodePins.emplace_back(std::make_pair(m_NodeIndex, m_OutputPinIndex));
-
-	ImNodes::BeginOutputAttribute(output_pin->GetIndex(), ImNodesPinShape_QuadFilled);
-	return HasOutgoingPins(output_pin->GetIndex());
+	output_pin.SetGlobalIndex(++m_GlobalPinIndex);
+	ImNodes::BeginOutputAttribute(output_pin.GetGlobalIndex(), ImNodesPinShape_QuadFilled);
+	
+	return output_pin.HasLink();
 }
 
 
@@ -152,7 +125,7 @@ void ShaderGraphBuilder::BeginDraw()
 	m_NodeIndex = -1;
 	m_InputPinIndex = -1;
 	m_OutputPinIndex = -1;
-	M_ShaderNodePins.clear();
+	m_GlobalPinIndex = -1;
 }
 
 //////////////////////
@@ -170,18 +143,29 @@ bool ShaderGraphBuilder::GenerateCodeFromTemplate(String& ioCode)
 	pin_indegree.resize(local_builder.GetShaderNodes().size());
 	pin_outdegree.resize(local_builder.GetShaderNodes().size());
 
-	for (const auto& [index, shader_node] : gEnumerate(local_builder.GetShaderNodes()))
+	for (const auto& [node_index, shader_node] : gEnumerate(local_builder.GetShaderNodes()))
 	{
-		for (const ShaderNodePin& output_pin : shader_node->GetOutputPins())
+		for (const auto& [pin_index, output_pin ] : gEnumerate(shader_node->GetOutputPins()))
 		{
-			if (local_builder.HasOutgoingPins(output_pin.GetIndex()))
-				pin_indegree[index] += local_builder.GetOutgoingPins(output_pin.GetIndex()).size();
+			for (const ShaderGraphLink& link : m_Links)
+			{
+				if (link.fromNodeIndex == node_index && link.fromPinIndex == pin_index)
+				{
+					pin_indegree[node_index]++;
+				}
+			}
 		}
 
-		for (const ShaderNodePin& input_pin : shader_node->GetInputPins())
+		for (const auto& [pin_index, input_pin] : gEnumerate(shader_node->GetInputPins()))
 		{
-			if (local_builder.HasIncomingPin(input_pin.GetIndex()))
-				pin_outdegree[index] += 1;
+			for (const ShaderGraphLink& link : m_Links)
+			{
+				if (link.toNodeIndex == node_index && link.toPinIndex == pin_index)
+				{
+					pin_outdegree[node_index]++;
+					break; // input pins can only have 1 link
+				}
+			}
 		}
 	}
 
@@ -213,16 +197,16 @@ bool ShaderGraphBuilder::GenerateCodeFromTemplate(String& ioCode)
 			nodes.pop();
 			sorted_nodes.push_back(node);
 
-			for (const auto& input_pin : local_builder.GetShaderNode(node)->GetInputPins())
+			for (const ShaderNodePin& input_pin : local_builder.GetShaderNode(node)->GetInputPins())
 			{
-				if (const ShaderNodePin* pin = local_builder.GetIncomingPin(input_pin))
+				/*if (const ShaderNodePin* pin = local_builder.GetIncomingPin(input_pin))
 				{
 					int connected_node_index = local_builder.GetShaderNodeIndex(*pin);
 					pin_indegree[connected_node_index]--;
 
 					if (pin_indegree[connected_node_index] == 0)
 						nodes.push(connected_node_index);
-				}
+				}*/
 			}
 		}
 
@@ -348,12 +332,6 @@ void ShaderGraphBuilder::OpenFromFileJSON(JSON::ReadArchive& ioArchive)
 	{
 		m_ShaderNodes.emplace_back((ShaderNode*)object);
 		object = ioArchive.ReadNextObject(&rtti);
-	}
-
-	for (const auto& link : m_Links)
-	{
-		m_IncomingLinks[link.second] = link.first;
-		m_OutgoingLinks[link.first].push_back(link.second);
 	}
 }
 

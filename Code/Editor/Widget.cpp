@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "Widget.h"
+#include "Editor.h"
 #include "Profiler.h"
 #include "Application.h"
 
@@ -9,8 +10,8 @@ class Application;
 
 RTTI_DEFINE_TYPE_NO_FACTORY(IWidget) {}
 
-IWidget::IWidget(Application* inApp, const std::string& title) :
-	m_Editor(inApp), m_Title(title)
+IWidget::IWidget(Editor* inEditor, const String& title) :
+	m_Editor(inEditor), m_Title(title)
 {
 	assert(m_Editor);
 }

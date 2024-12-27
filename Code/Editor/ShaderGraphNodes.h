@@ -8,6 +8,24 @@ namespace RK {
 void gRegisterShaderNodeTypes();
 
 
+class RerouteShaderNode : public ShaderNode
+{
+public:
+	RTTI_DECLARE_VIRTUAL_TYPE(RerouteShaderNode);
+
+public:
+	void DrawImNode(ShaderGraphBuilder& inBuilder) override;
+	String GenerateCode(ShaderGraphBuilder& inBuilder) override;
+
+	Slice<ShaderNodePin> GetInputPins() override { return Slice(&m_InputPin, 1); }
+	Slice<ShaderNodePin> GetOutputPins() override { return Slice(&m_OutputPin, 1); }
+
+private:
+	ShaderNodePin m_InputPin = { ShaderNodePin::AUTO };
+	ShaderNodePin m_OutputPin = { ShaderNodePin::AUTO };
+};
+
+
 class FloatValueShaderNode : public ShaderNode
 {
 	RTTI_DECLARE_VIRTUAL_TYPE(FloatValueShaderNode);
@@ -331,12 +349,12 @@ public:
 };
 
 
-class GetNormalShaderNode : public SingleOutputShaderNode
+class GetVertexNormalShaderNode : public SingleOutputShaderNode
 {
-	RTTI_DECLARE_VIRTUAL_TYPE(GetNormalShaderNode);
+	RTTI_DECLARE_VIRTUAL_TYPE(GetVertexNormalShaderNode);
 
 public:
-	GetNormalShaderNode() : SingleOutputShaderNode("Get Normal", "vertex.mNormal", ShaderNodePin::VECTOR) {}
+	GetVertexNormalShaderNode() : SingleOutputShaderNode("Get Normal", "vertex.mNormal", ShaderNodePin::VECTOR) {}
 };
 
 
@@ -373,6 +391,42 @@ class GetTexCoordinateShaderNode : public SingleOutputShaderNode
 
 public:
 	GetTexCoordinateShaderNode() : SingleOutputShaderNode("Get Texture Coord", "float3(input.texcoord.xy, 0.0)", ShaderNodePin::VECTOR) {}
+};
+
+
+class GetAlbedoShaderNode : public SingleOutputShaderNode
+{
+	RTTI_DECLARE_VIRTUAL_TYPE(GetAlbedoShaderNode);
+
+public:
+	GetAlbedoShaderNode() : SingleOutputShaderNode("Get Albedo", "albedo.rgb", ShaderNodePin::VECTOR) {}
+};
+
+
+class GetPixelNormalShaderNode : public SingleOutputShaderNode
+{
+	RTTI_DECLARE_VIRTUAL_TYPE(GetPixelNormalShaderNode);
+
+public:
+	GetPixelNormalShaderNode() : SingleOutputShaderNode("Get Normal", "normal.rgb", ShaderNodePin::VECTOR) {}
+};
+
+
+class GetMetallicShaderNode : public SingleOutputShaderNode
+{
+	RTTI_DECLARE_VIRTUAL_TYPE(GetMetallicShaderNode);
+
+public:
+	GetMetallicShaderNode() : SingleOutputShaderNode("Get Metallic", "metallic", ShaderNodePin::FLOAT) {}
+};
+
+
+class GetRoughnessShaderNode : public SingleOutputShaderNode
+{
+	RTTI_DECLARE_VIRTUAL_TYPE(GetRoughnessShaderNode);
+
+public:
+	GetRoughnessShaderNode() : SingleOutputShaderNode("Get Roughness", "roughness", ShaderNodePin::FLOAT) {}
 };
 
 

@@ -18,7 +18,7 @@ class IWidget
 	RTTI_DECLARE_VIRTUAL_TYPE(IWidget);
 
 public:
-	IWidget(Application* inApp, const String& inTitle);
+	IWidget(Editor* inEditor, const String& inTitle);
 	virtual void Draw(Widgets* inWidgets, float inDeltaTime) = 0;
 	virtual void OnEvent(Widgets* inWidgets, const SDL_Event& inEvent) = 0;
 
@@ -42,7 +42,7 @@ protected:
 	Entity GetActiveEntity();
 	void   SetActiveEntity(Entity inEntity);
 
-	Application* m_Editor;
+	Editor* m_Editor;
 	String m_Title;
 	bool m_Open = true;
 	bool m_PrevOpen = true;
@@ -56,10 +56,10 @@ class Widgets
 public:
 
 	template<typename T>
-	T* Register(Application* inApp)
+	T* Register(Editor* inEditor)
 	{
 		static_assert( std::is_base_of<IWidget, T>() );
-		m_Widgets.emplace_back(std::make_shared<T>(inApp));
+		m_Widgets.emplace_back(std::make_shared<T>(inEditor));
         return std::static_pointer_cast<T>( m_Widgets.back() ).get();
 	}
 
