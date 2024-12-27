@@ -510,6 +510,10 @@ void Scene::OpenFromFile(const String& inFilePath, Assets& ioAssets, Application
 	m_ActiveSceneFilePath = inFilePath;
 	assert(fs::is_regular_file(inFilePath));
 
+	// update Discord status
+	String filename = m_ActiveSceneFilePath.filename().string();
+	inApp->GetDiscordRPC().SetActivityDetails(filename.c_str());
+
 	// open archive
 	BinaryReadArchive archive(inFilePath);
 	File& file = archive.GetFile();

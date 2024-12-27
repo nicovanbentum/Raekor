@@ -24,6 +24,11 @@ list(APPEND CppFiles ${CMAKE_SOURCE_DIR}/ThirdParty/meshoptimizer/src/clusterize
 #set_source_files_properties(${RawPDBCppFiles} PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
 #list(APPEND CppFiles ${RawPDBCppFiles})
 
+file(GLOB_RECURSE DiscordHeaderFiles ${CMAKE_SOURCE_DIR}/ThirdParty/discord_game_sdk/cpp/*.h)
+file(GLOB_RECURSE DiscordSourceFiles ${CMAKE_SOURCE_DIR}/ThirdParty/discord_game_sdk/cpp/*.cpp)
+set_source_files_properties(${DiscordSourceFiles} PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+list(APPEND CppFiles ${DiscordSourceFiles})
+
 # Add ImGui
 set(IMGUI_DIR ${CMAKE_SOURCE_DIR}/ThirdParty/imgui)
 list(APPEND ImGuiFiles ${IMGUI_DIR}/imgui.cpp)
@@ -73,6 +78,8 @@ find_library(PIX NAMES WinPixEventRuntime PATHS ${CMAKE_SOURCE_DIR}/ThirdParty/P
 find_library(DXC_LIBRARY NAMES dxcompiler lib PATHS ${CMAKE_SOURCE_DIR}/ThirdParty/dxc NO_DEFAULT_PATH REQUIRED)
 find_library(DIRECT_STORAGE_LIBRARY NAMES dstorage lib PATHS ${CMAKE_SOURCE_DIR}/ThirdParty/DirectStorage NO_DEFAULT_PATH REQUIRED)
 
+find_library(DISCORD_LIB NAMES discord_game_sdk lib PATHS ${CMAKE_SOURCE_DIR}/ThirdParty/discord_game_sdk/lib/x86_64 NO_DEFAULT_PATH REQUIRED)
+
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PROJECT_SOURCE_DIR}/Renderer/Shared.h" "${CMAKE_SOURCE_DIR}/Assets/Shaders/Backend/Include/Shared.hlsli")
 
 # Add Jolt Physics library using their CMake file
@@ -108,6 +115,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 	${CMAKE_SOURCE_DIR}/ThirdParty/BinaryRelations
     ${CMAKE_SOURCE_DIR}/ThirdParty/meshoptimizer/src
     ${CMAKE_SOURCE_DIR}/ThirdParty/IconFontCppHeaders
+    ${CMAKE_SOURCE_DIR}/ThirdParty/discord_game_sdk/cpp
     ${CMAKE_SOURCE_DIR}/ThirdParty/D3D12MemoryAllocator/include
     ${CMAKE_SOURCE_DIR}/ThirdParty/PIX/Include/WinPixEventRuntime
     ${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/include

@@ -91,11 +91,15 @@ Application::Application(WindowFlags inFlags)
 		SDL_ShowWindow(m_Window);
 
 	SDL_AddEventWatch(OnNativeEvent, this);
+
+	m_DiscordRPC.Init(this);
 }
 
 
 Application::~Application()
 {
+	m_DiscordRPC.Destroy();
+
 	m_Settings.mDisplayIndex = SDL_GetWindowDisplayIndex(m_Window);
 	JSON::WriteArchive write_archive(CONFIG_FILE_STR);
 	write_archive << m_Settings;
@@ -153,6 +157,8 @@ void Application::Run()
 		g_Input->OnUpdate(dt);
 
 		OnUpdate(dt);
+
+		m_DiscordRPC.OnUpdate();
 
 		dt = timer.Restart();
 

@@ -1,10 +1,11 @@
 #pragma once
 
-#include "ecs.h"
-#include "rtti.h"
-#include "assets.h"
-#include "camera.h"
-#include "defines.h"
+#include "ECS.h"
+#include "RTTI.h"
+#include "Assets.h"
+#include "Camera.h"
+#include "Defines.h"
+#include "DiscordRPC.h"
 
 extern std::atomic_uint64_t sAllocationsPerFrame;
 
@@ -60,7 +61,6 @@ enum IPC
 	LOG_MESSAGE_RECEIVED = 2,
 };
 
-
 class Application
 {
 protected:
@@ -104,6 +104,10 @@ public:
 	Viewport& GetViewport() { return m_Viewport; }
 	const Viewport& GetViewport() const { return m_Viewport; }
 
+	DiscordRPC& GetDiscordRPC() { return m_DiscordRPC; }
+	const DiscordRPC& GetDiscordRPC() const { return m_DiscordRPC; }
+
+
 protected:
 	bool m_Running = true;
 	EGameState m_GameState = GAME_STOPPED;
@@ -111,6 +115,7 @@ protected:
 	SDL_Window* m_Window = nullptr;
 
 	Viewport m_Viewport;
+	DiscordRPC m_DiscordRPC;
 	ConfigSettings m_Settings;
 };
 
