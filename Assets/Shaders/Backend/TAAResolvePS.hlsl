@@ -26,7 +26,7 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
     
     float3 color_sample = color_texture[inParams.mPixelCoords.xy].rgb;
     
-    if (fc.mFrameCounter == 0)
+    if (fc.mFrameCounter < 2)
         return float4(color_sample, 1.0);
     
     // moments for variance clip

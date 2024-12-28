@@ -3,6 +3,7 @@
 
 #include "OS.h"
 #include "Iter.h"
+#include "Maths.h"
 #include "Timer.h"
 #include "Shader.h"
 #include "Shared.h"
@@ -936,13 +937,13 @@ bool RenderGraph::Compile(Device& inDevice, const GlobalConstants& inGlobalConst
         total_constants_size += pass->m_ConstantsSize;
 
     if (!m_PerPassAllocator.GetBuffer().IsValid())
-        m_PerPassAllocator.CreateBuffer(inDevice, std::max(total_constants_size * sFrameCount, 1u), sByteAddressBufferAlignment);
+        m_PerPassAllocator.CreateBuffer(inDevice, glm::max(total_constants_size, 1u), sByteAddressBufferAlignment);
 
     if (!m_GlobalConstantsAllocator.GetBuffer().IsValid())
         m_GlobalConstantsAllocator.CreateBuffer(inDevice);
     
     if (!m_PerFrameAllocator.GetBuffer().IsValid())
-        m_PerFrameAllocator.CreateBuffer(inDevice, sizeof(FrameConstants) * sFrameCount, sConstantAddressBufferAlignment);
+        m_PerFrameAllocator.CreateBuffer(inDevice, sizeof(FrameConstants), sConstantAddressBufferAlignment);
 
     m_GlobalConstantsAllocator.Copy(GlobalConstants {});
 

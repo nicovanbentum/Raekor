@@ -987,9 +987,6 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
         if (ImGui::SliderInt("Bounces", (int*)&RenderSettings::mPathTraceBounces, 1, 8))
             RenderSettings::mPathTraceReset = true;
 
-        if (ImGui::SliderInt("Alpha Bounces", (int*)&RenderSettings::mPathTraceAlphaBounces, 0, 64))
-            RenderSettings::mPathTraceReset = true;
-
         ImGui::EndMenu();
     }
 
@@ -1089,10 +1086,20 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
                 material.albedo = Vec4(1.0f);
         }
 
-        if (ImGui::Button("Material albedo 2"))
+
+        if (ImGui::Button("Material albedo * 2"))
         {
             for (const auto& [entity, material] : inScene.Each<Material>())
                 material.albedo *= Vec4(2.0f);
+        }
+
+        if (ImGui::Button("Material fix metalrough"))
+        {
+            for (const auto& [entity, material] : inScene.Each<Material>())
+            {
+                material.metallic = 0.0f;
+                material.roughness = 1.0f;
+            }
         }
 
         if (ImGui::Button("Flip mesh uvs Y"))

@@ -51,7 +51,6 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0
     
     // evaluate Point and Spot lights
     for (int light_idx = 0; light_idx < fc.mNrOfLights; light_idx++)
-    //for (uint light_idx = 0; light_idx < light_count; light_idx++)
     {
         RTLight light = lights[light_idx];
         //RTLight light = lights[light_index_buffer.Load(index_offset + light_idx)];
