@@ -169,7 +169,7 @@ struct Surface
         float HdotV = max(dot(Wh, Wo), 0.0);
 
         float3 F0 = lerp(0.04, mAlbedo.rgb, mMetallic);
-        float3 F = FresnelSchlick(HdotV, F0, 1.0);
+        float3 F = FresnelSchlick(NdotV, F0, 1.0);
         //float3 F = FresnelSchlickUE4(HdotV, F0, F90);
         
         float G = GeometrySmith(mNormal, Wo, Wi, mRoughness);
@@ -189,22 +189,18 @@ struct Surface
         return max(dot(mNormal, Wi), 0.0) / M_PI;
     }
     
-    float3 SampleDiffuseWeight(float3 Wo, float3 Wi, float3 Wh)
+    float3 SampleDiffuseWeight(float3 Wo)
     {
-        float NdotL = max(dot(mNormal, Wi), 0.0);
         float NdotV = max(dot(mNormal, Wo), 0.0);
-        float NdotH = max(dot(mNormal, Wh), 0.0);
-        float HdotV = max(dot(Wh, Wo), 0.0);
-        
         float3 F0 = lerp(0.04.xxx, mAlbedo.rgb, mMetallic);
         
-        float3 weight = (1.0 - mMetallic) * mAlbedo.rgb;
+        float3 weight =  (1.0 - mMetallic) * mAlbedo.rgb;
         return weight * (1.0 - FresnelSchlick(NdotV, F0, 1.0));
     }
     
     void SampleDiffuse(inout uint rng, float3 Wo, out float3 direction, out float3 weight)
     {
-        weight = SampleDiffuseWeight(Wo, direction, mNormal);
+        weight = SampleDiffuseWeight(Wo);
         direction = mul(BuildOrthonormalBasis(mNormal), SampleCosineWeightedHemisphere(pcg_float2(rng)));
     }
     
@@ -292,7 +288,7 @@ float3 SampleDirectionalLight(float3 inLightDir, float inConeAngle, float2 inRNG
 
 float3 EvaluateDirectionalLight(Surface inSurface, float4 inLightColor, float3 Wi, float3 Wo)
 {             
-    float3 sunlight_luminance = Absorb(IntegrateOpticalDepth(0.xxx, -Wi)) * inLightColor.a;
+    float3 sunlight_luminance = inLightColor.rgb * inLightColor.a;
                 
     const float NdotL = max(dot(inSurface.mNormal, Wi), 0.0);
                 

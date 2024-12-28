@@ -161,10 +161,12 @@ void main(uint3 threadID : SV_DispatchThreadID)
         {
             // Calculate sky
             irradiance = skycube_texture.SampleLevel(SamplerLinearWrap, normalize(ray.Direction), 0);
-            irradiance = max(irradiance, 0.0.xxx) * fc.mSunColor.a;
+            irradiance = max(irradiance, 0.0.xxx);
+            
+            irradiance = float3(0.4, 0.6, 1.0) * 10;
             
             // Stop tracing
-            bounce = rc.mBounces + 1;
+            bounce = rc.mBounces + 100;
         }
       
         // Update irradiance and throughput
@@ -172,7 +174,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
         total_throughput *= throughput;
     }
     
-    if (rc.mReset || fc.mFrameCounter < 2)
+    if (rc.mReset || fc.mFrameCounter == 0)
     {
         result_texture[threadID.xy] = float4(total_irradiance, 1.0);
         accumulation_texture[threadID.xy] = float4(total_irradiance, 1.0);
