@@ -195,7 +195,7 @@ struct Surface
         float3 F0 = lerp(0.04.xxx, mAlbedo.rgb, mMetallic);
         
         float3 weight =  (1.0 - mMetallic) * mAlbedo.rgb;
-        //     weight *= (1.0 - FresnelSchlick(VdotH, F0, 1.0));
+               weight *= (1.0 - FresnelSchlick(VdotH, F0, 1.0));
         return weight;
     }
     
@@ -246,7 +246,7 @@ struct Surface
     
     void SampleBRDF(inout uint rng, float3 Wo, out float3 direction, out float3 weight) 
     {
-        if (mRoughness < 1.0 && pcg_float(rng) > 0.5)
+        if (mRoughness < 1.0 && pcg_float(rng) < 0.5)
         {
             SampleSpecular(rng, Wo, direction, weight);
         }
