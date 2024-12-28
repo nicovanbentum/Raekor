@@ -8,21 +8,23 @@
 #include "Packing.hlsli"
 #include "Bindless.hlsli"
 
-float DistributionGGX(float3 N, float3 H, float roughness) {
+float DistributionGGX(float3 N, float3 H, float roughness) 
+{
     float a = roughness * roughness;
     float a2 = a * a;
     float NdotH = max(dot(N, H), 0.0);
     float NdotH2 = NdotH * NdotH;
 
-    float nom   = a2;
+    float nom = a2;
     float denom = (NdotH2 * (a2 - 1.0) + 1.0);
-    denom = 3.14159265359 * denom * denom;
+    denom = M_PI * denom * denom;
 
     return nom / (denom + 0.001);
 }
 
 
-float GeometrySchlickGGX(float NdotV, float roughness) {
+float GeometrySchlickGGX(float NdotV, float roughness) 
+{
     float r = (roughness + 1.0);
     float k = (r*r) / 8.0;
 
@@ -33,26 +35,36 @@ float GeometrySchlickGGX(float NdotV, float roughness) {
 }
 
 
-float GeometrySmith(float3 N, float3 V, float3 L, float roughness) {
+float GeometrySmith(float3 N, float3 V, float3 L, float roughness) 
+{
     float NdotV = max(dot(N, V), 0.0);
     float NdotL = max(dot(N, L), 0.0);
-    float ggx2 = GeometrySchlickGGX(NdotV, roughness);
     float ggx1 = GeometrySchlickGGX(NdotL, roughness);
+    float ggx2 = GeometrySchlickGGX(NdotV, roughness);
 
     return ggx1 * ggx2;
 }
 
 
-/* From https://google.github.io/filament/Filament.html#materialsystem/specularbrdf/fresnel(specularf) */
-float3 F_Schlick(float u, float3 f0) {
-    float f = pow(1.0 - u, 5.0);
-    return f + f0 * (1.0 - f);
+// Revisit for better material control, e.g. dieletric vs conductor behavior
+// 'f90' should be 1.0, TODO: specular workflow support?
+float3 FresnelSchlick(float NdotV, float3 F0, float F90) 
+{
+    return F0 + (F90 - F0) * pow(1.0 - NdotV, 5.0);
+}
+
+
+// Slightly more optimized version, N should be the microfacet normal (aka half vector)
+float3 FresnelSchlickUE4(float NdotV, float3 F0, float F90)
+{
+    return F0 + (F90 - F0) * exp2((-5.55473f * NdotV - 6.983146f) * NdotV);
 }
 
 
 /* Returns Wh. From Unreal Engine 4 https://blog.selfshadow.com/publications/s2013-shading-course/karis/s2013_pbs_epic_notes_v2.pdf */
-float3 ImportanceSampleGGX(float2 Xi, float Roughness, float3 N) {
-    float a = Roughness * Roughness;
+float3 SampleSpecularGGX(float2 Xi, float roughness, float3 N) 
+{
+    float a = roughness * roughness;
     float Phi = 2 * M_PI * Xi.x;
     float CosTheta = sqrt((1 - Xi.y) / (1 + (a * a - 1) * Xi.y));
     float SinTheta = sqrt(1 - CosTheta * CosTheta);
@@ -68,9 +80,30 @@ float3 ImportanceSampleGGX(float2 Xi, float Roughness, float3 N) {
 }
 
 
-float Smith_G1_GGX(float alpha, float NdotL, float alphaSquared, float NdotLSquared) {
+// Source: "Sampling Visible GGX Normals with Spherical Caps" 
+// https://cdrdv2-public.intel.com/782052/sampling-visible-ggx-normals.pdf
+// Ve is V in local space, alpha2D = (roughness, roughness), u = pcg_float2(..)
+float3 SampleSpecularGGXVNDF(float3 Ve, float2 alpha2D, float2 u)
+{
+    float3 Vh = normalize(float3(alpha2D.x * Ve.x, alpha2D.y * Ve.y, Ve.z));
+
+	float phi = 2.0f * PI * u.x;
+	float z = ((1.0f - u.y) * (1.0f + Vh.z)) - Vh.z;
+	float sinTheta = sqrt(clamp(1.0f - z * z, 0.0f, 1.0f));
+	float x = sinTheta * cos(phi);
+	float y = sinTheta * sin(phi);
+
+	float3 Nh = float3(x, y, z) + Vh;
+
+    return normalize(float3(alpha2D.x * Nh.x, alpha2D.y * Nh.y, max(0.0f, Nh.z)));
+}
+
+
+float Smith_G1_GGX(float alpha, float NdotL, float alphaSquared, float NdotLSquared) 
+{
     return 2.0 / (sqrt(((alphaSquared * (1.0 - NdotLSquared)) + NdotLSquared) / NdotLSquared) + 1.0);
 }
+
 
 float3 ReconstructNormalBC5(float2 normal)
 {
@@ -79,15 +112,18 @@ float3 ReconstructNormalBC5(float2 normal)
     return float3(xy.x, xy.y, z);
 }
 
-struct BRDF {
+
+struct Surface 
+{
     float4 mAlbedo;
     float3 mNormal;
     float3 mEmissive;
-    float mMetallic;
-    float mRoughness;
+    float  mMetallic;
+    float  mRoughness;
     
     /* Fills in the BRDF fields from a sample of the (packed) GBuffer. */
-    void Unpack(uint4 inPacked) {
+    void Unpack(uint4 inPacked) 
+    {
         mAlbedo = UnpackAlbedo(inPacked);
         mNormal = UnpackNormal(inPacked);
         mEmissive = UnpackEmissive(inPacked);
@@ -96,7 +132,8 @@ struct BRDF {
     
     
     /* Fills in the BRDF fields from a given vertex and its material. */
-    void FromHit(RTVertex inVertex, RTMaterial inMaterial) {
+    void FromHit(RTVertex inVertex, RTMaterial inMaterial) 
+    {
         Texture2D albedo_texture = ResourceDescriptorHeap[NonUniformResourceIndex(inMaterial.mAlbedoTexture)];
         Texture2D normals_texture = ResourceDescriptorHeap[NonUniformResourceIndex(inMaterial.mNormalsTexture)];
         Texture2D emissive_texture = ResourceDescriptorHeap[NonUniformResourceIndex(inMaterial.mEmissiveTexture)];
@@ -124,74 +161,96 @@ struct BRDF {
     }
     
     
-    float3 Evaluate(float3 Wo, float3 Wi, float3 Wh) {
+    float3 EvaluateBRDF(float3 Wo, float3 Wi, float3 Wh) 
+    {
         float NdotL = max(dot(mNormal, Wi), 0.0);
         float NdotV = max(dot(mNormal, Wo), 0.0);
         float NdotH = max(dot(mNormal, Wh), 0.0);
-        float VdotH = max(dot(Wo, Wh), 0.0);
+        float HdotV = max(dot(Wh, Wo), 0.0);
 
-        float3 F0 = lerp(0.04.xxx, mAlbedo.rgb, mMetallic);
-        float3 F    = F_Schlick(VdotH, F0);
-
-        float NDF = DistributionGGX(mNormal, Wh, mRoughness);
+        float3 F0 = lerp(0.04, mAlbedo.rgb, mMetallic);
+        float3 F = FresnelSchlick(NdotV, F0, 1.0);
+        //float3 F = FresnelSchlickUE4(HdotV, F0, F90);
+        
         float G = GeometrySmith(mNormal, Wo, Wi, mRoughness);
+        float D = DistributionGGX(mNormal, Wh, mRoughness);
 
-        float3 nominator    = NDF * G * F;
-        float denominator = 4 * max(dot(mNormal, Wo), 0.0) * max(dot(mNormal, Wi), 0.0) + 0.001;
-
-        // lambertian diffuse, the whole equation cancels out to just albedo
-        float3 diffuse = ((1.0 - mMetallic) * mAlbedo.rgb);
-        float3 specular = nominator / denominator;
-
-        return (1.0 - F) * diffuse + specular;
+        float3 nominator = F * G * D;
+        float denominator = 4 * NdotL * NdotV + 0.001;
+        float3 specularBrdf = nominator / denominator;
+      
+        float3 diffuseBrdf = ((1.0 - mMetallic) * mAlbedo.rgb) * (1.0 - F);
+        
+        return diffuseBrdf + specularBrdf;
     }
     
-    void SampleDiffuse(inout uint rng, float3 Wo, out float3 Wi)
+    float SampleDiffusePDF(float3 Wi) // not actually used, useful for MIS
     {
-        float2 r = pcg_float2(rng);
-        float3x3 tbn = BuildOrthonormalBasis(mNormal);
-        float3 hemi = SampleCosineWeightedHemisphere(r);
-        Wi = mul(tbn, hemi);
+        return max(dot(mNormal, Wi), 0.0) / M_PI;
     }
     
-    // Sample specular lobe
-    void SampleSpecular(inout uint rng, float3 Wo, out float3 Wi, out float3 Wh)
+    float3 SampleDiffuseWeight(float3 Wo)
     {
-        if (mRoughness == 0.0)
+        float NdotV = max(dot(mNormal, Wo), 0.0);
+        float3 F0 = lerp(0.04.xxx, mAlbedo.rgb, mMetallic);
+        
+        float3 weight =  (1.0 - mMetallic) * mAlbedo.rgb;
+        return weight * (1.0 - FresnelSchlick(NdotV, F0, 1.0));
+    }
+    
+    void SampleDiffuse(inout uint rng, float3 Wo, out float3 direction, out float3 weight)
+    {
+        weight = SampleDiffuseWeight(Wo);
+        direction = mul(BuildOrthonormalBasis(mNormal), SampleCosineWeightedHemisphere(pcg_float2(rng)));
+    }
+    
+    float sampleSpecularPDF(float3 Wo, float3 Wh)  // not actually used, useful for MIS
+    {
+        float NdotV = max(dot(mNormal, Wo), 0.00001f);
+        float NdotH = max(dot(mNormal, Wh), 0.00001f);
+        
+        float D = DistributionGGX(mNormal, Wh, mRoughness);
+        float G = Smith_G1_GGX(mRoughness, NdotV, mRoughness*mRoughness, NdotV * NdotV);
+        
+        return (D * G) / (4.0f * NdotV);
+    }
+    
+    float3 SampleSpecularWeight(float3 Wo, float3 Wi, float3 Wh)
+    {
+        float NdotL = max(dot(mNormal, Wi), 0.00001f);
+        float NdotV = max(dot(mNormal, Wo), 0.00001f);
+        float NdotH = max(dot(mNormal, Wh), 0.0);
+        float HdotV = max(dot(Wh, Wo), 0.0);
+        
+        float3 F0 = lerp(0.04, mAlbedo.rgb, mMetallic);
+        float3 fresnel = FresnelSchlick(NdotV, F0, 1.0);
+        return fresnel * Smith_G1_GGX(mRoughness, NdotL, mRoughness * mRoughness, NdotL * NdotL);
+    }
+    
+    void SampleSpecular(inout uint rng, float3 Wo, out float3 direction, out float3 weight)
+    {
+        float3 Wh = mNormal;
+        
+        if (mRoughness > 0.0)
         {
-            Wh = mNormal; // roughness 0 is a perfect reflection, so just reflect around the normal
+            Wh = SampleSpecularGGX(pcg_float2(rng), mRoughness, mNormal);
+            //Wh = SampleSpecularGGXVNDF(Wo, float2(mRoughness, mRoughness), pcg_float2(rng));
+        }
+        
+        direction = normalize(reflect(-Wo, Wh));
+        weight = SampleSpecularWeight(Wo, direction, Wh);
+    }
+    
+    
+    void SampleBRDF(inout uint rng, float3 Wo, out float3 direction, out float3 weight) 
+    {
+        if (mRoughness < 1.0 && pcg_float(rng) > 0.5)
+        {
+            SampleSpecular(rng, Wo, direction, weight);
         }
         else
         {
-            // Importance sample the specular lobe using UE4's example to get the half vector
-            Wh = ImportanceSampleGGX(pcg_float2(rng), mRoughness, mNormal);
-        }
-        Wi = normalize(reflect(-Wo, Wh));
-    }
-    
-    
-    /* Returns the BRDF value, also outputs new outgoing direction and pdf */
-    void Sample(inout uint rng, float3 Wo, out float3 Wi, out float3 brdf) {
-        const float rand = pcg_float(rng);
-
-        // randomly decide to specular bounce
-        if (mRoughness < 1.0 && rand > 0.5)
-        {
-            float3 Wh;
-            SampleSpecular(rng, Wo, Wi, Wh);
-
-            float VdotH = clamp(dot(Wo, Wh), 0.0001, 1.0);
-            float NdotL = clamp(dot(mNormal, Wi), 0.0001, 1.0);
-
-            float alpha = mRoughness * mRoughness;
-            float3 F0 = lerp(0.04.xxx, mAlbedo.rgb, mMetallic);
-            brdf = F_Schlick(VdotH, F0) * Smith_G1_GGX(alpha, NdotL, alpha * alpha, NdotL * NdotL);
-        }
-        else
-        {
-            // importance sample the hemisphere around the normal for diffuse
-            SampleDiffuse(rng, Wo, Wi);
-            brdf = ((1.0 - mMetallic) * mAlbedo.rgb);
+            SampleDiffuse(rng, Wo, direction, weight);
         }
     }
 };
@@ -227,17 +286,17 @@ float3 SampleDirectionalLight(float3 inLightDir, float inConeAngle, float2 inRNG
 }
     
 
-float3 EvaluateDirectionalLight(BRDF inBrdf, float4 inLightColor, float3 Wi, float3 Wo)
+float3 EvaluateDirectionalLight(Surface inSurface, float4 inLightColor, float3 Wi, float3 Wo)
 {             
-    float3 sunlight_luminance = Absorb(IntegrateOpticalDepth(0.xxx, -Wi)) * inLightColor.a;
+    float3 sunlight_luminance = inLightColor.rgb * inLightColor.a;
                 
-    const float NdotL = max(dot(inBrdf.mNormal, Wi), 0.0);
+    const float NdotL = max(dot(inSurface.mNormal, Wi), 0.0);
                 
     const float3 Wh = normalize(Wo + Wi);
                 
-    const float3 l = inBrdf.Evaluate(Wo, Wi, Wh);
+    const float3 brdf = inSurface.EvaluateBRDF(Wo, Wi, Wh);
                 
-    return l * NdotL * sunlight_luminance;
+    return brdf * NdotL * sunlight_luminance;
 }
 
 
@@ -257,17 +316,17 @@ float GetPointAttenuation(RTLight inLight, float inDistance)
 }
 
 
-float3 EvaluatePointLight(BRDF inBrdf, RTLight inLight, float3 Wi, float3 Wo, float inDistance)
+float3 EvaluatePointLight(Surface inSurface, RTLight inLight, float3 Wi, float3 Wo, float inDistance)
 {
-    const float NdotL = max(dot(inBrdf.mNormal, Wi), 0.0);
+    const float NdotL = max(dot(inSurface.mNormal, Wi), 0.0);
     
     const float3 Wh = normalize(Wo + Wi);
     
-    const float3 l = inBrdf.Evaluate(Wo, Wi, Wh);
+    const float3 brdf = inSurface.EvaluateBRDF(Wo, Wi, Wh);
     
     const float attenuation = GetPointAttenuation(inLight, inDistance);
     
-    return l * NdotL * attenuation * (inLight.mColor.rgb * inLight.mColor.a);
+    return brdf * NdotL * attenuation * (inLight.mColor.rgb * inLight.mColor.a);
 }
 
 
@@ -289,13 +348,13 @@ float GetSpotAttenuation(RTLight inLight, float inDistance, float3 Wi)
 }
 
 
-float3 EvaluateSpotLight(BRDF inBrdf, RTLight inLight, float3 Wi, float3 Wo, float inDistance)
+float3 EvaluateSpotLight(Surface inSurface, RTLight inLight, float3 Wi, float3 Wo, float inDistance)
 {
-    const float NdotL = max(dot(inBrdf.mNormal, Wi), 0.0);
+    const float NdotL = max(dot(inSurface.mNormal, Wi), 0.0);
     
     const float3 Wh = normalize(Wo + Wi);
     
-    const float3 l = inBrdf.Evaluate(Wo, Wi, Wh);
+    const float3 l = inSurface.EvaluateBRDF(Wo, Wi, Wh);
     
     const float attenuation = GetPointAttenuation(inLight, inDistance) * GetSpotAttenuation(inLight, inDistance, Wi);
     

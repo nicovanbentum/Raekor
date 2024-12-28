@@ -75,20 +75,20 @@ void main(uint3 threadID : SV_DispatchThreadID) {
         TransformToWorldSpace(vertex, geometry.mWorldTransform);
         RTMaterial material = materials[geometry.mMaterialIndex];
         
-        BRDF brdf;
-        brdf.FromHit(vertex, material);
+        Surface surface;
+        surface.FromHit(vertex, material);
         //brdf.mNormal = vertex.mNormal; // use the vertex normal, texture based detail is lost anyway
         
-        irradiance = brdf.mEmissive;
+        irradiance = surface.mEmissive;
         
         const float3 Wo = -ray.Direction;
         const float3 Wi = normalize(-fc.mSunDirection.xyz);
         const float3 Wh = normalize(Wo + Wi);
         
-        const float3 l = ((1.0 - brdf.mMetallic) * brdf.mAlbedo.rgb);
+        const float3 l = ((1.0 - surface.mMetallic) * surface.mAlbedo.rgb);
         
 
-        const float NdotL = max(dot(brdf.mNormal, Wi), 0.0);
+        const float NdotL = max(dot(surface.mNormal, Wi), 0.0);
         float3 sunlight_luminance = Absorb(IntegrateOpticalDepth(0.xxx, -Wi)) * fc.mSunColor.a;
         
         irradiance += l * NdotL * sunlight_luminance;

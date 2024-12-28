@@ -19,8 +19,8 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0
     TextureCube<float3> skycube_texture           = ResourceDescriptorHeap[rc.mSkyCubeTexture];
     StructuredBuffer<RTLight> lights              = ResourceDescriptorHeap[fc.mLightsBuffer];
 
-    BRDF brdf;
-    brdf.Unpack(asuint(gbuffer_texture[inParams.mPixelCoords.xy]));
+    Surface surface;
+    surface.Unpack(asuint(gbuffer_texture[inParams.mPixelCoords.xy]));
     
     float depth = depth_texture[inParams.mPixelCoords.xy];
     const float3 ws_pos = ReconstructWorldPosition(inParams.mScreenUV, depth, fc.mInvViewProjectionMatrix);
@@ -33,13 +33,13 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0
 
     const float3 Wo = normalize(fc.mCameraPosition.xyz - ws_pos.xyz);
 
-    float3 total_radiance = brdf.mEmissive;
+    float3 total_radiance = surface.mEmissive;
 
     // evaluate DirectionalLight 
     {
         float3 Wi = normalize(-fc.mSunDirection.xyz);
         float sun_shadow = shadow_texture.SampleLevel(SamplerLinearClamp, inParams.mScreenUV, 0).r;
-        total_radiance += EvaluateDirectionalLight(brdf, fc.mSunColor, Wi, Wo) * sun_shadow;
+        total_radiance += EvaluateDirectionalLight(surface, fc.mSunColor, Wi, Wo) * sun_shadow;
     }
 
     uint2 group_index = uint2(inParams.mPixelCoords.xy) / LIGHT_CULL_TILE_SIZE;
@@ -62,13 +62,13 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0
             case RT_LIGHT_TYPE_POINT:
             {
                 float3 Wi = SamplePointLight(light, ws_pos);
-                total_radiance += EvaluatePointLight(brdf, light, Wi, Wo, dist_to_light);
+                total_radiance += EvaluatePointLight(surface, light, Wi, Wo, dist_to_light);
             } break;
 
             case RT_LIGHT_TYPE_SPOT:
             {
                 float3 Wi = SampleSpotLight(light, ws_pos);
-                total_radiance += EvaluateSpotLight(brdf, light, Wi, Wo, dist_to_light);
+                total_radiance += EvaluateSpotLight(surface, light, Wi, Wo, dist_to_light);
             } break;
         }
     }
@@ -78,11 +78,11 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0
     
     // evaluate indirect specular
     float4 specular = reflections_texture.SampleLevel(SamplerLinearClamp, inParams.mScreenUV, 0);
-    total_radiance += specular.rgb * brdf.mAlbedo.rgb * ao;
+    total_radiance += specular.rgb * surface.mAlbedo.rgb * ao;
     
     // evaluate indirect diffuse
     float3 irradiance = indirect_diffuse_texture.SampleLevel(SamplerLinearClamp, inParams.mScreenUV, 0).rgb;
-    total_radiance += irradiance.rgb * brdf.mAlbedo.rgb * ao;
+    total_radiance += irradiance.rgb * surface.mAlbedo.rgb * ao;
     
     return float4(total_radiance, 1.0);
 }

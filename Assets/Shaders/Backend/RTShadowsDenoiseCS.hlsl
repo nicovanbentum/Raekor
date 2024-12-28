@@ -75,9 +75,9 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID, uint3 groupID : SV_Group
     float4 gbuffer = gbuffer_texture[pixel_coord];
     float4 prev_gbuffer = gbuffer_texture[prev_pixel_coord];
     
-    BRDF gbuffer_brdf, prev_gbuffer_brdf;
-    gbuffer_brdf.Unpack(asuint(gbuffer));
-    prev_gbuffer_brdf.Unpack(asuint(prev_gbuffer));
+    Surface surface, prev_surface;
+    surface.Unpack(asuint(gbuffer));
+    prev_surface.Unpack(asuint(prev_gbuffer));
     
     float depth = depth_texture[pixel_coord];
     float prev_depth = depth_texture[prev_pixel_coord];
@@ -85,7 +85,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID, uint3 groupID : SV_Group
     float3 position = ReconstructWorldPosition(screen_uv, depth, fc.mInvViewProjectionMatrix);
     float3 prev_position = ReconstructWorldPosition(prev_screen_uv, prev_depth, fc.mPrevViewProjectionMatrix);
     
-    bool should_reproject = IsReprojectionValid(position, prev_position, gbuffer_brdf.mNormal, prev_gbuffer_brdf.mNormal, entity, prev_entity);
+    bool should_reproject = IsReprojectionValid(position, prev_position, surface.mNormal, prev_surface.mNormal, entity, prev_entity);
     
     if (fc.mFrameCounter == 0)
         should_reproject = false;

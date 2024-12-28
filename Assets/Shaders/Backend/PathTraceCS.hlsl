@@ -70,30 +70,21 @@ void main(uint3 threadID : SV_DispatchThreadID)
             // transform to world space
             TransformToWorldSpace(vertex, geometry.mWorldTransform);
             
-            // Setup the BRDF
-            BRDF brdf;
-            brdf.FromHit(vertex, material);
+            // Setup the surface
+            Surface surface;
+            surface.FromHit(vertex, material);
             
-            // brdf.mAlbedo.rgb *= opacity;
-            // opacity = opacity * (1 - brdf.mAlbedo.a);
-            
-            // brdf.mAlbedo.rgb *= 4.0f;
-            //wtf
-            
-            irradiance = brdf.mEmissive;
-            
+            irradiance = surface.mEmissive;
             const float3 Wo = -ray.Direction;
 
-           // if (0)
+           // Next event estimation
             {
-                // sample a ray direction towards the sun disk
                 float3 Wi = SampleDirectionalLight(fc.mSunDirection.xyz, fc.mSunConeAngle, pcg_float2(rng));
             
-                // Check if the sun is visible
                 bool hit = TraceShadowRay(TLAS, vertex.mPos + vertex.mNormal * 0.01, Wi, 0.1f, 1000.0f);
                 
                 if (!hit)
-                    irradiance += EvaluateDirectionalLight(brdf, fc.mSunColor, Wi, Wo);
+                    irradiance += EvaluateDirectionalLight(surface, fc.mSunColor, Wi, Wo);
             }
             
             // for (uint i = 0; i < 8; i++)
@@ -117,7 +108,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
                             bool hit = TraceShadowRay(TLAS, vertex.mPos + vertex.mNormal * 0.01, Wi, t_min, t_max);
                         
                             if (!hit)
-                                irradiance += EvaluatePointLight(brdf, light, Wi, Wo, t_max);
+                                irradiance += EvaluatePointLight(surface, light, Wi, Wo, t_max);
                         }
                         break;
                     
@@ -135,49 +126,44 @@ void main(uint3 threadID : SV_DispatchThreadID)
                             bool hit = TraceShadowRay(TLAS, vertex.mPos + vertex.mNormal * 0.01, light_dir, 2.0f, t_max);
                         
                             if (!hit)
-                                irradiance += EvaluateSpotLight(brdf, light, Wi, Wo, t_max);
+                                irradiance += EvaluateSpotLight(surface, light, Wi, Wo, t_max);
                         }
                         break;
                 }
             }
 
             // handle alpha cutoff
-            // don't update lighting and start a new ray (not a bounce!) in the same direction
-            if (brdf.mAlbedo.a < 0.5)
+            if (surface.mAlbedo.a < 0.5)
             {
                 bounce = bounce - 1;
-                ray.Origin = vertex.mPos + ray.Direction * 0.01; // TODO: find a more robust method?
+                ray.Origin = vertex.mPos + ray.Direction * 0.01;
                 continue;
             }
-            else
-            { // sample the BRDF to get new outgoing direction , update ray dir and pos
-                float3 Wi;
-                brdf.Sample(rng, Wo, Wi, throughput);
-                
-                ray.Origin = vertex.mPos + vertex.mNormal * 0.01; // TODO: find a more robust method?
-                ray.Direction = Wi;
+            else // sample the BRDF to get new outgoing direction, update ray dir and pos
+            { 
+                ray.Origin = vertex.mPos + vertex.mNormal * 0.01;
+                surface.SampleBRDF(rng, Wo, ray.Direction, throughput);
             }
             
-
-            // // Russian roulette
-            if (bounce > 3) {
+            // Russian roulette
+            if (bounce > 3) 
+            {
                 const float r = pcg_float(rng);
-                const float p = max(brdf.mAlbedo.r, max(brdf.mAlbedo.g, brdf.mAlbedo.b));
+                const float p = max(surface.mAlbedo.r, max(surface.mAlbedo.g, surface.mAlbedo.b));
+                
                 if (r > p)
                     break;
                 else
                     throughput = (1.0 / p).xxx;
             }
-            
-            // debug
-            //total_irradiance = brdf.mNormal * 0.5 + 0.5;
-            //break;
         }
         else // Handle miss case 
         {
             // Calculate sky
             irradiance = skycube_texture.SampleLevel(SamplerLinearWrap, normalize(ray.Direction), 0);
             irradiance = max(irradiance, 0.0.xxx);
+            
+            irradiance = float3(0.4, 0.6, 1.0) * 10;
             
             // Stop tracing
             bounce = rc.mBounces + 100;

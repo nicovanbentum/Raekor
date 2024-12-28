@@ -37,10 +37,10 @@ void main(uint3 threadID : SV_DispatchThreadID)
         return;
     }
 
-    BRDF gbuffer_brdf;
-    gbuffer_brdf.Unpack(asuint(gbuffer_texture[threadID.xy]));
+    Surface surface;
+    surface.Unpack(asuint(gbuffer_texture[threadID.xy]));
 
-    if (gbuffer_brdf.mRoughness >= 0.3 && gbuffer_brdf.mMetallic < 0.1) 
+    if (surface.mRoughness >= 0.3 && surface.mMetallic < 0.1) 
     {
         result_texture[threadID.xy] = 0.xxxx;
         return;
@@ -51,13 +51,13 @@ void main(uint3 threadID : SV_DispatchThreadID)
     const float3 Wo = normalize(fc.mCameraPosition.xyz - position.xyz);
     
     float3 Wi, Wh;
-    gbuffer_brdf.SampleSpecular(rng, Wo, Wi, Wh);
+    surface.SampleSpecular(rng, Wo, Wi, Wh);
     //const float3 Wi = normalize(reflect(-Wo, gbuffer_brdf.mNormal.xyz));
     
     RayDesc ray;
     ray.TMin = 0.1;
     ray.TMax = 1000.0;
-    ray.Origin = position + gbuffer_brdf.mNormal * 0.01; // TODO: find a more robust method?
+    ray.Origin = position + surface.mNormal * 0.01; // TODO: find a more robust method?
     ray.Direction = Wi;
 
     RayQuery < RAY_FLAG_FORCE_OPAQUE > query;
@@ -82,19 +82,19 @@ void main(uint3 threadID : SV_DispatchThreadID)
         const float3 Wo = normalize(position - vertex.mPos);
         const float3 Wh = normalize(Wo + Wi);
         
-        BRDF brdf;
-        brdf.FromHit(vertex, material);
+        Surface surface;
+        surface.FromHit(vertex, material);
         
         float3 Wi = SampleDirectionalLight(fc.mSunDirection.xyz, 0.0f, 0.xx);
 
-        const float NdotL = max(dot(brdf.mNormal, Wi), 0.0);
+        const float NdotL = max(dot(surface.mNormal, Wi), 0.0);
 
         if (NdotL > 0.0) 
         {
             bool hit = TraceShadowRay(TLAS, vertex.mPos + vertex.mNormal * 0.01, Wi, 0.1f, 1000.0f);
             
             if (!hit)
-                irradiance += EvaluateDirectionalLight(brdf, fc.mSunColor, Wi, Wo);
+                irradiance += EvaluateDirectionalLight(surface, fc.mSunColor, Wi, Wo);
                 //irradiance += brdf.mAlbedo.rgb * NdotL * fc.mSunColor.a;
         }
     }

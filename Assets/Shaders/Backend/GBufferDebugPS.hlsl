@@ -19,23 +19,23 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
     output_color = float4(output_color.rg * 100.0f, 0.0, 1.0);
 #endif
    
-    BRDF brdf;
-    brdf.Unpack(asuint(output_color));
+    Surface surface;
+    surface.Unpack(asuint(output_color));
     
 #if defined(DEBUG_TEXTURE_GBUFFER_ALBEDO)
-    output_color = brdf.mAlbedo;
+    output_color = surface.mAlbedo;
 
 #elif defined(DEBUG_TEXTURE_GBUFFER_NORMALS)
-    output_color.rgb = brdf.mNormal * 0.5 + 0.5;
+    output_color.rgb = surface.mNormal * 0.5 + 0.5;
     
 #elif defined(DEBUG_TEXTURE_GBUFFER_EMISSIVE)
-    output_color.rgb = brdf.mEmissive;
+    output_color.rgb = surface.mEmissive;
 
 #elif defined(DEBUG_TEXTURE_GBUFFER_METALLIC)
-    output_color = brdf.mMetallic.xxxx;
+    output_color = surface.mMetallic.xxxx;
 
 #elif defined(DEBUG_TEXTURE_GBUFFER_ROUGHNESS)
-    output_color = brdf.mRoughness.xxxx;
+    output_color = surface.mRoughness.xxxx;
     
 #endif
     
