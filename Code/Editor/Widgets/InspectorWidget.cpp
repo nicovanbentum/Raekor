@@ -1176,6 +1176,15 @@ bool InspectorWidget::DrawComponent(Entity inEntity, DirectionalLight& inDirecti
 	ImGui::SetNextItemRightAlign("Intensity  ");
 	scene_changed |= ImGui::DragFloat("##Intensity", &inDirectionalLight.color.a, 0.001f, 0.0f, FLT_MAX);
 
+	if (ImGui::Button("x"))
+	{
+		inDirectionalLight.cubeMap = 0;
+		inDirectionalLight.cubeMapFile = "";
+		m_Editor->GetRenderInterface()->OnResize(m_Editor->GetViewport()); // trigger a rendergraph recompile.. TODO FIXME
+	}
+
+	ImGui::SameLine();
+
 	if (ImGui::Button("Load Cubemap.."))
 	{
 		String file_path = OS::sOpenFileDialog("DDS Files(*.dds)\0*.dds\0");

@@ -27,7 +27,11 @@ RelWithDebInfo/
 .vscode/
 .clang-format
 Cached/
+Images
+!Images/Editor.png
+!Images/Thumbnail.png
 Assets/Models
+Assets/EnvMaps
 !Assets/Models/DancingStormtrooper
 !Assets/Models/Homer
 !Assets/Models/MinecraftBlock

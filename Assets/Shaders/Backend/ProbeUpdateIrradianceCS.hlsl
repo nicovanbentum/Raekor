@@ -69,7 +69,7 @@ void main(uint3 threadID : SV_DispatchThreadID,  uint3 groupThreadID : SV_GroupT
         
         float hysteresis = 0.985f;
         float3 avg_irradiance = lerp(irradiance.rgb, prev_irradiance, hysteresis);
-        float3 final_irradiance = fc.mFrameCounter == 0 ? irradiance.rgb : avg_irradiance;
+        float3 final_irradiance = fc.mFrameCounter < 2 ? irradiance.rgb : avg_irradiance;
 
         probes_irradiance_texture[threadID.xy] = float4(final_irradiance, 1.0);
 
