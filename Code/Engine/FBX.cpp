@@ -270,13 +270,39 @@ void FBXImporter::ConvertMaterial(Entity inEntity, const ufbx_material* inMateri
 	if (metallic.texture && metallic.texture_enabled && metallic.texture->type == UFBX_TEXTURE_FILE)
 		material.metallicFile = TextureAsset::GetCachedPath(m_Directory.string() + metallic.texture->relative_filename.data);
 
-	const ufbx_material_map& emission = inMaterial->pbr.emission_color;
-	if (emission.has_value)
-		for (uint32_t i = 0; i < emission.value_components; i++)
-			material.emissive[i] = emission.value_vec4.v[i];
+	// good chance we only have specular maps, try those...
+	if (material.metallicFile.empty() && material.roughnessFile.empty())
+	{
+		const ufbx_material_map& specular_color = inMaterial->pbr.specular_color;
+		if (specular_color.texture && specular_color.texture_enabled && specular_color.texture->type == UFBX_TEXTURE_FILE)
+		{
+			String specular_color_filepath = TextureAsset::GetCachedPath(m_Directory.string() + specular_color.texture->relative_filename.data);
+			material.metallicFile = specular_color_filepath;
+			material.roughnessFile = specular_color_filepath;
 
-	if (emission.texture && emission.texture_enabled && emission.texture->type == UFBX_TEXTURE_FILE)
-		material.emissiveFile = TextureAsset::GetCachedPath(m_Directory.string() + emission.texture->relative_filename.data);
+			material.metallic = 1.0f;
+			material.roughness = 1.0f;
+		}
+	}
+
+	const ufbx_material_map& emission_color = inMaterial->pbr.emission_color;
+	if (emission_color.has_value)
+	{
+		for (uint32_t i = 0; i < emission_color.value_components; i++)
+			material.emissive[i] = emission_color.value_vec4.v[i];
+	}
+	else
+	{
+		const ufbx_material_map& emission_factor = inMaterial->pbr.emission_factor;
+		if (emission_factor.has_value)
+		{
+			for (uint32_t i = 0; i < emission_factor.value_components; i++)
+				material.emissive[i] = emission_factor.value_vec4.v[i];
+		}
+	}
+
+	if (emission_color.texture && emission_color.texture_enabled && emission_color.texture->type == UFBX_TEXTURE_FILE)
+		material.emissiveFile = TextureAsset::GetCachedPath(m_Directory.string() + emission_color.texture->relative_filename.data);
 
 	material.metallic = inMaterial->pbr.metalness.has_value ? inMaterial->pbr.metalness.value_real : material.metallic;
 	material.roughness = inMaterial->pbr.roughness.has_value ? inMaterial->pbr.roughness.value_real : material.roughness;

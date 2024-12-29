@@ -416,13 +416,13 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
             if (material == nullptr)
                 material = &Material::Default;
 
-            uint64_t pixel_shader = material->pixelShader ? material->pixelShader : g_SystemShaders.mGBufferShader.GetPixelShader().GetHash();
-            uint64_t vertex_shader = material->vertexShader ? material->vertexShader : g_SystemShaders.mGBufferShader.GetVertexShader().GetHash();
-
-            if (ID3D12PipelineState* pipeline_state = g_ShaderCompiler.GetGraphicsPipeline(inDevice, inData.mRenderPass, vertex_shader, pixel_shader))
-                inCmdList->SetPipelineState(pipeline_state);
-            else
-                continue;
+            if (material->vertexShader && material->pixelShader)
+            {
+                if (ID3D12PipelineState* pipeline_state = g_ShaderCompiler.GetGraphicsPipeline(inDevice, inData.mRenderPass, material->vertexShader, material->pixelShader))
+                    inCmdList->SetPipelineState(pipeline_state);
+                else
+                    continue;
+            }
 
             const Name& name = inScene->Get<Name>(entity);
             const char* debug_name = mesh.name.empty() ? name.name.c_str() : mesh.name.c_str();

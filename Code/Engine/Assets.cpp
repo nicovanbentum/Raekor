@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "Assets.h"
+#include "DDS.h"
 #include "Script.h"
 #include "Timer.h"
 #include "Maths.h"
@@ -88,8 +89,41 @@ String TextureAsset::Convert(const String& inPath)
 		// make room for the new dxt mip
 		dds_buffer.resize(dds_buffer.size() + mip_size.x * mip_size.y);
 
-		// block compress
-		RK::CompressDXT(dds_buffer.data() + offset, mip_chain[mip_index], mip_size.x, mip_size.y, true);
+		// compress data block
+		bool is_dxt5 = true;
+		unsigned char block[64];
+		auto ExtractBlock = [](const unsigned char* src, int x, int y, int w, int h, unsigned char* block)
+		{
+			if (( w - x >= 4 ) && ( h - y >= 4 ))
+			{
+				src += x * 4;
+				src += y * w * 4;
+
+				for (int i = 0; i < 4; ++i)
+				{
+					*(unsigned int*)block = *(unsigned int*)src; block += 4; src += 4;
+					*(unsigned int*)block = *(unsigned int*)src; block += 4; src += 4;
+					*(unsigned int*)block = *(unsigned int*)src; block += 4; src += 4;
+					*(unsigned int*)block = *(unsigned int*)src; block += 4;
+					src += ( w * 4 ) - 12;
+				}
+
+				return;
+			}
+		};
+
+		unsigned char* src = mip_chain[mip_index];
+		unsigned char* dst = dds_buffer.data() + offset;
+
+		for (int y = 0; y < mip_size.y; y += 4)
+		{
+			for (int x = 0; x < mip_size.x; x += 4)
+			{
+				ExtractBlock(src, x, y, mip_size.x, mip_size.y, block);
+				stb_compress_dxt_block(dst, block, is_dxt5, 10);
+				dst += is_dxt5 ? 16 : 8;
+			}
+		}
 
 		offset += mip_size.x * mip_size.y;
 	}
@@ -97,32 +131,12 @@ String TextureAsset::Convert(const String& inPath)
 	for (stbi_uc* mip : mip_chain)
 		stbi_image_free(mip);
 
-	// copy the magic number
-	memcpy(dds_buffer.data(), &DDS_MAGIC, sizeof(DDS_MAGIC));
+	dds::Header header = {};
+	dds::write_header(&header, dds::DXGI_FORMAT_BC3_UNORM, width, height, actual_mip_count);
+	header.header.ddspf.dwFourCC = dds::fourcc('D', 'X', 'T', '5');
 
-	DDS_PIXELFORMAT pixel_format = {};
-	pixel_format.dwSize = 32;
-	pixel_format.dwFlags = 0x4;
-	pixel_format.dwFourCC = DDS_FORMAT_DXT5;
-	pixel_format.dwRBitMask = 0xff000000;
-	pixel_format.dwGBitMask = 0x00ff0000;
-	pixel_format.dwBBitMask = 0x0000ff00;
-	pixel_format.dwABitMask = 0x000000ff;
-
-	// fill out the header
-	DDS_HEADER header = {};
-	header.dwSize = 124;
-	header.dwFlags = DDSD_CAPS | DDSD_HEIGHT | DDSD_WIDTH | DDSD_PIXELFORMAT | DDSD_MIPMAPCOUNT | DDSD_LINEARSIZE;
-	header.dwHeight = height;
-	header.dwWidth = width;
-	header.dwPitchOrLinearSize = std::max(1, ( ( width + 3 ) / 4 )) * std::max(1, ( ( height + 3 ) / 4 )) * 16;
-	header.dwDepth = 0;
-	header.dwMipMapCount = actual_mip_count;
-	header.ddspf = pixel_format;
-	header.dwCaps = DDSCAPS_TEXTURE | DDSCAPS_COMPLEX | DDSCAPS_MIPMAP;
-
-	// copy the header
-	memcpy(dds_buffer.data() + 4, &header, sizeof(DDS_HEADER));
+	std::memcpy(dds_buffer.data(), &header.magic, sizeof(header.magic));
+	std::memcpy(dds_buffer.data() + sizeof(header.magic), &header.header, sizeof(header.header));
 
 	// write to disk
 	const String dds_file_path = GetCachedPath(inPath);
@@ -159,18 +173,14 @@ bool TextureAsset::Load()
 	m_Data.resize(fs::file_size(m_Path));
 	file.read((char*)m_Data.data(), m_Data.size());
 
-	DWORD magic_number;
-	memcpy(&magic_number, m_Data.data(), sizeof(DWORD));
+	dds::Header header = dds::read_header(m_Data.data(), m_Data.size());
 
-	if (magic_number != DDS_MAGIC)
+	if (!header.is_valid())
 	{
 		std::cerr << "File " << m_Path << " not a DDS file!\n";;
 		return false;
 	}
 
-	if (GetHeader()->ddspf.dwFourCC == DDS_FORMAT_DX10)
-		m_IsExtendedDX10 = true;
-	
 	return true;
 }
 

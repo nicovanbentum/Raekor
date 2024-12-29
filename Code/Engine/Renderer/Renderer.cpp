@@ -265,7 +265,9 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     const float jitter_y = -2.0f * jitter_offset_y / (float)m_RenderGraph.GetViewport().GetRenderSize().y;
     const Mat4x4 jitter_matrix = glm::translate(Mat4x4(1.0f), Vec3(jitter_x, jitter_y, 0));
     
-    const bool enable_jitter = m_Settings.mEnableTAA || m_Upscaler.GetActiveUpscaler();
+    bool enable_jitter = m_Settings.mEnableTAA || m_Upscaler.GetActiveUpscaler();
+    enable_jitter &= inRenderInterface->GetSettings().mDebugTexture != DEBUG_TEXTURE_NONE;
+
     const Mat4x4 final_proj_matrix = enable_jitter ? jitter_matrix * vp.GetProjection() : vp.GetProjection();
 
     // Update all the frame constants and copy it in into the GPU ring buffer
@@ -864,42 +866,29 @@ void RenderInterface::ReleaseMaterialShaders(Entity inEntity, Material& inMateri
 
 uint32_t RenderInterface::UploadTextureFromAsset(const TextureAsset::Ptr& inAsset, bool inIsSRGB, uint8_t inSwizzle)
 {
-    const uint8_t* data_ptr = inAsset->GetData();
-    const DDS_HEADER* header_ptr = inAsset->GetHeader();
+    dds::Header header = dds::read_header(inAsset->GetData(), inAsset->GetDataSize());
+    assert(header.is_valid());
 
     Texture::Desc desc = {};
     desc.swizzle = inSwizzle;
+    desc.width = header.width();
+    desc.height = header.height();
+    desc.mipLevels = header.mip_levels();
+    desc.depthOrArrayLayers = header.array_size();
     desc.usage = Texture::SHADER_READ_ONLY;
+    desc.format = (DXGI_FORMAT)header.format();
 
-    desc.width = header_ptr->dwWidth;
-    desc.height = header_ptr->dwHeight;
-    desc.mipLevels = header_ptr->dwMipMapCount;
-    desc.debugName = inAsset->GetPathAsString().c_str();
+    if (header.is_3d())
+        desc.dimension = Texture::TEX_DIM_3D;
 
-    desc.format = inIsSRGB ? DXGI_FORMAT_BC3_UNORM_SRGB : DXGI_FORMAT_BC3_UNORM;
-    EDDSFormat dds_format = (EDDSFormat)header_ptr->ddspf.dwFourCC;
+    if (header.is_cubemap())
+        desc.dimension = Texture::TEX_DIM_CUBE;
 
-    switch (dds_format)
-    {
-        case EDDSFormat::DDS_FORMAT_ATI2: desc.format = DXGI_FORMAT_BC5_UNORM; break;
-        default: break;
-    }
+    // HACK: texture conversion is hardcoded to BC3_UNORM, so add SRGB here..
+    if (inIsSRGB && !gIsDXGIFormatSRGB(desc.format))
+        desc.format = gDXGIFormatToSRGB(desc.format);
 
-    if (dds_format == EDDSFormat::DDS_FORMAT_DX10)
-    {
-        DDS_HEADER_DXT10* extended_header_ptr = inAsset->GetHeaderDXT10();
-        desc.format = (DXGI_FORMAT)extended_header_ptr->dxgiFormat;
-        desc.depthOrArrayLayers = extended_header_ptr->arraySize;
-
-        if (extended_header_ptr->miscFlag == DDS_RESOURCE_MISC_TEXTURECUBE)
-        {
-            desc.depthOrArrayLayers = 6;
-            desc.dimension = Texture::TEX_DIM_CUBE;
-        }
-    }
-
-   /* if (format == DXGI_FORMAT_BC7_UNORM && inIsSRGB)
-        format = DXGI_FORMAT_BC7_UNORM_SRGB;*/
+    desc.debugName = inAsset->GetPathStr().c_str();
 
     const TextureID texture = m_Device.CreateTexture(desc);
 
@@ -907,19 +896,10 @@ uint32_t RenderInterface::UploadTextureFromAsset(const TextureAsset::Ptr& inAsse
     {
         for (uint32_t mip = 0; mip < desc.mipLevels; mip++)
         {
-            const int width = std::max(header_ptr->dwWidth >> mip, 1ul);
-            const int height = std::max(header_ptr->dwHeight >> mip, 1ul);
+            size_t data_offset = header.mip_offset(mip, layer);
+            const uint8_t* data_ptr = inAsset->GetData() + data_offset;
 
-            m_Device.UploadTextureData(m_Device.GetTexture(texture), mip, layer, data_ptr);
-
-            if (desc.dimension == Texture::TEX_DIM_CUBE)
-            {
-                data_ptr += width * height * 16;
-            }
-            else
-            {
-                data_ptr += width * height;
-            }
+            m_Device.UploadTextureData(m_Device.GetTexture(texture), mip, layer, data_ptr);  
         }
     }
 
@@ -1108,25 +1088,6 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
             }
         }
 
-        if (ImGui::Button("BC7_UNORM to BC7_UNORM_SRGB"))
-        {
-            for (const auto& [entity, material] : inScene.Each<Material>())
-            {
-                if (TextureAsset::Ptr texture = inApp->GetAssets()->GetAsset<TextureAsset>(material.albedoFile))
-                {
-                    if (texture->IsExtendedDX10())
-                    {
-                        if (texture->GetHeaderDXT10()->dxgiFormat == DXGI_FORMAT_BC7_UNORM)
-                        {
-                            texture->GetHeaderDXT10()->dxgiFormat = DXGI_FORMAT_BC7_UNORM_SRGB;
-
-                            if  (texture->Save())
-                                inApp->LogMessage(std::format("Saved {}", material.albedoFile));
-                        }
-                    }
-                }
-            }
-        }
 
         if (ImGui::Button("Clear DDGI History"))
         {

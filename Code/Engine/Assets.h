@@ -20,7 +20,7 @@ public:
 	
 	Path& GetPath() { return m_Path; }
 	const Path& GetPath() const { return m_Path; }
-	const String& GetPathAsString() { if (m_String.empty()) m_String = m_Path.string(); return m_String; }
+	const String& GetPathStr() { if (m_String.empty()) m_String = m_Path.string(); return m_String; }
 
 	static String GetCachedPath(const String& inAssetPath, const char* inExtension)
 	{
@@ -72,23 +72,12 @@ public:
 	static String Convert(const String& inPath);
 	static String GetCachedPath(const String& inPath) { return Asset::GetCachedPath(inPath, ".dds"); }
 
-	bool IsExtendedDX10() const { return m_IsExtendedDX10; }
-
-	uint32_t GetDataSize() const { return m_Data.size() - m_IsExtendedDX10 ? sizeof(DDSFileInfoExtended) : sizeof(DDSFileInfo); }
-	const uint8_t* const GetData() const { return m_Data.data() + int(m_IsExtendedDX10 ? sizeof(DDSFileInfoExtended) : sizeof(DDSFileInfo)); }
-	
-	ByteSlice GetDataSlice() const { return ByteSlice(GetData(), GetDataSize()); }
-
-	DDS_HEADER* GetHeader() { return reinterpret_cast<DDS_HEADER*>( m_Data.data() + sizeof(uint32_t) ); }
-	const DDS_HEADER* GetHeader() const { return reinterpret_cast<const DDS_HEADER*>( m_Data.data() + sizeof(uint32_t) ); }
-
-	DDS_HEADER_DXT10* GetHeaderDXT10() { return reinterpret_cast<DDS_HEADER_DXT10*>( m_Data.data() + sizeof(uint32_t) + sizeof(DDS_HEADER)); }
-	const DDS_HEADER_DXT10* GetHeaderDXT10() const { return reinterpret_cast<const DDS_HEADER_DXT10*>( m_Data.data() + sizeof(uint32_t) + sizeof(DDS_HEADER) ); }
+	const size_t GetDataSize() const { return m_Data.size(); }
+	const uint8_t* const GetData() const { return m_Data.data(); }
 
 private:
 	Array<uint8_t> m_Data;
 	uint32_t m_Texture = 0;
-	bool m_IsExtendedDX10 = false;
 };
 
 

@@ -448,9 +448,15 @@ void Editor::LogMessage(const String& inMessage)
 
 void Editor::BeginImGuiDockSpace()
 {
-	ImGuiWindowFlags flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
+	ImGuiWindowFlags flags = ImGuiWindowFlags_NoDocking;
 	flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize |
 		ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+
+	if (IWidget* widget = m_Widgets.GetWidget<MenubarWidget>())
+	{
+		if (widget->IsVisible())
+			flags |= ImGuiWindowFlags_MenuBar;
+	}
 
 	//ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_PassthruCentralNode;
 	ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;

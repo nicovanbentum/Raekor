@@ -128,7 +128,7 @@ D3D12_RESOURCE_DESC Buffer::Desc::ToResourceDesc() const
         case Buffer::VERTEX_BUFFER:
         case Buffer::INDEX_BUFFER:
         {
-            if (!mappable)
+            if (!mappable) // ??? I forgot why I added this
                 resource_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
         } break;
 

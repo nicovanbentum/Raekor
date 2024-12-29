@@ -54,7 +54,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
         RayQuery < RAY_FLAG_FORCE_OPAQUE > query;
 
         query.TraceRayInline(TLAS, ray_flags, 0xFF, ray);
-        query.Proceed();
+        while (query.Proceed()) {}
         
         float3 irradiance = 0.0.xxx;
         float3 throughput = 1.0.xxx;
@@ -74,6 +74,11 @@ void main(uint3 threadID : SV_DispatchThreadID)
             Surface surface;
             surface.FromHit(vertex, material);
             
+            if (!query.CommittedTriangleFrontFace())
+            {
+                surface.mNormal = -surface.mNormal;
+            }
+
             irradiance = surface.mEmissive;
             const float3 Wo = -ray.Direction;
 
@@ -170,6 +175,9 @@ void main(uint3 threadID : SV_DispatchThreadID)
             bounce = rc.mBounces + 1;
         }
       
+        // prevent fireflies
+        irradiance = min(irradiance, 10.0.xxx);
+
         // Update irradiance and throughput
         total_irradiance += irradiance * total_throughput;
         total_throughput *= throughput;
