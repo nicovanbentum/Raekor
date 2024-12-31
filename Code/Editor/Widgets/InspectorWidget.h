@@ -60,9 +60,13 @@ private:
 
 private:
 	bool m_SceneChanged = false;
-	CameraUndoAction m_CameraUndo;
-	MaterialUndoAction m_MaterialUndo;
-	TransformUndoAction m_TransformUndo;
+	ComponentUndo<Name> m_NameUndo;
+	ComponentUndo<Light> m_LightUndo;
+	ComponentUndo<Camera> m_CameraUndo;
+	ComponentUndo<Material> m_MaterialUndo;
+	ComponentUndo<Transform> m_TransformUndo;
+	ComponentUndo<DirectionalLight> m_DirectionalLightUndo;
+	ComponentUndo<DDGISceneSettings> m_DDGISceneSettingsUndo;
 };
 
 }

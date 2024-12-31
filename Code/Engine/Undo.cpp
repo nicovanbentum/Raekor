@@ -33,42 +33,4 @@ void UndoSystem::Clear()
 	m_RedoStack.clear();
 }
 
-void TransformUndoAction::Undo(Scene& inScene)
-{
-	Transform& transform = inScene.Get<Transform>(entity);
-	transform.localTransform = previous;
-	transform.Decompose();
-}
-
-void TransformUndoAction::Redo(Scene& inScene) 
-{
-	Transform& transform = inScene.Get<Transform>(entity);
-	transform.localTransform = current;
-	transform.Decompose();
-}
-
-void MaterialUndoAction::Undo(Scene& inScene)
-{
-	Material& material = inScene.Get<Material>(entity);
-	material = previous;
-}
-
-void MaterialUndoAction::Redo(Scene& inScene) 
-{
-	Material& material = inScene.Get<Material>(entity);
-	material = current;
-}
-
-void CameraUndoAction::Undo(Scene& inScene)
-{
-	Camera& camera = inScene.Get<Camera>(entity);
-	camera = previous;
-}
-
-void CameraUndoAction::Redo(Scene& inScene)
-{
-	Camera& camera = inScene.Get<Camera>(entity);
-	camera = current;
-}
-
 }

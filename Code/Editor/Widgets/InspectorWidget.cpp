@@ -245,6 +245,18 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Name& inName)
 
 		ImGui::InputText("##NameInputText", &inName.name, ImGuiInputTextFlags_AutoSelectAll);
 
+		if (ImGui::IsItemActivated())
+		{
+			m_NameUndo.entity = inEntity;
+			m_NameUndo.previous = inName;
+		}
+
+		if (ImGui::IsItemDeactivatedAfterEdit())
+		{
+			m_NameUndo.current = inName;
+			m_Editor->GetUndo()->PushUndo(m_NameUndo);
+		}
+
 		ImGui::EndTable();
 	}
 
@@ -372,7 +384,7 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Camera& ioCamera)
 		if (ImGui::IsItemDeactivatedAfterEdit())
 		{
 			m_CameraUndo.current = inCamera;
-			m_Editor->GetUndo()->PushAction(m_CameraUndo);
+			m_Editor->GetUndo()->PushUndo(m_CameraUndo);
 		}
 	};
 
@@ -682,7 +694,7 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Material& inMaterial)
 		if (ImGui::IsItemDeactivatedAfterEdit())
 		{
 			m_MaterialUndo.current = inMaterial;
-			m_Editor->GetUndo()->PushAction(m_MaterialUndo);
+			m_Editor->GetUndo()->PushUndo(m_MaterialUndo);
 		}
 	};
 
@@ -856,9 +868,14 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Material& inMaterial)
 
 			if (ImGui::MenuItem("Remove"))
 			{
+				m_MaterialUndo.previous = inMaterial;
+
 				inFile = "";
 				inGpuMap = inDefaultMap;
 				scene_changed = true;
+
+				m_MaterialUndo.current = inMaterial;
+				m_Editor->GetUndo()->PushUndo(m_MaterialUndo);
 			}
 
 			if (ImGui::MenuItem("Show In Explorer"))
@@ -916,12 +933,12 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Transform& inTransform)
 	auto CheckItemUndo = [this](Transform& inTransform)
 	{
 		if (ImGui::IsItemActivated())
-			m_TransformUndo.previous = inTransform.localTransform;
+			m_TransformUndo.previous = inTransform;
 
 		if (ImGui::IsItemDeactivatedAfterEdit())
 		{
-			m_TransformUndo.current = inTransform.localTransform;
-			m_Editor->GetUndo()->PushAction(m_TransformUndo);
+			m_TransformUndo.current = inTransform;
+			m_Editor->GetUndo()->PushUndo(m_TransformUndo);
 		}
 	};
 

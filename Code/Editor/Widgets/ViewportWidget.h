@@ -40,7 +40,7 @@ protected:
 	bool m_IsUsingGizmo = false;
 	bool m_WasUsingGizmo = false;
 
-	TransformUndoAction m_TransformUndo;
+	ComponentUndo<Transform> m_TransformUndo;
 	ImGuizmo::OPERATION m_GizmoOperation = ImGuizmo::OPERATION::TRANSLATE;
 
 	std::vector<ClickableQuad> m_EntityQuads;

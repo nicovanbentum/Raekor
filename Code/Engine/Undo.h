@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ECS.h"
+#include "RTTI.h"
 #include "Scene.h"
 #include "Components.h"
 
@@ -20,11 +21,11 @@ class UndoSystem
 public:
 	UndoSystem(Scene& inScene) : m_Scene(inScene) { }
 
-	template<typename taType>
-	void PushAction(const taType& inAction) 
+	template<typename T> requires std::is_base_of_v<UndoAction, T>
+	void PushUndo(const T& inAction) 
 	{ 
 		m_RedoStack.clear();
-		m_UndoStack.push_back(std::make_shared<taType>(inAction)); 
+		m_UndoStack.push_back(std::make_shared<T>(inAction)); 
 		//std::cout << "Pushed " << m_UndoStack.back()->GetName() << " at index " << m_UndoStack.size() - 1 << std::endl;
 	}
 
@@ -41,40 +42,26 @@ private:
 	Array<SharedPtr<UndoAction>> m_RedoStack;
 };
 
-struct TransformUndoAction : public UndoAction
+template<typename T> requires (sizeof(T) < 1024 && std::default_initializable<T> )
+struct ComponentUndo : public UndoAction
 {
+	T current;
+	T previous;
 	Entity entity = Entity::Null;
-	Mat4x4 current;
-	Mat4x4 previous;
-	
-	virtual const char* GetName() { return "Transform"; }
 
-	void Undo(Scene& inScene) override;
-	void Redo(Scene& inScene) override;
-};
+	virtual const char* GetName() { return RTTI_OF<T>().GetTypeName(); }
 
-struct MaterialUndoAction : public UndoAction
-{
-	Entity entity = Entity::Null;
-	Material current;
-	Material previous;
+	void Undo(Scene& inScene) override
+	{
+		T& component = inScene.Get<T>(entity);
+		component = previous;
+	}
 
-	virtual const char* GetName() { return "Material"; }
-
-	void Undo(Scene& inScene) override;
-	void Redo(Scene& inScene) override;
-};
-
-struct CameraUndoAction : public UndoAction
-{
-	Entity entity = Entity::Null;
-	Camera current;
-	Camera previous;
-
-	virtual const char* GetName() { return "Material"; }
-
-	void Undo(Scene& inScene) override;
-	void Redo(Scene& inScene) override;
+	void Redo(Scene& inScene) override
+	{
+		T& component = inScene.Get<T>(entity);
+		component = current;
+	}
 };
 
 }

@@ -260,7 +260,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 		if (m_IsUsingGizmo && !m_WasUsingGizmo && !can_select_entity)
 		{
 			m_TransformUndo.entity = GetActiveEntity();
-			m_TransformUndo.previous = transform.localTransform;
+			m_TransformUndo.previous = transform;
 			assert(m_TransformUndo.entity != Entity::Null);
 		}
 
@@ -275,8 +275,8 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 		if (!m_IsUsingGizmo && m_WasUsingGizmo && !manipulated && !can_select_entity)
 		{
 			assert(m_TransformUndo.entity != Entity::Null);
-			m_TransformUndo.current = transform.localTransform;
-			m_Editor->GetUndo()->PushAction(m_TransformUndo);
+			m_TransformUndo.current = transform;
+			m_Editor->GetUndo()->PushUndo(m_TransformUndo);
 		}
 	}
 
