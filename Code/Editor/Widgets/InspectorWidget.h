@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Widget.h"
+#include "Undo.h"
 
 namespace RK {
 
@@ -59,6 +60,9 @@ private:
 
 private:
 	bool m_SceneChanged = false;
+	CameraUndoAction m_CameraUndo;
+	MaterialUndoAction m_MaterialUndo;
+	TransformUndoAction m_TransformUndo;
 };
 
 }

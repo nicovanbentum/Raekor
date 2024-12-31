@@ -27,6 +27,7 @@ Editor::Editor(WindowFlags inWindowFlags, IRenderInterface* inRenderInterface) :
 	Application(inWindowFlags /* | WindowFlag::BORDERLESS */),
 	m_Scene(inRenderInterface),
 	m_Physics(inRenderInterface),
+	m_UndoSystem(m_Scene),
 	m_RenderInterface(inRenderInterface)
 {
 	gRegisterShaderNodeTypes();
@@ -307,9 +308,21 @@ void Editor::OnEvent(const SDL_Event& event)
 				}
 			} break;
 
+			case SDLK_z:
+			{
+				if (SDL_GetModState() & KMOD_LCTRL)
+					m_UndoSystem.Undo();
+			} break;
+
+			case SDLK_y:
+			{
+				if (SDL_GetModState() & KMOD_LCTRL)
+					m_UndoSystem.Redo();
+			} break;
+
 			case SDLK_F1:
 			{
-				for (auto widget : m_Widgets)
+				for (auto& widget : m_Widgets)
 				{
 					if (widget->GetRTTI() != RTTI_OF<ViewportWidget>())
 					{
@@ -454,7 +467,7 @@ void Editor::BeginImGuiDockSpace()
 
 	if (IWidget* widget = m_Widgets.GetWidget<MenubarWidget>())
 	{
-		if (widget->IsVisible())
+		if (widget->IsOpen())
 			flags |= ImGuiWindowFlags_MenuBar;
 	}
 

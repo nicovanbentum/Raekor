@@ -1,6 +1,7 @@
 #pragma once
 
-#include "widget.h"
+#include "Widget.h"
+#include "Undo.h"
 
 namespace RK {
 
@@ -22,20 +23,26 @@ public:
 	virtual void OnEvent(Widgets* inWidgets, const SDL_Event& ev) override;
 
 	bool Changed() const { return m_Changed; }
-	bool IsHovered() const { return mouseInViewport; }
-
-	void DisableGizmo() { gizmoEnabled = false; }
+	bool IsHovered() const { return m_IsMouseOver; }
+	void DisableGizmo() { m_IsGizmoEnabled = false; }
 
 protected:
 	void AddClickableQuad(const Viewport& inViewport, Entity inEntity, ImTextureID inTexture, Vec3 inPos, float inSize);
 
-	bool m_Changed = false;
 	float m_TotalTime = 0;
-	uint64_t m_DisplayTexture;
+	bool m_Changed = false;
+
 	int m_RenderTargetIndex = 0;
-	bool gizmoEnabled = true;
-	bool mouseInViewport = false;
-	ImGuizmo::OPERATION operation = ImGuizmo::OPERATION::TRANSLATE;
+	uint64_t m_DisplayTexture = 0;
+
+	bool m_IsMouseOver = false;
+	bool m_IsGizmoEnabled = true;
+	bool m_IsUsingGizmo = false;
+	bool m_WasUsingGizmo = false;
+
+	TransformUndoAction m_TransformUndo;
+	ImGuizmo::OPERATION m_GizmoOperation = ImGuizmo::OPERATION::TRANSLATE;
+
 	std::vector<ClickableQuad> m_EntityQuads;
 };
 

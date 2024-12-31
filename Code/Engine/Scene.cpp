@@ -2,6 +2,7 @@
 #include "Scene.h"
 #include "Math.h"
 #include "Iter.h"
+#include "Undo.h"
 #include "Input.h"
 #include "Timer.h"
 #include "Script.h"
@@ -28,45 +29,6 @@ Scene::Scene(IRenderInterface* inRenderer) : m_Renderer(inRenderer), m_RootEntit
 	EnsureExists<NativeScript>();
 	EnsureExists<DirectionalLight>();
 	EnsureExists<DDGISceneSettings>();
-}
-
-
-Entity Scene::PickSpatialEntity(const Ray& inRay) const
-{
-	Entity picked_entity = Entity::Null;
-	HashMap<float, Entity> boxes_hit;
-
-	for (auto [entity, transform, mesh] : Each<Transform, Mesh>())
-	{
-		const Optional<float> hit_result = inRay.HitsOBB(mesh.bbox, transform.worldTransform);
-
-		if (hit_result.has_value())
-			boxes_hit[hit_result.value()] = entity;
-	}
-
-	for (const auto& [distance, entity] : boxes_hit)
-	{
-		const Mesh& mesh = Get<Mesh>(entity);
-		const Transform& transform = Get<Transform>(entity);
-
-		for (auto i = 0u; i < mesh.indices.size(); i += 3)
-		{
-			const Vec3 v0 = Vec3(transform.worldTransform * Vec4(mesh.positions[mesh.indices[i]], 1.0));
-			const Vec3 v1 = Vec3(transform.worldTransform * Vec4(mesh.positions[mesh.indices[i + 1]], 1.0));
-			const Vec3 v2 = Vec3(transform.worldTransform * Vec4(mesh.positions[mesh.indices[i + 2]], 1.0));
-
-			Vec2 barycentrics;
-			const Optional<float> hit_result = inRay.HitsTriangle(v0, v1, v2, barycentrics);
-
-			if (hit_result.has_value())
-			{
-				picked_entity = entity;
-				return picked_entity;
-			}
-		}
-	}
-
-	return picked_entity;
 }
 
 
@@ -513,6 +475,9 @@ void Scene::OpenFromFile(const String& inFilePath, Assets& ioAssets, Application
 	// update Discord status
 	String filename = m_ActiveSceneFilePath.filename().string();
 	inApp->GetDiscordRPC().SetActivityDetails(filename.c_str());
+
+	// clear undo system
+	inApp->GetUndo()->Clear();
 
 	// open archive
 	BinaryReadArchive archive(inFilePath);

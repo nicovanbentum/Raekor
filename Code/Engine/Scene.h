@@ -27,7 +27,6 @@ public:
 	~Scene() { Clear(); }
 
 	// Spatial entity management
-	Entity PickSpatialEntity(const Ray& inRay) const;
 	Entity CreateSpatialEntity(StringView inName = "");
 	void DestroySpatialEntity(Entity inEntity);
 
@@ -77,10 +76,6 @@ public:
 	// script utilities
 	void BindScriptToEntity(Entity inEntity, NativeScript& inScript, Application* inApp);
 	void Optimize();
-
-protected:
-
-
 
 protected:
 	Path m_ActiveSceneFilePath;

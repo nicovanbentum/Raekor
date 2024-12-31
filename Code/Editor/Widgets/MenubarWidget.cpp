@@ -187,6 +187,16 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 		if (ImGui::BeginMenu("Edit"))
 		{
 
+			if (ImGui::MenuItem("Undo", "CTRL+Z"))
+			{
+				m_Editor->GetUndo()->Undo();
+			}
+
+			if (ImGui::MenuItem("Redo", "CTRL+Y"))
+			{
+				m_Editor->GetUndo()->Redo();
+			}
+
 			if (ImGui::MenuItem("Delete", "DELETE"))
 			{
 				if (m_Editor->GetActiveEntity() != Entity::Null)

@@ -18,6 +18,7 @@ class Physics;
 class IWidget;
 class Skeleton;
 class Material;
+class UndoSystem;
 class Application;
 class IRenderInterface;
 
@@ -83,6 +84,7 @@ public:
 	virtual Scene* GetScene() { return nullptr; }
 	virtual Assets* GetAssets() { return nullptr; }
 	virtual Physics* GetPhysics() { return nullptr; }
+	virtual UndoSystem* GetUndo() { return nullptr; }
 	virtual IRenderInterface* GetRenderInterface() { return nullptr; }
 
 	virtual void SetActiveEntity(Entity inEntity) {}
@@ -106,7 +108,6 @@ public:
 
 	DiscordRPC& GetDiscordRPC() { return m_DiscordRPC; }
 	const DiscordRPC& GetDiscordRPC() const { return m_DiscordRPC; }
-
 
 protected:
 	bool m_Running = true;

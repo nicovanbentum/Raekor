@@ -40,6 +40,7 @@ public:
 	~Assets() = default;
 
 	/* Request an asset given inPath. Will load the asset from disk if it wasn't already. This function is thread-safe (so you can load assets in parallel). */
+	/* You might get an asset that's still loading on another thread though... REWORK TIME! */
 	template<typename T> SharedPtr<T> GetAsset(const String& inPath);
 	template<typename T> SharedPtr<T> GetAsset(const Path& inPath) { return GetAsset<T>(inPath.string()); }
 

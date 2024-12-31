@@ -82,7 +82,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	const ImVec4 border_color = GetPhysics().GetState() != Physics::Idle ? border_state_colors[GetPhysics().GetState()] : ImVec4(0, 0, 0, 1);
 	ImGui::Image((void*)( (intptr_t)m_DisplayTexture ), size, uv0, uv1, ImVec4(1, 1, 1, 1), border_color);
 
-	mouseInViewport = ImGui::IsItemHovered();
+	m_IsMouseOver = ImGui::IsItemHovered();
 	const ImVec2 viewportMin = ImGui::GetItemRectMin();
 	const ImVec2 viewportMax = ImGui::GetItemRectMax();
 
@@ -160,12 +160,12 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 	ImVec2 pos = ImGui::GetWindowPos();
 
-	bool can_select_entity = mouseInViewport;
+	bool can_select_entity = m_IsMouseOver;
 	can_select_entity &= ImGui::IsMouseClicked(ImGuiMouseButton_Left);
 	can_select_entity &= SDL_GetModState() == KMOD_NONE;
 	can_select_entity &= !ImGui::IsAnyItemHovered();
 	can_select_entity &= !g_Input->IsKeyDown(Key::LSHIFT);
-	can_select_entity &= !ImGuizmo::IsOver(operation);
+	can_select_entity &= !ImGuizmo::IsOver(m_GizmoOperation);
 
 	if (can_select_entity)
 	{
@@ -197,46 +197,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 		if (GetActiveEntity() == picked)
 		{
-			if (SoftBody* soft_body = scene.GetPtr<SoftBody>(GetActiveEntity()))
-			{
-				if (JPH::Body* body = GetPhysics().GetSystem()->GetBodyLockInterface().TryGetBody(soft_body->mBodyID))
-				{
-					const Ray ray = Ray(viewport, mouse_pos);
-					const Mesh& mesh = scene.Get<Mesh>(GetActiveEntity());
-					const Transform& transform = scene.Get<Transform>(GetActiveEntity());
-
-					float hit_dist = FLT_MAX;
-					int triangle_index = -1;
-
-					for (int i = 0; i < mesh.indices.size(); i += 3)
-					{
-						const Vec3 v0 = Vec3(transform.worldTransform * Vec4(mesh.positions[mesh.indices[i]], 1.0));
-						const Vec3 v1 = Vec3(transform.worldTransform * Vec4(mesh.positions[mesh.indices[i + 1]], 1.0));
-						const Vec3 v2 = Vec3(transform.worldTransform * Vec4(mesh.positions[mesh.indices[i + 2]], 1.0));
-
-						Vec2 barycentrics;
-						const Optional<float> hit_result = ray.HitsTriangle(v0, v1, v2, barycentrics);
-
-						if (hit_result.has_value() && hit_result.value() < hit_dist)
-						{
-							hit_dist = hit_result.value();
-							triangle_index = i;
-						}
-					}
-
-					if (triangle_index > -1)
-					{
-						JPH::SoftBodyMotionProperties* props = (JPH::SoftBodyMotionProperties*)body->GetMotionProperties();
-						props->GetVertex(mesh.indices[triangle_index]).mInvMass = 0.0f;
-						props->GetVertex(mesh.indices[triangle_index + 1]).mInvMass = 0.0f;
-						props->GetVertex(mesh.indices[triangle_index + 2]).mInvMass = 0.0f;
-
-						m_Editor->LogMessage(std::format("Soft Body triangle hit: {}", triangle_index));
-					}
-				}
-			}
-			else
-				SetActiveEntity(Entity::Null);
+			SetActiveEntity(Entity::Null);
 		}
 		else
 			SetActiveEntity(picked);
@@ -244,7 +205,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 	m_EntityQuads.clear();
 
-	if (GetActiveEntity() != Entity::Null && scene.Has<Transform>(GetActiveEntity()) && gizmoEnabled)
+	if (GetActiveEntity() != Entity::Null && scene.Has<Transform>(GetActiveEntity()) && m_IsGizmoEnabled)
 	{
 		ImGuizmo::SetDrawlist();
 		ImGuizmo::SetRect(viewportMin.x, viewportMin.y, viewportMax.x - viewportMin.x, viewportMax.y - viewportMin.y);
@@ -281,22 +242,41 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 		// prevent the gizmo from going outside of the viewport
 		ImGui::GetWindowDrawList()->PushClipRect(viewportMin, viewportMax);
 
-		const bool manipulated = ImGuizmo::Manipulate
+		bool manipulated = ImGuizmo::Manipulate
 		(
 			glm::value_ptr(viewport.GetView()),
 			glm::value_ptr(viewport.GetProjection()),
-			operation, 
+			m_GizmoOperation, 
 			ImGuizmo::MODE::WORLD,
 			glm::value_ptr(world_space_transform)
 		);
 
+		m_WasUsingGizmo = m_IsUsingGizmo;
+		m_IsUsingGizmo = ImGuizmo::IsUsing();
+
 		world_space_transform = glm::translate(world_space_transform, -additional_translation);
+
+		// activation
+		if (m_IsUsingGizmo && !m_WasUsingGizmo && !can_select_entity)
+		{
+			m_TransformUndo.entity = GetActiveEntity();
+			m_TransformUndo.previous = transform.localTransform;
+			assert(m_TransformUndo.entity != Entity::Null);
+		}
 
 		if (manipulated)
 		{
 			transform.localTransform = world_to_local_transform *  world_space_transform;
 			transform.Decompose();
 			m_Changed = true;
+		}
+
+		// de-activation
+		if (!m_IsUsingGizmo && m_WasUsingGizmo && !manipulated && !can_select_entity)
+		{
+			assert(m_TransformUndo.entity != Entity::Null);
+			m_TransformUndo.current = transform.localTransform;
+			m_Editor->GetUndo()->PushAction(m_TransformUndo);
 		}
 	}
 
@@ -312,19 +292,19 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 	auto DrawGizmoButton = [&](const char* inLabel, ImGuizmo::OPERATION inOperation)
 	{
-		const bool is_selected = ( operation == inOperation ) && gizmoEnabled;
+		const bool is_selected = ( m_GizmoOperation == inOperation ) && m_IsGizmoEnabled;
 
 		if (is_selected)
 			ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetColorU32(ImGuiCol_ButtonHovered));
 
 		if (ImGui::Button(inLabel))
 		{
-			if (operation == inOperation)
-				gizmoEnabled = !gizmoEnabled;
+			if (m_GizmoOperation == inOperation)
+				m_IsGizmoEnabled = !m_IsGizmoEnabled;
 			else
 			{
-				operation = inOperation;
-				gizmoEnabled = true;
+				m_GizmoOperation = inOperation;
+				m_IsGizmoEnabled = true;
 			}
 		}
 
@@ -332,7 +312,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			ImGui::PopStyleColor();
 	};
 
-	/*ImGui::Checkbox("Gizmo", &gizmoEnabled);
+	/*ImGui::Checkbox("Gizmo", &m_IsGizmoEnabled);
 	ImGui::SameLine();*/
 
 	DrawGizmoButton((const char*)ICON_FA_ARROWS_ALT, ImGuizmo::OPERATION::TRANSLATE);
@@ -680,17 +660,17 @@ void ViewportWidget::OnEvent(Widgets* inWidgets, const SDL_Event& inEvent)
 		{
 			case SDLK_r:
 			{
-				operation = ImGuizmo::OPERATION::ROTATE;
+				m_GizmoOperation = ImGuizmo::OPERATION::ROTATE;
 				break;
 			}
 			case SDLK_t:
 			{
-				operation = ImGuizmo::OPERATION::TRANSLATE;
+				m_GizmoOperation = ImGuizmo::OPERATION::TRANSLATE;
 				break;
 			}
 			case SDLK_s:
 			{
-				operation = ImGuizmo::OPERATION::SCALE;
+				m_GizmoOperation = ImGuizmo::OPERATION::SCALE;
 				break;
 			}
 			case SDLK_DELETE:

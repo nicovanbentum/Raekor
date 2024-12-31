@@ -1,6 +1,7 @@
 #pragma once
 
 #include "GUI.h"
+#include "Undo.h"
 #include "Scene.h"
 #include "Assets.h"
 #include "Widget.h"
@@ -24,6 +25,7 @@ public:
 	Scene* GetScene() final { return &m_Scene; }
 	Assets* GetAssets() final { return &m_Assets; }
 	Physics* GetPhysics() final { return &m_Physics; }
+	UndoSystem* GetUndo() final { return &m_UndoSystem; }
 
 	void LogMessage(const String& inMessage) final;
 
@@ -44,6 +46,7 @@ protected:
 	Assets m_Assets;
 	Physics m_Physics;
 	Widgets m_Widgets;
+	UndoSystem m_UndoSystem;
 	IRenderInterface* m_RenderInterface;
 	
 	Camera m_Camera;
