@@ -39,7 +39,7 @@ Application::Application(WindowFlags inFlags)
 	}
 
     JSON::ReadArchive archive(CONFIG_FILE_STR);
-    archive >> m_Settings;
+    archive >> m_ConfigSettings;
 
 	SDL_SetHint("SDL_BORDERLESS_RESIZABLE_STYLE", "1");
 
@@ -56,8 +56,8 @@ Application::Application(WindowFlags inFlags)
 		SDL_GetDisplayBounds(index, &display);
 
 	// if the config setting is higher than the nr of displays we pick the default display
-	m_Settings.mDisplayIndex = m_Settings.mDisplayIndex > displays.size() - 1 ? 0 : m_Settings.mDisplayIndex;
-	const SDL_Rect& rect = displays[m_Settings.mDisplayIndex];
+	m_ConfigSettings.mDisplayIndex = m_ConfigSettings.mDisplayIndex > displays.size() - 1 ? 0 : m_ConfigSettings.mDisplayIndex;
+	const SDL_Rect& rect = displays[m_ConfigSettings.mDisplayIndex];
 
 	int width = int(rect.w * 0.88f);
 	int height = int(rect.h * 0.88f);
@@ -65,9 +65,9 @@ Application::Application(WindowFlags inFlags)
 	//width = 1920, height = 1080;
 
 	m_Window = SDL_CreateWindow(
-		m_Settings.mAppName.c_str(),
-		SDL_WINDOWPOS_CENTERED_DISPLAY(m_Settings.mDisplayIndex),
-		SDL_WINDOWPOS_CENTERED_DISPLAY(m_Settings.mDisplayIndex),
+		m_ConfigSettings.mAppName.c_str(),
+		SDL_WINDOWPOS_CENTERED_DISPLAY(m_ConfigSettings.mDisplayIndex),
+		SDL_WINDOWPOS_CENTERED_DISPLAY(m_ConfigSettings.mDisplayIndex),
 		width, height,
 		inFlags | SDL_WINDOW_INPUT_FOCUS | SDL_WINDOW_HIDDEN
 	);
@@ -100,9 +100,9 @@ Application::~Application()
 {
 	m_DiscordRPC.Destroy();
 
-	m_Settings.mDisplayIndex = SDL_GetWindowDisplayIndex(m_Window);
+	m_ConfigSettings.mDisplayIndex = SDL_GetWindowDisplayIndex(m_Window);
 	JSON::WriteArchive write_archive(CONFIG_FILE_STR);
-	write_archive << m_Settings;
+	write_archive << m_ConfigSettings;
 
 	SDL_DestroyWindow(m_Window);
 	SDL_Quit();
@@ -213,7 +213,7 @@ void Application::AddRecentScene(const Path& inPath)
 
 	new_paths.push_back(inPath);
 
-	for (const Path& path : m_Settings.mRecentScenes)
+	for (const Path& path : m_ConfigSettings.mRecentScenes)
 	{
 		if (path == inPath)
 			continue;
@@ -227,7 +227,7 @@ void Application::AddRecentScene(const Path& inPath)
 	if (new_paths.size() > cMaxSize)
 		new_paths.pop_back();
 
-	m_Settings.mRecentScenes = new_paths;
+	m_ConfigSettings.mRecentScenes = new_paths;
 }
 
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Widget.h"
+#include "CVars.h"
 #include "Undo.h"
 
 namespace RK {
@@ -39,6 +40,9 @@ protected:
 	bool m_IsGizmoEnabled = true;
 	bool m_IsUsingGizmo = false;
 	bool m_WasUsingGizmo = false;
+
+	ImVec2 m_WindowPos;
+	ImVec2 m_WindowSize;
 
 	ComponentUndo<Transform> m_TransformUndo;
 	ImGuizmo::OPERATION m_GizmoOperation = ImGuizmo::OPERATION::TRANSLATE;

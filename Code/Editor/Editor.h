@@ -13,6 +13,13 @@ namespace RK {
 
 class Editor : public Application
 {
+	struct Settings
+	{
+		float& scaleSnap = g_CVariables->Create("editor_scale_snap", 0.1f);
+		float& rotationSnap = g_CVariables->Create("editor_rotation_snap", 1.0f);
+		float& translationSnap = g_CVariables->Create("editor_translation_snap", 0.1f);
+	} m_Settings;
+
 public:
 	friend class IWidget;
 
@@ -29,14 +36,20 @@ public:
 
 	void LogMessage(const String& inMessage) final;
 
+	Settings& GetSettings() { return m_Settings; }
+	const Settings& GetSettings() const { return m_Settings; }
+
 	Camera& GetCamera() { return m_Camera; }
 	const Camera& GetCamera() const { return m_Camera; }
 
 	void SetCameraEntity(Entity inEntity) { m_CameraEntity = inEntity; }
 	Entity GetCameraEntity() const { return m_CameraEntity; }
 
-	void SetActiveEntity(Entity inEntity) final { m_ActiveEntity.store(inEntity); }
+	void SetActiveEntity(Entity inEntity) final;
 	Entity GetActiveEntity() const final { return m_ActiveEntity.load(); }
+
+	ImGuiSelectionBasicStorage& GetMultiSelect() { return m_Selection; }
+	const ImGuiSelectionBasicStorage& GetMultiSelect() const { return m_Selection; }
 
 	void BeginImGuiDockSpace();
 	void EndImGuiDockSpace();
@@ -62,7 +75,8 @@ protected:
 
 	Array<String> m_Messages;
 	Atomic<Entity> m_ActiveEntity = Entity::Null;
-	Array<Atomic<Entity>> m_MultiSelectEntities;
+	ImGuiSelectionBasicStorage m_Selection;
+
 
 };
 

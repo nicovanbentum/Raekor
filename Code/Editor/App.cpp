@@ -171,9 +171,9 @@ DXApp::DXApp() :
 
     m_Renderer.Recompile(m_Device, m_RayTracedScene, GetRenderInterface());
 
-    if (!m_Settings.mSceneFile.empty() && fs::exists(m_Settings.mSceneFile))
+    if (!m_ConfigSettings.mSceneFile.empty() && fs::exists(m_ConfigSettings.mSceneFile))
     {
-        m_Scene.OpenFromFile(m_Settings.mSceneFile.string(), m_Assets);
+        m_Scene.OpenFromFile(m_ConfigSettings.mSceneFile.string(), m_Assets);
     }
 
 

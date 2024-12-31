@@ -86,6 +86,98 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	const ImVec2 viewportMin = ImGui::GetItemRectMin();
 	const ImVec2 viewportMax = ImGui::GetItemRectMax();
 
+	m_WindowPos = ImGui::GetWindowPos();
+	m_WindowSize = ImGui::GetWindowSize();
+
+	if (GetActiveEntity() != Entity::Null && scene.Has<Transform>(GetActiveEntity()) && m_IsGizmoEnabled)
+	{
+		ImGuizmo::SetDrawlist();
+		ImGuizmo::SetRect(viewportMin.x, viewportMin.y, viewportMax.x - viewportMin.x, viewportMax.y - viewportMin.y);
+
+		Mat4x4 local_to_world_transform = Mat4x4(1.0f);
+		Mat4x4 world_to_local_transform = Mat4x4(1.0f);
+
+		Entity parent = scene.GetParent(GetActiveEntity());
+
+		if (parent != Entity::Null && parent != scene.GetRootEntity())
+		{
+			if (scene.Has<Transform>(parent))
+			{
+				const Transform& parent_transform = scene.Get<Transform>(parent);
+				local_to_world_transform = parent_transform.worldTransform;
+				world_to_local_transform = glm::inverse(parent_transform.worldTransform);
+			}
+		}
+
+		Transform& transform = scene.Get<Transform>(GetActiveEntity());
+		Mat4x4 world_space_transform = local_to_world_transform * transform.localTransform;
+
+		Vec3 additional_translation = Vec3(0.0f);
+
+		if (scene.Has<Mesh>(GetActiveEntity()))
+		{
+			const Mesh& mesh = scene.Get<Mesh>(GetActiveEntity());
+			const BBox3D world_space_bounds = mesh.bbox.Transformed(transform.worldTransform);
+			additional_translation = world_space_bounds.GetCenter() - transform.GetPositionWorldSpace();
+		}
+
+		world_space_transform = glm::translate(world_space_transform, additional_translation);
+
+		// prevent the gizmo from going outside of the viewport
+		ImGui::GetWindowDrawList()->PushClipRect(viewportMin, viewportMax);
+
+		float* snap = nullptr;
+		Vec4 scale_snap = Vec4(m_Editor->GetSettings().scaleSnap);
+		Vec4 rotation_snap = Vec4(m_Editor->GetSettings().rotationSnap);
+		Vec4 translation_snap = Vec4(m_Editor->GetSettings().translationSnap);
+
+		switch (m_GizmoOperation)
+		{
+			case ImGuizmo::OPERATION::SCALE: snap = &scale_snap[0]; break;
+			case ImGuizmo::OPERATION::ROTATE: snap = &rotation_snap[0]; break;
+			case ImGuizmo::OPERATION::TRANSLATE: snap = &translation_snap[0]; break;
+		}
+
+		bool manipulated = ImGuizmo::Manipulate
+		(
+			glm::value_ptr(viewport.GetView()),
+			glm::value_ptr(viewport.GetProjection()),
+			m_GizmoOperation,
+			ImGuizmo::MODE::LOCAL,
+			glm::value_ptr(world_space_transform),
+			nullptr,
+			g_Input->IsKeyDown(Key::LCTRL) ? &snap[0] : nullptr
+		);
+
+		m_WasUsingGizmo = m_IsUsingGizmo;
+		m_IsUsingGizmo = ImGuizmo::IsUsing();
+
+		world_space_transform = glm::translate(world_space_transform, -additional_translation);
+
+		// activation
+		if (m_IsUsingGizmo && !m_WasUsingGizmo)
+		{
+			m_TransformUndo.entity = GetActiveEntity();
+			m_TransformUndo.previous = transform;
+			assert(m_TransformUndo.entity != Entity::Null);
+		}
+
+		if (manipulated)
+		{
+			transform.localTransform = world_to_local_transform * world_space_transform;
+			transform.Decompose();
+			m_Changed = true;
+		}
+
+		// de-activation
+		if (!m_IsUsingGizmo && m_WasUsingGizmo)
+		{
+			assert(m_TransformUndo.entity != Entity::Null);
+			m_TransformUndo.current = transform;
+			m_Editor->GetUndo()->PushUndo(m_TransformUndo);
+		}
+	}
+
 	// the viewport image is a drag and drop target for dropping materials onto meshes
 	if (ImGui::BeginDragDropTarget())
 	{
@@ -158,8 +250,6 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 		}
 	}
 
-	ImVec2 pos = ImGui::GetWindowPos();
-
 	bool can_select_entity = m_IsMouseOver;
 	can_select_entity &= ImGui::IsMouseClicked(ImGuiMouseButton_Left);
 	can_select_entity &= SDL_GetModState() == KMOD_NONE;
@@ -204,81 +294,6 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	}
 
 	m_EntityQuads.clear();
-
-	if (GetActiveEntity() != Entity::Null && scene.Has<Transform>(GetActiveEntity()) && m_IsGizmoEnabled)
-	{
-		ImGuizmo::SetDrawlist();
-		ImGuizmo::SetRect(viewportMin.x, viewportMin.y, viewportMax.x - viewportMin.x, viewportMax.y - viewportMin.y);
-
-		Mat4x4 local_to_world_transform = Mat4x4(1.0f);
-		Mat4x4 world_to_local_transform = Mat4x4(1.0f);
-
-		Entity parent = scene.GetParent(GetActiveEntity());
-
-		if (parent != Entity::Null && parent != scene.GetRootEntity())
-		{
-			if (scene.Has<Transform>(parent))
-			{
-				const Transform& parent_transform = scene.Get<Transform>(parent);
-				local_to_world_transform = parent_transform.worldTransform;
-				world_to_local_transform = glm::inverse(parent_transform.worldTransform);
-			}
-		}
-
-		Transform& transform = scene.Get<Transform>(GetActiveEntity());
-		Mat4x4 world_space_transform = local_to_world_transform * transform.localTransform;
-		
-		Vec3 additional_translation = Vec3(0.0f);
-
-		if (scene.Has<Mesh>(GetActiveEntity()))
-		{
-			const Mesh& mesh = scene.Get<Mesh>(GetActiveEntity());
-			const BBox3D world_space_bounds = mesh.bbox.Transformed(transform.worldTransform);
-			additional_translation = world_space_bounds.GetCenter() - transform.GetPositionWorldSpace();
-		}
-		
-		world_space_transform = glm::translate(world_space_transform, additional_translation);
-
-		// prevent the gizmo from going outside of the viewport
-		ImGui::GetWindowDrawList()->PushClipRect(viewportMin, viewportMax);
-
-		bool manipulated = ImGuizmo::Manipulate
-		(
-			glm::value_ptr(viewport.GetView()),
-			glm::value_ptr(viewport.GetProjection()),
-			m_GizmoOperation, 
-			ImGuizmo::MODE::WORLD,
-			glm::value_ptr(world_space_transform)
-		);
-
-		m_WasUsingGizmo = m_IsUsingGizmo;
-		m_IsUsingGizmo = ImGuizmo::IsUsing();
-
-		world_space_transform = glm::translate(world_space_transform, -additional_translation);
-
-		// activation
-		if (m_IsUsingGizmo && !m_WasUsingGizmo && !can_select_entity)
-		{
-			m_TransformUndo.entity = GetActiveEntity();
-			m_TransformUndo.previous = transform;
-			assert(m_TransformUndo.entity != Entity::Null);
-		}
-
-		if (manipulated)
-		{
-			transform.localTransform = world_to_local_transform *  world_space_transform;
-			transform.Decompose();
-			m_Changed = true;
-		}
-
-		// de-activation
-		if (!m_IsUsingGizmo && m_WasUsingGizmo && !manipulated && !can_select_entity)
-		{
-			assert(m_TransformUndo.entity != Entity::Null);
-			m_TransformUndo.current = transform;
-			m_Editor->GetUndo()->PushUndo(m_TransformUndo);
-		}
-	}
 
 	ImVec2 metricsPosition = ImGui::GetWindowPos();
 

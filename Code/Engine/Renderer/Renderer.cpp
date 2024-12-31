@@ -401,7 +401,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
 
     // Record commands to render ImGui to the backbuffer
     // skip if we recompiled, ImGui's descriptor tables will be invalid for 1 frame
-    if (inApp->GetSettings().mShowUI && !recompiled)
+    if (inApp->GetConfigSettings().mShowUI && !recompiled)
         RenderImGui(m_RenderGraph, inDevice, direct_cmd_list, GetBackBufferData().mBackBuffer);
 
     direct_cmd_list.Close();

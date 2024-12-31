@@ -57,8 +57,8 @@ Launcher::Launcher() : Application(WindowFlag::HIDDEN)
 	if (!IsDebuggerPresent())
 		ShowWindow(GetConsoleWindow(), SW_HIDE);
 
-	if (!m_Settings.mFontFile.empty())
-		GUI::SetFont(m_Settings.mFontFile.string());
+	if (!m_ConfigSettings.mFontFile.empty())
+		GUI::SetFont(m_ConfigSettings.mFontFile.string());
 	GUI::SetDarkTheme();
 
 	m_Renderer = SDL_CreateRenderer(m_Window, -1, SDL_RENDERER_PRESENTVSYNC);
@@ -156,7 +156,7 @@ void Launcher::OnUpdate(float inDeltaTime)
 		m_Running = false;
 	}
 
-	auto empty_window_space = ImGui::GetContentRegionAvail();
+	ImVec2 empty_window_space = ImGui::GetContentRegionAvail();
 
 	ImGui::End(); // ##Window
 	ImGui::PopStyleVar(1); // ImGuiStyleVar_WindowRounding 0.0f
@@ -178,13 +178,13 @@ void Launcher::OnUpdate(float inDeltaTime)
 	// This part will resize the SDL window to exactly fit the ImGui content
 	if (( empty_window_space.x > 0 || empty_window_space.y > 0 ) && m_ResizeCounter <= 2)
 	{
-		auto w = 0, h = 0;
+		int w = 0, h = 0;
 		SDL_GetWindowSize(m_Window, &w, &h);
 		SDL_SetWindowSize(m_Window, w - empty_window_space.x, h - empty_window_space.y);
 
 		// At this point the window should be perfectly fitted to the ImGui content, the window was created with HIDDEN, so now we can SHOW it
-		SDL_SetWindowPosition(m_Window, SDL_WINDOWPOS_CENTERED_DISPLAY(m_Settings.mDisplayIndex),
-										SDL_WINDOWPOS_CENTERED_DISPLAY(m_Settings.mDisplayIndex));
+		SDL_SetWindowPosition(m_Window, SDL_WINDOWPOS_CENTERED_DISPLAY(m_ConfigSettings.mDisplayIndex),
+										SDL_WINDOWPOS_CENTERED_DISPLAY(m_ConfigSettings.mDisplayIndex));
 		SDL_ShowWindow(m_Window);
 
 		m_ResizeCounter++;

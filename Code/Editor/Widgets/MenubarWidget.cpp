@@ -123,11 +123,11 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 				}
 			}
 
-			if (!m_Editor->GetSettings().mRecentScenes.empty())
+			if (!m_Editor->GetConfigSettings().mRecentScenes.empty())
 			{
 				if (ImGui::BeginMenu("Recent scenes"))
 				{
-					for (const Path& scene_path : m_Editor->GetSettings().mRecentScenes)
+					for (const Path& scene_path : m_Editor->GetConfigSettings().mRecentScenes)
 					{
 						const String& scene_str = scene_path.string();
 
@@ -187,12 +187,12 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 		if (ImGui::BeginMenu("Edit"))
 		{
 
-			if (ImGui::MenuItem("Undo", "CTRL+Z"))
+			if (ImGui::MenuItem("Undo", "CTRL+Z", false, m_Editor->GetUndo()->HasUndo()))
 			{
 				m_Editor->GetUndo()->Undo();
 			}
 
-			if (ImGui::MenuItem("Redo", "CTRL+Y"))
+			if (ImGui::MenuItem("Redo", "CTRL+Y", false, m_Editor->GetUndo()->HasRedo()))
 			{
 				m_Editor->GetUndo()->Redo();
 			}

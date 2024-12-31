@@ -151,6 +151,7 @@ using ComPtr = Microsoft::WRL::ComPtr<T>;
 // c++ (17) includes
 #include <set>
 #include <map>
+#include <regex>
 #include <stack>
 #include <array>
 #include <cmath>

@@ -49,8 +49,8 @@ Editor::Editor(WindowFlags inWindowFlags, IRenderInterface* inRenderInterface) :
 	ImGui::GetStyle().ScaleAllSizes(1.33333333f);
 	ImNodes::StyleColorsDark();
 
-	if (!m_Settings.mFontFile.empty() && fs::exists(m_Settings.mFontFile))
-		GUI::SetFont(m_Settings.mFontFile.string());
+	if (!m_ConfigSettings.mFontFile.empty() && fs::exists(m_ConfigSettings.mFontFile))
+		GUI::SetFont(m_ConfigSettings.mFontFile.string());
 
 	if (OS::sCheckCommandLineOption("-shader_editor"))
 	{
@@ -199,7 +199,7 @@ void Editor::OnUpdate(float inDeltaTime)
 	if (g_Input->IsRelativeMouseMode())
 		ImGui::GetIO().MousePos = ImVec2(-FLT_MAX, -FLT_MAX);
 
-	if (GetSettings().mShowUI)
+	if (GetConfigSettings().mShowUI)
 	{
 		if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_DockingEnable)
 			BeginImGuiDockSpace();
@@ -243,7 +243,7 @@ void Editor::OnEvent(const SDL_Event& event)
 	{
 		if (const ViewportWidget* viewport_widget = m_Widgets.GetWidget<ViewportWidget>())
 		{
-			if (viewport_widget->IsHovered() || SDL_GetRelativeMouseMode() || !m_Settings.mShowUI)
+			if (viewport_widget->IsHovered() || SDL_GetRelativeMouseMode() || !m_ConfigSettings.mShowUI)
 			{
 				EditorCameraController::OnEvent(m_Camera, event);
 			}
@@ -266,7 +266,7 @@ void Editor::OnEvent(const SDL_Event& event)
 
 		if (event.window.event == SDL_WINDOWEVENT_RESIZED)
 		{
-			if (!m_Settings.mShowUI)
+			if (!m_ConfigSettings.mShowUI)
 			{
 				int w, h;
 				SDL_GetWindowSize(m_Window, &w, &h);
@@ -433,7 +433,7 @@ void Editor::OnEvent(const SDL_Event& event)
 		}
 	}
 
-	if (m_Settings.mShowUI)
+	if (m_ConfigSettings.mShowUI)
 		m_Widgets.OnEvent(event);
 }
 
@@ -458,6 +458,14 @@ void Editor::LogMessage(const String& inMessage)
 	}
 }
 
+
+inline void Editor::SetActiveEntity(Entity inEntity) 
+{
+	if (inEntity != Entity::Null)
+		m_Selection.Clear();
+
+	m_ActiveEntity.store(inEntity); 
+}
 
 void Editor::BeginImGuiDockSpace()
 {

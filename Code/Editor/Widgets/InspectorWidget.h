@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Widget.h"
+#include "Editor.h"
 #include "Undo.h"
 
 namespace RK {
@@ -58,6 +59,9 @@ private:
 	bool DrawComponent(Entity inEntity, DirectionalLight& ioDirectionalLight);
 	bool DrawComponent(Entity inEntity, DDGISceneSettings& ioDDGISceneSettings);
 
+	template<typename T>
+	void CheckForUndo(Entity inEntity, T& inComponent, ComponentUndo<T>& inUndo);
+
 private:
 	bool m_SceneChanged = false;
 	ComponentUndo<Name> m_NameUndo;
@@ -68,6 +72,22 @@ private:
 	ComponentUndo<DirectionalLight> m_DirectionalLightUndo;
 	ComponentUndo<DDGISceneSettings> m_DDGISceneSettingsUndo;
 };
+
+template<typename T>
+void InspectorWidget::CheckForUndo(Entity inEntity, T& inComponent, ComponentUndo<T>& inUndo)
+{
+	if (ImGui::IsItemActivated())
+	{
+		inUndo.entity = inEntity;
+		inUndo.previous = inComponent;
+	}
+
+	if (ImGui::IsItemDeactivatedAfterEdit())
+	{
+		inUndo.current = inComponent;
+		m_Editor->GetUndo()->PushUndo(inUndo);
+	}
+}
 
 }
 

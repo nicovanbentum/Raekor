@@ -24,7 +24,6 @@ private:
 	void DrawChildlessNode(Scene& inScene, Entity inEntity);
 
 	String m_Filter;
-	ImGuiSelectionBasicStorage m_Selection;
 };
 
 }

@@ -96,7 +96,7 @@ public:
 	EGameState GetGameState() const { return m_GameState; }
 
 	uint64_t GetFrameCounter() const { return m_FrameCounter; }
-	const ConfigSettings& GetSettings() const { return m_Settings; }
+	const ConfigSettings& GetConfigSettings() const { return m_ConfigSettings; }
 
 	void AddRecentScene(const Path& inPath);
 
@@ -117,7 +117,7 @@ protected:
 
 	Viewport m_Viewport;
 	DiscordRPC m_DiscordRPC;
-	ConfigSettings m_Settings;
+	ConfigSettings m_ConfigSettings;
 };
 
 

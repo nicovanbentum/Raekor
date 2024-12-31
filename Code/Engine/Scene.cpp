@@ -325,8 +325,54 @@ Entity Scene::Clone(Entity inEntity)
 
 	if (Has<Name>(copy))
 	{
-		Name& name = Get<Name>(copy);
-		name.name = name.name + " (Copy)";
+		Name& cloned_name = Get<Name>(copy);
+
+		std::smatch match;
+		std::regex pattern("\\((\\d+)\\)$");
+
+		// keep track of lowest number and next lowest number,
+		// if they're different we can increment the lowest to fill gaps
+		// e.g. if "Light (4)" and "Light (6)" exist, we create "Light (5)"
+		int highest_number = -1;
+		int lowest_number = INT_MAX;
+		int next_lowest_number = INT_MAX;
+
+		// check all the other entities in the scene for similar names
+		for (const auto& [entity, name] : Each<Name>())
+		{
+			if (name.name.starts_with(cloned_name.name))
+			{
+				if (std::regex_search(name.name, match, pattern))
+				{
+					// name is of format "Light (x)" , extract x
+					int number = std::stoi(match[1].str());
+					if (number < lowest_number)
+						next_lowest_number = number;
+
+					lowest_number = glm::min(number, lowest_number);
+					highest_number = glm::max(number, highest_number);
+				}
+			}
+		}
+
+		int new_number = highest_number + 1;
+
+		// fill gaps
+		if (lowest_number < next_lowest_number)
+			new_number = lowest_number + 1;
+
+		// new indices start at 1 at least
+		new_number = glm::max(new_number, 1);
+
+		// if the current name is of format "Light (x)" update the number
+		if (std::regex_search(cloned_name.name, match, pattern))
+		{
+			cloned_name.name = cloned_name.name.substr(0, match.position()) + std::format("({})", new_number);
+		}
+		else // bad format, just append the new number
+		{
+			cloned_name.name += std::format(" ({})", new_number);
+		}
 	}
 
 	if (Has<Mesh>(copy))

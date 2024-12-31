@@ -30,8 +30,8 @@ CompilerApp::CompilerApp(WindowFlags inFlags) : Application(inFlags | WindowFlag
 	ImGui::StyleColorsDark();
 	ImGui::GetIO().IniFilename = "";
 
-	if (!m_Settings.mFontFile.empty())
-		GUI::SetFont(m_Settings.mFontFile.string());
+	if (!m_ConfigSettings.mFontFile.empty())
+		GUI::SetFont(m_ConfigSettings.mFontFile.string());
 
 	GUI::SetDarkTheme();
 	ImGui::GetStyle().ScaleAllSizes(1.33333333f);

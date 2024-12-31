@@ -245,17 +245,7 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Name& inName)
 
 		ImGui::InputText("##NameInputText", &inName.name, ImGuiInputTextFlags_AutoSelectAll);
 
-		if (ImGui::IsItemActivated())
-		{
-			m_NameUndo.entity = inEntity;
-			m_NameUndo.previous = inName;
-		}
-
-		if (ImGui::IsItemDeactivatedAfterEdit())
-		{
-			m_NameUndo.current = inName;
-			m_Editor->GetUndo()->PushUndo(m_NameUndo);
-		}
+		CheckForUndo(inEntity, inName, m_NameUndo);
 
 		ImGui::EndTable();
 	}
@@ -376,18 +366,6 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Mesh& ioMesh)
 
 bool InspectorWidget::DrawComponent(Entity inEntity, Camera& ioCamera)
 {
-	auto CheckItemUndo = [this](Camera& inCamera)
-	{
-		if (ImGui::IsItemActivated())
-			m_CameraUndo.previous = inCamera;
-
-		if (ImGui::IsItemDeactivatedAfterEdit())
-		{
-			m_CameraUndo.current = inCamera;
-			m_Editor->GetUndo()->PushUndo(m_CameraUndo);
-		}
-	};
-
 	m_CameraUndo.entity = inEntity;
 	const bool is_active_camera = m_Editor->GetCameraEntity() == inEntity;
 
@@ -412,32 +390,32 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Camera& ioCamera)
 		if (ImGui::DragFloat3("Position", glm::value_ptr(position), 0.001f, -FLT_MAX, FLT_MAX))
 			ioCamera.SetPosition(position);
 
-		CheckItemUndo(ioCamera);
+		CheckForUndo(inEntity, ioCamera, m_CameraUndo);
 
 		Vec2 orientation = ioCamera.GetAngle();
 		if (ImGui::DragFloat2("Orientation", glm::value_ptr(orientation), 0.001f, -FLT_MAX, FLT_MAX))
 			ioCamera.SetAngle(orientation);
 
-		CheckItemUndo(ioCamera);
+		CheckForUndo(inEntity, ioCamera, m_CameraUndo);
 	}
 
 	float near_plane = ioCamera.GetNear();
 	if (ImGui::DragFloat("Near Plane", &near_plane, 0.01, 0.01f, 10.0f, "%.1f"))
 		ioCamera.SetNear(near_plane);
 
-	CheckItemUndo(ioCamera);
+	CheckForUndo(inEntity, ioCamera, m_CameraUndo);
 
 	float far_plane = ioCamera.GetFar();
 	if (ImGui::DragFloat("Far Plane", &far_plane, 0.1f, near_plane + 0.01f, Camera::cDefaultFarPlane, "%.1f"))
 		ioCamera.SetFar(far_plane);
 	
-	CheckItemUndo(ioCamera);
+	CheckForUndo(inEntity, ioCamera, m_CameraUndo);
 
 	float field_of_view = ioCamera.GetFov();
 	if (ImGui::DragFloat("Field of View", &field_of_view, 0.1f, 25.0f, 110.0f, "%.1f"))
 		ioCamera.SetFov(field_of_view);
 
-	CheckItemUndo(ioCamera);
+	CheckForUndo(inEntity, ioCamera, m_CameraUndo);
 
 	g_DebugRenderer.AddLineCone(ioCamera.GetPosition(), ioCamera.GetForwardVector(), 1.0f, glm::radians(ioCamera.GetFov()));
 
@@ -686,33 +664,23 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Material& inMaterial)
 	bool scene_changed = false;
 	m_MaterialUndo.entity = inEntity;
 
-	auto CheckItemUndo = [this](Material& inMaterial)
-	{
-		if (ImGui::IsItemActivated())
-			m_MaterialUndo.previous = inMaterial;
-
-		if (ImGui::IsItemDeactivatedAfterEdit())
-		{
-			m_MaterialUndo.current = inMaterial;
-			m_Editor->GetUndo()->PushUndo(m_MaterialUndo);
-		}
-	};
+	CheckForUndo(inEntity, inMaterial, m_MaterialUndo);
 
 	scene_changed |= ImGui::ColorEdit4("Albedo", glm::value_ptr(inMaterial.albedo), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
 
-	CheckItemUndo(inMaterial);
+	CheckForUndo(inEntity, inMaterial, m_MaterialUndo);
 
 	scene_changed |= ImGui::ColorEdit3("Emissive", glm::value_ptr(inMaterial.emissive), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
 
-	CheckItemUndo(inMaterial);
+	CheckForUndo(inEntity, inMaterial, m_MaterialUndo);
 
 	scene_changed |= ImGui::DragFloat("Metallic", &inMaterial.metallic, 0.001f, 0.0f, 1.0f);
 	
-	CheckItemUndo(inMaterial);
+	CheckForUndo(inEntity, inMaterial, m_MaterialUndo);
 	
 	scene_changed |= ImGui::DragFloat("Roughness", &inMaterial.roughness, 0.001f, 0.0f, 1.0f);
 
-	CheckItemUndo(inMaterial);
+	CheckForUndo(inEntity, inMaterial, m_MaterialUndo);
 
 	//ImGui::Text(inMaterial.vertexShaderFile.c_str());
 	//ImGui::SameLine();
@@ -918,7 +886,7 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Material& inMaterial)
 
 	scene_changed |= ImGui::Checkbox("Is Transparent", &inMaterial.isTransparent);
 
-	CheckItemUndo(inMaterial);
+	CheckForUndo(inEntity, inMaterial, m_MaterialUndo);
 
 	return scene_changed;
 }
@@ -930,18 +898,6 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Transform& inTransform)
 	bool item_deactivated = false;
 	m_TransformUndo.entity = inEntity;
 
-	auto CheckItemUndo = [this](Transform& inTransform)
-	{
-		if (ImGui::IsItemActivated())
-			m_TransformUndo.previous = inTransform;
-
-		if (ImGui::IsItemDeactivatedAfterEdit())
-		{
-			m_TransformUndo.current = inTransform;
-			m_Editor->GetUndo()->PushUndo(m_TransformUndo);
-		}
-	};
-
     ImGui::SetNextItemRightAlign("Scale     ");
 	if (ImGui::DragVec3("##ScaleDragFloat3", inTransform.scale, 0.001f, 0.0f, FLT_MAX))
 	{
@@ -949,7 +905,7 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Transform& inTransform)
 		scene_changed = true;
 	}
 
-	CheckItemUndo(inTransform);
+	CheckForUndo(inEntity, inTransform, m_TransformUndo);
 
     ImGui::SetNextItemRightAlign("Rotation");
 	Vec3 degrees = glm::degrees(glm::eulerAngles(inTransform.rotation));
@@ -960,7 +916,7 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Transform& inTransform)
 		scene_changed = true;
 	}
 
-	CheckItemUndo(inTransform);
+	CheckForUndo(inEntity, inTransform, m_TransformUndo);
 
 
     ImGui::SetNextItemRightAlign("Position ");
@@ -970,7 +926,7 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Transform& inTransform)
 		scene_changed = true;
 	}
 
-	CheckItemUndo(inTransform);
+	CheckForUndo(inEntity, inTransform, m_TransformUndo);
 
 	ImGui::Separator();
 
@@ -1110,23 +1066,48 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Light& inLight)
 	constexpr std::array type_names = { "None", "Spot", "Point" };
 	scene_changed |= ImGui::Combo("Type", (int*)&inLight.type, type_names.data(), type_names.size());
 
+	CheckForUndo(inEntity, inLight, m_LightUndo);
+
 	scene_changed |= ImGui::ColorEdit3("Colour", glm::value_ptr(inLight.color), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
+	
+	CheckForUndo(inEntity, inLight, m_LightUndo);
+
 	scene_changed |= ImGui::DragFloat("Intensity", &inLight.color.a, 0.001f);
+
+	CheckForUndo(inEntity, inLight, m_LightUndo);
 
 	switch (inLight.type)
 	{
 		case LIGHT_TYPE_POINT:
 		{
 			scene_changed |= ImGui::DragFloat("Inner Radius", &inLight.attributes.y, 0.001f, 0.0f, 100.0f);
+			
+			CheckForUndo(inEntity, inLight, m_LightUndo);
+
 			scene_changed |= ImGui::DragFloat("Outer Radius", &inLight.attributes.x, 0.001f, 0.0f, 100.0f);
+			
+			CheckForUndo(inEntity, inLight, m_LightUndo);
+
 		} break;
 
 		case LIGHT_TYPE_SPOT:
 		{
 			scene_changed |= ImGui::DragFloat("Range", &inLight.attributes.x, 0.001f);
+			
+			CheckForUndo(inEntity, inLight, m_LightUndo);
+
 			scene_changed |= ImGui::DragFloat("Inner Cone Angle", &inLight.attributes.y, 0.001f, 0.0f, M_PI / 2);
+			
+			CheckForUndo(inEntity, inLight, m_LightUndo);
+
 			scene_changed |= ImGui::DragFloat("Outer Cone Angle", &inLight.attributes.z, 0.001f, 0.0f, M_PI / 2);
+
+			CheckForUndo(inEntity, inLight, m_LightUndo);
+
 			scene_changed |= ImGui::DragFloat3("Direction", &inLight.direction[0], 0.001f);
+
+			CheckForUndo(inEntity, inLight, m_LightUndo);
+
 		} break;
 	}
 
@@ -1245,8 +1226,15 @@ bool InspectorWidget::DrawComponent(Entity inEntity, DDGISceneSettings& ioSettin
 	if (ImGui::Button("Fit to Scene", ImVec2(ImGui::GetWindowWidth(), 0)))
 		ioSettings.FitToScene(GetScene(), GetScene().Get<Transform>(GetActiveEntity()));
 
+	CheckForUndo(inEntity, ioSettings, m_DDGISceneSettingsUndo);
+
 	ImGui::DragInt3("Probe Count", glm::value_ptr(ioSettings.mDDGIProbeCount), 1, 1, 40);
+
+	CheckForUndo(inEntity, ioSettings, m_DDGISceneSettingsUndo);
+
 	ImGui::DragFloat3("Probe Spacing", glm::value_ptr(ioSettings.mDDGIProbeSpacing), 0.01f, -1000.0f, 1000.0f, "%.3f");
+
+	CheckForUndo(inEntity, ioSettings, m_DDGISceneSettingsUndo);
 
 	return false;
 }

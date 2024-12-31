@@ -88,8 +88,8 @@ void SequenceWidget::Draw(Widgets* inWidgets, float inDeltaTime)
             Name& name = GetScene().Add<Name>(entity);
             Animation& animation = GetScene().Add<Animation>(entity);
 
-            name.name = "NewAnim";
-            animation.SetName("NewAnim");
+            name.name = "Animation";
+            animation.SetName("Animation");
 
             m_ActiveAnimationEntity = entity;
         }
