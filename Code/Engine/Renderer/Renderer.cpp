@@ -266,7 +266,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     const Mat4x4 jitter_matrix = glm::translate(Mat4x4(1.0f), Vec3(jitter_x, jitter_y, 0));
     
     bool enable_jitter = m_Settings.mEnableTAA || m_Upscaler.GetActiveUpscaler();
-    enable_jitter &= inRenderInterface->GetSettings().mDebugTexture != DEBUG_TEXTURE_NONE;
+    enable_jitter &= inRenderInterface->GetSettings().mDebugTexture == DEBUG_TEXTURE_NONE;
 
     const Mat4x4 final_proj_matrix = enable_jitter ? jitter_matrix * vp.GetProjection() : vp.GetProjection();
 
