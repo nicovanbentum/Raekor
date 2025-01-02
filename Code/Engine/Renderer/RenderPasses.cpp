@@ -109,7 +109,16 @@ const SkyCubeData& AddSkyCubePass(RenderGraph& inRenderGraph, Device& inDevice, 
             }
         }
 
-        inData.mSkyCubeTexture = ioRGBuilder.Create(Texture::DescCube(DXGI_FORMAT_R32G32B32A32_FLOAT, 64, 64, Texture::SHADER_READ_WRITE));
+        inData.mSkyCubeTexture = ioRGBuilder.Create(Texture::Desc 
+        {
+            .format = DXGI_FORMAT_R32G32B32A32_FLOAT,
+            .dimension = Texture::TEX_DIM_CUBE,
+            .width  = 64,
+            .height = 64, 
+            .depthOrArrayLayers = 6,
+            .usage  = Texture::SHADER_READ_WRITE,
+            .debugName = "SkyCube"
+        });
     },
     [&inDevice, &inScene](SkyCubeData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {   
@@ -1159,7 +1168,9 @@ const DebugPrimitivesData& AddDebugOverlayPass(RenderGraph& inRenderGraph, Devic
         inData.mDepthTarget = ioRGBuilder.DepthStencilTarget(inDepthTarget);
 
         D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inRenderPass->CreatePipelineStateDesc(inDevice, g_SystemShaders.mDebugPrimitivesShader);
-
+        pso_state.BlendState.RenderTarget[0].BlendEnable = true;
+        pso_state.BlendState.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
+        pso_state.BlendState.RenderTarget[0].DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
         pso_state.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
         pso_state.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
         pso_state.RasterizerState.AntialiasedLineEnable = true;

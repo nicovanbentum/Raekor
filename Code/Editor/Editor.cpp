@@ -116,6 +116,9 @@ Editor::Editor(WindowFlags inWindowFlags, IRenderInterface* inRenderInterface) :
 		if (m_CompilerWindow == nullptr)
 			LogMessage("[Editor] Failed to hook asset compiler window.");
 	}
+
+	m_Camera.SetPosition(Vec3(1.0f, 1.0f, -1.0f));
+	m_Camera.LookAt(Vec3(0.0f, 0.0f, 0.0f));
 }
 
 
@@ -171,16 +174,20 @@ void Editor::OnUpdate(float inDeltaTime)
 		m_Scene.UpdateLights();
 	}
 
-	/*int cGridSize = 20;
+	int cGridSize = 20;
 	float cGridCellSize = 0.5f;
 
 	int cGridHalfSize = cGridSize / 2;
 	for (float i = -cGridHalfSize; i <= cGridHalfSize; i += cGridCellSize)
 	{
-		Vec4 color = Vec4(0.2, 0.2, 0.2, 1.0);
+		Vec4 color = Vec4(0.2, 0.2, 0.2, 0.2);
 		g_DebugRenderer.AddLine(Vec3(i, 0, -cGridHalfSize), Vec3(i, 0, cGridHalfSize), color);
 		g_DebugRenderer.AddLine(Vec3(-cGridHalfSize, 0, i), Vec3(cGridHalfSize, 0, i), color);
-	}*/
+	}
+
+	g_DebugRenderer.AddLine(Vec3(0, 0.001, 0), Camera::cUp * 2.0f, Vec4(0, 1, 0, 1));
+	g_DebugRenderer.AddLine(Vec3(0, 0.001, 0), Camera::cRight * 2.0f, Vec4(1, 0, 0, 1));
+	g_DebugRenderer.AddLine(Vec3(0, 0.001, 0), Camera::cForward * 2.0f, Vec4(0, 0, 1, 1));
 
 	// render any scene dependent debug shapes
 	if (GetActiveEntity() != Entity::Null && m_ActiveEntity != m_Scene.GetRootEntity())
@@ -281,7 +288,7 @@ void Editor::OnEvent(const SDL_Event& event)
 		{
 			case SDLK_d:
 			{
-				if (SDL_GetModState() & KMOD_LCTRL)
+				if (g_Input->IsKeyDown(Key::LCTRL))
 				{
 					if (m_ActiveEntity != Entity::Null && m_ActiveEntity != m_Scene.GetRootEntity())
 						SetActiveEntity(m_Scene.Clone(m_ActiveEntity));
@@ -290,7 +297,7 @@ void Editor::OnEvent(const SDL_Event& event)
 
 			case SDLK_s:
 			{
-				if (SDL_GetModState() & KMOD_LCTRL)
+				if (g_Input->IsKeyDown(Key::LCTRL))
 				{
 					String filepath = OS::sSaveFileDialog("Scene File (*.scene)\0", "scene");
 
@@ -310,13 +317,13 @@ void Editor::OnEvent(const SDL_Event& event)
 
 			case SDLK_z:
 			{
-				if (SDL_GetModState() & KMOD_LCTRL)
+				if (g_Input->IsKeyDown(Key::LCTRL))
 					m_UndoSystem.Undo();
 			} break;
 
 			case SDLK_y:
 			{
-				if (SDL_GetModState() & KMOD_LCTRL)
+				if (g_Input->IsKeyDown(Key::LCTRL))
 					m_UndoSystem.Redo();
 			} break;
 

@@ -24,6 +24,8 @@ public:
 	void Zoom(float inAmount);
 	void Look(Vec2 inAmount);
 	void Move(Vec2 inAmount);
+	void Orbit(Vec2 inAmount, Vec3 inTarget, float inRadius);
+
 
 	Vec3 GetForwardVector() const;
 
@@ -60,7 +62,7 @@ private:
 	float m_AspectRatio = cDefaultAspectRatio;
 
 public:
-	float mZoomSpeed = 1.0f, mMoveSpeed = 1.0f;
+	float mZoomSpeed = 1.0f, mMoveSpeed = 1.0f, mOrbitSpeed = 0.1f;
 	float mLookConstant = 1.0f, mZoomConstant = 10.0f, mMoveConstant = 10.0f;
 };
 

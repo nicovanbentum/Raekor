@@ -100,7 +100,7 @@ public:
 	JSONWriter& PopIndent() { m_Indent--; return *this; }
 	JSONWriter& PushIndent() { m_Indent++; return *this; }
 
-	std::string GetString() const { return m_SS.str(); }
+	String GetString() const { return m_SS.str(); }
 
 	void Clear() { m_SS = {}; }
 

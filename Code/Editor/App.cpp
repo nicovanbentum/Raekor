@@ -241,6 +241,21 @@ void DXApp::OnEvent(const SDL_Event& inEvent)
             SDL_GetWindowDisplayMode(m_Window, &mode);
             LogMessage(std::format("SDL Display Mode: {}x{}@{}Hz \n", mode.w, mode.h, mode.refresh_rate));
         }
+
+        switch (inEvent.key.keysym.sym)
+        {
+            case SDLK_z: // undo
+            {
+                if (g_Input->IsKeyDown(Key::LCTRL) && GetUndo()->HasUndo())
+                    RenderSettings::mPathTraceReset = true;
+            } break;
+
+            case SDLK_y: // redo
+            {
+                if (g_Input->IsKeyDown(Key::LCTRL) && GetUndo()->HasRedo())
+                    RenderSettings::mPathTraceReset = true;
+            } break;
+        }
     }
 
     if (inEvent.type == SDL_WINDOWEVENT && inEvent.window.event == SDL_WINDOWEVENT_RESIZED)

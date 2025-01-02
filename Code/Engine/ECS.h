@@ -43,8 +43,13 @@ public:
 
 	virtual void    Read(BinaryReadArchive& inArchive) = 0;
 	virtual void    Read(JSON::ReadArchive& inArchive) = 0;
+	virtual void	Read(Entity inEntity, BinaryReadArchive& inArchive) = 0;
+	virtual void	Read(Entity inEntity, JSON::ReadArchive& inArchive) = 0;
+
 	virtual void    Write(BinaryWriteArchive& ioArchive) = 0;
 	virtual void    Write(JSON::WriteArchive& ioArchive) = 0;
+	virtual void	Write(Entity inEntity, BinaryWriteArchive& inArchive) = 0;
+	virtual void	Write(Entity inEntity, JSON::WriteArchive& inArchive) = 0;
 
 	bool IsEmpty() const { return Length() == 0; }
 
@@ -244,8 +249,8 @@ public:
 	void Clear() override final
 	{
 		m_Sparse.clear();
-		m_Components.clear();
 		m_Entities.clear();
+		m_Components.clear();
 	}
 
 	size_t Length() const override final { return m_Components.size(); }
@@ -264,6 +269,22 @@ public:
 	}
 	void Read(JSON::ReadArchive& ioArchive) override final {}
 
+	void Read(Entity inEntity, BinaryReadArchive& ioArchive) override final
+	{
+		if (!Contains(inEntity))
+			return;
+
+		ioArchive >> Get(inEntity);
+	}
+
+	void Read(Entity inEntity, JSON::ReadArchive& ioArchive) override final
+	{
+		if (!Contains(inEntity))
+			return;
+
+		ioArchive >> Get(inEntity);
+	}
+
 	void Write(BinaryWriteArchive& ioArchive) override final
 	{
 		WriteFileBinary(ioArchive.GetFile(), m_Entities);
@@ -273,6 +294,22 @@ public:
 
 		for (const T& component : m_Components)
 			ioArchive << component;
+	}
+
+	void Write(Entity inEntity, BinaryWriteArchive& ioArchive) override final
+	{
+		if (!Contains(inEntity))
+			return;
+
+		ioArchive << Get(inEntity);
+	}
+
+	void Write(Entity inEntity, JSON::WriteArchive& ioArchive) override final
+	{
+		if (!Contains(inEntity))
+			return;
+
+		ioArchive << Get(inEntity);
 	}
 
 	void Write(JSON::WriteArchive& ioArchive) override final {}
@@ -307,6 +344,8 @@ public:
 	{
 		return m_Components.at(RTTI_HASH<Component>())->GetDerived<Component>();
 	}
+
+	auto EachComponentStorage() { return std::views::values(m_Components); }
 
 	template<typename Component>
 	Slice<const Component> GetComponents()

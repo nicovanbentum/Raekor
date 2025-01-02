@@ -74,6 +74,12 @@ void main(uint3 threadID : SV_DispatchThreadID)
             Surface surface;
             surface.FromHit(vertex, material);
             
+            if (surface.mAlbedo.a < 0.5)
+            {
+                ray.Origin = vertex.mPos + ray.Direction * 0.001;
+                continue;
+            }
+            
             if (!query.CommittedTriangleFrontFace())
             {
                 surface.mNormal = -surface.mNormal;
@@ -137,14 +143,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
                 }
             }
 
-            // handle alpha cutoff
-            if (surface.mAlbedo.a < 0.5)
-            {
-                bounce = bounce - 1;
-                ray.Origin = vertex.mPos + ray.Direction * 0.01;
-                continue;
-            }
-            else // sample the BRDF to get new outgoing direction, update ray dir and pos
+            // sample the BRDF to get new outgoing direction, update ray dir and pos
             { 
                 ray.Origin = vertex.mPos + vertex.mNormal * 0.01;
                 surface.SampleBRDF(rng, Wo, ray.Direction, throughput);

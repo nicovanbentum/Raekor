@@ -123,7 +123,7 @@ private:
 	/* Total duration of the animation.*/
 	float m_TotalDuration = 0.0f;
 	/* Arrays of keyframes mapped to bone/joint indices. */
-	std::unordered_map<String, KeyFrames> m_KeyFrames;
+	HashMap<String, KeyFrames> m_KeyFrames;
 };
 
 } // raekor

@@ -17,29 +17,60 @@ RTTI_DEFINE_TYPE(Camera)
 }
 
 
-void Camera::Zoom(float amount)
+void Camera::Zoom(float inAmount)
 {
 	Vec3 forward = GetForwardVector();
-	m_Position += forward * ( amount * mZoomSpeed );
+	m_Position += forward * ( inAmount * mZoomSpeed );
 }
 
 
-void Camera::Look(Vec2 amount)
+void Camera::Look(Vec2 inAmount)
 {
-	m_Angle.x += float(amount.x * -1);
-	m_Angle.y += float(amount.y * -1);
+	m_Angle.x += float(inAmount.x * -1);
+	m_Angle.y += float(inAmount.y * -1);
 	// clamp to roughly half pi so we dont overshoot
 	m_Angle.y = std::clamp(m_Angle.y, -1.57078f, 1.57078f);
 }
 
 
-void Camera::Move(Vec2 amount)
+void Camera::Move(Vec2 inAmount)
 {
 	Vec3 forward = GetForwardVector();
 	Vec3 right = glm::normalize(glm::cross(forward, cUp));
 	
-	m_Position += right * ( amount.x * -mMoveSpeed );
-	m_Position.y += float(amount.y * mMoveSpeed);
+	m_Position += right * ( inAmount.x * -mMoveSpeed );
+	m_Position.y += float(inAmount.y * mMoveSpeed);
+}
+
+
+void Camera::Orbit(Vec2 inAmount, Vec3 inTarget, float inRadius)
+{
+	float angle_vertical = inAmount.y * mOrbitSpeed;
+	float angle_horizontal = inAmount.x * mOrbitSpeed;
+
+	Vec3 offset = m_Position - inTarget;
+	float current_radius = glm::length(offset);
+	
+	if (current_radius == 0.0f) // prevent divide by zero
+	{
+		current_radius = inRadius;
+		offset = Vec3(0.0f, 0.0f, -inRadius);
+	}
+
+	Vec3 direction = glm::normalize(offset);
+	Vec3 axis_vertical = glm::normalize(glm::cross(Camera::cUp, direction));
+	
+	Quat vertical_rotation = glm::angleAxis(angle_vertical, axis_vertical);
+	Quat rotation_horizontal = glm::angleAxis(angle_horizontal, Camera::cUp);
+
+	Quat final_rotation = vertical_rotation * rotation_horizontal;
+	direction = glm::rotate(final_rotation, direction);
+
+	Vec3 position = inTarget + direction * current_radius;
+
+	SetPosition(position);
+	
+	LookAt(inTarget);
 }
 
 
@@ -74,8 +105,10 @@ Vec3 Camera::GetForwardVector() const
 
 void Camera::LookAt(Vec3 inPosition)
 {
-	m_Angle.x = glm::atan(inPosition.x, inPosition.z);
-	m_Angle.y = std::clamp(glm::asin(inPosition.y), -1.57078f, 1.57078f);
+	Vec3 look_at = glm::normalize(inPosition - m_Position);
+
+	m_Angle.x = glm::atan(look_at.x, look_at.z);
+	m_Angle.y = std::clamp(glm::asin(look_at.y), -1.57078f, 1.57078f);
 }
 
 
@@ -179,7 +212,7 @@ void EditorCameraController::OnUpdate(Camera& inCamera, float inDeltaTime)
 
 bool EditorCameraController::OnEvent(Camera& inCamera, const SDL_Event& inEvent)
 {
-	bool camera_changed = false;
+	bool camera_changed = g_Input->IsRelativeMouseMode();
 
 	if (inEvent.button.button == 2 || inEvent.button.button == 3)
 	{
@@ -203,19 +236,24 @@ bool EditorCameraController::OnEvent(Camera& inCamera, const SDL_Event& inEvent)
 
 	if (inEvent.type == SDL_MOUSEMOTION)
 	{
+		const CVar& sens_cvar = g_CVariables->GetCVar("sensitivity");
+		const float formula = glm::radians(0.022f * sens_cvar.mFloatValue * 2.0f);
+
 		if (g_Input->IsRelativeMouseMode() && g_Input->IsButtonDown(3))
 		{
-			const CVar& sens_cvar = g_CVariables->GetCVar("sensitivity");
-			const float formula = glm::radians(0.022f * sens_cvar.mFloatValue * 2.0f);
-			
-			inCamera.Look(glm::vec2(inEvent.motion.xrel * formula, inEvent.motion.yrel * formula));
-			
-			camera_changed = true;
+			inCamera.Look(Vec2(inEvent.motion.xrel, inEvent.motion.yrel) * formula);
+
 		}
 		else if (g_Input->IsRelativeMouseMode() && g_Input->IsButtonDown(2))
 		{
-			inCamera.Move(glm::vec2(inEvent.motion.xrel * 0.02f, inEvent.motion.yrel * 0.02f));
-			camera_changed = true;
+			if (g_Input->IsKeyDown(Key::LCTRL))
+			{
+				inCamera.Orbit(Vec2(inEvent.motion.xrel, inEvent.motion.yrel) * 0.02f, Vec3(0.0f), 2.0f);
+			}
+			else
+			{
+				inCamera.Move(Vec2(inEvent.motion.xrel, inEvent.motion.yrel) * 0.02f);
+			}
 		}
 	}
 	else if (inEvent.type == SDL_MOUSEWHEEL)
