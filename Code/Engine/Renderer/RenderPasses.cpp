@@ -1136,12 +1136,12 @@ const BloomPassData& AddBloomPass(RenderGraph& inRenderGraph, Device& inDevice, 
 
     auto AddDownsamplePass = [&](RenderGraphResourceID inFromTexture, RenderGraphResourceID inToTexture, uint32_t inFromMip, uint32_t inToMip)
     {
-        return RunBloomPass(std::format("Downsample mip {} -> mip {}", inFromMip, inToMip), g_SystemShaders.mBloomDownsampleShader.GetComputePSO(), inFromTexture, inToTexture, inFromMip, inToMip);
+        return RunBloomPass(std::format("Bloom mip {} -> mip {}", inFromMip, inToMip), g_SystemShaders.mBloomDownsampleShader.GetComputePSO(), inFromTexture, inToTexture, inFromMip, inToMip);
     };
 
     auto AddUpsamplePass = [&](RenderGraphResourceID inFromTexture, RenderGraphResourceID inToTexture, uint32_t inFromMip, uint32_t inToMip)
     {
-        return RunBloomPass(std::format("Upsample mip {} -> mip {}", inFromMip, inToMip), g_SystemShaders.mBloomUpSampleShader.GetComputePSO(), inFromTexture, inToTexture, inFromMip, inToMip);
+        return RunBloomPass(std::format("Bloom mip {} -> mip {}", inFromMip, inToMip), g_SystemShaders.mBloomUpSampleShader.GetComputePSO(), inFromTexture, inToTexture, inFromMip, inToMip);
     };
 
 

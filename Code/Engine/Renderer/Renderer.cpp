@@ -409,7 +409,10 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
         // Record commands to render ImGui to the backbuffer
         // skip if we recompiled, ImGui's descriptor tables will be invalid for 1 frame
         if (inApp->GetConfigSettings().mShowUI && !recompiled)
+        {
+            PROFILE_SCOPE_GPU(direct_cmd_list, "ImGui");
             RenderImGui(m_RenderGraph, inDevice, direct_cmd_list, GetBackBufferData().mBackBuffer);
+        }
 
     }
 

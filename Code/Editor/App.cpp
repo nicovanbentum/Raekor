@@ -463,8 +463,10 @@ void GPUProfileWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
     float total_time = ( highest_tick - lowest_tick ) / (double)frequency;
 
-    ImVec2 start_pos = ImGui::GetCursorPos();
+    ImVec2 start_pos = ImGui::GetCursorScreenPos();
     ImVec2 avail_size = ImGui::GetContentRegionAvail();
+
+    float bar_height = avail_size.y / ( max_depth + 1 ) ;
     float pixels_per_tick = avail_size.x / ( highest_tick - lowest_tick );
 
     // render breadth first so we can abuse ImGui::SameLine
@@ -485,21 +487,26 @@ void GPUProfileWidget::Draw(Widgets* inWidgets, float inDeltaTime)
             if (section_count > 0)
                 ImGui::SameLine(0.0f, 0.0f);
 
-            float end_pos_x = start_pos.x + ( lowest_tick - section.mEndTick ) * pixels_per_tick;
-            float start_pos_x = start_pos.x + ( lowest_tick - section.mStartTick ) * pixels_per_tick;
+            float end_pos_x = start_pos.x + ( section.mEndTick - lowest_tick ) * pixels_per_tick;
+            float start_pos_x = start_pos.x + ( section.mStartTick - lowest_tick ) * pixels_per_tick;
+
+            float end_pos_y = start_pos.y + ( section.mDepth + 1 ) * bar_height;
+            float start_pos_y = start_pos.y + ( section.mDepth + 0 ) * bar_height;
+
+            const ImVec2 pad = ImVec2(1.0f, 1.0f);
+            const ImRect bbox = ImRect(ImVec2(start_pos_x, start_pos_y), ImVec2(end_pos_x, end_pos_y));
 
             const float time = ( section.mEndTick - section.mStartTick ) / (double)frequency;
             const float pct_time = time / total_time;
-
-            ImVec2 screen_pos = ImGui::GetCursorScreenPos();
-            const ImVec2 bar_size = ImVec2(pct_time * avail_size.x, avail_size.y / (max_depth + 1 ));
 
             char text_buffer[255];
             ImFormatString(text_buffer, std::size(text_buffer), "%s (%.2f ms)", section.mName, time * 1'000);
 
             ImGui::PushID(index);
 
-            ImGui::InvisibleButton(section.mName, bar_size, ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight);
+            ImGui::SetCursorScreenPos(bbox.Min);
+
+            ImGui::InvisibleButton(section.mName, bbox.GetSize(), ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight);
 
             ImGui::PopID();
 
@@ -525,15 +532,13 @@ void GPUProfileWidget::Draw(Widgets* inWidgets, float inDeltaTime)
             ImU32 upper_gradient = ImGui::ColorConvertFloat4ToU32(upper_hsv);
             ImU32 lower_gradient = ImGui::ColorConvertFloat4ToU32(lower_hsv);
             
-            const ImVec2 pad = ImVec2(1.0f, 1.0f);
-            const ImRect bbox = ImRect(screen_pos, screen_pos + bar_size);
             ImGui::GetWindowDrawList()->AddRectFilled(bbox.Min, bbox.Max, m_SelectedSectionIndex == index ? IM_COL32_WHITE : IM_COL32_BLACK);
-            ImGui::GetWindowDrawList()->AddRectFilledMultiColor(bbox.Min + pad, bbox.Max - pad, upper_gradient, upper_gradient, lower_gradient, lower_gradient);
+            ImGui::GetWindowDrawList()->AddRectFilledMultiColor(bbox.Min + pad, bbox.Max - pad, upper_gradient, lower_gradient, lower_gradient, upper_gradient);
             
-            if (pct_time > 0.0099f) 
+            if (pct_time > 0.01f) 
             {
-                const ImRect text_clip_rect = ImRect(bbox.Min + pad, bbox.Max - pad * 2.0f);
                 const ImVec2 label_size = ImGui::CalcTextSize(text_buffer, NULL, true);
+                const ImRect text_clip_rect = ImRect(bbox.Min + pad, bbox.Max - pad * 2.0f);
                 ImGui::RenderTextClipped(bbox.Min + pad * 2.0f, bbox.Max - pad * 2.0f, text_buffer, NULL, &label_size, ImGui::GetStyle().ButtonTextAlign, &text_clip_rect);
             }
             
