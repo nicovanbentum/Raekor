@@ -5,6 +5,7 @@
 #include "RenderUtil.h"
 #include "CommandList.h"
 #include "RenderGraph.h"
+#include "Application.h"
 
 #include "OS.h"
 #include "Maths.h"
@@ -16,7 +17,7 @@
 
 namespace RK::DX12 {
 
-Device::Device()
+Device::Device(Application* inApp)
 {
     uint32_t device_creation_flags = 0u;
 
@@ -101,6 +102,7 @@ Device::Device()
     gThrowIfFailed(m_Device->CreateCommandQueue(&direct_queue_desc, IID_PPV_ARGS(&m_GraphicsQueue)));
 
     m_Device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_UploadFence));
+    m_UploadFence->SetName(L"UploadFence");
     
     // Since buffers/textures also correspond to a resource descriptor, we should / can never allocate more than the resource heap limit.
     // Because we reserve this upfront we also get stable pointers.
@@ -197,6 +199,18 @@ Device::Device()
         };
 
         m_Device->CreateCommandSignature(&cmdsig_desc, nullptr, IID_PPV_ARGS(m_CommandSignatures[cmd_sig].GetAddressOf()));
+    }
+
+    // check for ray-tracing support
+    D3D12_FEATURE_DATA_D3D12_OPTIONS5 options5 = {};
+    gThrowIfFailed(m_Device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS5, &options5, sizeof(options5)));
+    mIsRayTracingSupported = options5.RaytracingTier >= D3D12_RAYTRACING_TIER_1_1;
+    
+    if (!mIsRayTracingSupported)
+    {
+        mIsRayTracingSupported = true;
+        SDL_ShowSimpleMessageBox(SDL_MessageBoxFlags::SDL_MESSAGEBOX_ERROR, "DX12 Error", "GPU does not support D3D12_RAYTRACING_TIER_1_1.", inApp->GetWindow());
+        abort();
     }
 }
 

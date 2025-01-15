@@ -1,14 +1,15 @@
 #pragma once
 
-#include "editor.h"
+#include "Editor.h"
 #include "Widget.h"
 #include "Engine/scene.h"
-#include "Engine/physics.h"
 #include "Engine/assets.h"
+#include "Engine/physics.h"
 #include "Engine/Renderer/Device.h"
 #include "Engine/Renderer/Renderer.h"
 #include "Engine/Renderer/CommandList.h"
 #include "Engine/Renderer/RayTracedScene.h"
+#include "Editor/Widgets/ProfileWidget.h"
 
 namespace RK::DX12 {
 
@@ -45,6 +46,8 @@ private:
 class DeviceResourcesWidget : public IWidget
 {
 public:
+    RTTI_DECLARE_VIRTUAL_TYPE(DeviceResourcesWidget);
+
     DeviceResourcesWidget(Editor* inEditor) : IWidget(inEditor, "GPU Resources ") {}
     void Draw(Widgets* inWidgets, float inDeltaTime);
     void OnEvent(Widgets* inWidgets, const SDL_Event& inEvent) {}
@@ -55,6 +58,19 @@ private:
     uint16_t m_BufferUsageFilter = 0xFFFF;
     uint16_t m_TextureUsageFilter = 0xFFFF;
     HashSet<ID3D12Resource*> m_SeenResources;
+};
+
+class GPUProfileWidget : public IWidget
+{
+public:
+    RTTI_DECLARE_VIRTUAL_TYPE(GPUProfileWidget);
+
+    GPUProfileWidget(Editor* inEditor) : IWidget(inEditor, "GPU Profiler ") {}
+    void Draw(Widgets* inWidgets, float inDeltaTime);
+    void OnEvent(Widgets* inWidgets, const SDL_Event& inEvent);
+
+private:
+    int m_SelectedSectionIndex = -1;
 };
 
 } // namespace Raekor::DX12

@@ -13,53 +13,52 @@ void main(uint3 threadID : SV_DispatchThreadID)
 {
     if (any(threadID.xy >= rc.mDispatchSize.xy))
         return;
-
+    
+    Texture2D<float> depth_texture = ResourceDescriptorHeap[rc.mGbufferDepthTexture];
     Texture2D<float4> gbuffer_texture = ResourceDescriptorHeap[rc.mGbufferRenderTexture];
-    Texture2D<float> gbuffer_depth_texture = ResourceDescriptorHeap[rc.mGbufferDepthTexture];
-    RWTexture2D<float> result_texture = ResourceDescriptorHeap[rc.mAOmaskTexture];
+    RWTexture2D<float> ao_mask_texture = ResourceDescriptorHeap[rc.mAOmaskTexture];
     RaytracingAccelerationStructure TLAS = ResourceDescriptorHeap[fc.mTLAS];
 
-    const float2 pixel_center = float2(threadID.xy) + float2(0.5, 0.5);
+    float2 pixel_center = float2(threadID.xy) + float2(0.5, 0.5);
     float2 screen_uv = pixel_center / rc.mDispatchSize;
 
-    float depth = gbuffer_depth_texture[threadID.xy];
-    if (depth >= 1.0) {
-        result_texture[threadID.xy] = 0.0;
-        return;
-    }
-        
-    const float3 normal = UnpackNormal(asuint(gbuffer_texture[threadID.xy]));
-    const float3 ws_position = ReconstructWorldPosition(screen_uv, depth, fc.mInvViewProjectionMatrix);
-    const float3 vs_position = mul(fc.mViewMatrix, float4(ws_position, 1.0)).xyz;
-    float4 blue_noise = SampleBlueNoise(threadID.xy, fc.mFrameCounter);
-    
-    const float3 hemi = SampleCosineWeightedHemisphere(blue_noise.xy);
-    const float3x3 tbn = BuildOrthonormalBasis(normal);
-    const float3 new_normal = mul(tbn, hemi);
-    
-    const float bias = (-vs_position.z + length(ws_position.xyz)) * 1e-3;
-    
-    RayDesc ray;
-    ray.TMin = 0.0;
-    ray.TMax = rc.mParams.mRadius;
-    ray.Origin = ws_position + normal * bias;
-    ray.Direction = normalize(new_normal);
-
-    uint ray_flags =  RAY_FLAG_FORCE_OPAQUE;
-    RayQuery< RAY_FLAG_FORCE_OPAQUE> query;
-
-    query.TraceRayInline(TLAS, ray_flags, 0xFF, ray);
-    query.Proceed();
-
     float occlusion = 1.0;
-        
-    if (query.CommittedStatus() == COMMITTED_TRIANGLE_HIT)
+    float depth = depth_texture[threadID.xy];
+    
+    if (depth)
     {
-        occlusion = saturate((ray.TMin + query.CommittedRayT()) / max(ray.TMax, 0.001));
-        occlusion = pow(occlusion, rc.mParams.mPower);
+        float3 normal = UnpackNormal(asuint(gbuffer_texture[threadID.xy]));
+        float3 ws_position = ReconstructWorldPosition(screen_uv, depth, fc.mInvViewProjectionMatrix);
+        float3 vs_position = mul(fc.mViewMatrix, float4(ws_position, 1.0)).xyz;
+
+        float4 blue_noise = SampleBlueNoise(threadID.xy, fc.mFrameCounter);
+        float3 hemi = SampleCosineWeightedHemisphere(blue_noise.xy);
+        float3x3 tbn = BuildOrthonormalBasis(normal);
+        float3 new_normal = mul(tbn, hemi);
+    
+        float bias = (-vs_position.z + length(ws_position.xyz)) * 1e-3;
+    
+        RayDesc ray;
+        ray.TMin = 0.0;
+        ray.TMax = rc.mParams.mRadius;
+        ray.Origin = ws_position + normal * bias;
+        ray.Direction = normalize(new_normal);
+    
+        uint ray_flags = RAY_FLAG_FORCE_OPAQUE | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER;
+        RayQuery < RAY_FLAG_FORCE_OPAQUE | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER > query;
+
+        query.TraceRayInline(TLAS, ray_flags, 0xFF, ray);
+        query.Proceed();
+
+        
+        if (query.CommittedStatus() == COMMITTED_TRIANGLE_HIT)
+        {
+            occlusion = saturate((ray.TMin + query.CommittedRayT()) / max(ray.TMax, 0.001));
+            occlusion = pow(occlusion, rc.mParams.mPower);
+        }
+        // occlusion /= rc.mParams.mSampleCount;
     }
+        
     
-    // occlusion /= rc.mParams.mSampleCount;
-    
-    result_texture[threadID.xy] = occlusion;
+    ao_mask_texture[threadID.xy] = occlusion;
 }

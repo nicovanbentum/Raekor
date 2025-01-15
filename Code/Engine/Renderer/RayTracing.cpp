@@ -10,21 +10,6 @@
 
 namespace RK::DX12 {
 
-void ClearTextureUAV(Device& inDevice, TextureID inTexture, Vec4 inValue, CommandList& inCmdList)
-{
-    inCmdList.PushComputeConstants(ClearTextureRootConstants
-    {
-        .mClearValue = inValue,
-        .mTexture = inDevice.GetBindlessHeapIndex(inTexture)
-    });
-
-    const Texture& texture = inDevice.GetTexture(inTexture);
-
-    inCmdList->SetPipelineState(g_SystemShaders.mClearTextureShader.GetComputePSO());
-    inCmdList->Dispatch(( texture.GetWidth() + 7 ) / 8, ( texture.GetHeight() + 7 ) / 8, 1);
-}
-
-
 const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferOutput& inGBuffer)
 {
     static constexpr int cTileSize = RT_SHADOWS_GROUP_DIM;
@@ -33,7 +18,7 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
 
     auto TraceShadowRaysPass = [](RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferOutput& inGBuffer)
     {
-        return inRenderGraph.AddComputePass<TraceShadowTilesData>("TRACE SHADOW RAYS PASS",
+        return inRenderGraph.AddComputePass<TraceShadowTilesData>("RT Shadows Trace",
         [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, TraceShadowTilesData& inData)
         {
             inData.mOutputTexture = inRGBuilder.Create(Texture::Desc
@@ -55,6 +40,9 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
             if (!inScene.HasTLAS())
                 return;
 
+            if (!inScene->GetSunLight())
+                return;
+
             const Viewport& viewport = inRenderGraph.GetViewport();
             const Texture& texture  = inDevice.GetTexture(inResources.GetTexture(inData.mOutputTexture));
 
@@ -73,7 +61,7 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
 
     auto ClearShadowTilesPass = [](RenderGraph& inRenderGraph, Device& inDevice)
     {
-        return inRenderGraph.AddComputePass<ClearShadowTilesData>("CLEAR SHADOW TILES PASS",
+        return inRenderGraph.AddComputePass<ClearShadowTilesData>("RT Shadows Clear Tiles",
         [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, ClearShadowTilesData& inData)
         {
             const UVec2& render_size = inRenderGraph.GetViewport().GetRenderSize();
@@ -105,7 +93,7 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
 
     auto ClassifyShadowTilesPass = [](RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const TraceShadowTilesData& inTraceData, const ClearShadowTilesData& inClearData)
     {
-        return inRenderGraph.AddComputePass<ClassifyShadowTilesData>("CLASSIFY SHADOW RAYS PASS",
+        return inRenderGraph.AddComputePass<ClassifyShadowTilesData>("RT Shadows Classify",
         [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, ClassifyShadowTilesData& inData)
         {
             const UVec2& render_size = inRenderGraph.GetViewport().GetRenderSize();
@@ -137,7 +125,7 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
 
     auto ClearShadowsPass = [](RenderGraph& inRenderGraph, Device& inDevice)
     {
-        return inRenderGraph.AddComputePass<ClearShadowsData>("CLEAR SHADOWS PASS",
+        return inRenderGraph.AddComputePass<ClearShadowsData>("RT Shadows Clear",
         [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, ClearShadowsData& inData)
         {
             inData.mShadowsTexture = inRGBuilder.Create(Texture::Desc
@@ -170,7 +158,7 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
 
     auto DenoiseShadowsPass = [](RenderGraph& inRenderGraph, Device& inDevice, const GBufferOutput& inGBuffer, const TraceShadowTilesData& inTraceData, const ClearShadowTilesData& inTilesData, const ClearShadowsData& inShadowsData)
     {
-        return inRenderGraph.AddComputePass<DenoiseShadowsData>("DENOISE SHADOWS PASS",
+        return inRenderGraph.AddComputePass<DenoiseShadowsData>("RT Shadows Denoise",
         [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, DenoiseShadowsData& inData)
         {
             inData.mOutputTextureUAV = inRGBuilder.Write(inShadowsData.mShadowsTexture);
@@ -259,7 +247,7 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
 
 const RTAOData& AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferOutput& inGBuffer)
 {
-    return inRenderGraph.AddComputePass<RTAOData>("RAY TRACED AO PASS",
+    return inRenderGraph.AddComputePass<RTAOData>("RTAO",
     [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, RTAOData& inData)
     {
         inData.mOutputTexture = inRGBuilder.Create(Texture::Desc{
@@ -306,7 +294,7 @@ const RTAOData& AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDe
 
 const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferOutput& inGBuffer, const SkyCubeData& inSkyCubeData)
 {
-    return inRenderGraph.AddComputePass<ReflectionsData>("RAY TRACED REFLECTIONS PASS",
+    return inRenderGraph.AddComputePass<ReflectionsData>("RT Specular",
         [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, ReflectionsData& inData)
     {
         inData.mOutputTexture = inRGBuilder.Create(Texture::Desc
@@ -350,7 +338,7 @@ const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& in
 
 const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const SkyCubeData& inSkyCubeData)
 {
-    return inRenderGraph.AddComputePass<PathTraceData>("PATH TRACE PASS",
+    return inRenderGraph.AddComputePass<PathTraceData>("PathTrace",
     [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, PathTraceData& inData)
     {
         inData.mOutputTexture = inRGBuilder.Create(Texture::Desc
@@ -420,7 +408,7 @@ DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTr
         Mat4x4 mRandomRotationMatrix;
     };
 
-    const ProbeTraceData& trace_data = inRenderGraph.AddComputePass<ProbeTraceData>("GI PROBE TRACE PASS",
+    const ProbeTraceData& trace_data = inRenderGraph.AddComputePass<ProbeTraceData>("DDGI Trace",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ProbeTraceData& inData)
     {
         const int total_probe_count = RenderSettings::mDDGIProbeCount.x * RenderSettings::mDDGIProbeCount.y * RenderSettings::mDDGIProbeCount.z;
@@ -523,7 +511,7 @@ DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTr
         RenderGraphResourceViewID mRaysIrradianceTextureSRV;
     };
 
-    const ProbeUpdateData& update_data =  inRenderGraph.AddComputePass<ProbeUpdateData>("GI PROBE UPDATE PASS",
+    const ProbeUpdateData& update_data =  inRenderGraph.AddComputePass<ProbeUpdateData>("DDGI Update",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ProbeUpdateData& inData)
     {
         inData.mProbesDepthTextureUAV = ioRGBuilder.Write(trace_data.mProbesDepthTexture);
@@ -584,7 +572,7 @@ DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTr
         RenderGraphResourceViewID mProbesIrradianceTextureSRV;
     };
 
-    const ProbeSampleData& sample_data = inRenderGraph.AddComputePass<ProbeSampleData>("GI PROBE SAMPLE PASS",
+    const ProbeSampleData& sample_data = inRenderGraph.AddComputePass<ProbeSampleData>("DDGI Sample",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ProbeSampleData& inData)
     {
         inData.mOutputTexture = ioRGBuilder.Create(Texture::Desc
@@ -642,7 +630,7 @@ DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTr
 
 const ProbeDebugData& AddProbeDebugPass(RenderGraph& inRenderGraph, Device& inDevice, const DDGIOutput& inDDGI, RenderGraphResourceID inRenderTarget, RenderGraphResourceID inDepthTarget)
 {
-    return inRenderGraph.AddGraphicsPass<ProbeDebugData>("GI PROBE DEBUG PASS",
+    return inRenderGraph.AddGraphicsPass<ProbeDebugData>("DDGI Debug Probes",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ProbeDebugData& inData)
     {
         Mesh::CreateSphere(inData.mProbeMesh, 0.5f, 32u, 32u);
@@ -732,7 +720,7 @@ const ProbeDebugData& AddProbeDebugPass(RenderGraph& inRenderGraph, Device& inDe
 
 const ProbeDebugRaysData& AddProbeDebugRaysPass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inRenderTarget, RenderGraphResourceID inDepthTarget)
 {
-    return inRenderGraph.AddGraphicsPass<ProbeDebugRaysData>("GI PROBE DEBUG RAYS PASS",
+    return inRenderGraph.AddGraphicsPass<ProbeDebugRaysData>("DDGI Debug Rays",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ProbeDebugRaysData& inData)
     {
         inData.mVertexBuffer = ioRGBuilder.Create(Buffer::Desc

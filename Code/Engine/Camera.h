@@ -26,8 +26,10 @@ public:
 	void Move(Vec2 inAmount);
 	void Orbit(Vec2 inAmount, Vec3 inTarget, float inRadius);
 
-
 	Vec3 GetForwardVector() const;
+
+	Mat4x4 ToViewMatrix() const;
+	Mat4x4 ToProjectionMatrix() const;
 
 	void LookAt(Vec3 inPosition);
 
@@ -49,6 +51,7 @@ public:
 
 	float GetZoomSpeed() const { return mZoomSpeed; }
 	float GetMoveSpeed() const { return mMoveSpeed; }
+
 
 private:
 	Vec2 m_Angle = Vec2(0.0f);

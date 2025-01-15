@@ -40,6 +40,8 @@ public:
     uint32_t GetMaterialsCount() const { return m_Scene.Count<Material>(); }
 
     uint32_t GetTLASDescriptorIndex() const { return m_TLASDescriptor.GetIndex(); }
+    uint32_t GetEmptyTLASDescriptorIndex() const { return m_EmptyTLASDescriptor.GetIndex(); }
+
     uint32_t GetLightsDescriptorIndex() const { return m_LightsDescriptor.GetIndex(); }
     uint32_t GetInstancesDescriptorIndex() const { return m_InstancesDescriptor.GetIndex(); }
     uint32_t GetMaterialsDescriptorIndex() const { return m_MaterialsDescriptor.GetIndex(); }
@@ -59,13 +61,19 @@ private:
     Scene& m_Scene;
     
     BufferID m_TLASBuffer;
-    BufferID m_LightsBuffer;
+    BufferID m_EmptyTLASBuffer;
+
     BufferID m_ScratchBuffer;
+    BufferID m_EmptyScratchBuffer;
+    
+    DescriptorID m_TLASDescriptor;
+    DescriptorID m_EmptyTLASDescriptor;
+
+    BufferID m_LightsBuffer;
     BufferID m_InstancesBuffer;
     BufferID m_MaterialsBuffer;
     BufferID m_D3D12InstancesBuffer;
 
-    DescriptorID m_TLASDescriptor;
     DescriptorID m_LightsDescriptor;
     DescriptorID m_InstancesDescriptor;
     DescriptorID m_MaterialsDescriptor;

@@ -6,6 +6,7 @@
 #include "Shader.h"
 #include "Upscalers.h"
 #include "RayTracing.h"
+#include "GPUProfiler.h"
 #include "RenderGraph.h"
 #include "RenderPasses.h"
 
@@ -238,13 +239,17 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     // at this point we know the GPU is no longer working on this frame, so free/release stuff here
      if (m_FrameCounter > 0)
     {
-         inDevice.RetireUploadBuffers(backbuffer_data.mCopyCmdList);
+        g_GPUProfiler->Readback(inDevice, m_FrameIndex);
+        
+        inDevice.RetireUploadBuffers(backbuffer_data.mCopyCmdList);
         inDevice.RetireUploadBuffers(backbuffer_data.mDirectCmdList);
-         inDevice.RetireUploadBuffers(backbuffer_data.mUpdateCmdList);
+        inDevice.RetireUploadBuffers(backbuffer_data.mUpdateCmdList);
+        
         backbuffer_data.mCopyCmdList.ReleaseTrackedResources();
         backbuffer_data.mDirectCmdList.ReleaseTrackedResources();
         backbuffer_data.mUpdateCmdList.ReleaseTrackedResources();
     }
+
 
     // clear the clear heap every 2 frames, TODO: bad design pls fix
     if (m_FrameCounter % sFrameCount == 0)
@@ -275,6 +280,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     m_FrameConstants.mDeltaTime = inDeltaTime;
     m_FrameConstants.mSunConeAngle = m_Settings.mSunConeAngle;
     m_FrameConstants.mTLAS = inScene.GetTLASDescriptorIndex();
+    m_FrameConstants.mShadowTLAS = inScene->GetSunLight() ? inScene.GetTLASDescriptorIndex() : inScene.GetEmptyTLASDescriptorIndex();
     m_FrameConstants.mFrameCounter = m_FrameCounter;
     m_FrameConstants.mPrevJitter = m_FrameConstants.mJitter;
     m_FrameConstants.mJitter = enable_jitter ? Vec2(jitter_x, jitter_y) : Vec2(0.0f, 0.0f);
@@ -336,75 +342,82 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     static const int& update_skinning = g_CVariables->Create("update_skinning", 1, true);
     // Start recording pending scene changes to the copy cmd list
     CommandList& copy_cmd_list = GetBackBufferData().mCopyCmdList;
+    CommandList& direct_cmd_list = GetBackBufferData().mDirectCmdList;
     CommandList& update_cmd_list = GetBackBufferData().mUpdateCmdList;
 
     copy_cmd_list.Reset();
+    direct_cmd_list.Reset();
     update_cmd_list.Reset();
 
     {
-        std::scoped_lock lock = std::scoped_lock(m_UploadMutex);
+        PROFILE_SCOPE_GPU(direct_cmd_list, "OnRender");
 
-        // upload vertex buffers, index buffers, and BLAS for meshes
         {
-            PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( copy_cmd_list ), PIX_COLOR(0, 255, 0), "UPLOAD MESHES");
+            std::scoped_lock lock = std::scoped_lock(m_UploadMutex);
 
-            for (Entity entity : m_PendingMeshUploads)
-                inScene.UploadMesh(inApp, inDevice, inScene->Get<Mesh>(entity), inScene->GetPtr<Skeleton>(entity), copy_cmd_list);
-        }
+            // upload vertex buffers, index buffers, and BLAS for meshes
+            {
+                PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( copy_cmd_list ), PIX_COLOR(0, 255, 0), "UPLOAD MESHES");
+
+                for (Entity entity : m_PendingMeshUploads)
+                    inScene.UploadMesh(inApp, inDevice, inScene->Get<Mesh>(entity), inScene->GetPtr<Skeleton>(entity), copy_cmd_list);
+            }
     
-        // upload skeleton bone attributes and bone transform buffers
-        for (Entity entity : m_PendingSkeletonUploads)
-            inScene.UploadSkeleton(inApp, inDevice, inScene->Get<Skeleton>(entity), copy_cmd_list);
+            // upload skeleton bone attributes and bone transform buffers
+            for (Entity entity : m_PendingSkeletonUploads)
+                inScene.UploadSkeleton(inApp, inDevice, inScene->Get<Skeleton>(entity), copy_cmd_list);
     
-        // update bottom level AS for entities that have both a mesh and skeleton
-        if (update_skinning)
-        {
-            PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( copy_cmd_list ), PIX_COLOR(0, 255, 0), "BUILD BLASes");
+            // update bottom level AS for entities that have both a mesh and skeleton
+            if (update_skinning)
+            {
+                PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( copy_cmd_list ), PIX_COLOR(0, 255, 0), "BUILD BLASes");
         
-            for (Entity entity : m_PendingBlasUpdates)
-                inScene.UpdateBLAS(inApp, inDevice, inScene->Get<Mesh>(entity), inScene->GetPtr<Skeleton>(entity), copy_cmd_list);
+                for (Entity entity : m_PendingBlasUpdates)
+                    inScene.UpdateBLAS(inApp, inDevice, inScene->Get<Mesh>(entity), inScene->GetPtr<Skeleton>(entity), copy_cmd_list);
+            }
+
+            inDevice.FlushUploads(copy_cmd_list);
+
+            // clear all pending uploads for this frame, memory will be re-used
+            m_PendingBlasUpdates.clear();
+            m_PendingMeshUploads.clear();
+            m_PendingTextureUploads.clear();
+            m_PendingSkeletonUploads.clear();
         }
 
-        inDevice.FlushUploads(copy_cmd_list);
+        //// Record uploads for the RT scene 
+        if (upload_tlas)
+        {
+            std::scoped_lock lock = std::scoped_lock(m_UploadMutex);
 
-        // clear all pending uploads for this frame, memory will be re-used
-        m_PendingBlasUpdates.clear();
-        m_PendingMeshUploads.clear();
-        m_PendingTextureUploads.clear();
-        m_PendingSkeletonUploads.clear();
+            inScene.UploadInstances(inApp, inDevice, copy_cmd_list);
+            inScene.UploadMaterials(inApp, inDevice, copy_cmd_list, m_Settings.mDisableAlbedo);
+            inScene.UploadTLAS(inApp, inDevice, copy_cmd_list);
+            inScene.UploadLights(inApp, inDevice, copy_cmd_list);
+        }
+
+        //// Submit all copy commands
+        copy_cmd_list.Close();
+        copy_cmd_list.Submit(inDevice, inDevice.GetGraphicsQueue());
+
+        update_cmd_list.Close();
+        update_cmd_list.Submit(inDevice, inDevice.GetGraphicsQueue());
+
+        // Record the entire frame into the direct cmd list
+        m_RenderGraph.Execute(inDevice, direct_cmd_list);
+
+        // Record commands to render ImGui to the backbuffer
+        // skip if we recompiled, ImGui's descriptor tables will be invalid for 1 frame
+        if (inApp->GetConfigSettings().mShowUI && !recompiled)
+            RenderImGui(m_RenderGraph, inDevice, direct_cmd_list, GetBackBufferData().mBackBuffer);
+
     }
 
-    //// Record uploads for the RT scene 
-    if (upload_tlas)
-    {
-        std::scoped_lock lock = std::scoped_lock(m_UploadMutex);
-
-        inScene.UploadInstances(inApp, inDevice, copy_cmd_list);
-        inScene.UploadMaterials(inApp, inDevice, copy_cmd_list, m_Settings.mDisableAlbedo);
-        inScene.UploadTLAS(inApp, inDevice, copy_cmd_list);
-        inScene.UploadLights(inApp, inDevice, copy_cmd_list);
-    }
-
-    //// Submit all copy commands
-    copy_cmd_list.Close();
-    copy_cmd_list.Submit(inDevice, inDevice.GetGraphicsQueue());
-
-    update_cmd_list.Close();
-    update_cmd_list.Submit(inDevice, inDevice.GetGraphicsQueue());
-
-    // Start recording graphics commands
-    CommandList& direct_cmd_list = GetBackBufferData().mDirectCmdList;
-    direct_cmd_list.Reset();
-
-    // Record the entire frame into the direct cmd list
-    m_RenderGraph.Execute(inDevice, direct_cmd_list);
-
-    // Record commands to render ImGui to the backbuffer
-    // skip if we recompiled, ImGui's descriptor tables will be invalid for 1 frame
-    if (inApp->GetConfigSettings().mShowUI && !recompiled)
-        RenderImGui(m_RenderGraph, inDevice, direct_cmd_list, GetBackBufferData().mBackBuffer);
+    g_GPUProfiler->Resolve(inDevice, direct_cmd_list);
 
     direct_cmd_list.Close();
+
+    // resolve any GPU queries
 
     // Run command list execution and present in a job so it can overlap a bit with the start of the next frame
     //m_PresentJobPtr = Async::sQueueJob([&inDevice, this]() 
@@ -450,6 +463,8 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
 
 void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRenderInterface* inRenderInterface)
 {
+    g_GPUProfiler->SetEnabled(true);
+
     m_RenderGraph.Clear(inDevice);
 
     const DefaultTexturesData& default_textures = AddDefaultTexturesPass(m_RenderGraph, inDevice, inRenderInterface->GetBlackTexture(), inRenderInterface->GetWhiteTexture());
@@ -485,7 +500,7 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
 
     const ConvolveCubeData& convolved_cube_data = AddConvolveSkyCubePass(m_RenderGraph, inDevice, sky_cube_data);
 
-    if (m_Settings.mDoPathTrace)
+    if (m_Settings.mDoPathTrace && inDevice.IsRayTracingSupported())
     {
         if (m_Settings.mDoPathTraceGBuffer)
             gbuffer_output = AddGBufferPass(m_RenderGraph, inDevice, inScene).mOutput;
@@ -502,21 +517,21 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
 
         //const auto shadow_texture = AddShadowMaskPass(m_RenderGraph, inDevice, inScene, gbuffer_data).mOutputTexture;
 
-        if (m_Settings.mEnableShadows)
+        if (m_Settings.mEnableShadows && inDevice.IsRayTracingSupported())
             rt_shadows_texture = AddRayTracedShadowsPass(m_RenderGraph, inDevice, inScene, gbuffer_output);
 
         if (m_Settings.mEnableSSAO)
             ao_texture = AddSSAOTracePass(m_RenderGraph, inDevice, gbuffer_output).mOutputTexture;
         
-        if (m_Settings.mEnableRTAO)
+        if (m_Settings.mEnableRTAO && inDevice.IsRayTracingSupported())
             ao_texture = AddAmbientOcclusionPass(m_RenderGraph, inDevice, inScene, gbuffer_output).mOutputTexture;
 
-        if (m_Settings.mEnableReflections)
+        if (m_Settings.mEnableReflections && inDevice.IsRayTracingSupported())
             reflections_texture = AddReflectionsPass(m_RenderGraph, inDevice, inScene, gbuffer_output, sky_cube_data).mOutputTexture;
 
         // const auto& downsample_data = AddDownsamplePass(m_RenderGraph, inDevice, reflection_data.mOutputTexture);
 
-        if (m_Settings.mEnableDDGI)
+        if (m_Settings.mEnableDDGI && inDevice.IsRayTracingSupported())
             ddgi_output = AddDDGIPass(m_RenderGraph, inDevice, inScene, gbuffer_output, sky_cube_data);
         
         const TiledLightCullingData& light_cull_data = AddTiledLightCullingPass(m_RenderGraph, inDevice, inScene);
@@ -525,10 +540,10 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
         
         compose_input = light_data.mOutputTexture;
         
-        if (m_Settings.mEnableDDGI && m_Settings.mDebugProbes)
+        if (m_Settings.mEnableDDGI && m_Settings.mDebugProbes && inDevice.IsRayTracingSupported())
             AddProbeDebugPass(m_RenderGraph, inDevice, ddgi_output, light_data.mOutputTexture, gbuffer_output.mDepthTexture);
 
-        if (m_Settings.mEnableDDGI && m_Settings.mDebugProbeRays)
+        if (m_Settings.mEnableDDGI && m_Settings.mDebugProbeRays && inDevice.IsRayTracingSupported())
             AddProbeDebugRaysPass(m_RenderGraph, inDevice, light_data.mOutputTexture, gbuffer_output.mDepthTexture);
 
         if (m_Settings.mEnableSSR)
@@ -697,7 +712,6 @@ RenderInterface::RenderInterface(Application* inApp, Device& inDevice, Renderer&
     const String camera_texture_file = TextureAsset::Convert("Assets/camera.png");
     m_CameraTexture = TextureID(UploadTextureFromAsset(inApp->GetAssets()->GetAsset<TextureAsset>(camera_texture_file)));
 }
-
 
 
 
@@ -1367,6 +1381,11 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
     if (ImGui::BeginMenu("Post Process Settings"))
     {
         ImGui::SeparatorText("Post Processing");
+
+        need_recompile |= ImGui::Checkbox("##SSRToggle", (bool*)&m_Renderer.GetSettings().mEnableSSR);
+        ImGui::SameLine();
+
+        ImGui::Text("SSR");
 
         need_recompile |= ImGui::Checkbox("##SSAOtoggle", (bool*)&m_Renderer.GetSettings().mEnableSSAO);
         ImGui::SameLine();

@@ -80,35 +80,16 @@ void main(uint3 threadID : SV_DispatchThreadID) {
         //brdf.mNormal = vertex.mNormal; // use the vertex normal, texture based detail is lost anyway
         
         irradiance = surface.mEmissive;
-        
         const float3 Wo = -ray.Direction;
-        const float3 Wi = normalize(-fc.mSunDirection.xyz);
-        const float3 Wh = normalize(Wo + Wi);
-        
-        const float3 l = ((1.0 - surface.mMetallic) * surface.mAlbedo.rgb);
-        
 
-        const float NdotL = max(dot(surface.mNormal, Wi), 0.0);
-        float3 sunlight_luminance = Absorb(IntegrateOpticalDepth(0.xxx, -Wi)) * fc.mSunColor.a;
-        
-        irradiance += l * NdotL * sunlight_luminance;
-        
-        if (NdotL > 0.0)
         {
-            RayDesc shadow_ray;
-            shadow_ray.Origin = vertex.mPos + vertex.mNormal * 0.01;
-            shadow_ray.Direction = Wi;
-            shadow_ray.TMin = 0.0;
-            shadow_ray.TMax = 1000.0;
+            uint rng = 0;
+            float3 Wi = SampleDirectionalLight(fc.mSunDirection.xyz, fc.mSunConeAngle, pcg_float2(rng));
         
-            uint shadow_ray_flags = RAY_FLAG_FORCE_OPAQUE | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER;
-    
-            RayQuery < RAY_FLAG_FORCE_OPAQUE | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER > shadow_query;
-
-            shadow_query.TraceRayInline(TLAS, shadow_ray_flags, 0xFF, shadow_ray);
-            shadow_query.Proceed();
-        
-            irradiance *= shadow_query.CommittedStatus() != COMMITTED_TRIANGLE_HIT;
+            bool hit = TraceShadowRay(TLAS, vertex.mPos + vertex.mNormal * 0.01, Wi, 0.1f, 1000.0f);
+            
+            if (!hit)
+                irradiance += EvaluateDirectionalLight(surface, fc.mSunColor, Wi, Wo);
         }
         
         // TODO: make probe textures persistent, at this point in the rendergraph they don't exist yet

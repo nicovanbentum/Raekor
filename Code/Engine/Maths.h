@@ -96,7 +96,7 @@ struct Frustum
 	StaticArray<Vec4, 6> m_Planes;
 
 	Frustum() = default;
-	Frustum(const Mat4x4& inViewProjMatrix, bool inShouldNormalize);
+	Frustum(const Mat4x4& inViewProjMatrix, bool inNormalize);
 
 	bool Contains(const Vec3& inPoint) const;
 	bool ContainsAABB(const BBox3D& inAABB) const;

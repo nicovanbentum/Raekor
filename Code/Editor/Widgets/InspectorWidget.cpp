@@ -104,6 +104,13 @@ bool InspectorWidget::DrawEntityInspector(Widgets* inWidgets)
 	ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
 	ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding, 4.0f);
 
+	ImGui::Separator();
+
+	if (ImGui::Button("Add Script", ImVec2(-1.0f, ImGui::GetFrameHeight())))
+	{
+		scene.Add<NativeScript>(active_entity);
+	}
+
 	if (ImGui::BeginPopup("Components"))
 	{
 		for (const RTTI* rtti : g_RTTIFactory)
@@ -124,7 +131,6 @@ bool InspectorWidget::DrawEntityInspector(Widgets* inWidgets)
 		ImGui::EndPopup();
 	}
 
-	ImGui::Separator();
 
 	ImGui::PopStyleVar();
 	ImGui::PopStyleVar();
@@ -417,7 +423,41 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Camera& ioCamera)
 
 	CheckForUndo(inEntity, ioCamera, m_CameraUndo);
 
-	g_DebugRenderer.AddLineCone(ioCamera.GetPosition(), ioCamera.GetForwardVector(), 1.0f, glm::radians(ioCamera.GetFov()));
+	Mat4x4 view_matrix = ioCamera.ToViewMatrix();
+	Mat4x4 proj_matrix = ioCamera.ToProjectionMatrix();
+
+	std::array f = {
+		Vec3(-1.0f,  1.0f, -1.0f),
+		Vec3( 1.0f,  1.0f, -1.0f),
+		Vec3( 1.0f, -1.0f, -1.0f),
+		Vec3(-1.0f, -1.0f, -1.0f),
+		Vec3(-1.0f,  1.0f,  1.0f),
+		Vec3( 1.0f,  1.0f,  1.0f),
+		Vec3( 1.0f, -1.0f,  1.0f),
+		Vec3(-1.0f, -1.0f,  1.0f),
+	};
+
+
+	const Mat4x4 inv_vp = glm::inverse(proj_matrix * view_matrix);
+
+	for (Vec3& v : f)
+	{
+		Vec4 ws = inv_vp * Vec4(v, 1.0f);
+		v = ws / ws.w;
+	}
+
+	g_DebugRenderer.AddLine(f[0], f[1]);
+	g_DebugRenderer.AddLine(f[1], f[2]);
+	g_DebugRenderer.AddLine(f[2], f[3]);
+	g_DebugRenderer.AddLine(f[3], f[0]);
+
+	g_DebugRenderer.AddLine(f[4], f[5]);
+	g_DebugRenderer.AddLine(f[5], f[6]);
+	g_DebugRenderer.AddLine(f[6], f[7]);
+	g_DebugRenderer.AddLine(f[7], f[4]);
+
+	for (int i = 0; i < 4; i++)
+		g_DebugRenderer.AddLine(f[i], f[i + 4]);
 
 	return false;
 }

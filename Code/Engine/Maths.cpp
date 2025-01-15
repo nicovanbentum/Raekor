@@ -284,10 +284,11 @@ Mat3x3 gRandomRotationMatrix()
 
 
 /*
+*	left, right, bottom, top, near, far
 	Fast Extraction of Viewing Frustum Planes from the World-View-Projection Matrix by G. Gribb & K. Hartmann
 	https://www.gamedevs.org/uploads/fast-extraction-viewing-frustum-planes-from-world-view-projection-matrix.pdf
 */
-Frustum::Frustum(const glm::mat4& inViewProjMatrix, bool inShouldNormalize)
+Frustum::Frustum(const glm::mat4& inViewProjMatrix, bool inNormalize)
 {
 	m_Planes[0].x = inViewProjMatrix[0][3] + inViewProjMatrix[0][0];
 	m_Planes[0].y = inViewProjMatrix[1][3] + inViewProjMatrix[1][0];
@@ -319,16 +320,10 @@ Frustum::Frustum(const glm::mat4& inViewProjMatrix, bool inShouldNormalize)
 	m_Planes[5].z = inViewProjMatrix[2][3] - inViewProjMatrix[2][2];
 	m_Planes[5].w = inViewProjMatrix[3][3] - inViewProjMatrix[3][2];
 
-	if (inShouldNormalize)
+	if (inNormalize)
 	{
 		for (Vec4& plane : m_Planes)
-		{
-			const float mag = sqrt(plane.x * plane.x + plane.y * plane.y + plane.z * plane.z);
-			plane.x = plane.x / mag;
-			plane.y = plane.y / mag;
-			plane.z = plane.z / mag;
-			plane.w = plane.w / mag;
-		}
+			plane = glm::normalize(plane);
 	}
 }
 

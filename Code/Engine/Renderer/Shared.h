@@ -136,7 +136,8 @@ struct FrameConstants
     uint2     mViewportSize;
     
     uint      mNrOfLights;
-    uint3     mPad0;
+    uint      mShadowTLAS;
+    uint2     mPad0;
 
     float2    mJitter;
     float2    mPrevJitter;

@@ -5,15 +5,31 @@
         {
             "Compute Shader": 
             {
-                "File Path": "Assets/Shaders/Backend/ClearBufferUAV.hlsl"
+                "File Path": "Assets/Shaders/Backend/ClearBuffer.hlsl"
             }
         },
 
-        "Clear Texture Shader":
+        "Clear Texture2D Shader":
         {
             "Compute Shader": 
             {
-                "File Path": "Assets/Shaders/Backend/ClearTextureUAV.hlsl"
+                "File Path": "Assets/Shaders/Backend/ClearTexture2D.hlsl"
+            }
+        },
+
+        "Clear Texture3D Shader":
+        {
+            "Compute Shader": 
+            {
+                "File Path": "Assets/Shaders/Backend/ClearTexture3D.hlsl"
+            }
+        },
+
+        "Clear TextureCube Shader":
+        {
+            "Compute Shader": 
+            {
+                "File Path": "Assets/Shaders/Backend/ClearTextureCube.hlsl"
             }
         },
 

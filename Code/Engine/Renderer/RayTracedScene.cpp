@@ -231,11 +231,21 @@ void RayTracedScene::UploadTLAS(Application* inApp, Device& inDevice, CommandLis
         .Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE,
         .NumDescs = uint32_t(rt_instances.size()),
         .DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY,
-        .InstanceDescs = instance_buffer->GetGPUVirtualAddress(),
+        .InstanceDescs = instance_buffer->GetGPUVirtualAddress()
+    };
+
+    const D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS no_inputs =
+    {
+        .Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL,
+        .Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE,
+        .DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY
     };
 
     D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO prebuild_info = {};
     inDevice->GetRaytracingAccelerationStructurePrebuildInfo(&inputs, &prebuild_info);
+
+    D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO empty_prebuild_info = {};
+    inDevice->GetRaytracingAccelerationStructurePrebuildInfo(&no_inputs, &empty_prebuild_info);
 
     m_TLASBuffer = GrowBuffer(inDevice, m_TLASBuffer, Buffer::Desc
     {
@@ -244,11 +254,25 @@ void RayTracedScene::UploadTLAS(Application* inApp, Device& inDevice, CommandLis
         .debugName = "TLAS_FULL_SCENE"
     });
 
+    m_EmptyTLASBuffer = GrowBuffer(inDevice, m_EmptyTLASBuffer, Buffer::Desc
+    {
+        .size = empty_prebuild_info.ResultDataMaxSizeInBytes,
+        .usage = Buffer::Usage::ACCELERATION_STRUCTURE,
+        .debugName = "TLAS_EMPTY"
+    });
+
     m_TLASDescriptor = inDevice.GetBuffer(m_TLASBuffer).GetDescriptor();
+    m_EmptyTLASDescriptor = inDevice.GetBuffer(m_EmptyTLASBuffer).GetDescriptor();
 
     m_ScratchBuffer = GrowBuffer(inDevice, m_ScratchBuffer, Buffer::Desc
     {
         .size = prebuild_info.ScratchDataSizeInBytes,
+        .debugName = "TLAS_SCRATCH_BUFFER"
+    });
+
+    m_EmptyScratchBuffer = GrowBuffer(inDevice, m_EmptyScratchBuffer, Buffer::Desc
+    {
+        .size = empty_prebuild_info.ScratchDataSizeInBytes,
         .debugName = "TLAS_SCRATCH_BUFFER"
     });
 
@@ -260,6 +284,15 @@ void RayTracedScene::UploadTLAS(Application* inApp, Device& inDevice, CommandLis
     inCmdList.TrackResource(inDevice.GetBuffer(m_TLASBuffer));
     inCmdList.TrackResource(inDevice.GetBuffer(m_ScratchBuffer));
     inCmdList->BuildRaytracingAccelerationStructure(&desc, 0, nullptr);
+
+    D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC empty_desc = {};
+    empty_desc.Inputs = no_inputs;
+    empty_desc.DestAccelerationStructureData = inDevice.GetBuffer(m_EmptyTLASBuffer)->GetGPUVirtualAddress();
+    empty_desc.ScratchAccelerationStructureData = inDevice.GetBuffer(m_EmptyScratchBuffer)->GetGPUVirtualAddress();
+
+    inCmdList.TrackResource(inDevice.GetBuffer(m_EmptyTLASBuffer));
+    inCmdList.TrackResource(inDevice.GetBuffer(m_EmptyScratchBuffer));
+    inCmdList->BuildRaytracingAccelerationStructure(&empty_desc, 0, nullptr);
 }
 
 

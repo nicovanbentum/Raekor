@@ -25,9 +25,39 @@ const T& AddPass(RenderGraph& inRenderGraph, Device& inDevice)
 
 */
 
+void ClearTextureUAV(Device& inDevice, TextureID inTexture, Vec4 inValue, CommandList& inCmdList)
+{
+    inCmdList.PushComputeConstants(ClearTextureRootConstants
+        {
+            .mClearValue = inValue,
+            .mTexture = inDevice.GetBindlessHeapIndex(inTexture)
+        });
+
+    const Texture& texture = inDevice.GetTexture(inTexture);
+
+    switch (texture.GetDesc().dimension)
+    {
+        case Texture::TEX_DIM_2D:
+        {
+            inCmdList->SetPipelineState(g_SystemShaders.mClearTexture2DShader.GetComputePSO());
+            inCmdList->Dispatch(( texture.GetWidth() + 7 ) / 8, ( texture.GetHeight() + 7 ) / 8, 1);
+        } break;
+        case Texture::TEX_DIM_3D:
+        {
+            inCmdList->SetPipelineState(g_SystemShaders.mClearTexture3DShader.GetComputePSO());
+            inCmdList->Dispatch(( texture.GetWidth() + 3 ) / 4, ( texture.GetHeight() + 3 ) / 4, ( texture.GetDepth() + 3 ) / 4);
+        } break;
+        case Texture::TEX_DIM_CUBE:
+        {
+            inCmdList->SetPipelineState(g_SystemShaders.mClearTextureCubeShader.GetComputePSO());
+            inCmdList->Dispatch(( texture.GetWidth() + 7 ) / 8, ( texture.GetHeight() + 7 ) / 8, texture.GetDepth());
+        } break;
+    }
+}
+
 const DefaultTexturesData& AddDefaultTexturesPass(RenderGraph& inRenderGraph, Device& inDevice, TextureID inBlackTexture, TextureID inWhiteTexture)
 {
-    return inRenderGraph.AddGraphicsPass<DefaultTexturesData>("DEFAULT TEXTURES PASS",
+    return inRenderGraph.AddGraphicsPass<DefaultTexturesData>("DefaultTextures",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, DefaultTexturesData& inData)
     {
         inData.mBlackTexture = ioRGBuilder.Import(inDevice, inBlackTexture);
@@ -40,7 +70,7 @@ const DefaultTexturesData& AddDefaultTexturesPass(RenderGraph& inRenderGraph, De
 
 const ClearBufferData& AddClearBufferPass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inBuffer, uint32_t inClearValue)
 {
-    return inRenderGraph.AddComputePass<ClearBufferData>(std::format("CLEAR BUFFER"),
+    return inRenderGraph.AddComputePass<ClearBufferData>(std::format("ClearBuffer"),
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ClearBufferData& inData)
     {
         inData.mBufferUAV = ioRGBuilder.Write(inBuffer);
@@ -55,7 +85,7 @@ const ClearBufferData& AddClearBufferPass(RenderGraph& inRenderGraph, Device& in
 
         const Buffer& buffer = inDevice.GetBuffer(inResources.GetBufferView(inData.mBufferUAV));
 
-        inCmdList->SetPipelineState(g_SystemShaders.mClearTextureShader.GetComputePSO());
+        inCmdList->SetPipelineState(g_SystemShaders.mClearBufferShader.GetComputePSO());
         inCmdList->Dispatch(( buffer.GetSize() + 63 ) / 64, 1, 1);
     });
 }
@@ -64,23 +94,14 @@ const ClearBufferData& AddClearBufferPass(RenderGraph& inRenderGraph, Device& in
 
 const ClearTextureFloatData& AddClearTextureFloatPass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inTexture, const Vec4& inClearValue)
 {
-    return inRenderGraph.AddComputePass<ClearTextureFloatData>(std::format("CLEAR TEXTURE FLOAT"),
+    return inRenderGraph.AddComputePass<ClearTextureFloatData>(std::format("ClearTexture"),
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ClearTextureFloatData& inData)
     {
         inData.mTextureUAV = ioRGBuilder.Write(inTexture);
     },
     [&inDevice, inClearValue](ClearTextureFloatData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
-        inCmdList.PushComputeConstants(ClearTextureRootConstants
-        {
-            .mClearValue = inClearValue,
-            .mTexture = inResources.GetBindlessHeapIndex(inData.mTextureUAV)
-        });
-
-        const Texture& texture = inDevice.GetTexture(inResources.GetTextureView(inData.mTextureUAV));
-
-        inCmdList->SetPipelineState(g_SystemShaders.mClearTextureShader.GetComputePSO());
-        inCmdList->Dispatch(( texture.GetWidth() + 7 ) / 8, ( texture.GetHeight() + 7 ) / 8, 1);
+        ClearTextureUAV(inDevice, inResources.GetTextureView(inData.mTextureUAV), inClearValue, inCmdList);
     });
 }
 
@@ -97,7 +118,7 @@ const TransitionResourceData& AddTransitionResourcePass(RenderGraph& inRenderGra
 
 const SkyCubeData& AddSkyCubePass(RenderGraph& inRenderGraph, Device& inDevice, const Scene& inScene)
 {
-    return inRenderGraph.AddComputePass<SkyCubeData>("SKY CUBE PASS",
+    return inRenderGraph.AddComputePass<SkyCubeData>("Skycube",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, SkyCubeData& inData)
     {  
         if (const DirectionalLight* sun_light = inScene.GetSunLight())
@@ -140,6 +161,10 @@ const SkyCubeData& AddSkyCubePass(RenderGraph& inRenderGraph, Device& inDevice, 
                 inCmdList->Dispatch(texture_desc.width / 8, texture_desc.height / 8, texture_desc.depthOrArrayLayers);
             }
         }
+        else
+        {
+            ClearTextureUAV(inDevice, inResources.GetTexture(inData.mSkyCubeTexture), Vec4(0.0f), inCmdList);
+        }
     });
 }
 
@@ -147,7 +172,7 @@ const SkyCubeData& AddSkyCubePass(RenderGraph& inRenderGraph, Device& inDevice, 
 
 const ConvolveCubeData& AddConvolveSkyCubePass(RenderGraph& inRenderGraph, Device& inDevice, const SkyCubeData& inSkyCubeData)
 {
-    return inRenderGraph.AddGraphicsPass<ConvolveCubeData>("CONVOLVE SKYCUBE PASS",
+    return inRenderGraph.AddGraphicsPass<ConvolveCubeData>("Skycube Convolve",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ConvolveCubeData& inData)
     {
         inData.mCubeTextureSRV = ioRGBuilder.Read(inSkyCubeData.mSkyCubeTexture);
@@ -174,7 +199,7 @@ const ConvolveCubeData& AddConvolveSkyCubePass(RenderGraph& inRenderGraph, Devic
 
 const SkinningData& AddSkinningPass(RenderGraph& inRenderGraph, Device& inDevice, const Scene& inScene)
 {
-    return inRenderGraph.AddComputePass<SkinningData>("SKINNING PASS",
+    return inRenderGraph.AddComputePass<SkinningData>("Skinning",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, SkinningData& inData) 
     {
     },
@@ -227,7 +252,7 @@ const SkinningData& AddSkinningPass(RenderGraph& inRenderGraph, Device& inDevice
 
 const GBufferData& AddMeshletsRasterPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene)
 {
-    return inRenderGraph.AddGraphicsPass<GBufferData>("MESHLETS RASTER PASS",
+    return inRenderGraph.AddGraphicsPass<GBufferData>("Raster Meshlets",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, GBufferData& inData)
     {
         inData.mOutput.mRenderTexture = ioRGBuilder.Create(Texture::Desc
@@ -341,7 +366,7 @@ const GBufferData& AddMeshletsRasterPass(RenderGraph& inRenderGraph, Device& inD
 
 const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene)
 {
-    return inRenderGraph.AddGraphicsPass<GBufferData>("GBUFFER PASS",
+    return inRenderGraph.AddGraphicsPass<GBufferData>("GBuffer",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, GBufferData& inData)
     {
         inData.mOutput.mRenderTexture = ioRGBuilder.Create(Texture::Desc
@@ -462,7 +487,7 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
 
 const GBufferDebugData& AddGBufferDebugPass(RenderGraph& inRenderGraph, Device& inDevice, const GBufferOutput& inGBuffer, EDebugTexture inDebugTexture)
 {
-    return inRenderGraph.AddGraphicsPass<GBufferDebugData>("GBUFFER DEBUG PASS",
+    return inRenderGraph.AddGraphicsPass<GBufferDebugData>("GBufferDebug",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, GBufferDebugData& inData)
     {
         inData.mOutputTexture = ioRGBuilder.Create(Texture::Desc
@@ -527,7 +552,7 @@ const GBufferDebugData& AddGBufferDebugPass(RenderGraph& inRenderGraph, Device& 
 
 const ShadowMapData& AddShadowMapPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene)
 {
-    return inRenderGraph.AddGraphicsPass<ShadowMapData>("SHADOW MAP PASS",
+    return inRenderGraph.AddGraphicsPass<ShadowMapData>("ShadowMap",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ShadowMapData& inData)
     {
         inData.mOutputTexture = ioRGBuilder.Create(Texture::Desc {
@@ -639,7 +664,7 @@ const ShadowMapData& AddShadowMapPass(RenderGraph& inRenderGraph, Device& inDevi
 
 const SSAOTraceData& AddSSAOTracePass(RenderGraph& inRenderGraph, Device& inDevice, const GBufferOutput& inGBuffer)
 {
-    return inRenderGraph.AddComputePass<SSAOTraceData>("SSAO TRACE PASS",
+    return inRenderGraph.AddComputePass<SSAOTraceData>("SSAO Trace",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, SSAOTraceData& inData)
     {
         inData.mOutputTexture = ioRGBuilder.Create(Texture::Desc 
@@ -678,7 +703,7 @@ const SSAOTraceData& AddSSAOTracePass(RenderGraph& inRenderGraph, Device& inDevi
 
 const SSRTraceData& AddSSRTracePass(RenderGraph& inRenderGraph, Device& inDevice, const GBufferOutput& inGBuffer, RenderGraphResourceID inSceneTexture)
 {
-    return inRenderGraph.AddComputePass<SSRTraceData>("SSR TRACE PASS",
+    return inRenderGraph.AddComputePass<SSRTraceData>("SSR Trace",
         [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, SSRTraceData& inData)
     {
         inData.mOutputTexture = ioRGBuilder.Create(Texture::Desc
@@ -719,7 +744,7 @@ const SSRTraceData& AddSSRTracePass(RenderGraph& inRenderGraph, Device& inDevice
 
 const GrassData& AddGrassRenderPass(RenderGraph& inGraph, Device& inDevice, const GBufferOutput& inGBuffer)
 {
-    return inGraph.AddGraphicsPass<GrassData>("GRASS DRAW PASS",
+    return inGraph.AddGraphicsPass<GrassData>("Grass",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, GrassData& inData)
     {
         inData.mRenderTextureSRV = ioRGBuilder.RenderTarget(inGBuffer.mRenderTexture);
@@ -753,7 +778,7 @@ const GrassData& AddGrassRenderPass(RenderGraph& inGraph, Device& inDevice, cons
 
 const DownsampleData& AddDownsamplePass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inSourceTexture)
 {
-    return inRenderGraph.AddComputePass<DownsampleData>("DOWNSAMPLE PASS",
+    return inRenderGraph.AddComputePass<DownsampleData>("SPD",
     [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, DownsampleData& inData)
     {
         inData.mGlobalAtomicBuffer = inRGBuilder.Create(Buffer::RWStructuredBuffer(sizeof(uint32_t), sizeof(uint32_t), "AtomicUintBuffer"));
@@ -833,7 +858,7 @@ const DownsampleData& AddDownsamplePass(RenderGraph& inRenderGraph, Device& inDe
 
 const TiledLightCullingData& AddTiledLightCullingPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene)
 {
-    return inRenderGraph.AddComputePass<TiledLightCullingData>("TILED LIGHT CULLING PASS",
+    return inRenderGraph.AddComputePass<TiledLightCullingData>("LightCull",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, TiledLightCullingData& inData)
     {
         const UVec2 render_size = inRenderGraph.GetViewport().GetRenderSize();
@@ -876,7 +901,7 @@ const TiledLightCullingData& AddTiledLightCullingPass(RenderGraph& inRenderGraph
 
 const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferOutput& inGBuffer, const TiledLightCullingData& inLightCullData, RenderGraphResourceID inSkyCubeTexture, RenderGraphResourceID inShadowTexture, RenderGraphResourceID inReflectionsTexture, RenderGraphResourceID inAOTexture, RenderGraphResourceID inIndirectDiffuseTexture)
 {
-    return inRenderGraph.AddGraphicsPass<LightingData>("DEFERRED LIGHTING PASS",
+    return inRenderGraph.AddGraphicsPass<LightingData>("Shading",
 
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, LightingData& inData)
     {
@@ -939,7 +964,7 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
 
 const TAAResolveData& AddTAAResolvePass(RenderGraph& inRenderGraph, Device& inDevice, const GBufferOutput& inGBuffer, RenderGraphResourceID inColorTexture)
 {
-    return inRenderGraph.AddGraphicsPass<TAAResolveData>("TAA RESOLVE PASS",
+    return inRenderGraph.AddGraphicsPass<TAAResolveData>("TAA Resolve",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, TAAResolveData& inData)
     {
         inData.mOutputTexture = ioRGBuilder.Create(Texture::Desc
@@ -1018,7 +1043,7 @@ const TAAResolveData& AddTAAResolvePass(RenderGraph& inRenderGraph, Device& inDe
 
 const DepthOfFieldData& AddDepthOfFieldPass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inInputTexture, RenderGraphResourceID inDepthTexture)
 {
-    return inRenderGraph.AddComputePass<DepthOfFieldData>("DEPTH OF FIELD PASS",
+    return inRenderGraph.AddComputePass<DepthOfFieldData>("DepthOfField",
 
     [&](RenderGraphBuilder& inBuilder, IRenderPass* inRenderPass, DepthOfFieldData& inData)
     {
@@ -1061,7 +1086,7 @@ const DepthOfFieldData& AddDepthOfFieldPass(RenderGraph& inRenderGraph, Device& 
 
 const LuminanceHistogramData& AddLuminanceHistogramPass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inInputTexture) 
 {
-    return inRenderGraph.AddComputePass<LuminanceHistogramData>("LUMINANCE HISTOGRAM PASS",
+    return inRenderGraph.AddComputePass<LuminanceHistogramData>("LuminanceHistogram",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, LuminanceHistogramData& inData)
     {
         inData.mHistogramBuffer = ioRGBuilder.Create(Buffer::RWTypedBuffer(DXGI_FORMAT_R32_UINT, 128, "LumHistogramBuffer"));
@@ -1111,16 +1136,16 @@ const BloomPassData& AddBloomPass(RenderGraph& inRenderGraph, Device& inDevice, 
 
     auto AddDownsamplePass = [&](RenderGraphResourceID inFromTexture, RenderGraphResourceID inToTexture, uint32_t inFromMip, uint32_t inToMip)
     {
-        return RunBloomPass(std::format("Downsample Mip {} -> Mip {}", inFromMip, inToMip), g_SystemShaders.mBloomDownsampleShader.GetComputePSO(), inFromTexture, inToTexture, inFromMip, inToMip);
+        return RunBloomPass(std::format("Downsample mip {} -> mip {}", inFromMip, inToMip), g_SystemShaders.mBloomDownsampleShader.GetComputePSO(), inFromTexture, inToTexture, inFromMip, inToMip);
     };
 
     auto AddUpsamplePass = [&](RenderGraphResourceID inFromTexture, RenderGraphResourceID inToTexture, uint32_t inFromMip, uint32_t inToMip)
     {
-        return RunBloomPass(std::format("Upsample Mip {} -> Mip {}", inFromMip, inToMip), g_SystemShaders.mBloomUpSampleShader.GetComputePSO(), inFromTexture, inToTexture, inFromMip, inToMip);
+        return RunBloomPass(std::format("Upsample mip {} -> mip {}", inFromMip, inToMip), g_SystemShaders.mBloomUpSampleShader.GetComputePSO(), inFromTexture, inToTexture, inFromMip, inToMip);
     };
 
 
-    return inRenderGraph.AddComputePass<BloomPassData>("BLOOM PASS",
+    return inRenderGraph.AddComputePass<BloomPassData>("Bloom",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, BloomPassData& inData)
     {
         const uint32_t cMipLevels = 6u;
@@ -1161,7 +1186,7 @@ const DebugPrimitivesData& AddDebugOverlayPass(RenderGraph& inRenderGraph, Devic
 {
     constexpr size_t cPrimitiveBufferSize = 3 * UINT16_MAX;
 
-    return inRenderGraph.AddGraphicsPass<DebugPrimitivesData>("DEBUG PRIMITIVES PASS",
+    return inRenderGraph.AddGraphicsPass<DebugPrimitivesData>("DebugShapes",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, DebugPrimitivesData& inData)
     {
         inData.mRenderTarget = ioRGBuilder.RenderTarget(inRenderTarget);
@@ -1206,7 +1231,7 @@ const DebugPrimitivesData& AddDebugOverlayPass(RenderGraph& inRenderGraph, Devic
 
 const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inBloomTexture, RenderGraphResourceID inInputTexture)
 {
-    return inRenderGraph.AddGraphicsPass<ComposeData>("COMPOSE PASS",
+    return inRenderGraph.AddGraphicsPass<ComposeData>("Compose",
     [&](RenderGraphBuilder& inBuilder, IRenderPass* inRenderPass, ComposeData& inData)
     {
         inData.mOutputTexture = inBuilder.Create(Texture::Desc
@@ -1321,7 +1346,7 @@ static void ImGui_ImplDX12_SetupRenderState(ImDrawData* draw_data, CommandList& 
 
 const ImGuiData& AddImGuiPass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inInputTexture, TextureID inBackBuffer)
 {
-    return inRenderGraph.AddGraphicsPass<ImGuiData>("IMGUI PASS",
+    return inRenderGraph.AddGraphicsPass<ImGuiData>("ImGui",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ImGuiData& inData)
     {
         constexpr size_t max_buffer_size = 65536; // Taken from Vulkan's ImGuiPass

@@ -7,6 +7,7 @@
 #include "Shader.h"
 #include "Shared.h"
 #include "Profiler.h"
+#include "GPUProfiler.h"
 
 namespace RK::DX12 {
 
@@ -968,7 +969,8 @@ bool RenderGraph::Compile(Device& inDevice, const GlobalConstants& inGlobalConst
 
 void RenderGraph::Execute(Device& inDevice, CommandList& inCmdList)
 {
-    PROFILE_FUNCTION_CPU();
+    PROFILE_SCOPE_CPU("RenderGraph::Execute");
+    PROFILE_SCOPE_GPU(inCmdList, "RenderGraph::Execute");
 
     inCmdList.BindDefaults(inDevice);
     inCmdList.BindToSlot(inDevice.GetBuffer(m_GlobalConstantsAllocator.GetBuffer()), EBindSlot::CBV0);
@@ -977,9 +979,7 @@ void RenderGraph::Execute(Device& inDevice, CommandList& inCmdList)
 
     for (const auto& [index, renderpass] : gEnumerate(m_RenderPasses))
     {
-        inCmdList->EndQuery(m_TimestampQueryHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, index * 2);
-        
-        PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( inCmdList ), PIX_COLOR(0, 255, 0), renderpass->GetName().c_str());
+        PROFILE_SCOPE_GPU(inCmdList, renderpass->GetName().c_str());
 
         if (renderpass->IsGraphics())
             renderpass->SetRenderTargets(inDevice, m_RenderGraphResources, inCmdList);
@@ -990,19 +990,13 @@ void RenderGraph::Execute(Device& inDevice, CommandList& inCmdList)
 
         if (renderpass->IsExternal())
             inCmdList.BindDefaults(inDevice);
-
-        inCmdList->EndQuery(m_TimestampQueryHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, index * 2 + 1);
     }
 
-    PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( inCmdList ), PIX_COLOR(0, 255, 0), "FINAL BARRIERS");
-
     if (!m_FinalBarriers.empty())
+    {
+        PROFILE_SCOPE_GPU(inCmdList, "FINAL BARRIERS");
         inCmdList->ResourceBarrier(m_FinalBarriers.size(), m_FinalBarriers.data());
-
-    const Buffer& timestamp_buffer = inDevice.GetBuffer(m_TimestampReadbackBuffer);
-    const uint32_t timestamp_count = timestamp_buffer.GetSize() / sizeof(uint64_t);
-    ID3D12Resource* timestamp_resource = timestamp_buffer.GetD3D12Resource().Get();
-    inCmdList->ResolveQueryData(m_TimestampQueryHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 0, timestamp_count, timestamp_resource, 0);
+    }
 }
 
 

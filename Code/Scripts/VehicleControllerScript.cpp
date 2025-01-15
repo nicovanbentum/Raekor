@@ -1,5 +1,5 @@
 #define RAEKOR_SCRIPT
-#include "Raekor/raekor.h"
+#include "../Engine/raekor.h"
 using namespace RK;
 
 
@@ -127,16 +127,16 @@ public:
 
         // Determine steering and speed
         float steering_angle = 0.0f, speed = 0.0f;
-        if (m_Input->IsKeyPressed(SDL_SCANCODE_D)) 
+        if (m_Input->IsKeyDown(Key::D)) 
             steering_angle = cMaxSteeringAngle;
 
-        if (m_Input->IsKeyPressed(SDL_SCANCODE_A)) 
+        if (m_Input->IsKeyDown(Key::D))
             steering_angle = -cMaxSteeringAngle;
 
-        if (m_Input->IsKeyPressed(SDL_SCANCODE_W)) 
+        if (m_Input->IsKeyDown(Key::W))
             speed = cMaxRotationSpeed;
 
-        if (m_Input->IsKeyPressed(SDL_SCANCODE_S)) 
+        if (m_Input->IsKeyDown(Key::S))
             speed = -cMaxRotationSpeed;
 
         // Brake if current velocity is in the opposite direction of the desired velocity
@@ -219,11 +219,11 @@ RTTI_DEFINE_TYPE(VehicleControllerScript)
 {
     RTTI_DEFINE_TYPE_INHERITANCE(VehicleControllerScript, INativeScript);
 
-    RTTI_DEFINE_SCRIPT_MEMBER(VehicleControllerScript, SERIALIZE_ALL, &RTTI_OF(Entity), "Body", m_BodyEntity);
-    RTTI_DEFINE_SCRIPT_MEMBER(VehicleControllerScript, SERIALIZE_ALL, &RTTI_OF(Entity), "Wheel (FL)", m_WheelEntityFL);
-    RTTI_DEFINE_SCRIPT_MEMBER(VehicleControllerScript, SERIALIZE_ALL, &RTTI_OF(Entity), "Wheel (FR)", m_WheelEntityFR);
-    RTTI_DEFINE_SCRIPT_MEMBER(VehicleControllerScript, SERIALIZE_ALL, &RTTI_OF(Entity), "Wheel (BL)", m_WheelEntityBL);
-    RTTI_DEFINE_SCRIPT_MEMBER(VehicleControllerScript, SERIALIZE_ALL, &RTTI_OF(Entity), "Wheel (BR)", m_WheelEntityBR);
+    RTTI_DEFINE_SCRIPT_MEMBER(VehicleControllerScript, SERIALIZE_ALL, &RTTI_OF<Entity>(), "Body", m_BodyEntity);
+    RTTI_DEFINE_SCRIPT_MEMBER(VehicleControllerScript, SERIALIZE_ALL, &RTTI_OF<Entity>(), "Wheel (FL)", m_WheelEntityFL);
+    RTTI_DEFINE_SCRIPT_MEMBER(VehicleControllerScript, SERIALIZE_ALL, &RTTI_OF<Entity>(), "Wheel (FR)", m_WheelEntityFR);
+    RTTI_DEFINE_SCRIPT_MEMBER(VehicleControllerScript, SERIALIZE_ALL, &RTTI_OF<Entity>(), "Wheel (BL)", m_WheelEntityBL);
+    RTTI_DEFINE_SCRIPT_MEMBER(VehicleControllerScript, SERIALIZE_ALL, &RTTI_OF<Entity>(), "Wheel (BR)", m_WheelEntityBR);
 
     // Fields go here
 }

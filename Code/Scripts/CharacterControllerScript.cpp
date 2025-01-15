@@ -1,5 +1,5 @@
 #define RAEKOR_SCRIPT
-#include "Raekor/raekor.h"
+#include "../Engine/raekor.h"
 using namespace RK;
 
 
@@ -45,22 +45,22 @@ public:
         bool moved = false;
         Vec3 move_dir = Vec3(0, 0, 0);
 
-        if (m_Input->IsKeyPressed(SDL_SCANCODE_W))
+        if (m_Input->IsKeyDown(Key::W))
         {
             moved = true;
             move_dir += cam_dir;
         }
-        if (m_Input->IsKeyPressed(SDL_SCANCODE_S))
+        if (m_Input->IsKeyDown(Key::S))
         {
             moved = true;
             move_dir -= cam_dir;
         }
-        if (m_Input->IsKeyPressed(SDL_SCANCODE_A))
+        if (m_Input->IsKeyDown(Key::A))
         {
             moved = true;
             move_dir -= right_vector;
         }
-        if (m_Input->IsKeyPressed(SDL_SCANCODE_D))
+        if (m_Input->IsKeyDown(Key::D))
         {
             moved = true;
             move_dir += right_vector;
@@ -176,17 +176,17 @@ RTTI_DEFINE_TYPE(CharacterControllerScript)
 {
     RTTI_DEFINE_TYPE_INHERITANCE(CharacterControllerScript, INativeScript);
 
-    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, &RTTI_OF(bool), "Follow Camera", m_FollowCamera);
-    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, &RTTI_OF(Entity), "Run Animation", m_RunAnimationEntity);
-    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, &RTTI_OF(Entity), "Idle Animation", m_IdleAnimationEntity);
-    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, &RTTI_OF(Entity), "Jump Animation", m_JumpAnimationEntity);
+    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, &RTTI_OF<bool>(), "Follow Camera", m_FollowCamera);
+    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, &RTTI_OF<Entity>(), "Run Animation", m_RunAnimationEntity);
+    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, &RTTI_OF<Entity>(), "Idle Animation", m_IdleAnimationEntity);
+    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, &RTTI_OF<Entity>(), "Jump Animation", m_JumpAnimationEntity);
 
-    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, &RTTI_OF(float), "Test", m_Test);
-    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, &RTTI_OF(float), "Mass", m_Mass);
-    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, &RTTI_OF(float), "Run Speed", m_Speed);
-    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, &RTTI_OF(float), "Jump Height", m_JumpHeight);
-    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, &RTTI_OF(float), "Player Height", m_PlayerHeight);
-    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, &RTTI_OF(float), "Camera Speed", m_CameraSpeed);
-    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, &RTTI_OF(float), "Camera Height", m_CameraHeight);
-    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, &RTTI_OF(float), "Camera Distance", m_CameraDistance);
+    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, &RTTI_OF<float>(), "Test", m_Test);
+    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, &RTTI_OF<float>(), "Mass", m_Mass);
+    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, &RTTI_OF<float>(), "Run Speed", m_Speed);
+    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, &RTTI_OF<float>(), "Jump Height", m_JumpHeight);
+    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, &RTTI_OF<float>(), "Player Height", m_PlayerHeight);
+    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, &RTTI_OF<float>(), "Camera Speed", m_CameraSpeed);
+    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, &RTTI_OF<float>(), "Camera Height", m_CameraHeight);
+    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, &RTTI_OF<float>(), "Camera Distance", m_CameraDistance);
 }

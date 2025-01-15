@@ -133,7 +133,9 @@ struct SystemShadersDX12 : public IResource
     RTTI_DECLARE_VIRTUAL_TYPE(SystemShadersDX12);
 
     ComputeProgram mClearBufferShader;
-    ComputeProgram mClearTextureShader;
+    ComputeProgram mClearTexture2DShader;
+    ComputeProgram mClearTexture3DShader;
+    ComputeProgram mClearTextureCubeShader;
 
     GraphicsProgram mImGuiShader;
     GraphicsProgram mGrassShader;

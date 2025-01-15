@@ -54,7 +54,7 @@ private:
         int& mEnableDebugOverlay = g_CVariables->Create("r_enable_debug_overlay", 1);
         int& mEnableRTAO         = g_CVariables->Create("r_enable_rtao",          0);
         int& mEnableSSAO         = g_CVariables->Create("r_enable_ssao",          1);
-        int& mEnableSSR          = g_CVariables->Create("r_enable_ssr",           1);
+        int& mEnableSSR          = g_CVariables->Create("r_enable_ssr",           0, true);
         int& mEnableShadows      = g_CVariables->Create("r_enable_shadows",       1);
         int& mEnableReflections  = g_CVariables->Create("r_enable_reflections",   1);
         int& mEnableAutoExposure = g_CVariables->Create("r_enable_auto_exposure", 0);

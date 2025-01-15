@@ -103,6 +103,19 @@ Vec3 Camera::GetForwardVector() const
 }
 
 
+
+Mat4x4 Camera::ToViewMatrix() const
+{
+	return glm::lookAtRH(m_Position, m_Position + GetForwardVector(), cUp);
+}
+
+
+Mat4x4 Camera::ToProjectionMatrix() const
+{
+	return glm::perspectiveRH(glm::radians(m_FieldOfView), m_AspectRatio, m_NearPlane, m_FarPlane);
+}
+
+
 void Camera::LookAt(Vec3 inPosition)
 {
 	Vec3 look_at = glm::normalize(inPosition - m_Position);
@@ -271,18 +284,8 @@ void Viewport::OnUpdate(const Camera& inCamera)
 	m_PrevView = m_View;
 	m_PrevProjection = m_Projection;
 	
-	m_View = glm::lookAtRH(
-		inCamera.GetPosition(), 
-		inCamera.GetPosition() + inCamera.GetForwardVector(), 
-		{0, 1, 0}
-	);
-
-	m_Projection = glm::perspectiveRH(
-		glm::radians(inCamera.GetFov()),
-		inCamera.GetAspectRatio(),
-		inCamera.GetNear(),
-		inCamera.GetFar()
-	);
+	m_View = inCamera.ToViewMatrix();
+	m_Projection = inCamera.ToProjectionMatrix();
 
 	m_InvView = glm::inverse(m_View);
 	m_InvProjection = glm::inverse(m_Projection);

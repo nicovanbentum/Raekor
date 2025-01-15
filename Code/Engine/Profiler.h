@@ -24,7 +24,6 @@ struct CPUProfileSection : public ProfileSection
 	float GetSeconds() const final { return Timer::sGetTicksToSeconds(mEndTick - mStartTick); }
 };
 
-
 class Profiler
 {
 public:
@@ -40,7 +39,7 @@ public:
 	CPUProfileSection& GetSectionCPU(int inIndex) { return m_CPUSections[inIndex]; }
 	const Array<CPUProfileSection>& GetCPUProfileSections() const { return m_HistoryCPUSections; }
 
-private:
+protected:
 	int m_Depth = 0;
 	bool m_IsEnabled = true;
 

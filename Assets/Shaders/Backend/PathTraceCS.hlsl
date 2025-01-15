@@ -19,10 +19,11 @@ void main(uint3 threadID : SV_DispatchThreadID)
     TextureCube<float3> skycube_texture      = ResourceDescriptorHeap[rc.mSkyCubeTexture];
     RWTexture2D<float4> accumulation_texture = ResourceDescriptorHeap[rc.mAccumulationTexture];
     
-    RaytracingAccelerationStructure TLAS    = ResourceDescriptorHeap[fc.mTLAS];
-    StructuredBuffer<RTLight> lights        = ResourceDescriptorHeap[fc.mLightsBuffer];
-    StructuredBuffer<RTGeometry> geometries = ResourceDescriptorHeap[fc.mInstancesBuffer];
-    StructuredBuffer<RTMaterial> materials  = ResourceDescriptorHeap[fc.mMaterialsBuffer];
+    RaytracingAccelerationStructure TLAS        = ResourceDescriptorHeap[fc.mTLAS];
+    RaytracingAccelerationStructure shadowTLAS  = ResourceDescriptorHeap[fc.mShadowTLAS];
+    StructuredBuffer<RTLight> lights            = ResourceDescriptorHeap[fc.mLightsBuffer];
+    StructuredBuffer<RTGeometry> geometries     = ResourceDescriptorHeap[fc.mInstancesBuffer];
+    StructuredBuffer<RTMaterial> materials      = ResourceDescriptorHeap[fc.mMaterialsBuffer];
 
     uint rng = TeaHash(((threadID.y << 16) | threadID.x), fc.mFrameCounter + 1);
 
@@ -92,7 +93,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
             {
                 float3 Wi = SampleDirectionalLight(fc.mSunDirection.xyz, fc.mSunConeAngle, pcg_float2(rng));
             
-                bool hit = TraceShadowRay(TLAS, vertex.mPos + vertex.mNormal * 0.01, Wi, 0.1f, 1000.0f);
+                bool hit = TraceShadowRay(shadowTLAS, vertex.mPos + vertex.mNormal * 0.01, Wi, 0.1f, 1000.0f);
                 
                 if (!hit)
                     irradiance += EvaluateDirectionalLight(surface, fc.mSunColor, Wi, Wo);
@@ -164,11 +165,8 @@ void main(uint3 threadID : SV_DispatchThreadID)
         else // Handle miss case 
         {
             // Calculate sky
-            irradiance = skycube_texture.SampleLevel(SamplerLinearWrap, normalize(ray.Direction), 0);
-            irradiance = max(irradiance, 0.0.xxx);
-            
-            if (bounce > 0)
-                irradiance *= fc.mSunColor.a;
+            irradiance = skycube_texture.SampleLevel(SamplerLinearClamp, ray.Direction, 0);
+            irradiance = max(irradiance, 0.0.xxx) * fc.mSunColor.a;
             
             // Stop tracing
             bounce = rc.mBounces + 1;

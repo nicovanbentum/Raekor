@@ -2,6 +2,7 @@
 
 #include "Shared.h"
 #include "Resource.h"
+#include "Application.h"
 
 namespace RK::DX12 {
 
@@ -13,7 +14,7 @@ class GraphicsProgram;
 class Device
 {
 public:
-    explicit Device();
+    explicit Device(Application* inApp);
 
     ID3D12Device5* operator* ()              { return m_Device.Get(); }
     const ID3D12Device5* operator* () const  { return m_Device.Get(); }
@@ -28,6 +29,7 @@ public:
     [[nodiscard]] bool IsDLSSSupported() const { return mIsDLSSSupported; }
     [[nodiscard]] bool IsDLSSInitialized() const { return mIsDLSSInitialized; }
     [[nodiscard]] bool IsTearingSupported() const { return mIsTearingSupported; }
+    [[nodiscard]] bool IsRayTracingSupported() const { return mIsRayTracingSupported; }
 
     [[nodiscard]] IDXGIAdapter1* GetAdapter() { return m_Adapter.Get(); }
     [[nodiscard]] D3D12MA::Allocator* GetAllocator() { return m_Allocator.Get(); }
@@ -70,6 +72,9 @@ public:
 
     [[nodiscard]] Buffer& GetBuffer(BufferID inID) { assert(inID.IsValid()); return m_Buffers.Get(inID); }
     [[nodiscard]] const Buffer& GetBuffer(BufferID inID) const { assert(inID.IsValid()); return m_Buffers.Get(inID); }
+
+    void* MapBuffer(BufferID inID);
+    void UnmapBuffer(BufferID inID);
 
     [[nodiscard]] Texture& GetTexture(TextureID inID) { assert(inID.IsValid()); return m_Textures.Get(inID); }
     [[nodiscard]] const Texture& GetTexture(TextureID inID) const { assert(inID.IsValid()); return m_Textures.Get(inID); }
@@ -124,6 +129,7 @@ private:
     BOOL mIsDLSSSupported = false;
     BOOL mIsDLSSInitialized = false;
     BOOL mIsTearingSupported = false;
+    BOOL mIsRayTracingSupported = false;
 
     ComPtr<ID3D12Device5> m_Device;
     ComPtr<IDXGIAdapter1> m_Adapter;

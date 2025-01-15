@@ -1,5 +1,5 @@
 #define RAEKOR_SCRIPT
-#include "Raekor/raekor.h"
+#include "../Engine/raekor.h"
 using namespace RK;
 
 class LightsScript : public INativeScript
@@ -10,7 +10,7 @@ public:
     void OnBind() override
     {
         for (const auto& [entity, light] : m_Scene->Each<DirectionalLight>())
-            light.colour.a = 0.0f;
+            light.color.a = 0.0f;
 
         BBox3D scene_bounds;
 
@@ -40,10 +40,10 @@ public:
                     light.type = LIGHT_TYPE_POINT;
                     light.attributes.x = cPointLightRadius;
 
-                    light.colour.r = gRandomFloatZO();
-                    light.colour.g = gRandomFloatZO();
-                    light.colour.b = gRandomFloatZO();
-                    light.colour.a = cPointLightIntensity;
+                    light.color.r = gRandomFloatZO();
+                    light.color.g = gRandomFloatZO();
+                    light.color.b = gRandomFloatZO();
+                    light.color.a = cPointLightIntensity;
 
                     point_light_count++;
                 }

@@ -80,7 +80,7 @@ public:
 	auto end() { return m_Widgets.end(); }
 
 private:
-	std::vector<std::shared_ptr<IWidget>> m_Widgets;
+	Array<SharedPtr<IWidget>> m_Widgets;
 };
 
 }

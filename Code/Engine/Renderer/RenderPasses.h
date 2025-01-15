@@ -70,6 +70,9 @@ enum EDebugTexture
 };
 
 
+void ClearTextureUAV(Device& inDevice, TextureID inTexture, Vec4 inValue, CommandList& inCmdList);
+
+
 ////////////////////////////////////////
 /// Defaults Pass
 ////////////////////////////////////////

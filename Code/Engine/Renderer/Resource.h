@@ -239,6 +239,7 @@ public:
     Usage GetUsage() const { return m_Desc.usage; }
     uint32_t GetWidth() const { return m_Desc.width; }
     uint32_t GetHeight() const { return m_Desc.height; }
+    uint32_t GetDepth() const { return m_Desc.depthOrArrayLayers; }
     DXGI_FORMAT GetFormat() const { return m_Desc.format; }
     
     bool HasDescriptor() const { return m_Descriptor.IsValid(); }

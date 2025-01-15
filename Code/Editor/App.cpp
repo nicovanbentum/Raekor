@@ -18,41 +18,23 @@
 #include "Engine/Renderer/RenderUtil.h"
 #include "Engine/Renderer/RayTracing.h"
 #include "Engine/Renderer/RenderGraph.h"
+#include "Engine/Renderer/GPUProfiler.h"
 
 extern float samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d_1spp(int pixel_i, int pixel_j, int sampleIndex, int sampleDimension);
 
 namespace RK::DX12 {
 
-struct GPUProfileSection : public ProfileSection
-{
-    float GetSeconds() const final { return Timer::sGetTicksToSeconds(mEndTick - mStartTick); }
-};
-
-class DXProfiler : public Profiler 
-{
-public:
-    int AllocateGPU() { m_GPUSections.emplace_back(); return m_GPUSections.size() - 1; }
-    GPUProfileSection& GetSectionGPU(int inIndex) { return m_GPUSections[inIndex]; }
-    const Array<GPUProfileSection>& GetGPUProfileSections() const { return m_HistoryGPUSections; }
-
-private:
-    uint32_t m_TimestampCount = 0;
-    BufferID m_TimestampReadbackBuffer;
-    ComPtr<ID3D12QueryHeap> m_TimestampQueryHeap = nullptr;
-
-    Array<GPUProfileSection> m_GPUSections;
-    Array<GPUProfileSection> m_HistoryGPUSections;
-};
+RTTI_DEFINE_TYPE_NO_FACTORY(GPUProfileWidget) {}
+RTTI_DEFINE_TYPE_NO_FACTORY(DeviceResourcesWidget) {}
 
 DXApp::DXApp() :
     Editor(WindowFlag::RESIZE, &m_RenderInterface),
-    m_Device(),
+    m_Device(this),
     m_Renderer(m_Device, m_Viewport, m_Window),
     m_RayTracedScene(m_Scene),
     m_RenderInterface(this, m_Device, m_Renderer, m_Renderer.GetRenderGraph().GetResources())
 {
-    delete g_Profiler;
-    g_Profiler = new DXProfiler();
+    g_GPUProfiler = new GPUProfiler(m_Device);
 
     g_RTTIFactory.Register(RTTI_OF<ComputeProgram>());
     g_RTTIFactory.Register(RTTI_OF<GraphicsProgram>());
@@ -137,16 +119,6 @@ DXApp::DXApp() :
 
     LogMessage(std::format("[CPU] ImGui init took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
 
-    // check for ray-tracing support
-    D3D12_FEATURE_DATA_D3D12_OPTIONS5 options5 = {};
-    gThrowIfFailed(m_Device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS5, &options5, sizeof(options5)));
-
-    if (options5.RaytracingTier < D3D12_RAYTRACING_TIER_1_1)
-    {
-        SDL_ShowSimpleMessageBox(SDL_MessageBoxFlags::SDL_MESSAGEBOX_ERROR, "DX12 Error", "GPU does not support D3D12_RAYTRACING_TIER_1_1.", m_Window);
-        abort();
-    }
-
     // initialize DirectStorage 1.0
     DSTORAGE_QUEUE_DESC queue_desc =
     {
@@ -166,7 +138,10 @@ DXApp::DXApp() :
 
     LogMessage(std::format("[CPU] DirectStorage init took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
 
+    m_Widgets.Register<GPUProfileWidget>(this);
     m_Widgets.Register<DeviceResourcesWidget>(this);
+    
+    //m_Widgets.GetWidget<GPUProfileWidget>()->Hide();
     m_Widgets.GetWidget<DeviceResourcesWidget>()->Hide();
 
     m_Renderer.Recompile(m_Device, m_RayTracedScene, GetRenderInterface());
@@ -175,8 +150,6 @@ DXApp::DXApp() :
     {
         m_Scene.OpenFromFile(m_ConfigSettings.mSceneFile.string(), m_Assets);
     }
-
-
 }
 
 
@@ -190,8 +163,6 @@ DXApp::~DXApp()
 void DXApp::OnUpdate(float inDeltaTime)
 {
     Editor::OnUpdate(inDeltaTime);
-
-    m_Device.OnUpdate();
 
     for (const auto& [entity, mesh, skeleton] : m_Scene.Each<Mesh, Skeleton>())
         m_Renderer.QueueBlasUpdate(entity);
@@ -211,6 +182,10 @@ void DXApp::OnUpdate(float inDeltaTime)
     m_RenderInterface.UpdateGPUStats(m_Device);
 
     m_Renderer.OnRender(this, m_Device, m_Viewport, m_RayTracedScene, GetRenderInterface(), inDeltaTime);
+
+    m_Device.OnUpdate();
+
+    g_GPUProfiler->Reset(m_Device);
 }
 
 
@@ -462,6 +437,127 @@ void DeviceResourcesWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
     ImGui::PopStyleColor(2);
     ImGui::End();
+}
+
+void GPUProfileWidget::Draw(Widgets* inWidgets, float inDeltaTime)
+{
+    DXApp* app = (DXApp*)m_Editor;
+
+    ImGui::Begin(m_Title.c_str(), &m_Open);
+    m_Visible = ImGui::IsWindowAppearing();
+
+    uint64_t frequency = 0;
+    gThrowIfFailed(app->GetDevice().GetGraphicsQueue()->GetTimestampFrequency(&frequency));
+
+    uint32_t max_depth = 0;
+    uint64_t lowest_tick = UINT64_MAX;
+    uint64_t highest_tick = 0;
+
+    for (const GPUProfileSection& section : g_GPUProfiler->GetGPUProfileSections())
+    {
+        max_depth = glm::max(max_depth, section.mDepth);
+        lowest_tick = glm::min(lowest_tick, section.mStartTick);
+        highest_tick = glm::max(highest_tick, section.mEndTick);
+    }
+
+
+    float total_time = ( highest_tick - lowest_tick ) / (double)frequency;
+
+    ImVec2 start_pos = ImGui::GetCursorPos();
+    ImVec2 avail_size = ImGui::GetContentRegionAvail();
+    float pixels_per_tick = avail_size.x / ( highest_tick - lowest_tick );
+
+    // render breadth first so we can abuse ImGui::SameLine
+    for (uint32_t depth = 0; depth < max_depth + 1; depth++)
+    {
+        float running_time = 0.0f;
+        uint32_t section_count = 0;
+
+        for (const auto& [index, section] : gEnumerate(g_GPUProfiler->GetGPUProfileSections()))
+        {
+            if (section.mDepth != depth)
+                continue;
+
+            // skip sections that took no GPU time
+            if (section.mStartTick == section.mEndTick)
+                continue;
+
+            if (section_count > 0)
+                ImGui::SameLine(0.0f, 0.0f);
+
+            float end_pos_x = start_pos.x + ( lowest_tick - section.mEndTick ) * pixels_per_tick;
+            float start_pos_x = start_pos.x + ( lowest_tick - section.mStartTick ) * pixels_per_tick;
+
+            const float time = ( section.mEndTick - section.mStartTick ) / (double)frequency;
+            const float pct_time = time / total_time;
+
+            ImVec2 screen_pos = ImGui::GetCursorScreenPos();
+            const ImVec2 bar_size = ImVec2(pct_time * avail_size.x, avail_size.y / (max_depth + 1 ));
+
+            char text_buffer[255];
+            ImFormatString(text_buffer, std::size(text_buffer), "%s (%.2f ms)", section.mName, time * 1'000);
+
+            ImGui::PushID(index);
+
+            ImGui::InvisibleButton(section.mName, bar_size, ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight);
+
+            ImGui::PopID();
+
+            if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
+            {
+                m_SelectedSectionIndex = m_SelectedSectionIndex == index ? -1 : index;
+            }
+
+            //ImGui::DebugDrawItemRect();
+
+            bool is_hovered = ImGui::IsItemHovered();
+
+            if (is_hovered)
+                ImGui::SetTooltip(text_buffer);
+
+            float label_hash = float(gHash32Bit(section.mName)) / UINT32_MAX;
+
+            ImVec4 upper_hsv = ImVec4(0.0f, 0.0f, 0.0f, 1.0f);
+            ImVec4 lower_hsv = ImVec4(0.0f, 0.0f, 0.0f, 1.0f);
+            ImGui::ColorConvertHSVtoRGB(label_hash, 0.5f, is_hovered ? 0.6f : 0.5f, upper_hsv.x, upper_hsv.y, upper_hsv.z);
+            ImGui::ColorConvertHSVtoRGB(label_hash, 0.5f, is_hovered ? 0.5f : 0.4f, lower_hsv.x, lower_hsv.y, lower_hsv.z);
+
+            ImU32 upper_gradient = ImGui::ColorConvertFloat4ToU32(upper_hsv);
+            ImU32 lower_gradient = ImGui::ColorConvertFloat4ToU32(lower_hsv);
+            
+            const ImVec2 pad = ImVec2(1.0f, 1.0f);
+            const ImRect bbox = ImRect(screen_pos, screen_pos + bar_size);
+            ImGui::GetWindowDrawList()->AddRectFilled(bbox.Min, bbox.Max, m_SelectedSectionIndex == index ? IM_COL32_WHITE : IM_COL32_BLACK);
+            ImGui::GetWindowDrawList()->AddRectFilledMultiColor(bbox.Min + pad, bbox.Max - pad, upper_gradient, upper_gradient, lower_gradient, lower_gradient);
+            
+            if (pct_time > 0.0099f) 
+            {
+                const ImRect text_clip_rect = ImRect(bbox.Min + pad, bbox.Max - pad * 2.0f);
+                const ImVec2 label_size = ImGui::CalcTextSize(text_buffer, NULL, true);
+                ImGui::RenderTextClipped(bbox.Min + pad * 2.0f, bbox.Max - pad * 2.0f, text_buffer, NULL, &label_size, ImGui::GetStyle().ButtonTextAlign, &text_clip_rect);
+            }
+            
+            section_count += 1;
+            running_time += time;
+        }
+    }
+
+    ImGui::End();
+}
+
+
+void GPUProfileWidget::OnEvent(Widgets* inWidgets, const SDL_Event& inEvent)
+{
+    if (inEvent.type == SDL_KEYDOWN && !inEvent.key.repeat)
+    {
+        switch (inEvent.key.keysym.sym)
+        {
+            case SDLK_SPACE:
+            {
+                g_GPUProfiler->SetEnabled(!g_GPUProfiler->IsEnabled());
+            } break;
+        }
+    }
 }
 
 } // namespace::Raekor

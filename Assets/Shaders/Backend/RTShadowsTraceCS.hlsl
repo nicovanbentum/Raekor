@@ -23,7 +23,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID, uint3 groupID : SV_Group
     Texture2D<float4> gbuffer_texture = ResourceDescriptorHeap[rc.mGbufferRenderTexture];
     Texture2D<float> gbuffer_depth_texture = ResourceDescriptorHeap[rc.mGbufferDepthTexture];
     RWTexture2D<uint> result_texture = ResourceDescriptorHeap[rc.mShadowMaskTexture];
-    RaytracingAccelerationStructure TLAS = ResourceDescriptorHeap[fc.mTLAS];
+    RaytracingAccelerationStructure TLAS = ResourceDescriptorHeap[fc.mShadowTLAS];
 
     const float2 pixel_center = float2(dispatchThreadID.xy) + float2(0.5, 0.5);
     float2 screen_uv = pixel_center / rc.mDispatchSize;

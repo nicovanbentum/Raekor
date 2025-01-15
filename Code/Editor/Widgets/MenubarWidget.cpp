@@ -269,7 +269,8 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			if (ImGui::MenuItem("Camera"))
 			{
 				Entity entity = scene.CreateSpatialEntity("New Camera");
-				scene.Add<Camera>(entity);
+				Camera& camera = scene.Add<Camera>(entity);
+				camera.SetFar(1000.0f);
 				m_Editor->SetActiveEntity(entity);
 			}
 

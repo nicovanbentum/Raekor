@@ -200,7 +200,7 @@ void Physics::GenerateRigidBodiesEntireScene(Scene& inScene)
 			collider.CreateMeshCollider(mesh, transform);
 
 			auto body_settings = JPH::BodyCreationSettings(
-				&collider.meshSettings,
+				collider.shapeSettings,
 				JPH::Vec3(transform.position.x, transform.position.y, transform.position.z),
 				JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w),
 				collider.motionType,

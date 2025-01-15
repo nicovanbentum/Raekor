@@ -1,5 +1,5 @@
 #define RAEKOR_SCRIPT
-#include "Raekor/raekor.h"
+#include "../Engine/raekor.h"
 using namespace RK;
 
 // For DllMain
@@ -16,11 +16,11 @@ DECLARE_SCRIPT_CLASS(CharacterControllerScript);
 
 static RTTI* types[] =
 {
-    &RTTI_OF(TestScript),
-    &RTTI_OF(LightsScript),
-    &RTTI_OF(AnimateSunScript),
-    &RTTI_OF(VehicleControllerScript),
-    &RTTI_OF(CharacterControllerScript),
+    &RTTI_OF<TestScript>(),
+    &RTTI_OF<LightsScript>(),
+    &RTTI_OF<AnimateSunScript>(),
+    &RTTI_OF<VehicleControllerScript>(),
+    &RTTI_OF<CharacterControllerScript>(),
 };
 
 
@@ -42,7 +42,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 {
     SDL_Init(SDL_INIT_VIDEO);
 
-    Physics::sInit();
+    //Physics::sInit();
 
     return TRUE;  // Successful DLL_PROCESS_ATTACH.
 }
