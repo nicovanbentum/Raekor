@@ -16,4 +16,4 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
 
 add_subdirectory(Code/Engine)
 add_subdirectory(Code/Editor)
-# add_subdirectory(Code/Scripts)
+add_subdirectory(Code/Scripts)
