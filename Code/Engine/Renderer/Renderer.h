@@ -66,7 +66,7 @@ private:
         int& mEnableVignette     = g_CVariables->Create("r_enable_vignette",      1);
         int& mDoPathTrace        = g_CVariables->Create("r_path_trace",           0,   true);
         int& mDoPathTraceGBuffer = g_CVariables->Create("r_path_trace_gbuffer",   1,   true);
-        float& mSunConeAngle     = g_CVariables->Create("r_sun_cone_angle",       0.02f, true);
+        float& mSunConeAngle     = g_CVariables->Create("r_sun_cone_angle",       0.0f, true);
     } m_Settings;
 
 public:

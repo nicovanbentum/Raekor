@@ -896,7 +896,10 @@ uint32_t RenderInterface::UploadTextureFromAsset(const TextureAsset::Ptr& inAsse
     desc.format = (DXGI_FORMAT)header.format();
 
     if (header.is_3d())
+    {
+        desc.depthOrArrayLayers = header.depth();
         desc.dimension = Texture::TEX_DIM_3D;
+    }
 
     if (header.is_cubemap())
         desc.dimension = Texture::TEX_DIM_CUBE;
@@ -916,7 +919,7 @@ uint32_t RenderInterface::UploadTextureFromAsset(const TextureAsset::Ptr& inAsse
             size_t data_offset = header.mip_offset(mip, layer);
             const uint8_t* data_ptr = inAsset->GetData() + data_offset;
 
-            m_Device.UploadTextureData(m_Device.GetTexture(texture), mip, layer, data_ptr);  
+            m_Device.UploadTextureData(m_Device.GetTexture(texture), mip, layer, header.row_pitch(mip), data_ptr);  
         }
     }
 

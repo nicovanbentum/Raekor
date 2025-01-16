@@ -385,11 +385,11 @@ struct TextureUpload
 struct UploadBuffer
 {
     bool mRetired        = true;
-    uint32_t mFrameIndex = 0;
     size_t mSize         = 0;
     size_t mCapacity     = 0;
     uint8_t* mPtr        = nullptr;
     BufferID mID         = BufferID();
+    uint64_t mFrameIndex = 0;
 };
 
 

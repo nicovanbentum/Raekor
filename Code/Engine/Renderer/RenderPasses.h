@@ -196,7 +196,8 @@ struct GBufferData
 {
     GBufferOutput mOutput;
     IRenderPass* mRenderPass = nullptr;
-    ComPtr<ID3D12PipelineState> mPipeline;
+    ComPtr<ID3D12PipelineState> mOpaquePipeline;
+    ComPtr<ID3D12PipelineState> mTransparentPipeline;
 };
 
 const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice,

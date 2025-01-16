@@ -166,9 +166,7 @@ void CommandList::SetViewportAndScissor(const Viewport& inViewport)
 void CommandList::Submit(Device& inDevice, ID3D12CommandQueue* inQueue)
 {
     assert(m_CommandList->GetType() == inQueue->GetDesc().Type);
-
-    const std::array cmd_lists = { static_cast<ID3D12CommandList*>( m_CommandList.Get() )};
-    inQueue->ExecuteCommandLists(cmd_lists.size(), cmd_lists.data());
+    inQueue->ExecuteCommandLists(1, CommandListCast(m_CommandList.GetAddressOf()));
 }
 
 } // namespace Raekor

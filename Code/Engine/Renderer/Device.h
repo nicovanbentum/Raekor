@@ -55,7 +55,7 @@ public:
     [[nodiscard]] TextureID CreateTextureView(D3D12ResourceRef inResource, const Texture::Desc& inDesc);
 
     void UploadBufferData(CommandList& inCmdList, const Buffer& inBuffer, uint32_t inOffset, const void* inData, uint32_t inSize);
-    void UploadTextureData(const Texture& inTexture, uint32_t inMip, uint32_t inLayer, const void* inData);
+    void UploadTextureData(const Texture& inTexture, uint32_t inMip, uint32_t inLayer, uint32_t inROwPitch, const void* inData);
 
     void FlushUploads(CommandList& inCmdList);
     void RetireUploadBuffers(CommandList& inCmdList);

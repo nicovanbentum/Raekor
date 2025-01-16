@@ -313,7 +313,7 @@ void Scene::RenderDebugShapes(Entity inEntity) const
 }
 
 
-Entity Scene::Clone(Entity inEntity)
+Entity Scene::Clone(Entity inEntity, Entity inParent)
 {
 	Entity copy = Create();
 
@@ -394,14 +394,11 @@ Entity Scene::Clone(Entity inEntity)
 		collider.bodyID = JPH::BodyID();
 	}
 
-	if (HasParent(inEntity))
-	{
-		ParentTo(copy, GetParent(inEntity));
-		
-		Slice<const Entity> children = GetChildren(inEntity);
-		for (Entity child : children)
-			Clone(child);
-	}
+	if (inParent != Entity::Null)
+		ParentTo(copy, inParent);
+
+	for (Entity child : GetChildren(inEntity))
+		Clone(child, copy);
 
 	return copy;
 }

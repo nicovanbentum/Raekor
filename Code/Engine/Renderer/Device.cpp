@@ -653,7 +653,7 @@ void Device::UploadBufferData(CommandList& inCmdList, const Buffer& inBuffer, ui
 
             buffer.mSize += inSize;
             buffer.mRetired = false;
-            buffer.mFrameIndex = inCmdList.GetFrameIndex();
+            buffer.mFrameIndex = m_FrameCounter;
 
             return;
         }
@@ -680,11 +680,11 @@ void Device::UploadBufferData(CommandList& inCmdList, const Buffer& inBuffer, ui
     m_UploadBuffers.emplace_back(UploadBuffer
     {
         .mRetired    = false,
-        .mFrameIndex = inCmdList.GetFrameIndex(),
         .mSize       = inSize,
         .mCapacity   = inSize,
         .mPtr        = mapped_ptr,
-        .mID        = buffer_id,
+        .mID         = buffer_id,
+        .mFrameIndex = m_FrameCounter,
     });
 
     m_UploadBuffersSize += buffer.GetD3D12Allocation()->GetSize();
@@ -692,7 +692,7 @@ void Device::UploadBufferData(CommandList& inCmdList, const Buffer& inBuffer, ui
 
 
 
-void Device::UploadTextureData(const Texture& inTexture, uint32_t inMip, uint32_t inLayer, const void* inData)
+void Device::UploadTextureData(const Texture& inTexture, uint32_t inMip, uint32_t inLayer, uint32_t inRowPitch, const void* inData)
 {
     uint32_t nr_of_rows = 0u;
     uint64_t row_size = 0ull, total_size = 0ull;
@@ -707,12 +707,13 @@ void Device::UploadTextureData(const Texture& inTexture, uint32_t inMip, uint32_
         if (buffer.mRetired && total_size <= buffer.mCapacity - buffer.mSize) 
         {
             uint8_t* data_ptr = (uint8_t*)inData;
+            uint8_t* offset_ptr = buffer.mPtr + footprint.Offset;
 
             for (uint32_t row = 0u; row < nr_of_rows; row++)
             {
-                uint8_t* copy_src = data_ptr + row * row_size;
-                uint8_t* copy_dst = buffer.mPtr + row * footprint.Footprint.RowPitch;
-                memcpy(copy_dst, copy_src, row_size);
+                uint8_t* copy_src = data_ptr + row * inRowPitch;
+                uint8_t* copy_dst = offset_ptr + row * footprint.Footprint.RowPitch;
+                std::memcpy(copy_dst, copy_src, row_size);
             }
 
             m_TextureUploads.emplace_back(TextureUpload 
@@ -723,26 +724,26 @@ void Device::UploadTextureData(const Texture& inTexture, uint32_t inMip, uint32_
 
             buffer.mSize += total_size;
             buffer.mRetired = false;
+            buffer.mFrameIndex = m_FrameCounter;
 
             return;
         }
     }
 
-    BufferID buffer_id = CreateBuffer(Buffer::Describe(total_size, Buffer::Usage::UPLOAD, false, "StagingBuffer"));
+    BufferID buffer_id = CreateBuffer(Buffer::Describe(total_size, Buffer::Usage::UPLOAD, true, "StagingBuffer"));
     Buffer& buffer = GetBuffer(buffer_id);
 
     uint8_t* mapped_ptr = nullptr;
-    CD3DX12_RANGE range = CD3DX12_RANGE(0, 0);
-    gThrowIfFailed(buffer->Map(0, &range, reinterpret_cast<void**>( &mapped_ptr )));
+    gThrowIfFailed(buffer->Map(0, nullptr, (void**)&mapped_ptr));
 
-    mapped_ptr += footprint.Offset;
     uint8_t* data_ptr = (uint8_t*)inData;
+    uint8_t* offset_ptr = mapped_ptr + footprint.Offset;
 
     for (uint32_t row = 0u; row < nr_of_rows; row++)
     {
-        uint8_t* copy_src = data_ptr + row * row_size;
-        uint8_t* copy_dst = mapped_ptr + row * footprint.Footprint.RowPitch;
-        memcpy(copy_dst, copy_src, row_size);
+        uint8_t* copy_src = data_ptr + row * inRowPitch;
+        uint8_t* copy_dst = offset_ptr + row * footprint.Footprint.RowPitch;
+        std::memcpy(copy_dst, copy_src, row_size);
     }
 
     m_TextureUploads.emplace_back(TextureUpload
@@ -754,11 +755,11 @@ void Device::UploadTextureData(const Texture& inTexture, uint32_t inMip, uint32_
     m_UploadBuffers.emplace_back(UploadBuffer
     {
         .mRetired    = false,
-        .mFrameIndex = m_FrameIndex,
         .mSize       = total_size,
         .mCapacity   = total_size,
         .mPtr        = mapped_ptr,
-        .mID         = buffer_id
+        .mID         = buffer_id,
+        .mFrameIndex = m_FrameCounter,
     });
 
     m_UploadBuffersSize += buffer.GetD3D12Allocation()->GetSize();
@@ -791,7 +792,7 @@ void Device::RetireUploadBuffers(CommandList& inCmdList)
 {
     for (UploadBuffer& buffer : m_UploadBuffers)
     {
-        if (buffer.mFrameIndex == inCmdList.GetFrameIndex())
+        if (buffer.mFrameIndex + sFrameCount + 1 < m_FrameCounter)
         {
             buffer.mSize = 0;
             buffer.mRetired = true;

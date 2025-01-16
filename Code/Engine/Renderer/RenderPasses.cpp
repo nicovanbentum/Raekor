@@ -287,15 +287,15 @@ const GBufferData& AddMeshletsRasterPass(RenderGraph& inRenderGraph, Device& inD
         ioRGBuilder.DepthStencilTarget(inData.mOutput.mDepthTexture);
 
         D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inRenderPass->CreatePipelineStateDesc(inDevice, g_SystemShaders.mGBufferShader);
-        inDevice->CreateGraphicsPipelineState(&pso_state, IID_PPV_ARGS(inData.mPipeline.GetAddressOf()));
-        inData.mPipeline->SetName(L"PSO_MESHLETS_RASTER");
+        inDevice->CreateGraphicsPipelineState(&pso_state, IID_PPV_ARGS(inData.mOpaquePipeline.GetAddressOf()));
+        inData.mOpaquePipeline->SetName(L"PSO_MESHLETS_RASTER");
     },
 
     [&inRenderGraph, &inDevice, &inScene](GBufferData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
         const Viewport& viewport = inRenderGraph.GetViewport();
         inCmdList.SetViewportAndScissor(viewport);
-        inCmdList->SetPipelineState(inData.mPipeline.Get());
+        inCmdList->SetPipelineState(inData.mOpaquePipeline.Get());
 
         constexpr Vec4 clear_color = Vec4(0.0f, 0.0f, 0.0f, 0.0f);
         inCmdList->ClearDepthStencilView(inDevice.GetCPUDescriptorHandle(inResources.GetTexture(inData.mOutput.mDepthTexture)), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
@@ -411,8 +411,12 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
         ioRGBuilder.DepthStencilTarget(inData.mOutput.mDepthTexture);
 
         D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inRenderPass->CreatePipelineStateDesc(inDevice, g_SystemShaders.mGBufferShader);
-        inDevice->CreateGraphicsPipelineState(&pso_state, IID_PPV_ARGS(inData.mPipeline.GetAddressOf()));
-        inData.mPipeline->SetName(L"PSO_GBUFFER");
+        inDevice->CreateGraphicsPipelineState(&pso_state, IID_PPV_ARGS(inData.mOpaquePipeline.GetAddressOf()));
+        inData.mOpaquePipeline->SetName(L"PSO_OPAQUE_GBUFFER");
+
+        pso_state.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+        inDevice->CreateGraphicsPipelineState(&pso_state, IID_PPV_ARGS(inData.mTransparentPipeline.GetAddressOf()));
+        inData.mTransparentPipeline->SetName(L"PSO_TRANSPARENT_GBUFFER");
 
         // store the render pass ptr so we can access it during execution
         inData.mRenderPass = inRenderPass;
@@ -420,8 +424,6 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
 
     [&inDevice, &inScene](GBufferData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
-        inCmdList->SetPipelineState(inData.mPipeline.Get());
-        inCmdList.SetViewportAndScissor(inDevice.GetTexture(inResources.GetTexture(inData.mOutput.mRenderTexture)));
 
         constexpr Vec4 clear_color = Vec4(0.0f, 0.0f, 0.0f, 0.0f);
         inCmdList->ClearDepthStencilView(inDevice.GetCPUDescriptorHandle(inResources.GetTexture(inData.mOutput.mDepthTexture)), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
@@ -429,7 +431,9 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
         inCmdList->ClearRenderTargetView(inDevice.GetCPUDescriptorHandle(inResources.GetTexture(inData.mOutput.mVelocityTexture)), glm::value_ptr(clear_color), 0, nullptr);
         inCmdList->ClearRenderTargetView(inDevice.GetCPUDescriptorHandle(inResources.GetTexture(inData.mOutput.mSelectionTexture)), glm::value_ptr(clear_color), 0, nullptr);
 
-        Timer timer;
+        bool is_transparent = false;
+        inCmdList->SetPipelineState(inData.mOpaquePipeline.Get());
+        inCmdList.SetViewportAndScissor(inDevice.GetTexture(inResources.GetTexture(inData.mOutput.mRenderTexture)));
 
         for (const auto& [entity, mesh] : inScene->Each<Mesh>())
         {
@@ -449,6 +453,12 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
 
             if (material == nullptr)
                 material = &Material::Default;
+
+            if (material->isTransparent != is_transparent)
+            {
+                is_transparent = material->isTransparent;
+                inCmdList->SetPipelineState(material->isTransparent ? inData.mTransparentPipeline.Get() : inData.mOpaquePipeline.Get());
+            }
 
             if (material->vertexShader && material->pixelShader)
             {

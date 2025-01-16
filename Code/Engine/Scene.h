@@ -62,8 +62,9 @@ public:
 	void ParentTo(Entity inEntity, Entity inParent) { assert(inEntity != Entity::Null && inParent != Entity::Null); m_Hierarchy.insert(inParent, inEntity); }
 
 	// entity operations
-	Entity Clone(Entity inEntity);
 	void Destroy(Entity inEntity);
+	Entity Clone(Entity inEntity, Entity inParent);
+	Entity Clone(Entity inEntity) { return Clone(inEntity, GetParent(inEntity)); }
 
 	// load materials from disk in parallel, is used for both importing and scene loading.
 	void LoadMaterialTextures(Assets& ioAssets, Slice<const Entity> inMaterials);
