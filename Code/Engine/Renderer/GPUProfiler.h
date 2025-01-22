@@ -22,7 +22,7 @@ class GPUProfiler
 {
 public:
     static constexpr int MAX_QUERIES = 2048;
-    
+
 public:
     friend class GPUProfileSection;
     friend class GPUProfileSectionScoped;
