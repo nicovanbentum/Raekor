@@ -436,7 +436,7 @@ DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTr
             .format = DXGI_FORMAT_R16G16_FLOAT,
             .width  = uint32_t(DDGI_DEPTH_TEXELS * DDGI_PROBES_PER_ROW),
             .height = uint32_t(DDGI_DEPTH_TEXELS * ( total_probe_count / DDGI_PROBES_PER_ROW )),
-            .usage  = Texture::Usage::SHADER_READ_WRITE,
+            .usage  = Texture::Usage::SHADER_READ_ONLY,
             .debugName = "DDGI_UpdatedDepth"
         });
 
@@ -445,7 +445,7 @@ DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTr
             .format = DXGI_FORMAT_R16G16B16A16_FLOAT,
             .width  = uint32_t(DDGI_IRRADIANCE_TEXELS * DDGI_PROBES_PER_ROW),
             .height = uint32_t(DDGI_IRRADIANCE_TEXELS * ( total_probe_count / DDGI_PROBES_PER_ROW )),
-            .usage  = Texture::Usage::SHADER_READ_WRITE,
+            .usage  = Texture::Usage::SHADER_READ_ONLY,
             .debugName = "DDGI_UpdatedIrradiance"
         });
 

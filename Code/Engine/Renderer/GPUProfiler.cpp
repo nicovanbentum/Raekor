@@ -53,8 +53,8 @@ void GPUProfiler::Resolve(Device& inDevice, CommandList& inCmdList)
 	if (m_QueryCount == 0)
 		return;
 
-	BufferID timestamp_buffer = m_TimestampReadbackBuffers[inDevice.GetFrameIndex()];
-	ComPtr<ID3D12QueryHeap> timestamp_heap = m_TimestampQueryHeaps[inDevice.GetFrameIndex()];
+	BufferID timestamp_buffer = m_TimestampReadbackBuffers[inCmdList.GetFrameIndex()];
+	ComPtr<ID3D12QueryHeap> timestamp_heap = m_TimestampQueryHeaps[inCmdList.GetFrameIndex()];
 
 	ID3D12Resource* timestamp_resource = inDevice.GetD3D12Resource(timestamp_buffer);
 
