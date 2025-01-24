@@ -35,8 +35,9 @@ Application::Application(WindowFlags inFlags)
 	if (OS::sCheckCommandLineOption("-run_tests"))
 	{
 		RunArchiveTests();
-		RunECStorageTests();
 	}
+
+	RunECStorageTests();
 
     JSON::ReadArchive archive(CONFIG_FILE_STR);
     archive >> m_ConfigSettings;

@@ -19,7 +19,7 @@ RTTI_DEFINE_TYPE(Camera)
 
 void Camera::Zoom(float inAmount)
 {
-	Vec3 forward = GetForwardVector();
+	Vec3 forward = GetForward();
 	m_Position += forward * ( inAmount * mZoomSpeed );
 }
 
@@ -29,13 +29,13 @@ void Camera::Look(Vec2 inAmount)
 	m_Angle.x += float(inAmount.x * -1);
 	m_Angle.y += float(inAmount.y * -1);
 	// clamp to roughly half pi so we dont overshoot
-	m_Angle.y = std::clamp(m_Angle.y, -1.57078f, 1.57078f);
+	m_Angle.y = std::clamp(m_Angle.y, -1.57f, 1.57f);
 }
 
 
 void Camera::Move(Vec2 inAmount)
 {
-	Vec3 forward = GetForwardVector();
+	Vec3 forward = GetForward();
 	Vec3 right = glm::normalize(glm::cross(forward, cUp));
 	
 	m_Position += right * ( inAmount.x * -mMoveSpeed );
@@ -96,7 +96,7 @@ bool Viewport::Changed() const
 }
 
 
-Vec3 Camera::GetForwardVector() const
+Vec3 Camera::GetForward() const
 {
 	return glm::normalize(Vec3(cos(m_Angle.y) * sin(m_Angle.x),
 		sin(m_Angle.y), cos(m_Angle.y) * cos(m_Angle.x)));
@@ -106,7 +106,7 @@ Vec3 Camera::GetForwardVector() const
 
 Mat4x4 Camera::ToViewMatrix() const
 {
-	return glm::lookAtRH(m_Position, m_Position + GetForwardVector(), cUp);
+	return glm::lookAtRH(m_Position, m_Position + GetForward(), cUp);
 }
 
 
@@ -118,10 +118,14 @@ Mat4x4 Camera::ToProjectionMatrix() const
 
 void Camera::LookAt(Vec3 inPosition)
 {
-	Vec3 look_at = glm::normalize(inPosition - m_Position);
+    SetDirection(glm::normalize(inPosition - m_Position));
+}
 
-	m_Angle.x = glm::atan(look_at.x, look_at.z);
-	m_Angle.y = std::clamp(glm::asin(look_at.y), -1.57078f, 1.57078f);
+
+void Camera::SetDirection(Vec3 inDirection)
+{
+    m_Angle.x = glm::atan(inDirection.x, inDirection.z);
+    m_Angle.y = std::clamp(glm::asin(inDirection.y), -1.57f, 1.57f);
 }
 
 

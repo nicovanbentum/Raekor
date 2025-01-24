@@ -7,7 +7,7 @@ file(GLOB_RECURSE HppFiles ${PROJECT_SOURCE_DIR}/*.h)
 file(GLOB_RECURSE CppFiles ${PROJECT_SOURCE_DIR}/*.cpp)
 
 # Rule to build the actual exectuable and enable c++20
-add_library(${PROJECT_NAME} SHARED ${CppFiles} ${HppFiles})
+add_library(${PROJECT_NAME} ${CppFiles} ${HppFiles})
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_20)
 
 # MSVC stuff for root working directory, static runtime and enabling precompiled headers

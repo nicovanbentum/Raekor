@@ -156,10 +156,10 @@ public:
     uint32_t GetScreenshotBuffer(uint8_t* ioBuffer) { return 0; }
 
     void UploadMeshBuffers(Entity inEntity, Mesh& inMesh) override;
-    void DestroyMeshBuffers(Entity inEntity, Mesh& inMesh) override { /* TODO: FIXME */ }
+    void DestroyMeshBuffers(Entity inEntity, Mesh& inMesh) override;
 
     void UploadSkeletonBuffers(Entity inEntity, Skeleton& inSkeleton, Mesh& inMesh) override;
-    void DestroySkeletonBuffers(Entity inEntity, Skeleton& inSkeleton) override { /* TODO: FIXME */ }
+    void DestroySkeletonBuffers(Entity inEntity, Skeleton& inSkeleton) override;
 
     void UploadMaterialTextures(Entity inEntity, Material& inMaterial, Assets& inAssets) override;
     void DestroyMaterialTextures(Entity inEntity, Material& inMaterial, Assets& inAssets) override {}

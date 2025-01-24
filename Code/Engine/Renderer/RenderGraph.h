@@ -3,6 +3,7 @@
 #include "RTTI.h"
 #include "Camera.h"
 #include "Device.h"
+#include "Resource.h"
 #include "Profiler.h"
 #include "CommandList.h"
 
@@ -11,13 +12,6 @@ class Scene;
 }
 
 namespace RK::DX12 {
-
-enum EResourceType
-{
-    RESOURCE_TYPE_BUFFER,
-    RESOURCE_TYPE_TEXTURE
-};
-
 
 // Index into RenderGraphBuilder::m_ResourceDescriptions
 enum RenderGraphResourceID : uint32_t {};

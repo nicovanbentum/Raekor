@@ -13,7 +13,6 @@ DECLARE_SCRIPT_CLASS(AnimateSunScript);
 DECLARE_SCRIPT_CLASS(VehicleControllerScript);
 DECLARE_SCRIPT_CLASS(CharacterControllerScript);
 
-
 static RTTI* types[] =
 {
     &RTTI_OF<TestScript>(),
@@ -22,6 +21,15 @@ static RTTI* types[] =
     &RTTI_OF<VehicleControllerScript>(),
     &RTTI_OF<CharacterControllerScript>(),
 };
+
+void gRegisterScriptTypes()
+{
+    g_RTTIFactory.Register<TestScript>();
+    g_RTTIFactory.Register<LightsScript>();
+    g_RTTIFactory.Register<AnimateSunScript>();
+    g_RTTIFactory.Register<VehicleControllerScript>();
+    g_RTTIFactory.Register<CharacterControllerScript>();
+}
 
 
 extern "C" __declspec(dllexport) int __cdecl SCRIPT_EXPORTED_FUNCTION_NAME(RTTI** outTypes)

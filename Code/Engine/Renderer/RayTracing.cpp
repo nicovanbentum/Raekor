@@ -156,7 +156,7 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
         });
     };
 
-    auto DenoiseShadowsPass = [](RenderGraph& inRenderGraph, Device& inDevice, const GBufferOutput& inGBuffer, const TraceShadowTilesData& inTraceData, const ClearShadowTilesData& inTilesData, const ClearShadowsData& inShadowsData)
+    auto DenoiseShadowsPass = [](RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferOutput& inGBuffer, const TraceShadowTilesData& inTraceData, const ClearShadowTilesData& inTilesData, const ClearShadowsData& inShadowsData)
     {
         return inRenderGraph.AddComputePass<DenoiseShadowsData>("RT Shadows Denoise",
         [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, DenoiseShadowsData& inData)
@@ -179,8 +179,14 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
             inData.mDenoisedIndirectDispatchBufferSRV = inRGBuilder.ReadIndirectArgs(inTilesData.mIndirectDispatchBuffer);
         },
 
-        [&inRenderGraph, &inDevice](DenoiseShadowsData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+        [&inRenderGraph, &inDevice, &inScene](DenoiseShadowsData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
         {
+            if (!inScene.HasTLAS())
+                return;
+
+            if (!inScene->GetSunLight())
+                return;
+
             ShadowsDenoiseRootConstants root_constants =
             {
                 .mResultTexture     = inResources.GetBindlessHeapIndex(inData.mOutputTextureUAV),
@@ -238,7 +244,7 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
 
     const ClearShadowsData& clear_shadows_data   = ClearShadowsPass(inRenderGraph, inDevice);
 
-    const DenoiseShadowsData& denoise_tiles_data = DenoiseShadowsPass(inRenderGraph, inDevice, inGBuffer, traced_rays_data, clear_tiles_data, clear_shadows_data);
+    const DenoiseShadowsData& denoise_tiles_data = DenoiseShadowsPass(inRenderGraph, inDevice, inScene, inGBuffer, traced_rays_data, clear_tiles_data, clear_shadows_data);
 
     return clear_shadows_data.mShadowsTexture;
 }

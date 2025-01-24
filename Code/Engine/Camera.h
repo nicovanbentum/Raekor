@@ -26,12 +26,13 @@ public:
 	void Move(Vec2 inAmount);
 	void Orbit(Vec2 inAmount, Vec3 inTarget, float inRadius);
 
-	Vec3 GetForwardVector() const;
+	Vec3 GetForward() const;
 
 	Mat4x4 ToViewMatrix() const;
 	Mat4x4 ToProjectionMatrix() const;
 
 	void LookAt(Vec3 inPosition);
+    void SetDirection(Vec3 inDirection);
 
 	void SetFov(float inValue) { m_FieldOfView = inValue; }
 	void SetFar(float inValue) { m_FarPlane = inValue; }
@@ -70,10 +71,8 @@ public:
 };
 
 
-
-class EditorCameraController
+struct EditorCameraController
 {
-public:
 	/* Returns true if the camera moved. */
 	static void OnUpdate(Camera& inCamera, float inDeltaTime);
 	/* Returns true if the camera moved. */

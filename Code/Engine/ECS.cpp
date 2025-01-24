@@ -83,6 +83,24 @@ void RunECStorageTests()
 
 	for (const auto& [entity, name, transform] : ecs.Each<TestName, TestTransform>())
 		std::cout << name.name << std::endl;
+
+	Array<Entity> entities;
+
+	for (int i = 0; i < 20; i++)
+		ecs.Add<TestMaterial>(entities.emplace_back(ecs.Create()));
+
+	int count = ecs.Count<TestMaterial>();
+
+	for (int i = 0; i < 20; i++)
+		ecs.Destroy(entities[i]);
+
+	entities.clear();
+
+	for (int i = 0; i < 20; i++)
+		ecs.Add<TestMaterial>(entities.emplace_back(ecs.Create()));
+
+	int new_count = ecs.Count<TestMaterial>();
+	assert(new_count == count);
 }
 
 

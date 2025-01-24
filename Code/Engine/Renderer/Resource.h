@@ -7,6 +7,12 @@ namespace RK::DX12 {
 
 class Device;
 
+enum EResourceType
+{
+    RESOURCE_TYPE_BUFFER,
+    RESOURCE_TYPE_TEXTURE
+};
+
 class ResourceID
 {
 public:
@@ -95,6 +101,7 @@ public:
 
         assert(inID.IsValid());
         assert(inID.m_Index < m_Storage.size());
+        assert(inID.m_Generation == m_Generations[inID.GetIndex()]);
 
         m_Generations[inID.GetIndex()]++;
         m_FreeIndices.push_back(inID.GetIndex());

@@ -142,7 +142,7 @@ void RayTracedScene::UploadMesh(Application* inApp, Device& inDevice, Mesh& inMe
     inCmdList->BuildRaytracingAccelerationStructure(&desc, 0, nullptr);
 
     // TODO: validation layer warning??
-    // inDevice.ReleaseBuffer(scratch_buffer_id);
+    inDevice.ReleaseBuffer(scratch_buffer_id);
 }
 
 

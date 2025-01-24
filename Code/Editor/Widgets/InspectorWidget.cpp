@@ -111,6 +111,31 @@ bool InspectorWidget::DrawEntityInspector(Widgets* inWidgets)
 		scene.Add<NativeScript>(active_entity);
 	}
 
+	if (scene.Has<Mesh>(active_entity))
+	{
+		const Mesh& mesh = scene.Get<Mesh>(active_entity);
+
+		if (ImGui::Button("Add RigidBody", ImVec2(-1.0f, ImGui::GetFrameHeight())))
+		{
+			Transform& transform = scene.Get<Transform>(active_entity);
+			RigidBody& rigid_body = scene.Add<RigidBody>(active_entity);
+
+			rigid_body.CreateMeshCollider(mesh, transform);
+
+			auto body_settings = JPH::BodyCreationSettings(
+				rigid_body.shapeSettings,
+				JPH::Vec3(transform.position.x, transform.position.y, transform.position.z),
+				JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w),
+				rigid_body.motionType,
+				EPhysicsObjectLayers::MOVING
+			);
+
+			auto& body_interface = GetPhysics().GetSystem()->GetBodyInterface();
+			rigid_body.bodyID = body_interface.CreateAndAddBody(body_settings, JPH::EActivation::Activate);
+		}
+	}
+
+
 	if (ImGui::BeginPopup("Components"))
 	{
 		for (const RTTI* rtti : g_RTTIFactory)
@@ -372,7 +397,6 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Mesh& ioMesh)
 
 bool InspectorWidget::DrawComponent(Entity inEntity, Camera& ioCamera)
 {
-	m_CameraUndo.entity = inEntity;
 	const bool is_active_camera = m_Editor->GetCameraEntity() == inEntity;
 
 	if (is_active_camera)
@@ -442,7 +466,7 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Camera& ioCamera)
 
 	for (Vec3& v : f)
 	{
-		Vec4 ws = inv_vp * Vec4(v, 1.0f);
+		Vec4 ws = inv_vp * Vec4(v, 1.0f); 
 		v = ws / ws.w;
 	}
 
@@ -948,12 +972,17 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Transform& inTransform)
 	CheckForUndo(inEntity, inTransform, m_TransformUndo);
 
     ImGui::SetNextItemRightAlign("Rotation");
-	Vec3 degrees = glm::degrees(glm::eulerAngles(inTransform.rotation));
-	if (ImGui::DragVec3("##RotationDragFloat3", degrees, 0.1f, -360.0f, 360.0f))
+
+    Vec3 degrees = glm::degrees(glm::eulerAngles(inTransform.rotation));
+    Vec3 prev_degrees = degrees;
+
+	if (ImGui::DragVec3("##RotationDragFloat3", degrees, 0.01f, -360.0f, 360.0f))
 	{
-		inTransform.rotation = glm::quat(glm::radians(degrees));
+        inTransform.rotation = inTransform.rotation * Quat(glm::radians(degrees - prev_degrees));
+        inTransform.rotation = glm::normalize(inTransform.rotation);
 		inTransform.Compose();
-		scene_changed = true;
+		
+        scene_changed = true;
 	}
 
 	CheckForUndo(inEntity, inTransform, m_TransformUndo);
@@ -1160,68 +1189,25 @@ bool InspectorWidget::DrawComponent(Entity inEntity, NativeScript& inScript)
 	Scene& scene = GetScene();
 	Assets& assets = GetAssets();
 
-	if (assets.ContainsAsset(inScript.file))
-	{
-		ImGui::Text("File: %s", inScript.file.c_str());
-	}
-
-	if (ImGui::Button("Load.."))
-	{
-		const String filepath = OS::sOpenFileDialog("DLL Files (*.dll)\0*.dll\0");
-
-		if (!filepath.empty())
-		{
-			inScript.file = fs::relative(filepath).string();
-
-			if (ScriptAsset::Ptr asset = assets.GetAsset<ScriptAsset>(inScript.file))
-			{
-				for (const String& type_str : asset->GetRegisteredTypes())
-					inScript.types.push_back(type_str);
-			}
-		}
-	}
-
-	ImGui::SameLine();
-
-	if (ImGui::Button("Reload"))
-	{
-		assets.ReleaseAsset(inScript.file);
-		assets.GetAsset<ScriptAsset>(inScript.file);
-		
-		scene.BindScriptToEntity(GetActiveEntity(), inScript, m_Editor);
-	}
-
-	ImGui::SameLine();
-
-	if (ImGui::Button("Release"))
-	{
-		assets.ReleaseAsset(inScript.file);
-	}
-
-    if (!inScript.types.empty())
     {
-		auto type_iter = std::find(inScript.types.begin(), inScript.types.end(), inScript.type);
-
-        const char* preview_text = type_iter == inScript.types.end() ? "None" : inScript.type.c_str();
+        const char* preview_text = inScript.type.empty() ? "None" : inScript.type.c_str();
 
         if (ImGui::BeginCombo("Type", preview_text, ImGuiComboFlags_None))
         {
-			for (auto iter = inScript.types.begin(); iter != inScript.types.end(); iter++)
-            {
-                if (ImGui::Selectable(iter->c_str(), iter == type_iter))
-                {
-					inScript.type = *iter;
-                    scene.BindScriptToEntity(GetActiveEntity(), inScript, m_Editor);
-                }
-            }
+			for (const RTTI* rtti : g_RTTIFactory)
+			{
+				if (rtti->IsDerivedFrom<INativeScript>())
+				{
+					if (ImGui::Selectable(rtti->GetTypeName(), false))
+					{
+						inScript.type = rtti->GetTypeName();
+						scene.BindScriptToEntity(GetActiveEntity(), inScript, m_Editor);
+					}
+				}
+			}
 
             ImGui::EndCombo();
         }
-    }
-    else
-    {
-        if (ImGui::BeginCombo("Type", "None Found", ImGuiComboFlags_None))
-            ImGui::EndCombo();
     }
 
 	ImGui::PushStyleVar(ImGuiStyleVar_SeparatorTextAlign, ImVec2(0.5f, 0.5f));

@@ -11,6 +11,7 @@
 #include "DebugRenderer.h"
 #include "ShaderGraphNodes.h"
 
+#include "Scripts/Scripts.h"
 #include "Widgets/AssetsWidget.h"
 #include "Widgets/MenubarWidget.h"
 #include "Widgets/ConsoleWidget.h"
@@ -30,6 +31,7 @@ Editor::Editor(WindowFlags inWindowFlags, IRenderInterface* inRenderInterface) :
 	m_UndoSystem(m_Scene),
 	m_RenderInterface(inRenderInterface)
 {
+	gRegisterScriptTypes();
 	gRegisterShaderNodeTypes();
 
 	IMGUI_CHECKVERSION();
@@ -149,8 +151,6 @@ void Editor::OnUpdate(float inDeltaTime)
 	if (m_Physics.GetState() == Physics::Stepping)
 		m_Physics.Step(m_Scene, inDeltaTime);
 
-	// update camera transforms
-	m_Scene.UpdateCameras();
 
 	if (m_CameraEntity != Entity::Null)
 	{
@@ -169,6 +169,9 @@ void Editor::OnUpdate(float inDeltaTime)
 	{
 		// update Transform components
 		m_Scene.UpdateTransforms();
+
+	    // update camera transforms
+	    m_Scene.UpdateCameras();
 
 		// update Light and DirectionalLight components
 		m_Scene.UpdateLights();
@@ -440,7 +443,7 @@ void Editor::OnEvent(const SDL_Event& event)
 		}
 	}
 
-	if (m_ConfigSettings.mShowUI)
+	if (m_ConfigSettings.mShowUI && GetGameState() != GAME_RUNNING)
 		m_Widgets.OnEvent(event);
 }
 

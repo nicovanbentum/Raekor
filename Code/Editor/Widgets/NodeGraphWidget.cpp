@@ -527,6 +527,7 @@ void ShaderGraphWidget::OnEvent(Widgets* inWidgets, const SDL_Event& ev)
 
 void ShaderGraphWidget::SetActiveShaderGraph(EShaderGraph inShaderGraph)
 {
+	m_ActiveGraph = inShaderGraph;
 	m_Context = m_Contexts[inShaderGraph];
 	m_Builder = m_Builders[inShaderGraph];
 	m_ImNodesContext = m_ImNodesContexts[inShaderGraph];

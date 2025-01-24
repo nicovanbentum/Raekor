@@ -88,11 +88,11 @@ const DirectionalLight* Scene::GetSunLight() const
 void Scene::UpdateLights()
 {
 	for (auto [entity, light, transform] : Each<DirectionalLight, Transform>())
-		light.direction = Vec4(static_cast<glm::quat>( transform.GetRotationWorldSpace() ) * glm::vec3(0, -1, 0), 1.0);
+		light.direction = Vec4(transform.GetRotationWorldSpace() * Vec3(0, -1, 0), 1.0);
 
 	for (auto [entity, light, transform] : Each<Light, Transform>())
 	{
-		light.direction = glm::toMat3(transform.GetRotationWorldSpace()) * Vec3(0.0f, 0.0f, -1.0f);
+		light.direction = transform.GetRotationWorldSpace() * Vec3(0.0f, 0.0f, -1.0f);
 		light.position = Vec4(transform.GetPositionWorldSpace(), 1.0f);
 	}
 }
@@ -148,12 +148,9 @@ void Scene::UpdateCameras()
 {
 	for (const auto& [entity, transform, camera] : Each<Transform, Camera>())
 	{
-		Quat q = transform.GetRotationWorldSpace();
+		Quat q = transform.rotation;
 		camera.SetPosition(transform.GetPositionWorldSpace());
-		camera.SetAngle(Vec2(
-			glm::atan(2.0f * ( q.w * q.y - q.z * q.x ), 1.0f - 2.0f * ( q.y * q.y + q.z * q.z )),
-			glm::atan(2.0f * ( q.w * q.x + q.y * q.z ), 1.0f - 2.0f * ( q.x * q.x + q.y * q.y ))
-		));
+        camera.SetDirection(transform.GetRotationWorldSpace() * Camera::cForward);
 	}
 }
 
@@ -269,6 +266,13 @@ void Scene::UpdateNativeScripts(float inDeltaTime)
 				std::cerr << e.what() << '\n';
 			}
 		}
+        else if (!script.type.empty())
+        {
+            if (RTTI* rtti = g_RTTIFactory.GetRTTI(script.type.c_str()))
+            {
+                script.script = (INativeScript*)g_RTTIFactory.Construct(script.type.c_str());
+            }
+        }
 	}
 }
 
@@ -411,6 +415,15 @@ void Scene::Destroy(Entity inEntity)
 	{
 		Scene::TraverseFunction Traverse = [](void* inContext, Scene& inScene, Entity inEntity)
 		{
+			if (inScene.m_Renderer != nullptr)
+			{
+				if (inScene.Has<Mesh>(inEntity))
+					inScene.m_Renderer->DestroyMeshBuffers(inEntity, inScene.Get<Mesh>(inEntity));
+
+				//if (inScene.Has<Material>(inEntity))
+					//inScene.m_Renderer->DestroyMaterialTextures(inEntity, inScene.Get<Material>(inEntity));
+			}
+
 			ECStorage* storage = (ECStorage*)inContext;
 			storage->Destroy(inEntity);
 			inScene.Unparent(inEntity);
@@ -515,12 +528,15 @@ void Scene::OpenFromFile(const String& inFilePath, Assets& ioAssets, Application
 	m_ActiveSceneFilePath = inFilePath;
 	assert(fs::is_regular_file(inFilePath));
 
-	// update Discord status
-	String filename = m_ActiveSceneFilePath.filename().string();
-	inApp->GetDiscordRPC().SetActivityDetails(filename.c_str());
+	if (inApp)
+	{
+		// update Discord status
+		String filename = m_ActiveSceneFilePath.filename().string();
+		inApp->GetDiscordRPC().SetActivityDetails(filename.c_str());
 
-	// clear undo system
-	inApp->GetUndo()->Clear();
+		// clear undo system
+		inApp->GetUndo()->Clear();
+	}
 
 	// open archive
 	BinaryReadArchive archive(inFilePath);
@@ -611,9 +627,18 @@ void Scene::OpenFromFile(const String& inFilePath, Assets& ioAssets, Application
 				script.types.push_back(type_str);
 			}
 
-			if (inApp)
+            if (inApp) 
+            {
 				BindScriptToEntity(entity, script, inApp);
+                continue;
+            }
 		}
+        
+        if (!script.type.empty())
+        {
+            if (inApp)
+                BindScriptToEntity(entity, script, inApp);
+        }
 	}
 
 	std::cout << std::format("[Scene] Upload mesh data to GPU took {:.3f} seconds.\n", timer.GetElapsedTime());
@@ -681,19 +706,28 @@ void Scene::OpenFromFileAsync(const String& inFilePath, Assets& ioAssets, Applic
 
 	std::cout << std::format("[Scene] Load ECStorage data took {:.3f} seconds.\n", timer.GetElapsedTime());
 
-	for (const auto& [entity, script] : Each<NativeScript>())
-	{
-		if (ScriptAsset::Ptr asset = ioAssets.GetAsset<ScriptAsset>(script.file))
-		{
-			for (const String& type_str : asset->GetRegisteredTypes())
-			{
-				script.types.push_back(type_str);
-			}
+    for (const auto& [entity, script] : Each<NativeScript>())
+    {
+        if (ScriptAsset::Ptr asset = ioAssets.GetAsset<ScriptAsset>(script.file))
+        {
+            for (const String& type_str : asset->GetRegisteredTypes())
+            {
+                script.types.push_back(type_str);
+            }
 
-			if (inApp)
-				BindScriptToEntity(entity, script, inApp);
-		}
-	}
+            if (inApp)
+            {
+                BindScriptToEntity(entity, script, inApp);
+                continue;
+            }
+        }
+
+        if (!script.type.empty())
+        {
+            if (inApp)
+                BindScriptToEntity(entity, script, inApp);
+        }
+    }
 
 	timer.Restart();
 

@@ -22,6 +22,7 @@ set_property(TARGET ${PROJECT_NAME} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded
 target_precompile_headers(${PROJECT_NAME} PRIVATE pch.h)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE Engine)
+target_link_libraries(${PROJECT_NAME} PRIVATE Scripts)
 target_link_libraries(${PROJECT_NAME} PRIVATE debug ${XESS} optimized ${XESS})
 target_link_libraries(${PROJECT_NAME} PRIVATE debug ${FSR2d} optimized ${FSR2})
 target_link_libraries(${PROJECT_NAME} PRIVATE debug ${DLSSd} optimized ${DLSS})

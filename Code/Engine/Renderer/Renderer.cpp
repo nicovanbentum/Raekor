@@ -23,15 +23,15 @@ Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inW
     m_Window(inWindow),
     m_RenderGraph(inDevice, inViewport, sFrameCount)
 {
-    DXGI_SWAP_CHAIN_DESC1 swapchain_desc = 
+    DXGI_SWAP_CHAIN_DESC1 swapchain_desc =
     {
-        .Width       = inViewport.GetDisplaySize().x,
-        .Height      = inViewport.GetDisplaySize().y,
-        .Format      = sSwapchainFormat,
-        .SampleDesc  = DXGI_SAMPLE_DESC {.Count = 1 },
+        .Width = inViewport.GetDisplaySize().x,
+        .Height = inViewport.GetDisplaySize().y,
+        .Format = sSwapchainFormat,
+        .SampleDesc = DXGI_SAMPLE_DESC {.Count = 1 },
         .BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT,
         .BufferCount = sFrameCount,
-        .SwapEffect  = DXGI_SWAP_EFFECT_FLIP_DISCARD,
+        .SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD,
     };
 
     if (inDevice.IsTearingSupported())
@@ -62,17 +62,17 @@ Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inW
     {
         D3D12ResourceRef rtv_resource = nullptr;
         gThrowIfFailed(m_Swapchain->GetBuffer(index, IID_PPV_ARGS(rtv_resource.GetAddressOf())));
-        
+
         D3D12_RESOURCE_DESC rtv_resource_desc = rtv_resource->GetDesc();
 
         backbuffer_data.mBackBuffer = inDevice.CreateTextureView(rtv_resource, Texture::Desc
-        {
-            .format = rtv_resource_desc.Format,
-            .width  = uint32_t(rtv_resource_desc.Width),
-            .height = uint32_t(rtv_resource_desc.Height),
-            .usage  = Texture::Usage::RENDER_TARGET, 
-            .debugName = "BackBuffer"
-        });
+            {
+                .format = rtv_resource_desc.Format,
+                .width = uint32_t(rtv_resource_desc.Width),
+                .height = uint32_t(rtv_resource_desc.Height),
+                .usage = Texture::Usage::RENDER_TARGET,
+                .debugName = "BackBuffer"
+            });
 
         backbuffer_data.mDirectCmdList = CommandList(inDevice, D3D12_COMMAND_LIST_TYPE_DIRECT, index);
         backbuffer_data.mDirectCmdList->SetName(L"RK::DX12::CommandList(DIRECT)");
@@ -95,10 +95,10 @@ Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inW
     g_CVariables->CreateFn("fn_hotload_shaders", [this, &inDevice]()
     {
         WaitForIdle(inDevice);
-        
+
         if (g_SystemShaders.OnHotLoad(inDevice))
             SetShouldResize(true);
-        
+
         g_ThreadPool.WaitForJobs();
     });
 }
@@ -134,13 +134,13 @@ void Renderer::OnResize(Device& inDevice, Viewport& inViewport, bool inFullScree
         };
 
         backbuffer_data.mBackBuffer = inDevice.CreateTextureView(rtv_resource, Texture::Desc
-        {
-            .format = rtv_resource_desc.Format,
-            .width  = uint32_t(rtv_resource_desc.Width),
-            .height = uint32_t(rtv_resource_desc.Height),
-            .usage  = Texture::Usage::RENDER_TARGET,
-            .debugName = swapchain_buffer_names[index]
-        });
+            {
+                .format = rtv_resource_desc.Format,
+                .width = uint32_t(rtv_resource_desc.Width),
+                .height = uint32_t(rtv_resource_desc.Height),
+                .usage = Texture::Usage::RENDER_TARGET,
+                .debugName = swapchain_buffer_names[index]
+            });
     }
 
     m_FrameIndex = m_Swapchain->GetCurrentBackBufferIndex();
@@ -158,7 +158,7 @@ void Renderer::OnResize(Device& inDevice, Viewport& inViewport, bool inFullScree
                 upscale_init_success = m_Upscaler.InitFSR(inDevice, inViewport);
             } break;
 
-            case UPSCALER_DLSS: 
+            case UPSCALER_DLSS:
             {
                 CommandList& cmd_list = StartSingleSubmit();
 
@@ -168,7 +168,7 @@ void Renderer::OnResize(Device& inDevice, Viewport& inViewport, bool inFullScree
 
             } break;
 
-            case UPSCALER_XESS: 
+            case UPSCALER_XESS:
             {
                 upscale_init_success = m_Upscaler.InitXeSS(inDevice, inViewport);;
             } break;
@@ -197,14 +197,14 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     // the OS file stamp checks are expensive so we only turn this on in debug builds.
     static bool force_hotload = OS::sCheckCommandLineOption("-force_enable_hotload");
     bool need_recompile = IF_DEBUG_ELSE(g_SystemShaders.OnHotLoad(inDevice), force_hotload ? g_SystemShaders.OnHotLoad(inDevice) : false);
-    if ( need_recompile )
+    if (need_recompile)
         std::cout << std::format("Hotloaded system shaders.\n");
 
     static bool do_stress_test = OS::sCheckCommandLineOption("-stress_test");
 
     bool recompiled = false;
 
-    if (m_ShouldResize || m_ShouldRecompile || need_recompile || (do_stress_test && m_FrameCounter > 60))
+    if (m_ShouldResize || m_ShouldRecompile || need_recompile || ( do_stress_test && m_FrameCounter > 60 ))
     {
         // Make sure nothing is using render targets anymore
         WaitForIdle(inDevice);
@@ -237,14 +237,14 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     }
 
     // at this point we know the GPU is no longer working on this frame, so free/release stuff here
-     if (m_FrameCounter > 0)
+    if (m_FrameCounter > 0)
     {
         g_GPUProfiler->Readback(inDevice, m_FrameIndex);
-        
+
         inDevice.RetireUploadBuffers(backbuffer_data.mCopyCmdList);
         inDevice.RetireUploadBuffers(backbuffer_data.mDirectCmdList);
         inDevice.RetireUploadBuffers(backbuffer_data.mUpdateCmdList);
-        
+
         backbuffer_data.mCopyCmdList.ReleaseTrackedResources();
         backbuffer_data.mDirectCmdList.ReleaseTrackedResources();
         backbuffer_data.mUpdateCmdList.ReleaseTrackedResources();
@@ -269,7 +269,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     const float jitter_x = 2.0f * jitter_offset_x / (float)m_RenderGraph.GetViewport().GetRenderSize().x;
     const float jitter_y = -2.0f * jitter_offset_y / (float)m_RenderGraph.GetViewport().GetRenderSize().y;
     const Mat4x4 jitter_matrix = glm::translate(Mat4x4(1.0f), Vec3(jitter_x, jitter_y, 0));
-    
+
     bool enable_jitter = m_Settings.mEnableTAA || m_Upscaler.GetActiveUpscaler();
     enable_jitter &= inRenderInterface->GetSettings().mDebugTexture == DEBUG_TEXTURE_NONE;
 
@@ -362,16 +362,16 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
                 for (Entity entity : m_PendingMeshUploads)
                     inScene.UploadMesh(inApp, inDevice, inScene->Get<Mesh>(entity), inScene->GetPtr<Skeleton>(entity), copy_cmd_list);
             }
-    
+
             // upload skeleton bone attributes and bone transform buffers
             for (Entity entity : m_PendingSkeletonUploads)
                 inScene.UploadSkeleton(inApp, inDevice, inScene->Get<Skeleton>(entity), copy_cmd_list);
-    
+
             // update bottom level AS for entities that have both a mesh and skeleton
             if (update_skinning)
             {
                 PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( copy_cmd_list ), PIX_COLOR(0, 255, 0), "BUILD BLASes");
-        
+
                 for (Entity entity : m_PendingBlasUpdates)
                     inScene.UpdateBLAS(inApp, inDevice, inScene->Get<Mesh>(entity), inScene->GetPtr<Skeleton>(entity), copy_cmd_list);
             }
@@ -480,7 +480,7 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
         .mSelectionTexture = default_textures.mBlackTexture
     };
 
-    DDGIOutput ddgi_output = 
+    DDGIOutput ddgi_output =
     {
         .mOutput = default_textures.mBlackTexture,
         .mDepthProbes = default_textures.mWhiteTexture,
@@ -519,13 +519,12 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
         // const auto& grass_data = AddGrassRenderPass(m_RenderGraph, inDevice, gbuffer_data);
 
         //const auto shadow_texture = AddShadowMaskPass(m_RenderGraph, inDevice, inScene, gbuffer_data).mOutputTexture;
-
         if (m_Settings.mEnableShadows && inDevice.IsRayTracingSupported())
             rt_shadows_texture = AddRayTracedShadowsPass(m_RenderGraph, inDevice, inScene, gbuffer_output);
 
         if (m_Settings.mEnableSSAO)
             ao_texture = AddSSAOTracePass(m_RenderGraph, inDevice, gbuffer_output).mOutputTexture;
-        
+
         if (m_Settings.mEnableRTAO && inDevice.IsRayTracingSupported())
             ao_texture = AddAmbientOcclusionPass(m_RenderGraph, inDevice, inScene, gbuffer_output).mOutputTexture;
 
@@ -534,15 +533,17 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
 
         // const auto& downsample_data = AddDownsamplePass(m_RenderGraph, inDevice, reflection_data.mOutputTexture);
 
+#if 0
         if (m_Settings.mEnableDDGI && inDevice.IsRayTracingSupported())
             ddgi_output = AddDDGIPass(m_RenderGraph, inDevice, inScene, gbuffer_output, sky_cube_data);
-        
+#endif
+
         const TiledLightCullingData& light_cull_data = AddTiledLightCullingPass(m_RenderGraph, inDevice, inScene);
 
         const LightingData& light_data = AddLightingPass(m_RenderGraph, inDevice, inScene, gbuffer_output, light_cull_data, sky_cube_data.mSkyCubeTexture, rt_shadows_texture, reflections_texture, ao_texture, ddgi_output.mOutput);
-        
+
         compose_input = light_data.mOutputTexture;
-        
+
         if (m_Settings.mEnableDDGI && m_Settings.mDebugProbes && inDevice.IsRayTracingSupported())
             AddProbeDebugPass(m_RenderGraph, inDevice, ddgi_output, light_data.mOutputTexture, gbuffer_output.mDepthTexture);
 
@@ -554,16 +555,17 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
 
         if (m_Settings.mEnableTAA)
             compose_input = AddTAAResolvePass(m_RenderGraph, inDevice, gbuffer_output, light_data.mOutputTexture).mOutputTexture;
+
     }
 
     RenderGraphResourceID bloom_output = compose_input;
 
     const EDebugTexture debug_texture = EDebugTexture(inRenderInterface->GetSettings().mDebugTexture);
-    
+
     // turn off any post processing effects for debug textures (this might change in the future)
     if (debug_texture == DEBUG_TEXTURE_NONE)
     {
-         if (m_Settings.mEnableBloom)
+        if (m_Settings.mEnableBloom)
             bloom_output = AddBloomPass(m_RenderGraph, inDevice, compose_input).mOutputTexture;
 
         if (m_Settings.mEnableDoF && gbuffer_output.mDepthTexture != default_textures.mWhiteTexture)
@@ -592,14 +594,14 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
         switch (m_Upscaler.GetActiveUpscaler())
         {
             case UPSCALER_FSR:
-                    compose_input = AddFsrPass(m_RenderGraph, inDevice, m_Upscaler, gbuffer_output, compose_input).mOutputTexture;
-                    break;
+                compose_input = AddFsrPass(m_RenderGraph, inDevice, m_Upscaler, gbuffer_output, compose_input).mOutputTexture;
+                break;
             case UPSCALER_DLSS:
-                    compose_input = AddDLSSPass(m_RenderGraph, inDevice, m_Upscaler, gbuffer_output, compose_input).mOutputTexture;
-                    break;
+                compose_input = AddDLSSPass(m_RenderGraph, inDevice, m_Upscaler, gbuffer_output, compose_input).mOutputTexture;
+                break;
             case UPSCALER_XESS:
-                    compose_input = AddXeSSPass(m_RenderGraph, inDevice, m_Upscaler, gbuffer_output, compose_input).mOutputTexture;
-                    break;
+                compose_input = AddXeSSPass(m_RenderGraph, inDevice, m_Upscaler, gbuffer_output, compose_input).mOutputTexture;
+                break;
         }
     }
 
@@ -756,7 +758,7 @@ uint64_t RenderInterface::GetImGuiTextureID(uint32_t inHandle)
 
     DescriptorHeap& resource_heap = m_Device.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     uint64_t heap_ptr = resource_heap->GetGPUDescriptorHandleForHeapStart().ptr + heap_index * handle_size;
-    
+
     return heap_ptr;
 }
 
@@ -799,25 +801,32 @@ void RenderInterface::UploadMeshBuffers(Entity inEntity, Mesh& inMesh)
     if (!vertices_size || !indices_size)
         return;
 
-    inMesh.indexBuffer = m_Device.CreateBuffer(Buffer::Desc{
+    inMesh.indexBuffer = m_Device.CreateBuffer(Buffer::Desc {
         .format = DXGI_FORMAT_R32_UINT,
-        .size   = uint32_t(indices_size),
+        .size = uint32_t(indices_size),
         .stride = sizeof(uint32_t) * 3,
-        .usage  = Buffer::Usage::INDEX_BUFFER,
+        .usage = Buffer::Usage::INDEX_BUFFER,
         .debugName = "IndexBuffer"
-    }).GetValue();
+        }).GetValue();
 
-    inMesh.vertexBuffer = m_Device.CreateBuffer(Buffer::Desc{
-        .size   = uint32_t(vertices_size),
+    inMesh.vertexBuffer = m_Device.CreateBuffer(Buffer::Desc {
+        .size = uint32_t(vertices_size),
         .stride = sizeof(Vertex),
-        .usage  = Buffer::Usage::VERTEX_BUFFER,
+        .usage = Buffer::Usage::VERTEX_BUFFER,
         .debugName = "VertexBuffer"
-    }).GetValue();
+        }).GetValue();
 
     // actual data upload happens in RayTracedScene::UploadMesh at the start of the frame
     m_Renderer.QueueMeshUpload(inEntity);
 }
 
+
+void RenderInterface::DestroyMeshBuffers(Entity inEntity, Mesh& inMesh)
+{
+    m_Device.ReleaseBuffer(inMesh.indexBuffer);
+    m_Device.ReleaseBuffer(inMesh.vertexBuffer);
+    m_Device.ReleaseBuffer(inMesh.BottomLevelAS);
+}
 
 
 void RenderInterface::UploadSkeletonBuffers(Entity inEntity, Skeleton& inSkeleton, Mesh& inMesh)
@@ -826,36 +835,44 @@ void RenderInterface::UploadSkeletonBuffers(Entity inEntity, Skeleton& inSkeleto
     inSkeleton.boneWSTransformMatrices.resize(inSkeleton.boneOffsetMatrices.size(), Mat4x4(1.0f));
 
     inSkeleton.boneIndexBuffer = m_Device.CreateBuffer(Buffer::Desc {
-        .size   = uint32_t(inSkeleton.boneIndices.size() * sizeof(IVec4)),
+        .size = uint32_t(inSkeleton.boneIndices.size() * sizeof(IVec4)),
         .stride = sizeof(IVec4),
-        .usage  = Buffer::Usage::SHADER_READ_ONLY,
+        .usage = Buffer::Usage::SHADER_READ_ONLY,
         .debugName = "BoneIndicesBuffer"
-    }).GetValue();
+        }).GetValue();
 
     inSkeleton.boneWeightBuffer = m_Device.CreateBuffer(Buffer::Desc {
-        .size   = uint32_t(inSkeleton.boneWeights.size() * sizeof(Vec4)),
+        .size = uint32_t(inSkeleton.boneWeights.size() * sizeof(Vec4)),
         .stride = sizeof(Vec4),
-        .usage  = Buffer::Usage::SHADER_READ_ONLY,
+        .usage = Buffer::Usage::SHADER_READ_ONLY,
         .debugName = "BoneWeightsBuffer"
-    }).GetValue();
+        }).GetValue();
 
     inSkeleton.boneTransformsBuffer = m_Device.CreateBuffer(Buffer::Desc {
-        .size   = uint32_t(inSkeleton.boneTransformMatrices.size() * sizeof(Mat4x4)),
+        .size = uint32_t(inSkeleton.boneTransformMatrices.size() * sizeof(Mat4x4)),
         .stride = sizeof(Mat4x4),
-        .usage  = Buffer::Usage::SHADER_READ_ONLY,
+        .usage = Buffer::Usage::SHADER_READ_ONLY,
         .debugName = "BoneTransformsBuffer"
-    }).GetValue();
+        }).GetValue();
 
     inSkeleton.skinnedVertexBuffer = m_Device.CreateBuffer(Buffer::Desc {
-        .size   = uint32_t(sizeof(inMesh.vertices[0]) * inMesh.vertices.size()),
+        .size = uint32_t(sizeof(inMesh.vertices[0]) * inMesh.vertices.size()),
         .stride = sizeof(RTVertex),
-        .usage  = Buffer::Usage::SHADER_READ_WRITE,
+        .usage = Buffer::Usage::SHADER_READ_WRITE,
         .debugName = "SkinnedVertexBuffer"
-    }).GetValue();
+        }).GetValue();
 
     m_Renderer.QueueSkeletonUpload(inEntity);
 }
 
+
+void RenderInterface::DestroySkeletonBuffers(Entity inEntity, Skeleton& inSkeleton)
+{
+    m_Device.ReleaseBuffer(inSkeleton.boneIndexBuffer);
+    m_Device.ReleaseBuffer(inSkeleton.boneWeightBuffer);
+    m_Device.ReleaseBuffer(inSkeleton.skinnedVertexBuffer);
+    m_Device.ReleaseBuffer(inSkeleton.boneTransformsBuffer);
+}
 
 
 void RenderInterface::UploadMaterialTextures(Entity inEntity, Material& inMaterial, Assets& inAssets)
@@ -919,7 +936,7 @@ uint32_t RenderInterface::UploadTextureFromAsset(const TextureAsset::Ptr& inAsse
             size_t data_offset = header.mip_offset(mip, layer);
             const uint8_t* data_ptr = inAsset->GetData() + data_offset;
 
-            m_Device.UploadTextureData(m_Device.GetTexture(texture), mip, layer, header.row_pitch(mip), data_ptr);  
+            m_Device.UploadTextureData(m_Device.GetTexture(texture), mip, layer, header.row_pitch(mip), data_ptr);
         }
     }
 
@@ -994,7 +1011,7 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
     }
 
     need_recompile |= ImGui::Checkbox("##TAAtoggle", (bool*)&m_Renderer.GetSettings().mEnableTAA);
-    
+
     ImGui::SameLine();
 
     ImGui::AlignTextToFramePadding();
@@ -1052,7 +1069,7 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
     }
 
     need_recompile |= ImGui::Checkbox("Enable Debug Overlay", (bool*)&m_Renderer.GetSettings().mEnableDebugOverlay);
-    
+
     ImGui::AlignTextToFramePadding();
 
     if (ImGui::BeginMenu("Debug Settings"))
@@ -1185,18 +1202,18 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
     {
         ImGui::SeparatorText("Window");
 
-        static constexpr std::array modes =  
-        { 
-            0u /* Windowed */, 
-            (uint32_t)SDL_WINDOW_FULLSCREEN_DESKTOP, 
-            (uint32_t)SDL_WINDOW_FULLSCREEN 
+        static constexpr std::array modes =
+        {
+            0u /* Windowed */,
+            (uint32_t)SDL_WINDOW_FULLSCREEN_DESKTOP,
+            (uint32_t)SDL_WINDOW_FULLSCREEN
         };
 
         static constexpr std::array mode_strings =
         {
-            "Windowed", 
-            "Borderless", 
-            "Fullscreen" 
+            "Windowed",
+            "Borderless",
+            "Fullscreen"
         };
 
         int mode = 0u; // Windowed
@@ -1348,7 +1365,7 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
             //need_recompile |= ImGui::Checkbox("Visualize Indirect Diffuse Rays", (bool*)&m_Renderer.GetSettings().mDebugProbeRays);
 
             need_recompile |= ImGui::Checkbox("##ddgiprobedebug", (bool*)&m_Renderer.GetSettings().mDebugProbes);
-            
+
             ImGui::SameLine();
 
             if (ImGui::BeginMenu("Visualize Indirect Diffuse Probes"))
@@ -1483,7 +1500,7 @@ uint32_t RenderInterface::GetSelectedEntity(const Scene& inScene, uint32_t inScr
 
     auto entity_texture_barrier = D3D12_RESOURCE_BARRIER(CD3DX12_RESOURCE_BARRIER::Transition(entity_texture_resource, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_SOURCE));
     cmd_list->ResourceBarrier(1, &entity_texture_barrier);
-    
+
     D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint = {};
     footprint.Footprint = CD3DX12_SUBRESOURCE_FOOTPRINT(entity_texture.GetDesc().format, 1, 1, 1, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
 
@@ -1530,13 +1547,13 @@ TextureID InitImGui(Device& inDevice, DXGI_FORMAT inRtvFormat, uint32_t inFrameC
     ImGui::GetIO().Fonts->GetTexDataAsAlpha8(&pixels, &width, &height);
 
     TextureID font_texture_id = inDevice.CreateTexture(Texture::Desc
-    {
-        .format = DXGI_FORMAT_R8_UNORM,
-        .width  = uint32_t(width),
-        .height = uint32_t(height),
-        .usage  = Texture::SHADER_READ_ONLY,
-        .debugName = "ImGuiFontTexture"
-    });
+        {
+            .format = DXGI_FORMAT_R8_UNORM,
+            .width = uint32_t(width),
+            .height = uint32_t(height),
+            .usage = Texture::SHADER_READ_ONLY,
+            .debugName = "ImGuiFontTexture"
+        });
 
     DescriptorID font_texture_view = inDevice.GetTexture(font_texture_id).GetView();
     DescriptorHeap& descriptor_heap = inDevice.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);

@@ -118,6 +118,7 @@ public:
 
 	RTTI* GetRTTI(uint32_t inHash);
 	RTTI* GetRTTI(const char* inType);
+    bool HasRTTI(const char* inType) { return GetRTTI(inType) != nullptr; }
 
 	void* Construct(const char* inType);
 
