@@ -151,7 +151,8 @@ void gRegisterComponentTypes()
 	g_RTTIFactory.Register(RTTI_OF<Entity>());
 	g_RTTIFactory.Register(RTTI_OF<Name>());
 	g_RTTIFactory.Register(RTTI_OF<Transform>());
-	g_RTTIFactory.Register(RTTI_OF<Mesh>());
+    g_RTTIFactory.Register(RTTI_OF<Mesh>());
+    g_RTTIFactory.Register(RTTI_OF<Camera>());
 	g_RTTIFactory.Register(RTTI_OF<Material>());
 	g_RTTIFactory.Register(RTTI_OF<Animation>());
 	g_RTTIFactory.Register(RTTI_OF<RigidBody>());

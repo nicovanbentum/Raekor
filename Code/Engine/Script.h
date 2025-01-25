@@ -58,13 +58,12 @@ public:
 	template<typename T> requires std::derived_from<T, Asset>
 	T* GetAsset(const Path& inPath);
 
-	void Log(const std::string& inText);
+	void Log(const String& inText);
 
 protected:
 	RK::Entity m_Entity;
 	RK::Input* m_Input = nullptr;
 	RK::Scene* m_Scene = nullptr;
-	RK::Camera* m_Camera = nullptr;
 	RK::Application* m_App = nullptr;
 	RK::DebugRenderer* m_DebugRenderer = nullptr;
 };

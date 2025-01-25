@@ -106,11 +106,6 @@ bool InspectorWidget::DrawEntityInspector(Widgets* inWidgets)
 
 	ImGui::Separator();
 
-	if (ImGui::Button("Add Script", ImVec2(-1.0f, ImGui::GetFrameHeight())))
-	{
-		scene.Add<NativeScript>(active_entity);
-	}
-
 	if (scene.Has<Mesh>(active_entity))
 	{
 		const Mesh& mesh = scene.Get<Mesh>(active_entity);
@@ -135,6 +130,22 @@ bool InspectorWidget::DrawEntityInspector(Widgets* inWidgets)
 		}
 	}
 
+    for (const auto& [type_hash, components] : GetScene())
+    {
+        if (!components->Contains(active_entity))
+        {
+            if (RTTI* rtti = g_RTTIFactory.GetRTTI(type_hash))
+            {
+                char text_buffer[100];
+                ImFormatString(text_buffer, std::size(text_buffer), "Add %s", rtti->GetTypeName());
+
+                if (ImGui::Button(text_buffer, ImVec2(-1.0f, ImGui::GetFrameHeight())))
+                {
+                    components->Add(active_entity);
+                }
+            }
+        }
+    }
 
 	if (ImGui::BeginPopup("Components"))
 	{
@@ -430,7 +441,7 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Camera& ioCamera)
 	}
 
 	float near_plane = ioCamera.GetNear();
-	if (ImGui::DragFloat("Near Plane", &near_plane, 0.01, 0.01f, 10.0f, "%.1f"))
+	if (ImGui::DragFloat("Near Plane", &near_plane, 0.01, 0.01f, 10.0f, "%.2f"))
 		ioCamera.SetNear(near_plane);
 
 	CheckForUndo(inEntity, ioCamera, m_CameraUndo);

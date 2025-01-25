@@ -112,10 +112,10 @@ public:
             Vec3 desired_position = player_position + m_CameraOffset;
 
             // Perform smooth damping to the desired position
-            m_Camera->SetPosition(glm::lerp(m_Camera->GetPosition(), camera_pos, inDeltaTime * m_CameraSpeed));
+            //m_Camera->SetPosition(glm::lerp(m_Camera->GetPosition(), camera_pos, inDeltaTime * m_CameraSpeed));
 
             // Rotate the camera to look at the player
-            m_Camera->LookAt(-glm::normalize(m_Camera->GetPosition() - player_position + Vec3(0.0f, 1.0f, 0.0f) * m_CameraHeight));
+            //m_Camera->LookAt(-glm::normalize(m_Camera->GetPosition() - player_position + Vec3(0.0f, 1.0f, 0.0f) * m_CameraHeight));
         }
     }
 

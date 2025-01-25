@@ -533,7 +533,7 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
 
         // const auto& downsample_data = AddDownsamplePass(m_RenderGraph, inDevice, reflection_data.mOutputTexture);
 
-#if 0
+#if 1
         if (m_Settings.mEnableDDGI && inDevice.IsRayTracingSupported())
             ddgi_output = AddDDGIPass(m_RenderGraph, inDevice, inScene, gbuffer_output, sky_cube_data);
 #endif

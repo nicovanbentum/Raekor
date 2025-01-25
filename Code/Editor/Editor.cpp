@@ -151,18 +151,6 @@ void Editor::OnUpdate(float inDeltaTime)
 	if (m_Physics.GetState() == Physics::Stepping)
 		m_Physics.Step(m_Scene, inDeltaTime);
 
-
-	if (m_CameraEntity != Entity::Null)
-	{
-		m_Viewport.OnUpdate(m_Scene.Get<Camera>(m_CameraEntity));
-	}
-	else // if the game has not taken over the camera, use the editor controls
-	{
-		m_Viewport.OnUpdate(m_Camera);
-		if (m_GameState != GAME_RUNNING)
-			EditorCameraController::OnUpdate(m_Camera, inDeltaTime);
-	}
-
 	static int& update_transforms = g_CVariables->Create("update_transforms", 1, true);
 
 	if (update_transforms)
@@ -175,6 +163,17 @@ void Editor::OnUpdate(float inDeltaTime)
 
 		// update Light and DirectionalLight components
 		m_Scene.UpdateLights();
+	}
+
+    if (m_CameraEntity != Entity::Null)
+	{
+		m_Viewport.OnUpdate(m_Scene.Get<Camera>(m_CameraEntity));
+	}
+	else // if the game has not taken over the camera, use the editor controls
+	{
+		m_Viewport.OnUpdate(m_Camera);
+		if (m_GameState != GAME_RUNNING)
+			EditorCameraController::OnUpdate(m_Camera, inDeltaTime);
 	}
 
 	int cGridSize = 20;
@@ -199,9 +198,9 @@ void Editor::OnUpdate(float inDeltaTime)
 	// update Skeleton and Animation components
 	m_Scene.UpdateAnimations(inDeltaTime);
 
-	// update NativeScript components
-	if (GetGameState() == GAME_RUNNING)
-		m_Scene.UpdateNativeScripts(inDeltaTime);
+    // update NativeScript components
+    if (GetGameState() == GAME_RUNNING)
+        m_Scene.UpdateNativeScripts(inDeltaTime);
 
 	// start ImGui
 	GUI::BeginFrame();

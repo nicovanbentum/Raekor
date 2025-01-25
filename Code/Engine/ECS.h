@@ -705,6 +705,9 @@ public:
 
 	const Array<Entity>& GetEntities() const { return m_Entities; }
 
+    auto begin() { return std::begin(m_Components); }
+    auto end() { return std::end(m_Components); }
+
 	bool IsEmpty() const { return m_Entities.empty(); }
 
 protected:

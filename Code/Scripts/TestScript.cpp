@@ -10,6 +10,12 @@ class TestScript : public INativeScript
 public:
     RTTI_DECLARE_VIRTUAL_TYPE(TestScript);
 
+    void OnStart()
+    {
+        // active camera = camera component of this entity!
+
+    }
+
     void OnUpdate(float inDeltaTime) override
     {
         if (!m_Enabled)
@@ -18,7 +24,7 @@ public:
         if (character == nullptr)
         {
             // Initialize character settings and character object
-            settings.mShape = new JPH::CapsuleShape(0.5f, 0.25f);
+            settings.mShape = new JPH::CapsuleShape(0.88f, 0.25f);
             JPH::Vec3 startPosition = JPH::Vec3(0.0f, 2.0f, 0.0f);
 
             character = new JPH::Character(
@@ -30,6 +36,8 @@ public:
             );
             character->AddToPhysicsSystem();
         }
+
+        character->PostSimulation(0.01f);
 
         Transform& transform = GetComponent<Transform>();
 
@@ -50,27 +58,20 @@ public:
             movement += right;
 
         if (glm::length(movement) > 0.0f)
+        {
             movement = glm::normalize(movement) * m_Speed;
+            if (m_Input->IsKeyDown(Key::LSHIFT))
+                movement *= 1.3f;
+        }
 
         // Set character's velocity
         JPH::Vec3 old_velocity = character->GetLinearVelocity();
         JPH::Vec3 new_velocity = JPH::Vec3(movement.x, old_velocity.GetY(), movement.z);
         character->SetLinearVelocity(new_velocity);
-#if 0
-        // Apply transform's rotation to the character body
-        JPH::Quat bodyRotation = JPH::Quat(
-            transform.rotation.x,
-            transform.rotation.y,
-            transform.rotation.z,
-            transform.rotation.w
-        );
-        character->SetRotation(bodyRotation);
-#endif
+
         // Update transform position to match character body
         JPH::Vec3 position = character->GetPosition();
-        transform.position = glm::vec3(position.GetX(), position.GetY(), position.GetZ());
-        transform.Compose();
-
+        transform.position = Vec3(position.GetX(), position.GetY(), position.GetZ());
         transform.rotation = glm::quatLookAt(m_Camera.GetForward(), Camera::cUp);
         transform.Compose();
     }
@@ -90,8 +91,11 @@ public:
             {
                 case SDLK_SPACE:
                 {
-                    JPH::Vec3 velocity = character->GetLinearVelocity();
-                    character->SetLinearVelocity(JPH::Vec3(velocity.GetX(), m_JumpHeight, velocity.GetZ()));
+                    if (character->GetGroundState() != JPH::Character::EGroundState::InAir)
+                    {
+                        JPH::Vec3 velocity = character->GetLinearVelocity();
+                        character->SetLinearVelocity(JPH::Vec3(velocity.GetX(), m_JumpHeight, velocity.GetZ()));
+                    }
                 } break;
             }
         }
@@ -118,7 +122,7 @@ public:
 private:
     int m_Value = 12;
     float m_Speed = 2.5f;                   // Increased speed for more responsive movement
-    float m_JumpHeight = 2.0f;
+    float m_JumpHeight = 5.0f;
     bool m_Enabled = true;
     Camera m_Camera;
     glm::quat m_CameraRotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f); // Separate camera rotation

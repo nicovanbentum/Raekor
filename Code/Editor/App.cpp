@@ -489,8 +489,8 @@ void GPUProfileWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
     for (const auto& [index, section] : gEnumerate(g_GPUProfiler->GetGPUProfileSections()))
     {
-        // skip sections that took no GPU time
-        if (section.mStartTick == section.mEndTick)
+        // skip sections that took (almost) no GPU time
+        if (section.mEndTick - section.mStartTick < 50)
             continue;
 
         const float end_pos_x = start_pos.x + ( section.mEndTick - lowest_tick ) * pixels_per_tick;
