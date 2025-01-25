@@ -91,8 +91,8 @@ void CommandList::BindToSlot(Buffer& inBuffer, EBindSlot inSlot, uint32_t inOffs
     switch (inSlot)
     {
         case EBindSlot::CBV0: case EBindSlot::CBV1:
-            m_CommandList->SetGraphicsRootConstantBufferView(inSlot, inBuffer->GetGPUVirtualAddress());
-            m_CommandList->SetComputeRootConstantBufferView(inSlot, inBuffer->GetGPUVirtualAddress());
+            m_CommandList->SetGraphicsRootConstantBufferView(inSlot, inBuffer->GetGPUVirtualAddress() + inOffset);
+            m_CommandList->SetComputeRootConstantBufferView(inSlot, inBuffer->GetGPUVirtualAddress() + inOffset);
             break;
         case EBindSlot::SRV0: case EBindSlot::SRV1:
             m_CommandList->SetGraphicsRootShaderResourceView(inSlot, inBuffer->GetGPUVirtualAddress() + inOffset);

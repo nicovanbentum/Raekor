@@ -802,20 +802,19 @@ void Device::RetireUploadBuffers(CommandList& inCmdList)
 
 
 
-void RingAllocator::CreateBuffer(Device& inDevice, uint32_t inCapacity, uint32_t inAlignment)
+void RingAllocator::CreateBuffer(Device& inDevice, uint32_t inSize, uint32_t inAlignment)
 {
     m_Alignment = inAlignment;
-    m_TotalCapacity = inCapacity;
+    m_TotalCapacity = gAlignUp(inSize, inAlignment) * sFrameCount;
 
     m_Buffer = inDevice.CreateBuffer(Buffer::Desc 
     { 
-        .size = gAlignUp(inCapacity, inAlignment), 
+        .size = m_TotalCapacity,
         .usage = Buffer::Usage::UPLOAD, 
         .debugName = "RingAllocatorBuffer"
     });
 
-    CD3DX12_RANGE buffer_range = CD3DX12_RANGE(0, 0);
-    gThrowIfFailed(inDevice.GetBuffer(m_Buffer)->Map(0, &buffer_range, reinterpret_cast<void**>( &m_DataPtr )));
+    gThrowIfFailed(inDevice.GetBuffer(m_Buffer)->Map(0, nullptr, (void**)(&m_DataPtr)));
 }
 
 
@@ -843,14 +842,17 @@ T data = buffer.Load<T>(ioOffset);
 
  uint32_t RingAllocator::AllocAndCopy(uint32_t inSize, const void* inData)
 {
-    const auto size = gAlignUp(inSize, m_Alignment);
-    //assert(m_Size + size <= m_TotalCapacity);
-    m_Offset += size;
+    const auto aligned_size = gAlignUp(inSize, m_Alignment);
 
-    if (m_Offset >= m_TotalCapacity)
-        m_Offset = 0;
+    // if we're at the limit for this frame, swap back around
+    if (m_Size >= m_TotalCapacity)
+        m_Size = 0;
 
+    m_Offset = m_Size;
     memcpy(m_DataPtr + m_Offset, inData, inSize);
+
+    // increment the offset to the next frame
+    m_Size += aligned_size;
     return m_Offset;
 }
 

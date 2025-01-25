@@ -178,6 +178,7 @@ public:
 
 private:
     BufferID m_Buffer;
+    uint32_t m_Size = 0;
     uint32_t m_Offset = 0;
     uint32_t m_Alignment = 0;
     uint8_t* m_DataPtr = nullptr;
