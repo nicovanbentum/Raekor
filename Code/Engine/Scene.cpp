@@ -191,6 +191,8 @@ void Scene::UpdateTransforms()
 			}
 		}
 
+        transform.prevWorldTransform = transform.worldTransform;
+
 		if (parent == Entity::Null || parent == inScene.GetRootEntity())
 		{
 			transform.worldTransform = local_transform;

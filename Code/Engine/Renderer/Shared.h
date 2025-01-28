@@ -63,6 +63,7 @@ struct RTGeometry
     uint     mVertexBuffer;
     uint     mMaterialIndex;
     float4x4 mWorldTransform;
+    float4x4 mPrevWorldTransform;
 };
 
 
