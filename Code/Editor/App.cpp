@@ -128,14 +128,6 @@ DXApp::DXApp() :
         .Device = *m_Device,
     };
 
-    ComPtr<IDStorageFactory> storage_factory = nullptr;
-    gThrowIfFailed(DStorageGetFactory(IID_PPV_ARGS(&storage_factory)));
-
-    gThrowIfFailed(storage_factory->CreateQueue(&queue_desc, IID_PPV_ARGS(&m_FileStorageQueue)));
-
-    queue_desc.SourceType = DSTORAGE_REQUEST_SOURCE_MEMORY;
-    gThrowIfFailed(storage_factory->CreateQueue(&queue_desc, IID_PPV_ARGS(&m_MemoryStorageQueue)));
-
     LogMessage(std::format("[CPU] DirectStorage init took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
 
     m_Widgets.Register<GPUProfileWidget>(this);
@@ -182,7 +174,7 @@ void DXApp::OnUpdate(float inDeltaTime)
     m_RenderInterface.UpdateGPUStats(m_Device);
 
     m_Renderer.OnRender(this, m_Device, m_Viewport, m_RayTracedScene, GetRenderInterface(), inDeltaTime);
-
+    
     m_Device.OnUpdate();
 
     g_GPUProfiler->Reset(m_Device);
@@ -316,8 +308,8 @@ void DeviceResourcesWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
             for (const auto& [index, buffer] : gEnumerate(buffer_pool))
             {
-                D3D12ResourceRef resource = buffer.GetD3D12Resource();
-                D3D12AllocationRef allocation = buffer.GetD3D12Allocation();
+                const ID3D12Resource* resource = buffer.GetD3D12Resource();
+                const D3D12MA::Allocation* allocation = buffer.GetD3D12Allocation();
     
                 if (resource == nullptr)
                     continue;
@@ -325,10 +317,10 @@ void DeviceResourcesWidget::Draw(Widgets* inWidgets, float inDeltaTime)
                 if ((m_BufferUsageFilter & ( 1 << buffer.GetUsage())) == 0)
                     continue;
 
-                if (m_SeenResources.contains(resource.Get()))
+                if (m_SeenResources.contains(resource))
                     continue;
                 else
-                    m_SeenResources.insert(resource.Get());
+                    m_SeenResources.insert(resource);
 
                 int byte_size = buffer.GetDesc().size;
 
@@ -389,8 +381,8 @@ void DeviceResourcesWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
             for (const auto& [index, texture] : gEnumerate(texture_pool))
             {
-                D3D12ResourceRef resource = texture.GetD3D12Resource();
-                D3D12AllocationRef allocation = texture.GetD3D12Allocation();
+                const ID3D12Resource* resource = texture.GetD3D12Resource();
+                const D3D12MA::Allocation* allocation = texture.GetD3D12Allocation();
 
                 if (resource == nullptr)
                     continue;
@@ -398,10 +390,10 @@ void DeviceResourcesWidget::Draw(Widgets* inWidgets, float inDeltaTime)
                 if ((m_TextureUsageFilter & ( 1 << texture.GetUsage())) == 0)
                     continue;
                 
-                if (m_SeenResources.contains(resource.Get()))
+                if (m_SeenResources.contains(resource))
                     continue;
                 else
-                    m_SeenResources.insert(resource.Get());
+                    m_SeenResources.insert(resource);
 
                 int byte_size = gBitsPerPixel(texture.GetFormat()) * ( texture.GetWidth() * texture.GetHeight() ) / 8.0f;
 
@@ -504,6 +496,9 @@ void GPUProfileWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
         const float time = ( section.mEndTick - section.mStartTick ) / (double)frequency;
         const float time_pct = time / total_time;
+
+        if (time_pct < 0.0001f)
+            continue;
 
         char text_buffer[255];
         ImFormatString(text_buffer, std::size(text_buffer), "%s (%.2f ms)", section.mName, time * 1'000);

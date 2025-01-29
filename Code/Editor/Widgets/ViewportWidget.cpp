@@ -397,7 +397,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			Timer timer;
 			for (const auto& [sb_entity, sb_transform, sb_mesh] : scene.Each<Transform, Mesh>())
 			{
-				if (!scene.Has<SoftBody>(sb_entity))
+				if (!scene.Has<RigidBody>(sb_entity) && !scene.Has<SoftBody>(sb_entity))
 					scene.Add<RigidBody>(sb_entity);
 			}
 

@@ -60,8 +60,8 @@ Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inW
 
     for (const auto& [index, backbuffer_data] : gEnumerate(m_BackBufferData))
     {
-        D3D12ResourceRef rtv_resource = nullptr;
-        gThrowIfFailed(m_Swapchain->GetBuffer(index, IID_PPV_ARGS(rtv_resource.GetAddressOf())));
+        ID3D12Resource* rtv_resource = nullptr;
+        gThrowIfFailed(m_Swapchain->GetBuffer(index, IID_PPV_ARGS(&rtv_resource)));
 
         D3D12_RESOURCE_DESC rtv_resource_desc = rtv_resource->GetDesc();
 
@@ -121,8 +121,8 @@ void Renderer::OnResize(Device& inDevice, Viewport& inViewport, bool inFullScree
 
     for (const auto& [index, backbuffer_data] : gEnumerate(m_BackBufferData))
     {
-        D3D12ResourceRef rtv_resource = nullptr;
-        gThrowIfFailed(m_Swapchain->GetBuffer(index, IID_PPV_ARGS(rtv_resource.GetAddressOf())));
+        ID3D12Resource* rtv_resource = nullptr;
+        gThrowIfFailed(m_Swapchain->GetBuffer(index, IID_PPV_ARGS(&rtv_resource)));
 
         D3D12_RESOURCE_DESC rtv_resource_desc = rtv_resource->GetDesc();
 
@@ -245,9 +245,9 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
         inDevice.RetireUploadBuffers(backbuffer_data.mDirectCmdList);
         inDevice.RetireUploadBuffers(backbuffer_data.mUpdateCmdList);
 
-        backbuffer_data.mCopyCmdList.ReleaseTrackedResources();
-        backbuffer_data.mDirectCmdList.ReleaseTrackedResources();
-        backbuffer_data.mUpdateCmdList.ReleaseTrackedResources();
+        backbuffer_data.mCopyCmdList;
+        backbuffer_data.mDirectCmdList;
+        backbuffer_data.mUpdateCmdList;
     }
 
 
@@ -436,7 +436,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
         if (!m_Settings.mEnableVsync && inDevice.IsTearingSupported())
             present_flags = DXGI_PRESENT_ALLOW_TEARING;
 
-        gThrowIfFailed(m_Swapchain->Present(sync_interval, present_flags));
+        gThrowIfFailed(m_Swapchain->Present(sync_interval, present_flags), *inDevice);
 
         m_PrevFrameIndex = m_FrameIndex;
         m_FrameIndex = m_Swapchain->GetCurrentBackBufferIndex();
@@ -533,10 +533,8 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
 
         // const auto& downsample_data = AddDownsamplePass(m_RenderGraph, inDevice, reflection_data.mOutputTexture);
 
-#if 1
         if (m_Settings.mEnableDDGI && inDevice.IsRayTracingSupported())
             ddgi_output = AddDDGIPass(m_RenderGraph, inDevice, inScene, gbuffer_output, sky_cube_data);
-#endif
 
         const TiledLightCullingData& light_cull_data = AddTiledLightCullingPass(m_RenderGraph, inDevice, inScene);
 
@@ -803,18 +801,18 @@ void RenderInterface::UploadMeshBuffers(Entity inEntity, Mesh& inMesh)
 
     inMesh.indexBuffer = m_Device.CreateBuffer(Buffer::Desc {
         .format = DXGI_FORMAT_R32_UINT,
-        .size = uint32_t(indices_size),
+        .size   = uint32_t(indices_size),
         .stride = sizeof(uint32_t) * 3,
-        .usage = Buffer::Usage::INDEX_BUFFER,
+        .usage  = Buffer::Usage::INDEX_BUFFER,
         .debugName = "IndexBuffer"
-        }).GetValue();
+    }).GetValue();
 
     inMesh.vertexBuffer = m_Device.CreateBuffer(Buffer::Desc {
-        .size = uint32_t(vertices_size),
+        .size   = uint32_t(vertices_size),
         .stride = sizeof(Vertex),
-        .usage = Buffer::Usage::VERTEX_BUFFER,
+        .usage  = Buffer::Usage::VERTEX_BUFFER,
         .debugName = "VertexBuffer"
-        }).GetValue();
+    }).GetValue();
 
     // actual data upload happens in RayTracedScene::UploadMesh at the start of the frame
     m_Renderer.QueueMeshUpload(inEntity);
@@ -1494,7 +1492,7 @@ uint32_t RenderInterface::GetSelectedEntity(const Scene& inScene, uint32_t inScr
     cmd_list.Reset();
 
     Texture& entity_texture = m_Device.GetTexture(m_Renderer.GetEntityTexture());
-    ID3D12Resource* entity_texture_resource = entity_texture.GetD3D12Resource().Get();
+    ID3D12Resource* entity_texture_resource = entity_texture.GetD3D12Resource();
 
     BufferID readback_buffer_id = m_Device.CreateBuffer(Buffer::Describe(sizeof(Entity), Buffer::READBACK, true, "PixelReadbackBuffer"));
 
@@ -1589,7 +1587,7 @@ void RenderImGui(RenderGraph& inRenderGraph, Device& inDevice, CommandList& inCm
         inCmdList->ResourceBarrier(1, &backbuffer_barrier);
     }
 
-    const D3D12_VIEWPORT bb_viewport = CD3DX12_VIEWPORT(inDevice.GetTexture(inBackBuffer).GetD3D12Resource().Get());
+    const D3D12_VIEWPORT bb_viewport = CD3DX12_VIEWPORT(inDevice.GetTexture(inBackBuffer).GetD3D12Resource());
     const D3D12_RECT bb_scissor = CD3DX12_RECT(bb_viewport.TopLeftX, bb_viewport.TopLeftY, bb_viewport.Width, bb_viewport.Height);
 
     inCmdList->RSSetViewports(1, &bb_viewport);

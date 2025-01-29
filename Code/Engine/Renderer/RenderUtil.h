@@ -29,9 +29,9 @@ static constexpr uint32_t sMaxSamplerHeapSize = 2043;
 // Hardcoded limit for resource heap size as per DX12 hardware Tier 2, should be more than enough..
 static constexpr uint32_t sMaxResourceHeapSize = 1'000'000 - sMaxClearHeapSize;
 // Hardcoded limit for root signature size as per DX12 spec
-static constexpr uint32_t sMaxRootSignatureSize = 64 * sizeof(DWORD);
+static constexpr uint32_t sMaxRootSignatureSize = 64 * sizeof(uint32_t);
 // Hardcoded limit for root constants, subtract root descriptors as they take 2 DWORDs each. Should match shared.h
-static constexpr uint32_t sMaxRootConstantsSize = sMaxRootSignatureSize - ( EBindSlot::Count * 2 * sizeof(DWORD) );
+static constexpr uint32_t sMaxRootConstantsSize = sMaxRootSignatureSize - ( EBindSlot::Count * 2 * sizeof(uint32_t) );
 
 
 inline void gThrowIfFailed(HRESULT inResult, ID3D12Device* inDevice = nullptr)
@@ -40,13 +40,14 @@ inline void gThrowIfFailed(HRESULT inResult, ID3D12Device* inDevice = nullptr)
     {
         if (inResult == 0x887a0005 && inDevice) // device removed
         {
-            switch (inDevice->GetDeviceRemovedReason())
+            HRESULT reason = inDevice->GetDeviceRemovedReason();
+            switch (reason)
             {
-                case DXGI_ERROR_DEVICE_HUNG:            std::cout << std::format("DXGI_ERROR_DEVICE_HUNG");           break;
-                case DXGI_ERROR_DEVICE_REMOVED:         std::cout << std::format("DXGI_ERROR_DEVICE_REMOVED");        break;
-                case DXGI_ERROR_DEVICE_RESET:           std::cout << std::format("DXGI_ERROR_DEVICE_RESET");          break;
-                case DXGI_ERROR_DRIVER_INTERNAL_ERROR:  std::cout << std::format("DXGI_ERROR_DRIVER_INTERNAL_ERROR"); break;
-                case DXGI_ERROR_INVALID_CALL:           std::cout << std::format("DXGI_ERROR_INVALID_CALL");          break;
+                case DXGI_ERROR_DEVICE_HUNG:            std::cerr << std::format("DXGI_ERROR_DEVICE_HUNG");           break;
+                case DXGI_ERROR_DEVICE_REMOVED:         std::cerr << std::format("DXGI_ERROR_DEVICE_REMOVED");        break;
+                case DXGI_ERROR_DEVICE_RESET:           std::cerr << std::format("DXGI_ERROR_DEVICE_RESET");          break;
+                case DXGI_ERROR_DRIVER_INTERNAL_ERROR:  std::cerr << std::format("DXGI_ERROR_DRIVER_INTERNAL_ERROR"); break;
+                case DXGI_ERROR_INVALID_CALL:           std::cerr << std::format("DXGI_ERROR_INVALID_CALL");          break;
             }
         }
         __debugbreak();

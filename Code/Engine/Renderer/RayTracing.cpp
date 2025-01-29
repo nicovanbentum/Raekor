@@ -404,6 +404,7 @@ DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTr
     //////////////////////////////////////////
     struct ProbeTraceData
     {
+        RenderGraphResourceID mProbeDataBuffer;
         RenderGraphResourceID mRaysDepthTexture;
         RenderGraphResourceID mProbesDepthTexture;
         RenderGraphResourceViewID mProbesDepthTextureSRV;
@@ -418,6 +419,14 @@ DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTr
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ProbeTraceData& inData)
     {
         const int total_probe_count = RenderSettings::mDDGIProbeCount.x * RenderSettings::mDDGIProbeCount.y * RenderSettings::mDDGIProbeCount.z;
+
+        inData.mProbeDataBuffer = ioRGBuilder.Create(Buffer::Desc 
+        {
+            .size   = total_probe_count * sizeof(ProbeData),
+            .stride = sizeof(ProbeData),
+            .usage  = Buffer::Usage::SHADER_READ_WRITE,
+            .debugName = "DDGI_ProbeData"
+        });
 
         inData.mRaysDepthTexture = ioRGBuilder.Create(Texture::Desc
         {
@@ -491,6 +500,7 @@ DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTr
                 .mProbeRadius = RenderSettings::mDDGIDebugRadius,
                 .mProbeSpacing = RenderSettings::mDDGIProbeSpacing,
                 .mCornerPosition = RenderSettings::mDDGICornerPosition,
+                .mProbesDataBuffer = inDevice.GetBindlessHeapIndex(inRGResources.GetBuffer(inData.mProbeDataBuffer)),
                 .mRaysDepthTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTexture(inData.mRaysDepthTexture)),
                 .mProbesDepthTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mProbesDepthTextureSRV)),
                 .mRaysIrradianceTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTexture(inData.mRaysIrradianceTexture)),
@@ -532,19 +542,7 @@ DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTr
         if (!inScene.HasTLAS())
             return;
 
-        /*{
-            inCmdList->SetPipelineState(g_SystemShaders.mProbeUpdateDepthShader.GetComputePSO());
-            inCmdList.PushComputeConstants(ProbeUpdateRootConstants
-            {
-                .mRandomRotationMatrix = inTraceData.mRandomRotationMatrix,
-                .mDDGIData = inData.mDDGIData
-            });
-
-            const Texture& depth_texture = inDevice.GetTexture(inRGResources.GetTexture(inData.mProbesDepthTexture));
-            inCmdList->Dispatch(depth_texture.GetDesc().width / DDGI_DEPTH_TEXELS, depth_texture.GetDesc().height / DDGI_DEPTH_TEXELS, 1);
-        }*/
-
-        ProbeUpdateRootConstants root_constants = ProbeUpdateRootConstants
+        inCmdList.PushComputeConstants(ProbeUpdateRootConstants
         {
             .mRandomRotationMatrix = trace_data.mRandomRotationMatrix,
             .mDDGIData = DDGIData {
@@ -557,11 +555,15 @@ DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTr
                 .mRaysIrradianceTexture = inResources.GetBindlessHeapIndex(inData.mRaysIrradianceTextureSRV),
                 .mProbesIrradianceTexture = inResources.GetBindlessHeapIndex(inData.mProbesIrradianceTextureUAV)
             }
-        };
+        });
+
+#if 0
+        inCmdList->SetPipelineState(g_SystemShaders.mProbeUpdateDepthShader.GetComputePSO());
+        const Texture& depth_texture = inDevice.GetTexture(inResources.GetTextureView(inData.mProbesDepthTextureUAV));
+        inCmdList->Dispatch(depth_texture.GetDesc().width / DDGI_DEPTH_TEXELS, depth_texture.GetDesc().height / DDGI_DEPTH_TEXELS, 1);
+#endif
 
         inCmdList->SetPipelineState(g_SystemShaders.mProbeUpdateIrradianceShader.GetComputePSO());
-        inCmdList.PushComputeConstants(root_constants);
-
         const Texture& irradiance_texture = inDevice.GetTexture(inResources.GetTextureView(inData.mProbesIrradianceTextureUAV));
         inCmdList->Dispatch(irradiance_texture.GetWidth() / DDGI_IRRADIANCE_TEXELS, irradiance_texture.GetHeight() / DDGI_IRRADIANCE_TEXELS, 1);
     });
@@ -574,6 +576,7 @@ DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTr
         RenderGraphResourceID mOutputTexture;
         RenderGraphResourceViewID mDepthTextureSRV;
         RenderGraphResourceViewID mGBufferTextureSRV;
+        RenderGraphResourceViewID mProbeDataBufferSRV;
         RenderGraphResourceViewID mProbesDepthTextureSRV;
         RenderGraphResourceViewID mProbesIrradianceTextureSRV;
     };
@@ -582,18 +585,19 @@ DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTr
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ProbeSampleData& inData)
     {
         inData.mOutputTexture = ioRGBuilder.Create(Texture::Desc
-            {
-                .format = DXGI_FORMAT_R32G32B32A32_FLOAT,
-                .width  = inRenderGraph.GetViewport().size.x,
-                .height = inRenderGraph.GetViewport().size.y,
-                .usage  = Texture::SHADER_READ_WRITE,
-                .debugName = "RT_DDGISampleOutput"
-            });
+        {
+            .format = DXGI_FORMAT_R32G32B32A32_FLOAT,
+            .width  = inRenderGraph.GetViewport().size.x,
+            .height = inRenderGraph.GetViewport().size.y,
+            .usage  = Texture::SHADER_READ_WRITE,
+            .debugName = "RT_DDGISampleOutput"
+        });
 
         ioRGBuilder.Write(inData.mOutputTexture);
 
         inData.mDepthTextureSRV = ioRGBuilder.Read(inGBuffer.mDepthTexture);
         inData.mGBufferTextureSRV = ioRGBuilder.Read(inGBuffer.mRenderTexture);
+        inData.mProbeDataBufferSRV = ioRGBuilder.Read(trace_data.mProbeDataBuffer);
         inData.mProbesDepthTextureSRV = ioRGBuilder.Read(trace_data.mProbesDepthTexture);
         inData.mProbesIrradianceTextureSRV = ioRGBuilder.Read(trace_data.mProbesIrradianceTexture);
     },
@@ -609,6 +613,7 @@ DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTr
                 .mProbeRadius = RenderSettings::mDDGIDebugRadius,
                 .mProbeSpacing = RenderSettings::mDDGIProbeSpacing,
                 .mCornerPosition = RenderSettings::mDDGICornerPosition,
+                .mProbesDataBuffer = inResources.GetBindlessHeapIndex(inData.mProbeDataBufferSRV),
                 .mProbesDepthTexture = inResources.GetBindlessHeapIndex(inData.mProbesDepthTextureSRV),
                 .mProbesIrradianceTexture = inResources.GetBindlessHeapIndex(inData.mProbesIrradianceTextureSRV)
             },
@@ -786,15 +791,15 @@ const ProbeDebugRaysData& AddProbeDebugRaysPass(RenderGraph& inRenderGraph, Devi
         ID3D12Resource* vertices_buffer_resource = inDevice.GetD3D12Resource(inRGResources.GetBuffer(inData.mVertexBuffer));
         ID3D12Resource* indirect_args_buffer_resource = inDevice.GetD3D12Resource(inRGResources.GetBuffer(inData.mIndirectArgsBuffer));
 
-        const auto vertices_entry_barrier = CD3DX12_RESOURCE_BARRIER::Transition(vertices_buffer_resource, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
-        const auto indirect_args_entry_barrier = CD3DX12_RESOURCE_BARRIER::Transition(indirect_args_buffer_resource, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT);
-        const std::array entry_barriers = { vertices_entry_barrier, indirect_args_entry_barrier };
+        auto vertices_entry_barrier = CD3DX12_RESOURCE_BARRIER::Transition(vertices_buffer_resource, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+        auto indirect_args_entry_barrier = CD3DX12_RESOURCE_BARRIER::Transition(indirect_args_buffer_resource, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT);
+        std::array entry_barriers = { vertices_entry_barrier, indirect_args_entry_barrier };
 
-        const auto vertices_exit_barrier = CD3DX12_RESOURCE_BARRIER::Transition(vertices_buffer_resource, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-        const auto indirect_args_exit_barrier = CD3DX12_RESOURCE_BARRIER::Transition(indirect_args_buffer_resource, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-        const std::array exit_barriers = { vertices_exit_barrier, indirect_args_exit_barrier };
+        auto vertices_exit_barrier = CD3DX12_RESOURCE_BARRIER::Transition(vertices_buffer_resource, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+        auto indirect_args_exit_barrier = CD3DX12_RESOURCE_BARRIER::Transition(indirect_args_buffer_resource, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+        std::array exit_barriers = { vertices_exit_barrier, indirect_args_exit_barrier };
 
-        const Buffer& vertex_buffer = inDevice.GetBuffer(inRGResources.GetBuffer(inData.mVertexBuffer));
+        Buffer& vertex_buffer = inDevice.GetBuffer(inRGResources.GetBuffer(inData.mVertexBuffer));
 
         const D3D12_VERTEX_BUFFER_VIEW vertex_view = 
         {

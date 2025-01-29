@@ -5,11 +5,11 @@
 
 
 #ifdef NDEBUG
-    #define RK_DEBUG_BUILD 0
+    #define RK_DEBUG 0
     #define IF_DEBUG(code)
     #define IF_DEBUG_ELSE(debug_code, rel_code) rel_code
 #else 
-    #define RK_DEBUG_BUILD 1
+    #define RK_DEBUG 1
     #define IF_DEBUG(code) code
     #define IF_DEBUG_ELSE(debug_code, rel_code) debug_code
 #endif

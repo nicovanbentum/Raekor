@@ -144,11 +144,7 @@ protected:
 };
 
 
-using D3D12ResourceRef = ComPtr<ID3D12Resource>;
-using D3D12AllocationRef = ComPtr<D3D12MA::Allocation>;
-
-
-using DescriptorPool = ResourcePool<D3D12ResourceRef>;
+using DescriptorPool = ResourcePool<ID3D12Resource*>;
 using DescriptorID = DescriptorPool::TypedID;
 
 
@@ -158,20 +154,28 @@ public:
     friend class Device;
 
     DeviceResource() = default;
-    DeviceResource(const D3D12ResourceRef& m_Resource, const D3D12AllocationRef& m_Allocation)
-        : m_Resource(m_Resource), m_Allocation(m_Allocation) {}
+    DeviceResource(ID3D12Resource* inResource, D3D12MA::Allocation* inAllocation)
+        : m_Resource(inResource), m_Allocation(inAllocation) {}
     virtual ~DeviceResource() = default;
 
-    D3D12ResourceRef& operator-> () { return m_Resource; }
-    const D3D12ResourceRef& operator-> () const { return m_Resource; }
-    D3D12ResourceRef& GetD3D12Resource() { return m_Resource; }
-    const D3D12ResourceRef& GetD3D12Resource() const { return m_Resource; }
-    D3D12AllocationRef& GetD3D12Allocation() { return m_Allocation; }
-    const D3D12AllocationRef& GetD3D12Allocation() const { return m_Allocation; }
+    ID3D12Resource* operator-> () { return m_Resource; }
+    const ID3D12Resource* operator-> () const { return m_Resource; }
+    
+    ID3D12Resource* GetD3D12Resource() { return m_Resource; }
+    const ID3D12Resource* GetD3D12Resource() const { return m_Resource; }
+
+    D3D12MA::Allocation* GetD3D12Allocation() { return m_Allocation; }
+    const D3D12MA::Allocation* GetD3D12Allocation() const { return m_Allocation; }
+    
+    void SetD3D12Resource(ID3D12Resource* inResource) { m_Resource = inResource; }
+    void SetD3D12Allocation(D3D12MA::Allocation* inAllocation) { m_Allocation = inAllocation; }
+
+    void AddRef();
+    void Release();
 
 protected:
-    D3D12ResourceRef m_Resource = nullptr;
-    D3D12AllocationRef m_Allocation = nullptr;
+    ID3D12Resource* m_Resource = nullptr;
+    D3D12MA::Allocation* m_Allocation = nullptr;
 };
 
 

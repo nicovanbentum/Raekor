@@ -33,9 +33,6 @@ private:
     TextureID  m_DefaultBlackTexture;
     TextureID  m_DefaultNormalTexture;
 
-    ComPtr<IDStorageQueue>  m_FileStorageQueue;
-    ComPtr<IDStorageQueue>  m_MemoryStorageQueue;
-
     Device          m_Device;
     Renderer        m_Renderer;
     RayTracedScene  m_RayTracedScene;
@@ -57,7 +54,7 @@ private:
     uint64_t m_TexturesTotalSize = 0;
     uint16_t m_BufferUsageFilter = 0xFFFF;
     uint16_t m_TextureUsageFilter = 0xFFFF;
-    HashSet<ID3D12Resource*> m_SeenResources;
+    HashSet<const ID3D12Resource*> m_SeenResources;
 };
 
 class GPUProfileWidget : public IWidget

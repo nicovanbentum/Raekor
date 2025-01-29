@@ -280,8 +280,10 @@ BufferID RenderGraphResourceAllocator::CreateBuffer(Device& inDevice, const Buff
     D3D12_RESOURCE_STATES initial_state = GetD3D12InitialResourceStates(inDesc.usage);
     uint64_t resource_allocation_offset = Allocate(inDevice, resource_description);
 
-    gThrowIfFailed(inDevice.GetAllocator()->CreateAliasingResource(m_Allocation.Get(), resource_allocation_offset, &resource_description, initial_state, clear_value_ptr, IID_PPV_ARGS(buffer.GetD3D12Resource().GetAddressOf())));
-
+    ID3D12Resource* resource = nullptr;
+    gThrowIfFailed(inDevice.GetAllocator()->CreateAliasingResource(m_Allocation.Get(), resource_allocation_offset, &resource_description, initial_state, clear_value_ptr, IID_PPV_ARGS(&resource)));
+    
+    buffer.SetD3D12Resource(resource);
     return inDevice.CreateBuffer(inDesc, buffer);
 }
 
@@ -310,9 +312,11 @@ TextureID RenderGraphResourceAllocator::CreateTexture(Device& inDevice, const Te
         clear_value = CD3DX12_CLEAR_VALUE(inDesc.format, color);
         clear_value_ptr = &clear_value;
     }
+    
+    ID3D12Resource* resource = nullptr;
+    gThrowIfFailed(inDevice.GetAllocator()->CreateAliasingResource(m_Allocation.Get(), resource_allocation_offset, &resource_description, initial_state, clear_value_ptr, IID_PPV_ARGS(&resource)));
 
-    gThrowIfFailed(inDevice.GetAllocator()->CreateAliasingResource(m_Allocation.Get(), resource_allocation_offset, &resource_description, initial_state, clear_value_ptr, IID_PPV_ARGS(texture.GetD3D12Resource().GetAddressOf())));
-
+    texture.SetD3D12Resource(resource);
     return inDevice.CreateTexture(inDesc, texture);
 }
 

@@ -99,38 +99,6 @@ void Physics::OnUpdate(Scene& scene)
 {
 	PROFILE_FUNCTION_CPU();
 
-	if (scene.Any<RigidBody>() && scene.Count<RigidBody>())
-	{
-		for (const auto& [entity, transform, collider] : scene.Each<Transform, RigidBody>())
-		{
-			if (collider.bodyID.IsInvalid() && collider.shapeSettings != nullptr)
-			{
-				auto settings = JPH::BodyCreationSettings(
-					collider.shapeSettings,
-					JPH::Vec3(transform.position.x, transform.position.y, transform.position.z),
-					JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w),
-					collider.motionType,
-					EPhysicsObjectLayers::MOVING
-				);
-
-				if (collider.shapeSettings->GetRTTI() != JPH_RTTI(JPH::MeshShapeSettings))
-					settings.mAllowDynamicOrKinematic = true;
-
-				collider.bodyID = m_Physics->GetBodyInterface().CreateAndAddBody(settings, JPH::EActivation::Activate);
-
-				const JPH::Vec3 position = JPH::Vec3(transform.position.x, transform.position.y, transform.position.z);
-				const JPH::Quat rotation = JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
-				m_Physics->GetBodyInterface().SetPositionAndRotationWhenChanged(collider.bodyID, position, rotation, JPH::EActivation::DontActivate);
-			}
-			else
-			{
-				const JPH::Vec3 position = JPH::Vec3(transform.position.x, transform.position.y, transform.position.z);
-				const JPH::Quat rotation = JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
-				m_Physics->GetBodyInterface().SetPositionAndRotationWhenChanged(collider.bodyID, position, rotation, JPH::EActivation::DontActivate);
-			}
-		}
-	}
-
 	if (scene.Any<SoftBody>() && scene.Count<SoftBody>())
 	{
 		for (const auto& [entity, transform, soft_body] : scene.Each<Transform, SoftBody>())
@@ -195,21 +163,24 @@ void Physics::GenerateRigidBodiesEntireScene(Scene& inScene)
 		Transform& transform = sb_transform;
 		RigidBody& collider = sb_collider;
 
-		g_ThreadPool.QueueJob([&]()
-		{
-			collider.CreateMeshCollider(mesh, transform);
+        if (collider.bodyID.IsInvalid())
+        {
+		    g_ThreadPool.QueueJob([&]()
+		    {
+			    collider.CreateMeshCollider(*this, mesh, transform);
 
-			auto body_settings = JPH::BodyCreationSettings(
-				collider.shapeSettings,
-				JPH::Vec3(transform.position.x, transform.position.y, transform.position.z),
-				JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w),
-				collider.motionType,
-				EPhysicsObjectLayers::MOVING
-			);
+			    auto body_settings = JPH::BodyCreationSettings(
+				    collider.shapeSettings,
+				    JPH::Vec3(transform.position.x, transform.position.y, transform.position.z),
+				    JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w),
+				    collider.motionType,
+				    EPhysicsObjectLayers::MOVING
+			    );
 
-			auto& body_interface = m_Physics->GetBodyInterface();
-			collider.bodyID = body_interface.CreateAndAddBody(body_settings, JPH::EActivation::Activate);
-		});
+			    auto& body_interface = m_Physics->GetBodyInterface();
+			    collider.bodyID = body_interface.CreateAndAddBody(body_settings, JPH::EActivation::Activate);
+		    });
+        }
 	}
 }
 

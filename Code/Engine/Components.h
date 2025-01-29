@@ -10,6 +10,7 @@
 namespace RK {
 
 class Scene;
+class Physics;
 class ScriptAsset;
 class TextureAsset;
 class INativeScript;
@@ -45,8 +46,8 @@ struct Transform : public Component
 	Quat rotation = Quat(Vec3(0.0f, 0.0f, 0.0f));
 
 	Mat4x4 localTransform = Mat4x4(1.0f);
-	Mat4x4 worldTransform = Mat4x4(1.0f);
-	Mat4x4 invWorldTransform = Mat4x4(1.0f);
+    Mat4x4 worldTransform = Mat4x4(1.0f);
+    Mat4x4 prevWorldTransform = Mat4x4(1.0f);
 
 	Entity animation = Entity::Null;
 	String animationChannel = "";
@@ -165,15 +166,43 @@ struct RigidBody : public SceneComponent
 {
 	RTTI_DECLARE_TYPE(RigidBody);
 
+    enum Shape 
+    {
+        NONE = 0, 
+        CUBE, 
+        SPHERE, 
+        MESH, 
+        CYLINDER
+    };
+
+    enum Motion
+    {
+        STATIC,
+        DYNAMIC,
+        KINEMATIC
+    };
+
+    Shape shape = NONE;
+    Motion motion = STATIC;
+
+    BBox3D cubeBounds;
+    float sphereRadius;
+
 	JPH::BodyID bodyID;
 	JPH::EMotionType motionType;
-	JPH::BoxShapeSettings settings;
-	JPH::MeshShapeSettings meshSettings;
+    JPH::BoxShapeSettings settings;
+    JPH::MeshShapeSettings meshSettings;
 	JPH::Ref<JPH::ShapeSettings> shapeSettings;
 
-	void CreateCubeCollider(const BBox3D& inBBox);
-	void CreateMeshCollider(const Mesh& inMesh, const Transform& inTransform);
-	void CreateCylinderCollider(const Mesh& inMesh, const Transform& inTransform);
+    void CreateBody(Physics& inPhysics, const Transform& inTransform);
+    void ActivateBody(Physics& inPhysics, const Transform& inTransform);
+    void DeactivateBody(Physics& inPhysics);
+
+    void CreateCubeCollider(Physics& inPhysics, const BBox3D& inBBox);
+    void CreateSphereCollider(Physics& inPhysics, float inRadius);
+
+	void CreateMeshCollider(Physics& inPhysics, const Mesh& inMesh, const Transform& inTransform);
+	void CreateCylinderCollider(Physics& inPhysics, const Mesh& inMesh, const Transform& inTransform);
 };
 
 
@@ -277,6 +306,14 @@ struct NativeScript : public SceneComponent
 	String type;
 	Array<String> types;
 	INativeScript* script = nullptr;
+};
+
+
+struct AudioStream : public SceneComponent
+{
+    RTTI_DECLARE_TYPE(AudioStream);
+
+    String file;
 };
 
 

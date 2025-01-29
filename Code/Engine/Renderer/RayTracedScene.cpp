@@ -56,9 +56,6 @@ void RayTracedScene::UpdateBLAS(Application* inApp, Device& inDevice, Mesh& inMe
     desc.SourceAccelerationStructureData = blas_buffer->GetGPUVirtualAddress();
     desc.ScratchAccelerationStructureData = scratch_buffer->GetGPUVirtualAddress();
 
-    inCmdList.TrackResource(blas_buffer);
-    inCmdList.TrackResource(scratch_buffer);
-
     inCmdList->BuildRaytracingAccelerationStructure(&desc, 0, nullptr);
 
     inDevice.ReleaseBuffer(scratch_buffer_id);
@@ -122,19 +119,16 @@ void RayTracedScene::UploadMesh(Application* inApp, Device& inDevice, Mesh& inMe
     desc.DestAccelerationStructureData = blas_buffer->GetGPUVirtualAddress();
     desc.Inputs = inputs;
 
-    inCmdList.TrackResource(blas_buffer);
-    inCmdList.TrackResource(scratch_buffer);
-        
-    const Buffer& gpu_index_buffer = inDevice.GetBuffer(BufferID(inMesh.indexBuffer));
-    const Buffer& gpu_vertex_buffer = inDevice.GetBuffer(BufferID(inMesh.vertexBuffer));
+    Buffer& gpu_index_buffer = inDevice.GetBuffer(BufferID(inMesh.indexBuffer));
+    Buffer& gpu_vertex_buffer = inDevice.GetBuffer(BufferID(inMesh.vertexBuffer));
 
     inDevice.UploadBufferData(inCmdList, gpu_index_buffer, 0, inMesh.indices.data(), indices_size);
     inDevice.UploadBufferData(inCmdList, gpu_vertex_buffer, 0, inMesh.vertices.data(), vertices_size);
 
     const std::array barriers = 
     {
-        CD3DX12_RESOURCE_BARRIER::Transition(gpu_index_buffer.GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ),
-        CD3DX12_RESOURCE_BARRIER::Transition(gpu_vertex_buffer.GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ)
+        CD3DX12_RESOURCE_BARRIER::Transition(gpu_index_buffer.GetD3D12Resource(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ),
+        CD3DX12_RESOURCE_BARRIER::Transition(gpu_vertex_buffer.GetD3D12Resource(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ)
     };
 
     inCmdList->ResourceBarrier(barriers.size(), barriers.data());
@@ -142,22 +136,22 @@ void RayTracedScene::UploadMesh(Application* inApp, Device& inDevice, Mesh& inMe
     inCmdList->BuildRaytracingAccelerationStructure(&desc, 0, nullptr);
 
     // TODO: validation layer warning??
-    inDevice.ReleaseBuffer(scratch_buffer_id);
+    //inDevice.ReleaseBuffer(scratch_buffer_id);
 }
 
 
 void RayTracedScene::UploadSkeleton(Application* inApp, Device& inDevice, Skeleton& inSkeleton, CommandList& inCmdList)
 {
-    const Buffer& bone_index_buffer = inDevice.GetBuffer(BufferID(inSkeleton.boneIndexBuffer));
-    const Buffer& bone_weights_buffer = inDevice.GetBuffer(BufferID(inSkeleton.boneWeightBuffer));
+    Buffer& bone_index_buffer = inDevice.GetBuffer(BufferID(inSkeleton.boneIndexBuffer));
+    Buffer& bone_weights_buffer = inDevice.GetBuffer(BufferID(inSkeleton.boneWeightBuffer));
 
     inDevice.UploadBufferData(inCmdList, bone_index_buffer, 0, inSkeleton.boneIndices.data(), inSkeleton.boneIndices.size() * sizeof(IVec4));
     inDevice.UploadBufferData(inCmdList, bone_weights_buffer, 0, inSkeleton.boneWeights.data(), inSkeleton.boneWeights.size() * sizeof(Vec4));
 
     const std::array barriers =
     {
-        CD3DX12_RESOURCE_BARRIER::Transition(bone_index_buffer.GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ),
-        CD3DX12_RESOURCE_BARRIER::Transition(bone_weights_buffer.GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ)
+        CD3DX12_RESOURCE_BARRIER::Transition(bone_index_buffer.GetD3D12Resource(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ),
+        CD3DX12_RESOURCE_BARRIER::Transition(bone_weights_buffer.GetD3D12Resource(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ)
     };
 
     inCmdList->ResourceBarrier(barriers.size(), barriers.data());
@@ -194,7 +188,7 @@ void RayTracedScene::UploadTLAS(Application* inApp, Device& inDevice, CommandLis
                 continue;
         }
 
-        const Buffer& blas_buffer = inDevice.GetBuffer(BufferID(mesh.BottomLevelAS));
+        Buffer& blas_buffer = inDevice.GetBuffer(BufferID(mesh.BottomLevelAS));
 
         int instance_index = m_Scene.GetPackedIndex<Mesh>(entity);
         assert(instance_index != -1);
@@ -222,7 +216,7 @@ void RayTracedScene::UploadTLAS(Application* inApp, Device& inDevice, CommandLis
     Buffer& instance_buffer = inDevice.GetBuffer(m_D3D12InstancesBuffer);
     inDevice.UploadBufferData(inCmdList, instance_buffer, 0, rt_instances.data(), instance_buffer.GetSize());
     
-    const auto after_copy_barrier = CD3DX12_RESOURCE_BARRIER::Transition(instance_buffer.GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+    const auto after_copy_barrier = CD3DX12_RESOURCE_BARRIER::Transition(instance_buffer.GetD3D12Resource(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
     inCmdList->ResourceBarrier(1, &after_copy_barrier);
 
     const D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs =
@@ -281,8 +275,6 @@ void RayTracedScene::UploadTLAS(Application* inApp, Device& inDevice, CommandLis
     desc.DestAccelerationStructureData = inDevice.GetBuffer(m_TLASBuffer)->GetGPUVirtualAddress();
     desc.ScratchAccelerationStructureData = inDevice.GetBuffer(m_ScratchBuffer)->GetGPUVirtualAddress();
 
-    inCmdList.TrackResource(inDevice.GetBuffer(m_TLASBuffer));
-    inCmdList.TrackResource(inDevice.GetBuffer(m_ScratchBuffer));
     inCmdList->BuildRaytracingAccelerationStructure(&desc, 0, nullptr);
 
     D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC empty_desc = {};
@@ -290,8 +282,6 @@ void RayTracedScene::UploadTLAS(Application* inApp, Device& inDevice, CommandLis
     empty_desc.DestAccelerationStructureData = inDevice.GetBuffer(m_EmptyTLASBuffer)->GetGPUVirtualAddress();
     empty_desc.ScratchAccelerationStructureData = inDevice.GetBuffer(m_EmptyScratchBuffer)->GetGPUVirtualAddress();
 
-    inCmdList.TrackResource(inDevice.GetBuffer(m_EmptyTLASBuffer));
-    inCmdList.TrackResource(inDevice.GetBuffer(m_EmptyScratchBuffer));
     inCmdList->BuildRaytracingAccelerationStructure(&empty_desc, 0, nullptr);
 }
 
@@ -315,7 +305,7 @@ void RayTracedScene::UploadLights(Application* inApp, Device& inDevice, CommandL
 
     m_LightsDescriptor = inDevice.GetBuffer(m_LightsBuffer).GetDescriptor();
 
-    const Buffer& lights_buffer = inDevice.GetBuffer(m_LightsBuffer);
+    Buffer& lights_buffer = inDevice.GetBuffer(m_LightsBuffer);
     
     inDevice.UploadBufferData(inCmdList, lights_buffer, 0, lights.data(), lights_buffer.GetSize());
 }
@@ -372,7 +362,7 @@ void RayTracedScene::UploadInstances(Application* inApp, Device& inDevice, Comma
 
     m_InstancesDescriptor = inDevice.GetBuffer(m_InstancesBuffer).GetDescriptor();
 
-    const Buffer& instance_buffer = inDevice.GetBuffer(m_InstancesBuffer);
+    Buffer& instance_buffer = inDevice.GetBuffer(m_InstancesBuffer);
     inDevice.UploadBufferData(inCmdList, instance_buffer, 0, rt_geometries.data(), instance_buffer.GetSize());
 }
 
@@ -423,7 +413,7 @@ void RayTracedScene::UploadMaterials(Application* inApp, Device& inDevice, Comma
 
     m_MaterialsDescriptor = inDevice.GetBuffer(m_MaterialsBuffer).GetDescriptor();
 
-    const Buffer& materials_buffer = inDevice.GetBuffer(m_MaterialsBuffer);
+    Buffer& materials_buffer = inDevice.GetBuffer(m_MaterialsBuffer);
     inDevice.UploadBufferData(inCmdList, materials_buffer, 0, rt_materials.data(), materials_buffer.GetSize());
 }
 

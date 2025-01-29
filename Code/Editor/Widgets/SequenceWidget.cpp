@@ -260,6 +260,11 @@ void SequenceWidget::ApplyAnimationToScene(Scene& inScene)
         animation.LoadKeyframes(std::to_string(entity), keyframes);
 
         Transform& transform = inScene.Get<Transform>(entity);
+        
+        // skip anything that already has a different animation
+        if (transform.animation != Entity::Null && transform.animation != m_ActiveAnimationEntity)
+            continue;
+
         transform.animation = m_ActiveAnimationEntity;
         transform.animationChannel = std::to_string(entity);
     }

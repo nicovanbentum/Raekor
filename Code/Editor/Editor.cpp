@@ -144,7 +144,7 @@ void Editor::OnUpdate(float inDeltaTime)
 	// clear the debug renderer vertex buffers
 	g_DebugRenderer.Reset();
 
-	// check if any BoxCollider's are waiting to be registered
+	// update the physics system
 	m_Physics.OnUpdate(m_Scene);
 
 	// step the physics simulation

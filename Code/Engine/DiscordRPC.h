@@ -1,6 +1,12 @@
 #pragma once
 
-#include "discord.h"
+namespace discord {
+
+class User;
+class Core;
+class Activity;
+
+}
 
 namespace RK {
 
@@ -18,7 +24,7 @@ public:
     void SetActivityDetails(const char* inDetails);
 
 private:
-    discord::Activity m_Activity;
+    discord::Activity* m_Activity;
     discord::User* m_User = nullptr;
     discord::Core* m_Core = nullptr;
 };

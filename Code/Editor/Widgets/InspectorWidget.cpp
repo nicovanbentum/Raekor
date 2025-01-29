@@ -106,30 +106,6 @@ bool InspectorWidget::DrawEntityInspector(Widgets* inWidgets)
 
 	ImGui::Separator();
 
-	if (scene.Has<Mesh>(active_entity))
-	{
-		const Mesh& mesh = scene.Get<Mesh>(active_entity);
-
-		if (ImGui::Button("Add RigidBody", ImVec2(-1.0f, ImGui::GetFrameHeight())))
-		{
-			Transform& transform = scene.Get<Transform>(active_entity);
-			RigidBody& rigid_body = scene.Add<RigidBody>(active_entity);
-
-			rigid_body.CreateMeshCollider(mesh, transform);
-
-			auto body_settings = JPH::BodyCreationSettings(
-				rigid_body.shapeSettings,
-				JPH::Vec3(transform.position.x, transform.position.y, transform.position.z),
-				JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w),
-				rigid_body.motionType,
-				EPhysicsObjectLayers::MOVING
-			);
-
-			auto& body_interface = GetPhysics().GetSystem()->GetBodyInterface();
-			rigid_body.bodyID = body_interface.CreateAndAddBody(body_settings, JPH::EActivation::Activate);
-		}
-	}
-
     for (const auto& [type_hash, components] : GetScene())
     {
         if (!components->Contains(active_entity))
@@ -596,52 +572,68 @@ bool InspectorWidget::DrawComponent(Entity inEntity, SoftBody& ioSoftBody)
 }
 
 
-bool InspectorWidget::DrawComponent(Entity inEntity, RigidBody& inBoxCollider)
+bool InspectorWidget::DrawComponent(Entity inEntity, RigidBody& inRigidBody)
 {
 	JPH::BodyInterface& body_interface = GetPhysics().GetSystem()->GetBodyInterface();
 
-	ImGui::Text("Unique Body ID: %i", inBoxCollider.bodyID.GetIndexAndSequenceNumber());
+	ImGui::Text("Unique Body ID: %i", inRigidBody.bodyID.GetIndexAndSequenceNumber());
 
-	constexpr std::array items = { "Static", "Kinematic", "Dynamic" };
+    if (inRigidBody.bodyID.IsInvalid())
+    {
+	    constexpr std::array items = { "Static", "Kinematic", "Dynamic" };
 
-	int index = int(inBoxCollider.motionType);
-	if (ImGui::Combo("##MotionType", &index, items.data(), int(items.size())))
-	{
-		inBoxCollider.motionType = JPH::EMotionType(index);
-		body_interface.SetMotionType(inBoxCollider.bodyID, inBoxCollider.motionType, JPH::EActivation::Activate);
-	}
+	    int index = int(inRigidBody.motionType);
+	    if (ImGui::Combo("##MotionType", &index, items.data(), int(items.size())))
+	    {
+            inRigidBody.motionType = JPH::EMotionType(index);
+		    body_interface.SetMotionType(inRigidBody.bodyID, inRigidBody.motionType, JPH::EActivation::Activate);
+	    }
 
-	if (inBoxCollider.motionType == JPH::EMotionType::Static)
-	{
-		if (ImGui::Button("Create Mesh Shape"))
-		{
-			Mesh* mesh = GetScene().GetPtr<Mesh>(inEntity);
-			Transform* transform = GetScene().GetPtr<Transform>(inEntity);
+	    if (inRigidBody.motionType == JPH::EMotionType::Static)
+	    {
+		    if (ImGui::Button("Create Mesh Shape"))
+		    {
+			    Mesh* mesh = GetScene().GetPtr<Mesh>(inEntity);
+			    Transform* transform = GetScene().GetPtr<Transform>(inEntity);
 
-			if (mesh && transform)
-				inBoxCollider.CreateMeshCollider(*mesh, *transform);
-		}
-	}
+                if (mesh && transform)
+                {
+                    inRigidBody.CreateMeshCollider(GetPhysics(), *mesh, *transform);
+                    inRigidBody.CreateBody(GetPhysics(), *transform);
+                    inRigidBody.ActivateBody(GetPhysics(), *transform);
+                }
+		    }
+	    }
 
-	if (ImGui::Button("Create Cube Shape"))
-	{
-		Mesh* mesh = GetScene().GetPtr<Mesh>(inEntity);
-		Transform* transform = GetScene().GetPtr<Transform>(inEntity);
+	    if (ImGui::Button("Create Cube Shape"))
+	    {
+		    Mesh* mesh = GetScene().GetPtr<Mesh>(inEntity);
+		    Transform* transform = GetScene().GetPtr<Transform>(inEntity);
 
-		if (mesh && transform)
-			inBoxCollider.CreateCubeCollider(mesh->bbox.Scaled(transform->scale));
-		else
-			inBoxCollider.CreateCubeCollider(BBox3D(Vec3(0.0f), Vec3(1.0f)));
-	}
+		    if (mesh && transform)
+                inRigidBody.CreateCubeCollider(GetPhysics(), mesh->bbox.Scaled(transform->scale));
+		    else
+                inRigidBody.CreateCubeCollider(GetPhysics(), BBox3D(Vec3(0.0f), Vec3(1.0f)));
 
-	if (ImGui::Button("Create Cylinder Shape"))
-	{
-		Mesh* mesh = GetScene().GetPtr<Mesh>(inEntity);
-		Transform* transform = GetScene().GetPtr<Transform>(inEntity);
+            inRigidBody.CreateBody(GetPhysics(), *transform);
+            inRigidBody.ActivateBody(GetPhysics(), *transform);
+	    }
 
-		if (mesh && transform)
-			inBoxCollider.CreateCylinderCollider(*mesh, *transform);
-	}
+	    if (ImGui::Button("Create Cylinder Shape"))
+	    {
+		    Mesh* mesh = GetScene().GetPtr<Mesh>(inEntity);
+		    Transform* transform = GetScene().GetPtr<Transform>(inEntity);
+
+		    if (mesh && transform)
+                inRigidBody.CreateCylinderCollider(GetPhysics(), *mesh, *transform);
+	    }
+    }
+    else
+    {
+        constexpr std::array items = { "Static", "Kinematic", "Dynamic" };
+        ImGui::Text(items[int(inRigidBody.motionType)]);
+    }
+
 
 	return false;
 }
@@ -701,6 +693,19 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Skeleton& inSkeleton)
 
 		ImGui::EndDragDropTarget();
 	}
+
+    if (ImGui::BeginPopupContextItem())
+    {
+        for (const auto& [entity, animation] : GetScene().Each<Animation>())
+        {
+            if (ImGui::MenuItem(animation.GetName().c_str()))
+            {
+                inSkeleton.animation = entity;
+            }
+        }
+
+        ImGui::EndPopup();
+    }
 
 	if (ImGui::Button("Save as graph.."))
 	{
@@ -1029,6 +1034,19 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Transform& inTransform)
 
 		ImGui::EndDragDropTarget();
 	}
+
+    if (ImGui::BeginPopupContextItem())
+    {
+        for (const auto& [entity, animation] : GetScene().Each<Animation>())
+        {
+            if (ImGui::MenuItem(animation.GetName().c_str()))
+            {
+                inTransform.animation = entity;
+            }
+        }
+        
+        ImGui::EndPopup();
+    }
 
 	if (animation != nullptr)
 	{

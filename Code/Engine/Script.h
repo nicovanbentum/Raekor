@@ -40,6 +40,8 @@ public:
 
 	virtual void OnEvent(const SDL_Event& inEvent) = 0;
 
+    RK::Entity GetEntity() const { return m_Entity; }
+
 	// helper functions to interface with the engine
 	Scene* GetScene();
 	Assets* GetAssets();
@@ -50,7 +52,7 @@ public:
 	T& GetComponent();
 
 	template<typename T>
-	T* TryGetComponent();
+	T* FindComponent();
 
 	template<typename T>
 	T* FindComponent(Entity inEntity);
@@ -76,7 +78,7 @@ T& INativeScript::GetComponent()
 }
 
 template<typename T>
-T* INativeScript::TryGetComponent()
+T* INativeScript::FindComponent()
 {
 	return m_Scene->GetPtr<T>(m_Entity);
 }

@@ -386,4 +386,32 @@ void DescriptorHeap::Allocate(Device& inDevice, D3D12_DESCRIPTOR_HEAP_TYPE inTyp
     m_HeapIncrement = inDevice->GetDescriptorHandleIncrementSize(inType);
 }
 
+
+
+void DeviceResource::AddRef()
+{
+    if (m_Resource != nullptr)
+        m_Resource->AddRef();
+
+    if (m_Allocation != nullptr)
+        m_Allocation->AddRef();
+}
+
+
+
+void DeviceResource::Release()
+{
+    if (m_Resource != nullptr)
+    {
+        m_Resource->Release();
+        m_Resource = nullptr;
+    }
+
+    if (m_Allocation != nullptr)
+    {
+        m_Allocation->Release();
+        m_Allocation = nullptr;
+    }
+}
+
 } // namespace Raekor::DX12

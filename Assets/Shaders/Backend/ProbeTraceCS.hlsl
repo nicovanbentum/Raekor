@@ -38,10 +38,10 @@ void main(uint3 threadID : SV_DispatchThreadID) {
     StructuredBuffer<RTGeometry> geometries = ResourceDescriptorHeap[fc.mInstancesBuffer];
     StructuredBuffer<RTMaterial> materials  = ResourceDescriptorHeap[fc.mMaterialsBuffer];
     
-    RWTexture2D<float> depth_texture       = ResourceDescriptorHeap[rc.mDDGIData.mRaysDepthTexture];
-    RWTexture2D<float3> irradiance_texture = ResourceDescriptorHeap[rc.mDDGIData.mRaysIrradianceTexture];
+    RWTexture2D<float> depth_texture         = ResourceDescriptorHeap[rc.mDDGIData.mRaysDepthTexture];
+    RWTexture2D<float3> irradiance_texture   = ResourceDescriptorHeap[rc.mDDGIData.mRaysIrradianceTexture];
 
-    TextureCube<float3> skycube_texture    = ResourceDescriptorHeap[rc.mSkyCubeTexture];
+    TextureCube<float3> skycube_texture = ResourceDescriptorHeap[rc.mSkyCubeTexture];
 
     uint ray_index = threadID.x;
     uint probe_index = threadID.y;
@@ -57,18 +57,24 @@ void main(uint3 threadID : SV_DispatchThreadID) {
     ray.TMax = 10000.0;
     ray.Origin = probe_ws_pos;
     ray.Direction = ray_dir;
-
+    
     RayQuery<RAY_FLAG_FORCE_OPAQUE> query;
     query.TraceRayInline(TLAS, RAY_FLAG_FORCE_OPAQUE, 0xFF, ray);
-    query.Proceed();
-    
+    while (query.Proceed()) {}
+
     float hitT = length(rc.mDDGIData.mProbeSpacing);
     float3 irradiance = 0.xxx;
 
     if (query.CommittedStatus() == COMMITTED_TRIANGLE_HIT)
     {
-        // TODO: write out the distance result here and terminate early right after if we hit a backface
         hitT = ray.TMin + query.CommittedRayT();
+
+        if (!query.CommittedTriangleFrontFace())
+        {
+            depth_texture[ray_texture_index] = hitT;
+            irradiance_texture[ray_texture_index] = float3(0, 0, 0);
+            return;
+        }
         
         RTGeometry geometry = geometries[query.CommittedInstanceID()];
         RTVertex vertex = CalculateVertexFromGeometry(geometry, query.CommittedPrimitiveIndex(), query.CommittedTriangleBarycentrics());
@@ -77,7 +83,7 @@ void main(uint3 threadID : SV_DispatchThreadID) {
         
         Surface surface;
         surface.FromHit(vertex, material);
-        //brdf.mNormal = vertex.mNormal; // use the vertex normal, texture based detail is lost anyway
+        surface.mNormal = vertex.mNormal; // use the vertex normal, texture based detail is lost anyway
         
         irradiance = surface.mEmissive;
         const float3 Wo = -ray.Direction;
@@ -96,7 +102,7 @@ void main(uint3 threadID : SV_DispatchThreadID) {
         // Infinite bounces!
         if (fc.mFrameCounter > 0)
         {
-            // irradiance += DDGISampleIrradiance(vertex.mPos, vertex.mNormal, rc.mDDGIData);
+            //irradiance += surface.mAlbedo.rgb * DDGISampleIrradiance(vertex.mPos, vertex.mNormal, rc.mDDGIData);
         }
     }
     else
@@ -117,7 +123,7 @@ void main(uint3 threadID : SV_DispatchThreadID) {
        float3 debug_ray_end   = ray.Origin + ray.Direction * hitT;
         
        // InterlockedAdd( 2 ) to the VertexCount, use the original value as write index into the line vertex buffer
-       AddDebugLine(debug_ray_start, debug_ray_end, debug_ray_color, debug_ray_color);
+       //AddDebugLine(debug_ray_start, debug_ray_end, debug_ray_color, debug_ray_color);
     }
     
     

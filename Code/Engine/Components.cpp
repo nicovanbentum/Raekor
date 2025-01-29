@@ -137,6 +137,12 @@ RTTI_DEFINE_TYPE(Material)
 }
 
 
+RTTI_DEFINE_TYPE(AudioStream)
+{
+
+}
+
+
 RTTI_DEFINE_TYPE(DDGISceneSettings) 
 {
 	RTTI_DEFINE_TYPE_INHERITANCE(DDGISceneSettings, Component);
@@ -663,7 +669,6 @@ void DDGISceneSettings::FitToScene(const Scene& inScene, Transform& ioTransform)
 }
 
 
-
 void Skeleton::UpdateFromAnimation(const Animation& animation)
 {
 	Mat4x4 matrix = Mat4x4(1.0f);
@@ -671,14 +676,55 @@ void Skeleton::UpdateFromAnimation(const Animation& animation)
 }
 
 
-void RigidBody::CreateCubeCollider(const BBox3D& inBBox)
+void RigidBody::CreateBody(Physics& inPhysics, const Transform& inTransform)
+{
+    auto settings = JPH::BodyCreationSettings(
+        shapeSettings,
+        JPH::Vec3(inTransform.position.x, inTransform.position.y, inTransform.position.z),
+        JPH::Quat(inTransform.rotation.x, inTransform.rotation.y, inTransform.rotation.z, inTransform.rotation.w),
+        motionType,
+        EPhysicsObjectLayers::MOVING
+    );
+
+    if (shapeSettings->GetRTTI() != JPH_RTTI(JPH::MeshShapeSettings))
+        settings.mAllowDynamicOrKinematic = true;
+
+    bodyID = inPhysics.GetSystem()->GetBodyInterface().CreateBody(settings)->GetID();
+}
+
+
+void RigidBody::ActivateBody(Physics& inPhysics, const Transform& inTransform)
+{
+    if (!bodyID.IsInvalid())
+    {
+        const JPH::Vec3 position = JPH::Vec3(inTransform.position.x, inTransform.position.y, inTransform.position.z);
+        const JPH::Quat rotation = JPH::Quat(inTransform.rotation.x, inTransform.rotation.y, inTransform.rotation.z, inTransform.rotation.w);
+        inPhysics.GetSystem()->GetBodyInterface().AddBody(bodyID, JPH::EActivation::Activate);
+        inPhysics.GetSystem()->GetBodyInterface().SetPositionAndRotationWhenChanged(bodyID, position, rotation, JPH::EActivation::Activate);
+    }
+}
+
+
+void RigidBody::DeactivateBody(Physics& inPhysics)
+{
+    inPhysics.GetSystem()->GetBodyInterface().RemoveBody(bodyID);
+}
+
+
+void RigidBody::CreateCubeCollider(Physics& inPhysics, const BBox3D& inBBox)
 {
 	const Vec3 half_extent = inBBox.GetExtents() / 2.0f;
 	shapeSettings = new JPH::BoxShapeSettings(JPH::Vec3Arg(half_extent.x, half_extent.y, half_extent.z));
 }
 
 
-void RigidBody::CreateMeshCollider(const Mesh& inMesh, const Transform& inTransform)
+void RigidBody::CreateSphereCollider(Physics& inPhysics, float radius)
+{
+    shapeSettings = new JPH::SphereShapeSettings(radius);
+}
+
+
+void RigidBody::CreateMeshCollider(Physics& inPhysics, const Mesh& inMesh, const Transform& inTransform)
 {
 	JPH::TriangleList triangles;
 
@@ -695,12 +741,11 @@ void RigidBody::CreateMeshCollider(const Mesh& inMesh, const Transform& inTransf
 		triangles.push_back(JPH::Triangle(JPH::Float3(v0.x, v0.y, v0.z), JPH::Float3(v1.x, v1.y, v1.z), JPH::Float3(v2.x, v2.y, v2.z)));
 	}
 
-	motionType = JPH::EMotionType::Static;
 	shapeSettings = new JPH::MeshShapeSettings(triangles);
 }
 
 
-void RigidBody::CreateCylinderCollider(const Mesh& inMesh, const Transform& inTransform)
+void RigidBody::CreateCylinderCollider(Physics& inPhysics, const Mesh& inMesh, const Transform& inTransform)
 {
 	const BBox3D aabb = BBox3D(inMesh.bbox).Scale(inTransform.scale);
 	const Vec3 half_extent = aabb.GetExtents() / 2.0f;

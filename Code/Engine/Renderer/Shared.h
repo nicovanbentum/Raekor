@@ -169,11 +169,18 @@ struct DDGIData
     float3 mProbeSpacing;
     uint   pad1;
     float3 mCornerPosition;
-    uint   pad2;
+    uint   mProbesDataBuffer;
     uint   mRaysDepthTexture;
     uint   mProbesDepthTexture;
     uint   mRaysIrradianceTexture;
     uint   mProbesIrradianceTexture;
+};
+
+
+struct ProbeData
+{
+    uint backfaced;
+    float3 offset;
 };
 
 

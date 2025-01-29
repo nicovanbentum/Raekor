@@ -1,7 +1,8 @@
 #include "PCH.h"
 #include "DiscordRPC.h"
-#include "Timer.h"
+#include "discord.h"
 #include "Application.h"
+#include "Timer.h"
 
 namespace RK {
 
@@ -17,12 +18,12 @@ bool DiscordRPC::Init(Application* inApp)
 		inApp->LogMessage(std::format("[Discord] {}", message));
 	});
 
-	m_Activity = {};
-	m_Activity.SetType(discord::ActivityType::Playing);
-	m_Activity.GetTimestamps().SetStart(std::chrono::duration_cast<std::chrono::seconds>(
+	m_Activity = new discord::Activity();
+	m_Activity->SetType(discord::ActivityType::Playing);
+	m_Activity->GetTimestamps().SetStart(std::chrono::duration_cast<std::chrono::seconds>(
 		std::chrono::system_clock::now().time_since_epoch() ).count());
 
-	m_Core->ActivityManager().UpdateActivity(m_Activity, [](discord::Result result) {});
+	m_Core->ActivityManager().UpdateActivity(*m_Activity, [](discord::Result result) {});
 
 	return true;
 }
@@ -30,15 +31,15 @@ bool DiscordRPC::Init(Application* inApp)
 
 void DiscordRPC::SetActivityState(const char* inState)
 {
-	m_Activity.SetState(inState);
-	m_Core->ActivityManager().UpdateActivity(m_Activity, [](discord::Result result) {});
+	m_Activity->SetState(inState);
+	m_Core->ActivityManager().UpdateActivity(*m_Activity, [](discord::Result result) {});
 }
 
 
 void DiscordRPC::SetActivityDetails(const char* inDetails)
 {
-	m_Activity.SetDetails(inDetails);
-	m_Core->ActivityManager().UpdateActivity(m_Activity, [](discord::Result result) {});
+	m_Activity->SetDetails(inDetails);
+	m_Core->ActivityManager().UpdateActivity(*m_Activity, [](discord::Result result) {});
 }
 
 

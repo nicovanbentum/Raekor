@@ -15,7 +15,6 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0
     Texture2D<uint4>    gbuffer_texture           = ResourceDescriptorHeap[rc.mGbufferRenderTexture];
     Texture2D<float4>   reflections_texture       = ResourceDescriptorHeap[rc.mReflectionsTexture];
     Texture2D<float4>   indirect_diffuse_texture  = ResourceDescriptorHeap[rc.mIndirectDiffuseTexture];
-    // Texture2D<float4>   diffuse_gi_texture        = ResourceDescriptorHeap[rc.mIndirectDiffuseTexture];
     TextureCube<float3> skycube_texture           = ResourceDescriptorHeap[rc.mSkyCubeTexture];
     StructuredBuffer<RTLight> lights              = ResourceDescriptorHeap[fc.mLightsBuffer];
 
@@ -73,7 +72,7 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0
         }
     }
 
-    // indirect diffuse and specular are attenuated by RTAO
+    // indirect diffuse and specular are attenuated by ambient occlusion
     float ao = ao_texture.SampleLevel(SamplerLinearClamp, inParams.mScreenUV, 0);
     
     // evaluate indirect specular
@@ -81,8 +80,8 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0
     total_radiance += specular.rgb * surface.mAlbedo.rgb * ao;
     
     // evaluate indirect diffuse
-    float3 irradiance = indirect_diffuse_texture.SampleLevel(SamplerLinearClamp, inParams.mScreenUV, 0).rgb;
-    total_radiance += irradiance.rgb * surface.mAlbedo.rgb * ao;
+    float4 diffuse = indirect_diffuse_texture.SampleLevel(SamplerLinearClamp, inParams.mScreenUV, 0);
+    total_radiance += diffuse.rgb * surface.mAlbedo.rgb * ao;
     
     return float4(total_radiance, 1.0);
 }

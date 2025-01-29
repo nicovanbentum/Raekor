@@ -21,7 +21,7 @@ Device::Device(Application* inApp)
 {
     uint32_t device_creation_flags = 0u;
 
-#ifdef RK_DEBUG_BUILD
+#if 1
     ComPtr<ID3D12Debug1> debug_interface = nullptr;
     if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debug_interface))))
     {
@@ -215,16 +215,34 @@ Device::Device(Application* inApp)
 }
 
 
+Device::~Device()
+{
+    for (Buffer& buffer : m_Buffers)
+        buffer.Release();
+
+    for (Texture& texture : m_Textures)
+        texture.Release();
+}
+
+
 void Device::OnUpdate()
 {
     m_FrameIndex = ++m_FrameCounter % sFrameCount;
+
+    if (m_FrameCounter % ( sFrameCount + 1 ) == 0)
+    {
+        for (DeviceResource resource : m_DeferredReleaseQueue)
+            resource.Release();
+
+       m_DeferredReleaseQueue.clear();
+    }
 }
 
 
 TextureID Device::CreateTexture(const Texture::Desc& inDesc, const Texture& inTexture)
 {
     if (inDesc.debugName != nullptr)
-        gSetDebugName(inTexture.m_Resource.Get(), inDesc.debugName);
+        gSetDebugName(inTexture.m_Resource, inDesc.debugName);
 
     const TextureID texture_id = m_Textures.Add(inTexture);
 
@@ -256,7 +274,7 @@ TextureID Device::CreateTexture(const Texture::Desc& inDesc)
         clear_value_ptr = &clear_value;
     }
 
-    gThrowIfFailed(m_Allocator->CreateResource(&alloc_desc, &resource_desc, initial_state, clear_value_ptr, texture.m_Allocation.GetAddressOf(), IID_PPV_ARGS(&texture.m_Resource)));
+    gThrowIfFailed(m_Allocator->CreateResource(&alloc_desc, &resource_desc, initial_state, clear_value_ptr, &texture.m_Allocation, IID_PPV_ARGS(&texture.m_Resource)));
 
     return CreateTexture(inDesc, texture);
 }
@@ -272,7 +290,7 @@ BufferID Device::CreateBuffer(const Buffer::Desc& inDesc)
     D3D12_CLEAR_VALUE* clear_value_ptr = nullptr;
     D3D12_RESOURCE_STATES initial_state = GetD3D12InitialResourceStates(inDesc.usage);
 
-    gThrowIfFailed(m_Allocator->CreateResource(&alloc_desc, &buffer_desc, initial_state, clear_value_ptr, buffer.m_Allocation.GetAddressOf(), IID_PPV_ARGS(&buffer.m_Resource)));
+    gThrowIfFailed(m_Allocator->CreateResource(&alloc_desc, &buffer_desc, initial_state, clear_value_ptr, &buffer.m_Allocation, IID_PPV_ARGS(&buffer.m_Resource)));
 
     return CreateBuffer(inDesc, buffer);
 }
@@ -281,7 +299,7 @@ BufferID Device::CreateBuffer(const Buffer::Desc& inDesc)
 BufferID Device::CreateBuffer(const Buffer::Desc& inDesc, const Buffer& inBuffer)
 {
     assert(inDesc.debugName);
-    gSetDebugName(inBuffer.m_Resource.Get(), inDesc.debugName);
+    gSetDebugName(inBuffer.m_Resource, inDesc.debugName);
 
     const BufferID buffer_id = m_Buffers.Add(inBuffer);
 
@@ -294,7 +312,9 @@ BufferID Device::CreateBuffer(const Buffer::Desc& inDesc, const Buffer& inBuffer
 BufferID Device::CreateBufferView(BufferID inBufferID, const Buffer::Desc& inDesc)
 {
     // make a copy of the texture, super lightweight as the underlying resource is ref counted
-    const Buffer& buffer = GetBuffer(inBufferID);
+    Buffer& buffer = GetBuffer(inBufferID);
+    buffer.AddRef();
+
     Buffer new_buffer = Buffer(buffer);
     new_buffer.m_Desc.usage = inDesc.usage;
 
@@ -309,7 +329,9 @@ BufferID Device::CreateBufferView(BufferID inBufferID, const Buffer::Desc& inDes
 TextureID Device::CreateTextureView(TextureID inTextureID, const Texture::Desc& inDesc)
 {
     // make a copy of the texture
-    const Texture& texture = GetTexture(inTextureID);
+    Texture& texture = GetTexture(inTextureID);
+    texture.AddRef();
+
     Texture new_texture = Texture(texture);
     new_texture.m_Desc.usage = inDesc.usage;
 
@@ -321,7 +343,7 @@ TextureID Device::CreateTextureView(TextureID inTextureID, const Texture::Desc& 
 
 
 
-[[nodiscard]] TextureID Device::CreateTextureView(D3D12ResourceRef inResource, const Texture::Desc& inDesc)
+[[nodiscard]] TextureID Device::CreateTextureView(ID3D12Resource* inResource, const Texture::Desc& inDesc)
 {
     Texture temp_texture = Texture(inDesc);
     temp_texture.m_Resource = inResource;
@@ -339,7 +361,11 @@ TextureID Device::CreateTextureView(TextureID inTextureID, const Texture::Desc& 
 
 void Device::ReleaseBuffer(BufferID inBufferID)
 {
-    const Buffer& buffer = GetBuffer(inBufferID);
+    Buffer& buffer = GetBuffer(inBufferID);
+    m_DeferredReleaseQueue.push_back(buffer);
+
+    buffer.m_Resource = nullptr;
+    buffer.m_Allocation = nullptr;
 
     assert(inBufferID.IsValid());
     m_Buffers.Remove(inBufferID);
@@ -352,7 +378,11 @@ void Device::ReleaseBuffer(BufferID inBufferID)
 
 void Device::ReleaseTexture(TextureID inTextureID)
 {
-    const Texture& texture = GetTexture(inTextureID);
+    Texture& texture = GetTexture(inTextureID);
+    m_DeferredReleaseQueue.push_back(texture);
+
+    texture.m_Resource = nullptr;
+    texture.m_Allocation = nullptr;
 
     assert(inTextureID.IsValid());
     m_Textures.Remove(inTextureID);
@@ -368,8 +398,7 @@ void Device::ReleaseBufferImmediate(BufferID inBufferID)
     assert(inBufferID.IsValid());
 
     Buffer& buffer = GetBuffer(inBufferID);
-    buffer.m_Resource = nullptr;
-    buffer.m_Allocation = nullptr;
+    buffer.Release();
 
     m_Buffers.Remove(inBufferID);
 
@@ -384,8 +413,7 @@ void Device::ReleaseTextureImmediate(TextureID inTextureID)
     assert(inTextureID.IsValid());
 
     Texture& texture = GetTexture(inTextureID);
-    texture.m_Resource = nullptr;
-    texture.m_Allocation = nullptr;
+    texture.Release();
 
     m_Textures.Remove(inTextureID);
 
@@ -416,7 +444,7 @@ void Device::CreateDescriptor(BufferID inID, const Buffer::Desc& inDesc)
         case Buffer::INDIRECT_ARGUMENTS:
         case Buffer::ACCELERATION_STRUCTURE:
         {
-            D3D12ResourceRef resource = buffer.GetD3D12Resource();
+            ID3D12Resource* resource = buffer.GetD3D12Resource();
             D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = inDesc.ToSRVDesc();
 
             if (inDesc.usage == Buffer::ACCELERATION_STRUCTURE)
@@ -583,7 +611,7 @@ D3D12_GPU_DESCRIPTOR_HANDLE Device::GetGPUDescriptorHandle(TextureID inID)
 
 
 
-DescriptorID Device::CreateDepthStencilView(D3D12ResourceRef inResource, const D3D12_DEPTH_STENCIL_VIEW_DESC* inDesc)
+DescriptorID Device::CreateDepthStencilView(ID3D12Resource* inResource, const D3D12_DEPTH_STENCIL_VIEW_DESC* inDesc)
 {
     assert(gIsDepthFormat(inResource->GetDesc().Format));
     assert(inResource->GetDesc().Flags & D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL);
@@ -591,57 +619,55 @@ DescriptorID Device::CreateDepthStencilView(D3D12ResourceRef inResource, const D
     DescriptorHeap& heap = m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_DSV];
     DescriptorID descriptor = heap.Add(inResource);
 
-    m_Device->CreateDepthStencilView(inResource.Get(), inDesc, heap.GetCPUDescriptorHandle(descriptor));
+    m_Device->CreateDepthStencilView(inResource, inDesc, heap.GetCPUDescriptorHandle(descriptor));
 
     return descriptor;
 }
 
 
 
-DescriptorID Device::CreateRenderTargetView(D3D12ResourceRef inResource, const D3D12_RENDER_TARGET_VIEW_DESC* inDesc)
+DescriptorID Device::CreateRenderTargetView(ID3D12Resource* inResource, const D3D12_RENDER_TARGET_VIEW_DESC* inDesc)
 {
     assert(inResource->GetDesc().Flags & D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET);
 
     DescriptorHeap& heap = m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_RTV];
     DescriptorID descriptor = heap.Add(inResource);
 
-    m_Device->CreateRenderTargetView(inResource.Get(), inDesc, heap.GetCPUDescriptorHandle(descriptor));
+    m_Device->CreateRenderTargetView(inResource, inDesc, heap.GetCPUDescriptorHandle(descriptor));
 
     return descriptor;
 }
 
 
 
-DescriptorID Device::CreateShaderResourceView(D3D12ResourceRef inResource, const D3D12_SHADER_RESOURCE_VIEW_DESC* inDesc)
+DescriptorID Device::CreateShaderResourceView(ID3D12Resource* inResource, const D3D12_SHADER_RESOURCE_VIEW_DESC* inDesc)
 {
     DescriptorHeap& heap = m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV];
     DescriptorID descriptor = heap.Add(inResource);
 
-    m_Device->CreateShaderResourceView(inResource.Get(), inDesc, heap.GetCPUDescriptorHandle(descriptor));
+    m_Device->CreateShaderResourceView(inResource, inDesc, heap.GetCPUDescriptorHandle(descriptor));
 
     return descriptor;
 }
 
 
 
-DescriptorID Device::CreateUnorderedAccessView(D3D12ResourceRef inResource, const D3D12_UNORDERED_ACCESS_VIEW_DESC* inDesc)
+DescriptorID Device::CreateUnorderedAccessView(ID3D12Resource* inResource, const D3D12_UNORDERED_ACCESS_VIEW_DESC* inDesc)
 {
     assert(inResource->GetDesc().Flags & D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
 
     DescriptorHeap& heap = m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV];
     DescriptorID descriptor = heap.Add(inResource);
 
-    m_Device->CreateUnorderedAccessView(inResource.Get(), nullptr, inDesc, heap.GetCPUDescriptorHandle(descriptor));
+    m_Device->CreateUnorderedAccessView(inResource, nullptr, inDesc, heap.GetCPUDescriptorHandle(descriptor));
 
     return descriptor;
 }
 
 
 
-void Device::UploadBufferData(CommandList& inCmdList, const Buffer& inBuffer, uint32_t inOffset, const void* inData, uint32_t inSize)
+void Device::UploadBufferData(CommandList& inCmdList, Buffer& inBuffer, uint32_t inOffset, const void* inData, uint32_t inSize)
 {
-    inCmdList.TrackResource(inBuffer);
-
     for (UploadBuffer& buffer : m_UploadBuffers)
     {
         if (buffer.mRetired && inSize <= buffer.mCapacity - buffer.mSize)
@@ -649,7 +675,7 @@ void Device::UploadBufferData(CommandList& inCmdList, const Buffer& inBuffer, ui
             memcpy(buffer.mPtr + buffer.mSize, inData, inSize);
 
             ID3D12Resource* buffer_resource = GetD3D12Resource(buffer.mID);
-            inCmdList->CopyBufferRegion(inBuffer.GetD3D12Resource().Get(), inOffset, buffer_resource, buffer.mSize, inSize);
+            inCmdList->CopyBufferRegion(inBuffer.GetD3D12Resource(), inOffset, buffer_resource, buffer.mSize, inSize);
 
             buffer.mSize += inSize;
             buffer.mRetired = false;
@@ -675,7 +701,7 @@ void Device::UploadBufferData(CommandList& inCmdList, const Buffer& inBuffer, ui
     memcpy(mapped_ptr, inData, inSize);
 
     assert(inBuffer.GetSize() >= inSize);
-    inCmdList->CopyBufferRegion(inBuffer.GetD3D12Resource().Get(), inOffset, buffer.GetD3D12Resource().Get(), 0, inSize);
+    inCmdList->CopyBufferRegion(inBuffer.GetD3D12Resource(), inOffset, buffer.GetD3D12Resource(), 0, inSize);
 
     m_UploadBuffers.emplace_back(UploadBuffer
     {
@@ -692,7 +718,7 @@ void Device::UploadBufferData(CommandList& inCmdList, const Buffer& inBuffer, ui
 
 
 
-void Device::UploadTextureData(const Texture& inTexture, uint32_t inMip, uint32_t inLayer, uint32_t inRowPitch, const void* inData)
+void Device::UploadTextureData(Texture& inTexture, uint32_t inMip, uint32_t inLayer, uint32_t inRowPitch, const void* inData)
 {
     uint32_t nr_of_rows = 0u;
     uint64_t row_size = 0ull, total_size = 0ull;
@@ -719,7 +745,7 @@ void Device::UploadTextureData(const Texture& inTexture, uint32_t inMip, uint32_
             m_TextureUploads.emplace_back(TextureUpload 
             {
                 .mBufferPart = CD3DX12_TEXTURE_COPY_LOCATION(GetD3D12Resource(buffer.mID), footprint),
-                .mTexturePart = CD3DX12_TEXTURE_COPY_LOCATION(inTexture.GetD3D12Resource().Get(), subresource)
+                .mTexturePart = CD3DX12_TEXTURE_COPY_LOCATION(inTexture.GetD3D12Resource(), subresource)
             });
 
             buffer.mSize += total_size;
@@ -748,8 +774,8 @@ void Device::UploadTextureData(const Texture& inTexture, uint32_t inMip, uint32_
 
     m_TextureUploads.emplace_back(TextureUpload
         {
-            .mBufferPart = CD3DX12_TEXTURE_COPY_LOCATION(buffer.GetD3D12Resource().Get(), footprint),
-            .mTexturePart = CD3DX12_TEXTURE_COPY_LOCATION(inTexture.GetD3D12Resource().Get(), subresource)
+            .mBufferPart = CD3DX12_TEXTURE_COPY_LOCATION(buffer.GetD3D12Resource(), footprint),
+            .mTexturePart = CD3DX12_TEXTURE_COPY_LOCATION(inTexture.GetD3D12Resource(), subresource)
         });
 
     m_UploadBuffers.emplace_back(UploadBuffer

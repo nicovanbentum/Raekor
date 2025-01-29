@@ -215,9 +215,9 @@ const SkinningData& AddSkinningPass(RenderGraph& inRenderGraph, Device& inDevice
             if (const Name* name = inScene.GetPtr<Name>(entity))
                 PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>(inCmdList), PIX_COLOR(0, 255, 0), name->name.c_str());
 
-            const Buffer& bone_matrix_buffer = inDevice.GetBuffer(TextureID(skeleton.boneTransformsBuffer));
+            Buffer& bone_matrix_buffer = inDevice.GetBuffer(TextureID(skeleton.boneTransformsBuffer));
         
-            auto uav_to_copy_barrier = CD3DX12_RESOURCE_BARRIER::Transition(bone_matrix_buffer.GetD3D12Resource().Get(), GetD3D12ResourceStates(Texture::SHADER_READ_ONLY), D3D12_RESOURCE_STATE_COPY_DEST);
+            auto uav_to_copy_barrier = CD3DX12_RESOURCE_BARRIER::Transition(bone_matrix_buffer.GetD3D12Resource(), GetD3D12ResourceStates(Texture::SHADER_READ_ONLY), D3D12_RESOURCE_STATE_COPY_DEST);
             inCmdList->ResourceBarrier(1, &uav_to_copy_barrier);
 
             const Mat4x4* bone_matrices_data = skeleton.boneTransformMatrices.data();
@@ -225,7 +225,7 @@ const SkinningData& AddSkinningPass(RenderGraph& inRenderGraph, Device& inDevice
 
             inDevice.UploadBufferData(inCmdList, bone_matrix_buffer, 0, bone_matrices_data, bone_matrices_size);
 
-            auto copy_to_uav_barrier = CD3DX12_RESOURCE_BARRIER::Transition(bone_matrix_buffer.GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_COPY_DEST, GetD3D12ResourceStates(Texture::SHADER_READ_ONLY));
+            auto copy_to_uav_barrier = CD3DX12_RESOURCE_BARRIER::Transition(bone_matrix_buffer.GetD3D12Resource(), D3D12_RESOURCE_STATE_COPY_DEST, GetD3D12ResourceStates(Texture::SHADER_READ_ONLY));
             inCmdList->ResourceBarrier(1, &copy_to_uav_barrier);
 
             inCmdList.PushComputeConstants(SkinningRootConstants 
@@ -240,8 +240,8 @@ const SkinningData& AddSkinningPass(RenderGraph& inRenderGraph, Device& inDevice
 
             inCmdList->Dispatch((mesh.positions.size() + 63) / 64, 1, 1);
 
-            const Buffer& skinned_vertex_buffer = inDevice.GetBuffer(TextureID(skeleton.skinnedVertexBuffer));
-            uav_barriers.push_back(CD3DX12_RESOURCE_BARRIER::UAV(skinned_vertex_buffer.GetD3D12Resource().Get()));
+            Buffer& skinned_vertex_buffer = inDevice.GetBuffer(TextureID(skeleton.skinnedVertexBuffer));
+            uav_barriers.push_back(CD3DX12_RESOURCE_BARRIER::UAV(skinned_vertex_buffer.GetD3D12Resource()));
         }
 
         if (uav_barriers.size())
@@ -318,8 +318,8 @@ const GBufferData& AddMeshletsRasterPass(RenderGraph& inRenderGraph, Device& inD
             //if (material && material->isTransparent)
                 //continue;
 
-            const Buffer& index_buffer  = inDevice.GetBuffer(BufferID(mesh.indexBuffer));
-            const Buffer& vertex_buffer = inDevice.GetBuffer(BufferID(mesh.vertexBuffer));
+            Buffer& index_buffer  = inDevice.GetBuffer(BufferID(mesh.indexBuffer));
+            Buffer& vertex_buffer = inDevice.GetBuffer(BufferID(mesh.vertexBuffer));
 
             const D3D12_INDEX_BUFFER_VIEW index_view =
             {
@@ -810,7 +810,7 @@ const DownsampleData& AddDownsamplePass(RenderGraph& inRenderGraph, Device& inDe
 
     [&inRenderGraph, &inDevice](DownsampleData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
     {
-        const Texture& texture = inDevice.GetTexture(inRGResources.GetTextureView(inData.mSourceTextureUAV));
+        Texture& texture = inDevice.GetTexture(inRGResources.GetTextureView(inData.mSourceTextureUAV));
         const UVec4 rect_info = UVec4(0u, 0u, texture->GetDesc().Width, texture->GetDesc().Height);
 
         glm::uvec2 work_group_offset, dispatchThreadGroupCountXY, numWorkGroupsAndMips;
@@ -826,7 +826,7 @@ const DownsampleData& AddDownsamplePass(RenderGraph& inRenderGraph, Device& inDe
         numWorkGroupsAndMips[0] = ( dispatchThreadGroupCountXY[0] ) * ( dispatchThreadGroupCountXY[1] );
         numWorkGroupsAndMips[1] = gSpdCaculateMipCount(rect_info[2], rect_info[3]);
 
-        const Buffer& atomic_buffer = inDevice.GetBuffer(inData.mGlobalAtomicBuffer);
+        Buffer& atomic_buffer = inDevice.GetBuffer(inData.mGlobalAtomicBuffer);
 
         SpdRootConstants root_constants =
         {
@@ -845,14 +845,14 @@ const DownsampleData& AddDownsamplePass(RenderGraph& inRenderGraph, Device& inDe
 
         if (first_run)
         {
-            auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(atomic_buffer.GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_DEST);
+            auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(atomic_buffer.GetD3D12Resource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_DEST);
 
             inCmdList->ResourceBarrier(1, &barrier);
 
             const D3D12_WRITEBUFFERIMMEDIATE_PARAMETER param = { .Dest = atomic_buffer->GetGPUVirtualAddress(), .Value = 0 };
             inCmdList->WriteBufferImmediate(1, &param, nullptr);
 
-            barrier = CD3DX12_RESOURCE_BARRIER::Transition(atomic_buffer.GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+            barrier = CD3DX12_RESOURCE_BARRIER::Transition(atomic_buffer.GetD3D12Resource(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
             inCmdList->ResourceBarrier(1, &barrier);
 
             first_run = false;
@@ -1315,7 +1315,7 @@ const PreImGuiData& AddPreImGuiPass(RenderGraph& inRenderGraph, Device& inDevice
 
 
 
-static void ImGui_ImplDX12_SetupRenderState(ImDrawData* draw_data, CommandList& inCmdList, const Buffer& inVertexBuffer, const Buffer& inIndexBuffer, ImGuiRootConstants& inRootConstants)
+static void ImGui_ImplDX12_SetupRenderState(ImDrawData* draw_data, CommandList& inCmdList, Buffer& inVertexBuffer, Buffer& inIndexBuffer, ImGuiRootConstants& inRootConstants)
 {
     // Setup orthographic projection matrix
     inRootConstants.mProjection = glm::ortho(
@@ -1433,8 +1433,8 @@ const ImGuiData& AddImGuiPass(RenderGraph& inRenderGraph, Device& inDevice, Rend
         int nr_of_barriers = 0;
         std::array barriers =
         {
-            D3D12_RESOURCE_BARRIER(CD3DX12_RESOURCE_BARRIER::Transition(inDevice.GetBuffer(inData.mIndexBuffer).GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_INDEX_BUFFER, D3D12_RESOURCE_STATE_COPY_DEST)),
-            D3D12_RESOURCE_BARRIER(CD3DX12_RESOURCE_BARRIER::Transition(inDevice.GetBuffer(inData.mVertexBuffer).GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, D3D12_RESOURCE_STATE_COPY_DEST))
+            D3D12_RESOURCE_BARRIER(CD3DX12_RESOURCE_BARRIER::Transition(inDevice.GetBuffer(inData.mIndexBuffer).GetD3D12Resource(), D3D12_RESOURCE_STATE_INDEX_BUFFER, D3D12_RESOURCE_STATE_COPY_DEST)),
+            D3D12_RESOURCE_BARRIER(CD3DX12_RESOURCE_BARRIER::Transition(inDevice.GetBuffer(inData.mVertexBuffer).GetD3D12Resource(), D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, D3D12_RESOURCE_STATE_COPY_DEST))
         };
 
         if (index_buffer_size) nr_of_barriers++;

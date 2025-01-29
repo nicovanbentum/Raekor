@@ -31,14 +31,14 @@ public:
     uint32_t GetFrameIndex() const { return m_FrameIndex; }
     uint64_t GetFenceValue() const { return m_SubmittedFenceValue; }
 
-    void SetViewportAndScissor(const Texture& inTexture);
+    void SetViewportAndScissor(Texture& inTexture);
     void SetViewportAndScissor(const Viewport& inViewport);
 
     void ClearBuffer(Device& inDevice, BufferID inBuffer, Vec4 inValue);
     void ClearTexture(Device& inDevice, TextureID inTexture, Vec4 inValue);
 
     void BindDefaults(Device& inDevice);
-    void BindIndexBuffer(const Buffer& inBuffer);
+    void BindIndexBuffer(Buffer& inBuffer);
     void BindVertexAndIndexBuffers(Device& inDevice, const RK::Mesh& inMesh);
 
     template<typename T> requires ( sizeof(T) < sMaxRootConstantsSize && std::default_initializable<T> )
@@ -48,10 +48,6 @@ public:
     void PushComputeConstants(const T& inValue);
 
     void BindToSlot(Buffer& inBuffer, EBindSlot inSlot, uint32_t inOffset = 0);
-
-    void TrackResource(const Buffer& inBuffer) { m_ResourceRefs.push_back(inBuffer); }
-    void TrackResource(const Texture& inTexture) { m_ResourceRefs.push_back(inTexture); }
-    void ReleaseTrackedResources() { m_ResourceRefs.clear(); }
 
     void Submit(Device& inDevice, ID3D12CommandQueue* inQueue);
 

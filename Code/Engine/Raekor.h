@@ -16,6 +16,7 @@
 #include "Script.h"
 #include "Physics.h"
 #include "Components.h"
+#include "Application.h"
 #include "DebugRenderer.h"
 
 #ifndef RAEKOR_SCRIPT

@@ -100,12 +100,10 @@ void CommandList::BindToSlot(Buffer& inBuffer, EBindSlot inSlot, uint32_t inOffs
             break;
         default: assert(false);
     }
-
-    TrackResource(inBuffer);
 }
 
 
-void CommandList::BindIndexBuffer(const Buffer& inBuffer)
+void CommandList::BindIndexBuffer(Buffer& inBuffer)
 {
     const D3D12_INDEX_BUFFER_VIEW index_view =
     {
@@ -121,8 +119,8 @@ void CommandList::BindIndexBuffer(const Buffer& inBuffer)
 
 void CommandList::BindVertexAndIndexBuffers(Device& inDevice, const RK::Mesh& inMesh)
 {
-    const Buffer& index_buffer = inDevice.GetBuffer(BufferID(inMesh.indexBuffer));
-    const Buffer& vertex_buffer = inDevice.GetBuffer(BufferID(inMesh.vertexBuffer));
+    Buffer& index_buffer = inDevice.GetBuffer(BufferID(inMesh.indexBuffer));
+    Buffer& vertex_buffer = inDevice.GetBuffer(BufferID(inMesh.vertexBuffer));
 
     const D3D12_INDEX_BUFFER_VIEW index_view =
     {
@@ -143,9 +141,9 @@ void CommandList::BindVertexAndIndexBuffers(Device& inDevice, const RK::Mesh& in
 }
 
 
-void CommandList::SetViewportAndScissor(const Texture& inTexture)
+void CommandList::SetViewportAndScissor(Texture& inTexture)
 {
-    const D3D12_VIEWPORT vp = CD3DX12_VIEWPORT(inTexture.GetD3D12Resource().Get());
+    const D3D12_VIEWPORT vp = CD3DX12_VIEWPORT(inTexture.GetD3D12Resource());
     const D3D12_RECT scissor = CD3DX12_RECT(vp.TopLeftX, vp.TopLeftY, vp.Width, vp.Height);
 
     m_CommandList->RSSetViewports(1, &vp);

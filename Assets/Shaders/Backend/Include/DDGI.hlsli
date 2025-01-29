@@ -132,17 +132,19 @@ float3 DDGISampleIrradiance(float3 inWsPos, float3 inNormal, DDGIData inData) {
         // Initialize the weight to wrap shading
         float weight = saturate(dot(pos_to_probe_dir, inNormal));
         
-        //// Chebyshev visibility test
-        //float2 depth = DDGISampleDepthProbe(probe_index, -pos_to_probe_dir, depth_texture);
-        //float r = length(probe_ws_pos - inWsPos);
-        //float mean = depth.r, mean2 = depth.g;
+#if 0
+        // Chebyshev visibility test
+        float2 depth = DDGISampleDepthProbe(probe_index, -pos_to_probe_dir, depth_texture);
+        float r = length(probe_ws_pos - inWsPos);
+        float mean = depth.r, mean2 = depth.g;
         
-        //if (r < mean)
-        //{
-        //    float variance = abs(square(mean) - mean2);
-        //    weight *= variance / (variance + square(r - mean));
-        //}
-
+        if (r > mean)
+        {
+            float variance = abs(square(mean) - mean2);
+            weight *= variance / (variance + square(r - mean));
+        }
+#endif
+        
         // Calculate trilinear interpolation weight
         float3 tri = lerp(1.0 - ws_pos_01, ws_pos_01, cube_indices);
         float tri_weight = tri.x * tri.y * tri.z;
