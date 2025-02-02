@@ -67,7 +67,7 @@ public:
     void OnEvent(Widgets* inWidgets, const SDL_Event& inEvent);
 
 private:
-    float m_Zoom = 1.0f;
+    float m_Zoom = 1.2f;
     String m_FilterInputBuffer;
     int m_SelectedSectionIndex = -1;
 };

@@ -116,6 +116,7 @@ float3 DDGISampleIrradiance(float3 inWsPos, float3 inNormal, DDGIData inData) {
     
     Texture2D<float2> depth_texture = ResourceDescriptorHeap[inData.mProbesDepthTexture];
     Texture2D<float4> irradiance_texture = ResourceDescriptorHeap[inData.mProbesIrradianceTexture];
+    StructuredBuffer<ProbeData> probe_buffer = ResourceDescriptorHeap[inData.mProbesDataBuffer];
     
     float4 irradiance = 0.0.xxxx;
     
@@ -125,25 +126,30 @@ float3 DDGISampleIrradiance(float3 inWsPos, float3 inNormal, DDGIData inData) {
         uint3 current_probe_coord = start_probe_coord + cube_indices;
         
         uint probe_index = Index3Dto1D(current_probe_coord, inData.mProbeCount);
+        ProbeData probe_data = probe_buffer[probe_index];
+        
+        if (probe_data.inactive)
+            continue;
+        
         float3 probe_ws_pos = DDGIGetProbeWorldPos(current_probe_coord, inData);
-                
         float3 pos_to_probe_dir = normalize(probe_ws_pos - inWsPos);
         
         // Initialize the weight to wrap shading
         float weight = saturate(dot(pos_to_probe_dir, inNormal));
         
-#if 0
-        // Chebyshev visibility test
-        float2 depth = DDGISampleDepthProbe(probe_index, -pos_to_probe_dir, depth_texture);
-        float r = length(probe_ws_pos - inWsPos);
-        float mean = depth.r, mean2 = depth.g;
-        
-        if (r > mean)
+        if (inData.mUseChebyshev)
         {
-            float variance = abs(square(mean) - mean2);
-            weight *= variance / (variance + square(r - mean));
+            // Chebyshev visibility test
+            float2 depth = DDGISampleDepthProbe(probe_index, -pos_to_probe_dir, depth_texture);
+            float r = length(probe_ws_pos - inWsPos);
+            float mean = depth.r, mean2 = depth.g;
+            
+            if (r > mean)
+            {
+                float variance = abs(square(mean) - mean2);
+                weight *= variance / (variance + square(r - mean));
+            }
         }
-#endif
         
         // Calculate trilinear interpolation weight
         float3 tri = lerp(1.0 - ws_pos_01, ws_pos_01, cube_indices);

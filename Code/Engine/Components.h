@@ -323,6 +323,7 @@ struct DDGISceneSettings : public Component
 
 	void FitToScene(const Scene& inScene, Transform& ioTransform);
 
+    bool mUseChebyshev = false;
 	IVec3 mDDGIDebugProbe = UVec3(10, 10, 5);
 	IVec3 mDDGIProbeCount = UVec3(22, 22, 22);
 	Vec3 mDDGIProbeSpacing = Vec3(0.1f, 0.1f, 0.1f);

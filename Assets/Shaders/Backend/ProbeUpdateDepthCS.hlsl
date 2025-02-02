@@ -47,13 +47,14 @@ void main(uint3 threadID : SV_DispatchThreadID,  uint3 groupThreadID : SV_GroupT
         
         for (uint ray_index = 0; ray_index < DDGI_RAYS_PER_PROBE; ray_index++) 
         {
-            float ray_depth = lds_ProbeDepthRays[ray_index];
+            // ray depth can be negative to indicate backface hit, so take abs
+            float ray_depth = abs(lds_ProbeDepthRays[ray_index]);
             // limit the depth to the max distance between probes, if its further we would have picked a different probe anyway
-            ray_depth = min(ray_depth, length(rc.mDDGIData.mProbeSpacing));
+            ray_depth = min(ray_depth, length(rc.mDDGIData.mProbeSpacing * 1.5f));
         
             float3 ray_dir = normalize(mul((float3x3) rc.mRandomRotationMatrix, lds_ProbeRayDirections[ray_index]));
             
-            float weight = saturate(dot(octahedral_dir, ray_dir));
+            float weight = max(0.0f, dot(octahedral_dir, ray_dir));
             //weight = pow(weight, 64);
 
             if (weight > 0.0001)

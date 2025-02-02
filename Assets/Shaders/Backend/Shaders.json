@@ -235,6 +235,14 @@
             }
         },
 
+        "Probe Update Shader":
+        {
+            "Compute Shader":
+            {
+                "File Path": "Assets/Shaders/Backend/ProbeUpdateCS.hlsl"
+            }
+        },
+
         "Probe Update Depth Shader":
         {
             "Compute Shader":

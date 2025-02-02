@@ -39,6 +39,7 @@ struct RenderSettings
     static inline uint32_t mPathTraceBounces = 2u;
     static inline uint32_t mPathTraceAlphaBounces = 4u;
 
+    static inline bool mDDGIUseChebyshev = false;
     static inline float mDDGIDebugRadius = 0.25f;
     static inline IVec3 mDDGIDebugProbe = IVec3(10, 10, 5);
     static inline IVec3 mDDGIProbeCount = IVec3(22, 22, 22);

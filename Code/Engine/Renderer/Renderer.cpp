@@ -324,6 +324,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
         const Transform& ddgi_transform = inScene->Get<Transform>(ddgi_entity);
         const DDGISceneSettings& ddgi_settings = inScene->Get<DDGISceneSettings>(ddgi_entity);
 
+        RenderSettings::mDDGIUseChebyshev = ddgi_settings.mUseChebyshev;
         RenderSettings::mDDGIProbeCount = ddgi_settings.mDDGIProbeCount;
         RenderSettings::mDDGIProbeSpacing = ddgi_settings.mDDGIProbeSpacing;
         RenderSettings::mDDGICornerPosition = ddgi_transform.position;

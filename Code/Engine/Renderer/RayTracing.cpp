@@ -3,6 +3,7 @@
 
 #include "Scene.h"
 #include "Shader.h"
+#include "GPUProfiler.h"
 #include "RenderPasses.h"
 
 #include "Camera.h"
@@ -499,6 +500,7 @@ DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTr
                 .mProbeCount = RenderSettings::mDDGIProbeCount,
                 .mProbeRadius = RenderSettings::mDDGIDebugRadius,
                 .mProbeSpacing = RenderSettings::mDDGIProbeSpacing,
+                .mUseChebyshev = RenderSettings::mDDGIUseChebyshev,
                 .mCornerPosition = RenderSettings::mDDGICornerPosition,
                 .mProbesDataBuffer = inDevice.GetBindlessHeapIndex(inRGResources.GetBuffer(inData.mProbeDataBuffer)),
                 .mRaysDepthTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTexture(inData.mRaysDepthTexture)),
@@ -516,11 +518,14 @@ DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTr
         inCmdList->Dispatch(DDGI_RAYS_PER_PROBE / DDGI_TRACE_SIZE, total_probe_count, 1);
     });
 
+
+
     //////////////////////////////////////////
     ///// Probe Update Compute Pass
     //////////////////////////////////////////
     struct ProbeUpdateData
     {
+        RenderGraphResourceViewID mProbesBufferUAV;
         RenderGraphResourceViewID mProbesDepthTextureUAV;
         RenderGraphResourceViewID mProbesIrradianceTextureUAV;
         RenderGraphResourceViewID mRaysDepthTextureSRV;
@@ -530,6 +535,7 @@ DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTr
     const ProbeUpdateData& update_data =  inRenderGraph.AddComputePass<ProbeUpdateData>("DDGI Update",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ProbeUpdateData& inData)
     {
+        inData.mProbesBufferUAV = ioRGBuilder.Write(trace_data.mProbeDataBuffer);
         inData.mProbesDepthTextureUAV = ioRGBuilder.Write(trace_data.mProbesDepthTexture);
         inData.mProbesIrradianceTextureUAV = ioRGBuilder.Write(trace_data.mProbesIrradianceTexture);
 
@@ -549,7 +555,9 @@ DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTr
                 .mProbeCount = RenderSettings::mDDGIProbeCount,
                 .mProbeRadius = RenderSettings::mDDGIDebugRadius,
                 .mProbeSpacing = RenderSettings::mDDGIProbeSpacing,
+                .mUseChebyshev = RenderSettings::mDDGIUseChebyshev,
                 .mCornerPosition = RenderSettings::mDDGICornerPosition,
+                .mProbesDataBuffer = inResources.GetBindlessHeapIndex(inData.mProbesBufferUAV),
                 .mRaysDepthTexture = inResources.GetBindlessHeapIndex(inData.mRaysDepthTextureSRV),
                 .mProbesDepthTexture = inResources.GetBindlessHeapIndex(inData.mProbesDepthTextureUAV),
                 .mRaysIrradianceTexture = inResources.GetBindlessHeapIndex(inData.mRaysIrradianceTextureSRV),
@@ -557,15 +565,33 @@ DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTr
             }
         });
 
-#if 0
-        inCmdList->SetPipelineState(g_SystemShaders.mProbeUpdateDepthShader.GetComputePSO());
-        const Texture& depth_texture = inDevice.GetTexture(inResources.GetTextureView(inData.mProbesDepthTextureUAV));
-        inCmdList->Dispatch(depth_texture.GetDesc().width / DDGI_DEPTH_TEXELS, depth_texture.GetDesc().height / DDGI_DEPTH_TEXELS, 1);
+        const int total_probe_count = RenderSettings::mDDGIProbeCount.x * RenderSettings::mDDGIProbeCount.y * RenderSettings::mDDGIProbeCount.z;
+
+#if 1
+        {
+            PROFILE_SCOPE_GPU(inCmdList, "Update Probes");
+
+            inCmdList->SetPipelineState(g_SystemShaders.mProbeUpdateShader.GetComputePSO());
+            const Buffer& probe_buffer = inDevice.GetBuffer(inResources.GetBufferView(inData.mProbesBufferUAV));
+            inCmdList->Dispatch(( total_probe_count + 63 / 64 ), 1, 1);
+        }
+
+        {
+            PROFILE_SCOPE_GPU(inCmdList, "Update Depth");
+
+            inCmdList->SetPipelineState(g_SystemShaders.mProbeUpdateDepthShader.GetComputePSO());
+            const Texture& depth_texture = inDevice.GetTexture(inResources.GetTextureView(inData.mProbesDepthTextureUAV));
+            inCmdList->Dispatch(depth_texture.GetDesc().width / DDGI_DEPTH_TEXELS, depth_texture.GetDesc().height / DDGI_DEPTH_TEXELS, 1);
+        }
 #endif
 
-        inCmdList->SetPipelineState(g_SystemShaders.mProbeUpdateIrradianceShader.GetComputePSO());
-        const Texture& irradiance_texture = inDevice.GetTexture(inResources.GetTextureView(inData.mProbesIrradianceTextureUAV));
-        inCmdList->Dispatch(irradiance_texture.GetWidth() / DDGI_IRRADIANCE_TEXELS, irradiance_texture.GetHeight() / DDGI_IRRADIANCE_TEXELS, 1);
+        {
+            PROFILE_SCOPE_GPU(inCmdList, "Update Irradiance");
+
+            inCmdList->SetPipelineState(g_SystemShaders.mProbeUpdateIrradianceShader.GetComputePSO());
+            const Texture& irradiance_texture = inDevice.GetTexture(inResources.GetTextureView(inData.mProbesIrradianceTextureUAV));
+            inCmdList->Dispatch(irradiance_texture.GetWidth() / DDGI_IRRADIANCE_TEXELS, irradiance_texture.GetHeight() / DDGI_IRRADIANCE_TEXELS, 1);
+        }
     });
 
     //////////////////////////////////////////
@@ -612,6 +638,7 @@ DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTr
                 .mProbeCount = RenderSettings::mDDGIProbeCount,
                 .mProbeRadius = RenderSettings::mDDGIDebugRadius,
                 .mProbeSpacing = RenderSettings::mDDGIProbeSpacing,
+                .mUseChebyshev = RenderSettings::mDDGIUseChebyshev,
                 .mCornerPosition = RenderSettings::mDDGICornerPosition,
                 .mProbesDataBuffer = inResources.GetBindlessHeapIndex(inData.mProbeDataBufferSRV),
                 .mProbesDepthTexture = inResources.GetBindlessHeapIndex(inData.mProbesDepthTextureSRV),

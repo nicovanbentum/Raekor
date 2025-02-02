@@ -160,6 +160,7 @@ struct SystemShadersDX12 : public IResource
 
     ComputeProgram mProbeTraceShader;
     ComputeProgram mProbeSampleShader;
+    ComputeProgram mProbeUpdateShader;
     ComputeProgram mProbeUpdateDepthShader;
     ComputeProgram mProbeUpdateIrradianceShader;
 

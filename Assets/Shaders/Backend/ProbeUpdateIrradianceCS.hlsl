@@ -7,12 +7,14 @@
 FRAME_CONSTANTS(fc)
 ROOT_CONSTANTS(ProbeUpdateRootConstants, rc)
 
+groupshared float lds_ProbeDepthRays[DDGI_RAYS_PER_PROBE];
 groupshared float3 lds_ProbeRayDirections[DDGI_RAYS_PER_PROBE];
 groupshared float3 lds_ProbeIrradianceRays[DDGI_RAYS_PER_PROBE];
 
 [numthreads(DDGI_IRRADIANCE_TEXELS, DDGI_IRRADIANCE_TEXELS, 1)]
 void main(uint3 threadID : SV_DispatchThreadID,  uint3 groupThreadID : SV_GroupThreadID, uint3 groupID : SV_GroupID, uint inGroupIndex : SV_GroupIndex) 
 {
+    Texture2D<float2> rays_depth_texture = ResourceDescriptorHeap[rc.mDDGIData.mRaysDepthTexture];
     Texture2D<float3> rays_irradiance_texture = ResourceDescriptorHeap[rc.mDDGIData.mRaysIrradianceTexture];
     RWTexture2D<float4> probes_irradiance_texture = ResourceDescriptorHeap[rc.mDDGIData.mProbesIrradianceTexture];
     
@@ -27,6 +29,7 @@ void main(uint3 threadID : SV_DispatchThreadID,  uint3 groupThreadID : SV_GroupT
     for (uint i = 0; i < rays_per_lane; i++)
     {
         uint ray_index = inGroupIndex * rays_per_lane + i;
+        lds_ProbeDepthRays[ray_index] = rays_depth_texture[uint2(ray_index, probe_index)].x;
         lds_ProbeRayDirections[ray_index] = SphericalFibonnaci(ray_index, DDGI_RAYS_PER_PROBE);
         lds_ProbeIrradianceRays[ray_index] = rays_irradiance_texture[uint2(ray_index, probe_index)];
     }
@@ -46,9 +49,18 @@ void main(uint3 threadID : SV_DispatchThreadID,  uint3 groupThreadID : SV_GroupT
         float3 octahedral_dir = OctDecode(octahedral_uv);
     
         float4 irradiance = 0.xxxx;
+        uint backface_count = 0;
         
         for (uint ray_index = 0; ray_index < DDGI_RAYS_PER_PROBE; ray_index++) 
         {
+            float depth = lds_ProbeDepthRays[ray_index];
+            
+            if (depth < 0.0)
+            {
+                if (++backface_count >= DDGI_RAYS_BACKFACE_THRESHOLD)
+                    return;
+            }
+            
             float3 ray_irradiance = lds_ProbeIrradianceRays[ray_index];
         
             float3 ray_dir = normalize(mul((float3x3) rc.mRandomRotationMatrix, lds_ProbeRayDirections[ray_index]));

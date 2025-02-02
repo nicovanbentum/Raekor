@@ -40,6 +40,7 @@
 #define DDGI_IRRADIANCE_TEXELS_NO_BORDER 6  // Irradiance is stored as 6x6 FORMAT_R11G11B10F texels with a 1 pixel border
 #define DDGI_PROBES_PER_ROW 40              // Number of probes per row for the final probe texture
 #define DDGI_RAYS_PER_PROBE 256             // Basically wave size * rays per wave
+#define DDGI_RAYS_BACKFACE_THRESHOLD 128    // if exceeded the probe is probably inside of geometry
 
 #define RT_SHADOWS_GROUP_DIM 16     // RT shadows divides the screen up in 16x16 pixel tiles
 #define RT_SHADOWS_PACKED_DIM_X 8   // RT shadows stores every 8x4 pixels ray results as a 32bit mask
@@ -167,7 +168,7 @@ struct DDGIData
     int3   mProbeCount;
     float  mProbeRadius;
     float3 mProbeSpacing;
-    uint   pad1;
+    uint   mUseChebyshev;
     float3 mCornerPosition;
     uint   mProbesDataBuffer;
     uint   mRaysDepthTexture;
@@ -179,7 +180,7 @@ struct DDGIData
 
 struct ProbeData
 {
-    uint backfaced;
+    uint inactive;
     float3 offset;
 };
 

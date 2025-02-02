@@ -71,7 +71,7 @@ void main(uint3 threadID : SV_DispatchThreadID) {
 
         if (!query.CommittedTriangleFrontFace())
         {
-            depth_texture[ray_texture_index] = hitT;
+            depth_texture[ray_texture_index] = -hitT;
             irradiance_texture[ray_texture_index] = float3(0, 0, 0);
             return;
         }
@@ -102,7 +102,7 @@ void main(uint3 threadID : SV_DispatchThreadID) {
         // Infinite bounces!
         if (fc.mFrameCounter > 0)
         {
-            //irradiance += surface.mAlbedo.rgb * DDGISampleIrradiance(vertex.mPos, vertex.mNormal, rc.mDDGIData);
+            irradiance += surface.mAlbedo.rgb * DDGISampleIrradiance(vertex.mPos, vertex.mNormal, rc.mDDGIData);
         }
     }
     else

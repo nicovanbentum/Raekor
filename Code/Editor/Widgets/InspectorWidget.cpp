@@ -14,6 +14,7 @@
 #include "Components.h"
 #include "Application.h"
 #include "DebugRenderer.h"
+#include "Renderer/Shared.h"
 
 #include "ViewportWidget.h"
 #include "SequenceWidget.h"
@@ -1281,7 +1282,13 @@ bool InspectorWidget::DrawComponent(Entity inEntity, DDGISceneSettings& ioSettin
 	if (ImGui::Button("Fit to Scene", ImVec2(ImGui::GetWindowWidth(), 0)))
 		ioSettings.FitToScene(GetScene(), GetScene().Get<Transform>(GetActiveEntity()));
 
-	CheckForUndo(inEntity, ioSettings, m_DDGISceneSettingsUndo);
+    CheckForUndo(inEntity, ioSettings, m_DDGISceneSettingsUndo);
+
+    ImGui::Text("Total Ray Count: %i", ioSettings.mDDGIProbeCount.x * ioSettings.mDDGIProbeCount.y * ioSettings.mDDGIProbeCount.z * DDGI_RAYS_PER_PROBE);
+
+    ImGui::Checkbox("Use Depth", &ioSettings.mUseChebyshev);
+
+    CheckForUndo(inEntity, ioSettings, m_DDGISceneSettingsUndo);
 
 	ImGui::DragInt3("Probe Count", glm::value_ptr(ioSettings.mDDGIProbeCount), 1, 1, 40);
 
