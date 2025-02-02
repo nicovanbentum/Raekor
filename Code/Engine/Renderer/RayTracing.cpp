@@ -573,7 +573,7 @@ DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTr
 
             inCmdList->SetPipelineState(g_SystemShaders.mProbeUpdateShader.GetComputePSO());
             const Buffer& probe_buffer = inDevice.GetBuffer(inResources.GetBufferView(inData.mProbesBufferUAV));
-            inCmdList->Dispatch(( total_probe_count + 63 / 64 ), 1, 1);
+            inCmdList->Dispatch((total_probe_count + 63) / 64 , 1, 1);
         }
 
         {
