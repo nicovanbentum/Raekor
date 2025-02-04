@@ -176,17 +176,17 @@ RTTI_DEFINE_TYPE(CharacterControllerScript)
 {
     RTTI_DEFINE_TYPE_INHERITANCE(CharacterControllerScript, INativeScript);
 
-    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, &RTTI_OF<bool>(), "Follow Camera", m_FollowCamera);
-    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, &RTTI_OF<Entity>(), "Run Animation", m_RunAnimationEntity);
-    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, &RTTI_OF<Entity>(), "Idle Animation", m_IdleAnimationEntity);
-    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, &RTTI_OF<Entity>(), "Jump Animation", m_JumpAnimationEntity);
+    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, bool, "Follow Camera", m_FollowCamera);
+    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, Entity, "Run Animation", m_RunAnimationEntity);
+    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, Entity, "Idle Animation", m_IdleAnimationEntity);
+    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, Entity, "Jump Animation", m_JumpAnimationEntity);
 
-    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, &RTTI_OF<float>(), "Test", m_Test);
-    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, &RTTI_OF<float>(), "Mass", m_Mass);
-    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, &RTTI_OF<float>(), "Run Speed", m_Speed);
-    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, &RTTI_OF<float>(), "Jump Height", m_JumpHeight);
-    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, &RTTI_OF<float>(), "Player Height", m_PlayerHeight);
-    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, &RTTI_OF<float>(), "Camera Speed", m_CameraSpeed);
-    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, &RTTI_OF<float>(), "Camera Height", m_CameraHeight);
-    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, &RTTI_OF<float>(), "Camera Distance", m_CameraDistance);
+    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, float, "Test", m_Test);
+    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, float, "Mass", m_Mass);
+    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, float, "Run Speed", m_Speed);
+    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, float, "Jump Height", m_JumpHeight);
+    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, float, "Player Height", m_PlayerHeight);
+    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, float, "Camera Speed", m_CameraSpeed);
+    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, float, "Camera Height", m_CameraHeight);
+    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, float, "Camera Distance", m_CameraDistance);
 }

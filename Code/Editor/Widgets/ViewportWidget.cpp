@@ -31,7 +31,9 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	Physics& physics = IWidget::GetPhysics();
 	Viewport& viewport = m_Editor->GetViewport();
 
-	static int& show_debug_text = g_CVariables->Create("r_show_debug_text", 1, IF_DEBUG_ELSE(true, false));
+    static int& show_border = g_CVariables->Create("r_show_border", 1, IF_DEBUG_ELSE(true, false));
+    static int& show_debug_fps = g_CVariables->Create("r_show_debug_fps", 1, IF_DEBUG_ELSE(true, false));
+    static int& show_debug_text = g_CVariables->Create("r_show_debug_text", 1, IF_DEBUG_ELSE(true, false));
 	static int& show_debug_icons = g_CVariables->Create("r_show_debug_icons", 1, IF_DEBUG_ELSE(true, false));
 
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(2, 2));
@@ -80,7 +82,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 	const ImVec2 image_size = ImVec2(size.x, size.y);
 	const ImVec4 border_color = GetPhysics().GetState() != Physics::Idle ? border_state_colors[GetPhysics().GetState()] : ImVec4(0, 0, 0, 1);
-	ImGui::Image((void*)( (intptr_t)m_DisplayTexture ), size, uv0, uv1, ImVec4(1, 1, 1, 1), border_color);
+	ImGui::Image((void*)( (intptr_t)m_DisplayTexture ), size, uv0, uv1, ImVec4(1, 1, 1, 1), show_border ? border_color : ImVec4(0, 0, 0, 1));
 
 	m_IsMouseOver = ImGui::IsItemHovered();
 	const ImVec2 viewportMin = ImGui::GetItemRectMin();
@@ -360,7 +362,11 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 		ImGui::PushStyleVar(ImGuiStyleVar_SeparatorTextAlign, ImVec2(0.5f, 0.5f));
 		ImGui::SeparatorText("Viewport Settings");
 
-		ImGui::Checkbox("Show Debug Text", (bool*)&show_debug_text);
+        ImGui::Checkbox("Show Border", (bool*)&show_border);
+
+        ImGui::Checkbox("Show Debug FPS", (bool*)&show_debug_fps);
+
+        ImGui::Checkbox("Show Debug Text", (bool*)&show_debug_text);
 
 		ImGui::Checkbox("Show Debug Icons", (bool*)&show_debug_icons);
 
@@ -654,8 +660,12 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			ImGui::Text("Triangle Count: %i", triangle_count);
 			ImGui::Text("Render Resolution: %i x %i", viewport.GetRenderSize().x, viewport.GetRenderSize().y);
 			ImGui::Text("Display Resolution: %i x %i", viewport.GetDisplaySize().x, viewport.GetDisplaySize().y);
-			ImGui::Text("Frame %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 		}
+
+        if (show_debug_fps)
+        {
+			ImGui::Text("Frame %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+        }
 
 		ImGui::End();
 

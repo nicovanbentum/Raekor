@@ -33,7 +33,8 @@ void AddDebugLine(float3 inP1, float3 inP2, float4 inColor1, float4 inColor2)
 }
 
 [numthreads(DDGI_TRACE_SIZE, 1, 1)]
-void main(uint3 threadID : SV_DispatchThreadID) {
+void main(uint3 threadID : SV_DispatchThreadID) 
+{
     RaytracingAccelerationStructure TLAS = ResourceDescriptorHeap[fc.mTLAS];
     StructuredBuffer<RTGeometry> geometries = ResourceDescriptorHeap[fc.mInstancesBuffer];
     StructuredBuffer<RTMaterial> materials  = ResourceDescriptorHeap[fc.mMaterialsBuffer];
@@ -113,6 +114,7 @@ void main(uint3 threadID : SV_DispatchThreadID) {
         hitT = ray.TMax;
     }
     
+#if 0
     if (probe_index == rc.mDebugProbeIndex) {
        // Resets indirect draw args VertexCount to 0 and InstanceCount to 1
        if (ray_index == 0)
@@ -123,9 +125,9 @@ void main(uint3 threadID : SV_DispatchThreadID) {
        float3 debug_ray_end   = ray.Origin + ray.Direction * hitT;
         
        // InterlockedAdd( 2 ) to the VertexCount, use the original value as write index into the line vertex buffer
-       //AddDebugLine(debug_ray_start, debug_ray_end, debug_ray_color, debug_ray_color);
+       AddDebugLine(debug_ray_start, debug_ray_end, debug_ray_color, debug_ray_color);
     }
-    
+#endif
     
     depth_texture[ray_texture_index] = hitT;
     irradiance_texture[ray_texture_index] = irradiance;

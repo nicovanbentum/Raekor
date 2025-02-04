@@ -56,6 +56,12 @@ struct Transform : public Component
 	Vec3 GetPositionWorldSpace() const;
 	Quat GetRotationWorldSpace() const;
 
+    void Scale(Vec3 inScale);
+    void Translate(Vec3 inTranslation);
+
+    void Rotate(Quat inRotation);
+    void Rotate(float inDegrees, Vec3 inAxis);
+
 	void Print();
 	void Compose();
 	void Decompose();

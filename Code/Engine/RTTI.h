@@ -211,8 +211,8 @@ public:                                                                         
 #define RTTI_DEFINE_MEMBER(class_type, serial_type, custom_type_string, member_type) \
     inRTTI.AddMember(new ClassMember<class_type, decltype(class_type::member_type)>(#member_type, custom_type_string, &class_type::member_type, nullptr, serial_type))
 
-#define RTTI_DEFINE_SCRIPT_MEMBER(class_type, serial_type, rtti_of, custom_type_string, member_type) \
-    inRTTI.AddMember(new ClassMember<class_type, decltype(class_type::member_type)>(#member_type, custom_type_string, &class_type::member_type, rtti_of, serial_type))
+#define RTTI_DEFINE_SCRIPT_MEMBER(class_type, serial_type, type, custom_type_string, member_type) \
+    inRTTI.AddMember(new ClassMember<class_type, decltype(class_type::member_type)>(#member_type, custom_type_string, &class_type::member_type, &RTTI_OF<type>(), serial_type))
 
 #define RTTI_DECLARE_TYPE_PRIMITIVE(type) \
 	RK::RTTI& sGetRTTI(type* inType); \

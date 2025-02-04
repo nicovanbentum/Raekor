@@ -15,11 +15,13 @@ groupshared float3 lds_ProbeIrradianceRays[DDGI_RAYS_PER_PROBE];
 void main(uint3 threadID : SV_DispatchThreadID,  uint3 groupThreadID : SV_GroupThreadID, uint3 groupID : SV_GroupID, uint inGroupIndex : SV_GroupIndex) 
 {
     Texture2D<float2> rays_depth_texture = ResourceDescriptorHeap[rc.mDDGIData.mRaysDepthTexture];
+    StructuredBuffer<ProbeData> probe_buffer = ResourceDescriptorHeap[rc.mDDGIData.mProbesDataBuffer];
     Texture2D<float3> rays_irradiance_texture = ResourceDescriptorHeap[rc.mDDGIData.mRaysIrradianceTexture];
     RWTexture2D<float4> probes_irradiance_texture = ResourceDescriptorHeap[rc.mDDGIData.mProbesIrradianceTexture];
     
     // 1D index of the probe we are on, used to read the 192 ray hits from the ray tracing results
     uint probe_index = Index2DTo1D(groupID.xy, DDGI_PROBES_PER_ROW);
+    ProbeData probe_data = probe_buffer[probe_index];
     
     // calculate how many rays the current thread should write to lds
     const uint rays_per_lane = DDGI_RAYS_PER_PROBE / (DDGI_IRRADIANCE_TEXELS * DDGI_IRRADIANCE_TEXELS);
@@ -50,29 +52,25 @@ void main(uint3 threadID : SV_DispatchThreadID,  uint3 groupThreadID : SV_GroupT
     
         float4 irradiance = 0.xxxx;
         uint backface_count = 0;
-        
-        for (uint ray_index = 0; ray_index < DDGI_RAYS_PER_PROBE; ray_index++) 
+
+        if (!probe_data.inactive)
         {
-            float depth = lds_ProbeDepthRays[ray_index];
-            
-            if (depth < 0.0)
+            for (uint ray_index = 0; ray_index < DDGI_RAYS_PER_PROBE; ray_index++) 
             {
-                if (++backface_count >= DDGI_RAYS_BACKFACE_THRESHOLD)
-                    return;
+                float3 ray_irradiance = lds_ProbeIrradianceRays[ray_index];
+            
+                float3 ray_dir = normalize(mul((float3x3) rc.mRandomRotationMatrix, lds_ProbeRayDirections[ray_index]));
+                
+                float weight = saturate(dot(octahedral_dir, ray_dir));
+                
+                if (weight > 0.0001)
+                {
+                    irradiance += float4(ray_irradiance * weight, weight);
+                }
+            
             }
-            
-            float3 ray_irradiance = lds_ProbeIrradianceRays[ray_index];
-        
-            float3 ray_dir = normalize(mul((float3x3) rc.mRandomRotationMatrix, lds_ProbeRayDirections[ray_index]));
-            
-            float weight = saturate(dot(octahedral_dir, ray_dir));
-            
-            if (weight > 0.0001)
-            {
-                irradiance += float4(ray_irradiance * weight, weight);
-            }
-        
         }
+        
     
         if (irradiance.w > 0.0)
             irradiance.rgb /= irradiance.w;

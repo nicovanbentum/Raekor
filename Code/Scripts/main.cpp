@@ -9,6 +9,7 @@
 
 using namespace RK;
 
+DECLARE_SCRIPT_CLASS(GunScript);
 DECLARE_SCRIPT_CLASS(TestScript);
 DECLARE_SCRIPT_CLASS(LightsScript);
 DECLARE_SCRIPT_CLASS(AnimateSunScript);
@@ -17,6 +18,7 @@ DECLARE_SCRIPT_CLASS(CharacterControllerScript);
 
 void gRegisterScriptTypes()
 {
+    g_RTTIFactory.Register<GunScript>();
     g_RTTIFactory.Register<TestScript>();
     g_RTTIFactory.Register<LightsScript>();
     g_RTTIFactory.Register<AnimateSunScript>();

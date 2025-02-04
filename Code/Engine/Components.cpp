@@ -175,6 +175,30 @@ void gRegisterComponentTypes()
 Material Material::Default;
 
 
+void Transform::Scale(Vec3 inScale)
+{
+    scale += inScale;
+}
+
+
+void Transform::Translate(Vec3 inTranslation)
+{
+    position += inTranslation;
+}
+
+
+void Transform::Rotate(Quat inRotation)
+{
+    rotation *= inRotation;
+}
+
+
+void Transform::Rotate(float inDegrees, Vec3 inAxis)
+{
+    Rotate(glm::angleAxis(glm::radians(inDegrees), inAxis));
+}
+
+
 void Transform::Compose()
 {
 	localTransform = glm::translate(Mat4x4(1.0f), position);

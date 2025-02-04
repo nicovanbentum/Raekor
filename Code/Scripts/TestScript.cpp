@@ -38,6 +38,12 @@ public:
                 GetPhysics()->GetSystem()
             );
             m_Character->AddToPhysicsSystem();
+
+            if (RigidBody* rb = FindComponent<RigidBody>())
+            {
+                rb->bodyID = m_Character->GetBodyID();
+                rb->motion = RigidBody::DYNAMIC;
+            }
         }
 
 #if 1
@@ -54,6 +60,10 @@ public:
                 rb.motionType = JPH::EMotionType::Dynamic;
                 rb.CreateSphereCollider(*GetPhysics(), cBulletSize);
                 rb.CreateBody(*GetPhysics(), *FindComponent<Transform>(entity));
+
+                Light& light = m_Scene->Add<Light>(entity);
+                light.type = LIGHT_TYPE_POINT;
+                light.color = Vec4(1.0f, 0.6f, 0.0f, 0.02f);
 
                 if (Material* material = FindComponent<Material>(m_BulletMaterial))
                 {
@@ -206,7 +216,12 @@ private:
     Entity m_BulletMaterial = Entity::Null;
     StaticArray<Entity, cBulletCount> m_Bullets;
 
+    float m_SwayStep = 0.01f;
+    float m_SwayMaxStepDistance = 0.06f;
+    Vec3 m_SwayPosition = Vec3(0, 0, 0);
+
     Camera m_Camera;
+    Vec2 m_LookInput = Vec2(0, 0);
     float m_CameraFov = 65.0f;
     JPH::Character* m_Character = nullptr;
     JPH::CharacterSettings settings;
@@ -218,9 +233,9 @@ RTTI_DEFINE_TYPE(TestScript)
 {
     RTTI_DEFINE_TYPE_INHERITANCE(TestScript, INativeScript);
 
-    RTTI_DEFINE_SCRIPT_MEMBER(TestScript, SERIALIZE_ALL, &RTTI_OF<float>(), "Speed", m_Speed);
-    RTTI_DEFINE_SCRIPT_MEMBER(TestScript, SERIALIZE_ALL, &RTTI_OF<float>(), "Jump Height", m_JumpHeight);
-    RTTI_DEFINE_SCRIPT_MEMBER(TestScript, SERIALIZE_ALL, &RTTI_OF<float>(), "Height Offset", m_HeightOffset);
-    RTTI_DEFINE_SCRIPT_MEMBER(TestScript, SERIALIZE_ALL, &RTTI_OF<float>(), "Bullet Velocity", m_BulletVelocity);
-    RTTI_DEFINE_SCRIPT_MEMBER(TestScript, SERIALIZE_ALL, &RTTI_OF<Entity>(), "Bullet Material", m_BulletMaterial);
-}
+    RTTI_DEFINE_SCRIPT_MEMBER(TestScript, SERIALIZE_ALL, float, "Speed", m_Speed);
+    RTTI_DEFINE_SCRIPT_MEMBER(TestScript, SERIALIZE_ALL, float, "Jump Height", m_JumpHeight);
+    RTTI_DEFINE_SCRIPT_MEMBER(TestScript, SERIALIZE_ALL, float, "Height Offset", m_HeightOffset);
+    RTTI_DEFINE_SCRIPT_MEMBER(TestScript, SERIALIZE_ALL, float, "Bullet Velocity", m_BulletVelocity);
+    RTTI_DEFINE_SCRIPT_MEMBER(TestScript, SERIALIZE_ALL, Entity, "Bullet Material", m_BulletMaterial);
+}                                                        

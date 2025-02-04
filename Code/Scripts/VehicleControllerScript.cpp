@@ -219,11 +219,11 @@ RTTI_DEFINE_TYPE(VehicleControllerScript)
 {
     RTTI_DEFINE_TYPE_INHERITANCE(VehicleControllerScript, INativeScript);
 
-    RTTI_DEFINE_SCRIPT_MEMBER(VehicleControllerScript, SERIALIZE_ALL, &RTTI_OF<Entity>(), "Body", m_BodyEntity);
-    RTTI_DEFINE_SCRIPT_MEMBER(VehicleControllerScript, SERIALIZE_ALL, &RTTI_OF<Entity>(), "Wheel (FL)", m_WheelEntityFL);
-    RTTI_DEFINE_SCRIPT_MEMBER(VehicleControllerScript, SERIALIZE_ALL, &RTTI_OF<Entity>(), "Wheel (FR)", m_WheelEntityFR);
-    RTTI_DEFINE_SCRIPT_MEMBER(VehicleControllerScript, SERIALIZE_ALL, &RTTI_OF<Entity>(), "Wheel (BL)", m_WheelEntityBL);
-    RTTI_DEFINE_SCRIPT_MEMBER(VehicleControllerScript, SERIALIZE_ALL, &RTTI_OF<Entity>(), "Wheel (BR)", m_WheelEntityBR);
+    RTTI_DEFINE_SCRIPT_MEMBER(VehicleControllerScript, SERIALIZE_ALL, Entity, "Body", m_BodyEntity);
+    RTTI_DEFINE_SCRIPT_MEMBER(VehicleControllerScript, SERIALIZE_ALL, Entity, "Wheel (FL)", m_WheelEntityFL);
+    RTTI_DEFINE_SCRIPT_MEMBER(VehicleControllerScript, SERIALIZE_ALL, Entity, "Wheel (FR)", m_WheelEntityFR);
+    RTTI_DEFINE_SCRIPT_MEMBER(VehicleControllerScript, SERIALIZE_ALL, Entity, "Wheel (BL)", m_WheelEntityBL);
+    RTTI_DEFINE_SCRIPT_MEMBER(VehicleControllerScript, SERIALIZE_ALL, Entity, "Wheel (BR)", m_WheelEntityBR);
 
     // Fields go here
 }
