@@ -5,26 +5,14 @@
 
 namespace RK {
 
-class Scene;
+enum Entity : uint32_t 
+{ 
+    Null = UINT32_MAX 
+};
 
-enum Entity : uint32_t { Null = UINT32_MAX };
-using AtomicEntity = std::atomic<Entity>;
 RTTI_DECLARE_TYPE_PRIMITIVE(Entity);
 
 using EntityHierarchy = BinaryRelations::OneToMany<Entity, Entity>;
-
-struct Component
-{
-	RTTI_DECLARE_TYPE(Component);
-
-	class Change
-	{
-		virtual void Commit(Scene& inScene);
-		virtual void Revert(Scene& inScene);
-	};
-};
-
-using ComponentID = uint32_t;
 
 template<typename T>
 class ComponentStorage;
@@ -53,8 +41,11 @@ public:
 
 	bool IsEmpty() const { return Length() == 0; }
 
-	template<typename T> ComponentStorage<T>* GetDerived() { return static_cast<ComponentStorage<T>*>( this ); }
-	template<typename T> ComponentStorage<T>* GetDerived() const { return static_cast<ComponentStorage<T>*>( this ); }
+	template<typename T> 
+    ComponentStorage<T>* GetDerived() { return static_cast<ComponentStorage<T>*>( this ); }
+
+	template<typename T> 
+    ComponentStorage<T>* GetDerived() const { return static_cast<ComponentStorage<T>*>( this ); }
 
 };
 
@@ -142,27 +133,27 @@ class ComponentStorage : public IComponentStorage
 	class View
 	{
 	public:
-		View(ComponentStorage<T>& set) : set(set) {}
-		View(View& rhs) { set = rhs.set; }
+		View(ComponentStorage<T>& storage) : storage(storage) {}
+		View(View& rhs) { storage = rhs.storage; }
 
-		auto begin() { return EachIterator(set.m_Components.begin(), set.m_Entities.begin()); }
-		auto end() { return EachIterator(set.m_Components.end(), set.m_Entities.end()); }
+		auto begin() { return EachIterator(storage.m_Components.begin(), storage.m_Entities.begin()); }
+		auto end() { return EachIterator(storage.m_Components.end(), storage.m_Entities.end()); }
 
 	private:
-		ComponentStorage<T>& set;
+		ComponentStorage<T>& storage;
 	};
 
 	class ConstView
 	{
 	public:
-		ConstView(const ComponentStorage<T>& set) : set(set) {}
-		ConstView(View& rhs) { set = rhs.set; }
+		ConstView(const ComponentStorage<T>& storage) : storage(storage) {}
+		ConstView(View& rhs) { storage = rhs.storage; }
 
-		auto begin() { return ConstEachIterator(set.m_Components.begin(), set.m_Entities.begin()); }
-		auto end() { return ConstEachIterator(set.m_Components.end(), set.m_Entities.end()); }
+		auto begin() { return ConstEachIterator(storage.m_Components.begin(), storage.m_Entities.begin()); }
+		auto end() { return ConstEachIterator(storage.m_Components.end(), storage.m_Entities.end()); }
 
 	private:
-		const ComponentStorage<T>& set;
+		const ComponentStorage<T>& storage;
 	};
 
 public:
@@ -485,22 +476,17 @@ public:
 		if (inEntity == Entity::Null)
 			return false;
 
-		bool has_all = true;
-
 		( ..., [&]()
 		{
-			if (!GetComponentStorage<Components>()->Contains(inEntity))
-				has_all = false;
+            if (!GetComponentStorage<Components>()->Contains(inEntity))
+                return false;
 		}( ) );
 
-		return has_all;
+		return true;
 	}
 
 	bool Has(Entity inEntity, const RTTI* inRTTI)
 	{
-		if (!inRTTI->IsDerivedFrom<Component>())
-			return false;
-
 		if (!m_Components.contains(inRTTI->GetHash()))
 			return false;
 

@@ -296,12 +296,14 @@ struct AmbientOcclusionParams
 
 struct AmbientOcclusionRootConstants
 {
-    AmbientOcclusionParams mParams;
     uint  mAOmaskTexture;
+    uint  mAOmaskHistoryTexture;
     uint  mGbufferDepthTexture;
     uint  mGbufferRenderTexture;
+    uint  mGbufferVelocityTexture;
     uint  mPad0;
     uint2 mDispatchSize;
+    AmbientOcclusionParams mParams;
 };
 
 
@@ -514,6 +516,28 @@ struct ImGuiRootConstants
     uint mBindlessTextureIndex;
 };
 
+enum EDrawCommandType
+{
+    DRAW_COMMAND_RECT,
+    DRAW_COMMAND_CIRCLE,
+    DRAW_COMMAND_CIRCLE_FILLED,
+};
+
+struct DrawCommandHeader
+{
+    EDrawCommandType type;
+    uint startOffset;
+};
+
+struct SDFUIRootConstants
+{
+    uint mDrawCommandBuffer;
+    uint mDrawCommandHeaderBuffer;
+    uint mCommandCount;
+    uint3 mPad0;
+    uint2 mRenderSize;
+    uint2 mRenderSizeRcp;
+};
 
 
 #endif // SHARED_H

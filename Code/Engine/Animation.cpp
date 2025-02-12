@@ -29,7 +29,6 @@ RTTI_DEFINE_TYPE(KeyFrames)
 
 RTTI_DEFINE_TYPE(Animation)
 {
-	RTTI_DEFINE_TYPE_INHERITANCE(Animation, Component);
 	RTTI_DEFINE_MEMBER(Animation, SERIALIZE_ALL, "Name", m_Name);
 	RTTI_DEFINE_MEMBER(Animation, SERIALIZE_ALL, "Duration", m_TotalDuration);
 	RTTI_DEFINE_MEMBER(Animation, SERIALIZE_ALL, "Bone Keyframe Map", m_KeyFrames);

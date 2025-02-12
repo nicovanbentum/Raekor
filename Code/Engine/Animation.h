@@ -65,7 +65,7 @@ private:
 	Array<QuatKey> m_RotationKeys;
 };
 
-class Animation : public Component
+class Animation
 {
 	RTTI_DECLARE_TYPE(Animation);
 

@@ -10,21 +10,14 @@
 
 namespace RK {
 
-RTTI_DEFINE_TYPE(SceneComponent)
-{
-	RTTI_DEFINE_TYPE_INHERITANCE(SceneComponent, Component);
-}
-
 RTTI_DEFINE_TYPE(Name)
 {
-	RTTI_DEFINE_TYPE_INHERITANCE(Name, Component);
 	RTTI_DEFINE_MEMBER(Name, SERIALIZE_ALL, "Name", name);
 }
 
 
 RTTI_DEFINE_TYPE(Transform)
 {
-	RTTI_DEFINE_TYPE_INHERITANCE(Transform, Component);
 	RTTI_DEFINE_MEMBER(Transform, SERIALIZE_ALL, "Scale", scale);
 	RTTI_DEFINE_MEMBER(Transform, SERIALIZE_ALL, "Position", position);
 	RTTI_DEFINE_MEMBER(Transform, SERIALIZE_ALL, "Rotation", rotation);
@@ -35,7 +28,6 @@ RTTI_DEFINE_TYPE(Transform)
 
 RTTI_DEFINE_TYPE(DirectionalLight)
 {
-	RTTI_DEFINE_TYPE_INHERITANCE(DirectionalLight, SceneComponent);
 	RTTI_DEFINE_MEMBER(DirectionalLight, SERIALIZE_ALL, "Direction", direction);
 	RTTI_DEFINE_MEMBER(DirectionalLight, SERIALIZE_ALL, "Color", color);
 	RTTI_DEFINE_MEMBER(DirectionalLight, SERIALIZE_ALL, "Skybox", cubeMapFile);
@@ -44,15 +36,14 @@ RTTI_DEFINE_TYPE(DirectionalLight)
 
 RTTI_DEFINE_ENUM(ELightType)
 {
-	RTTI_DEFINE_ENUM_MEMBER(ELightType, SERIALIZE_ALL, "None", LIGHT_TYPE_NONE);
-	RTTI_DEFINE_ENUM_MEMBER(ELightType, SERIALIZE_ALL, "Spot", LIGHT_TYPE_SPOT);
-	RTTI_DEFINE_ENUM_MEMBER(ELightType, SERIALIZE_ALL, "Point", LIGHT_TYPE_POINT);
+	RTTI_DEFINE_ENUM_MEMBER(SERIALIZE_ALL, "None", LIGHT_TYPE_NONE);
+	RTTI_DEFINE_ENUM_MEMBER(SERIALIZE_ALL, "Spot", LIGHT_TYPE_SPOT);
+	RTTI_DEFINE_ENUM_MEMBER(SERIALIZE_ALL, "Point", LIGHT_TYPE_POINT);
 }
 
 
 RTTI_DEFINE_TYPE(Light)
 {
-	RTTI_DEFINE_TYPE_INHERITANCE(Light, SceneComponent);
 	RTTI_DEFINE_MEMBER(Light, SERIALIZE_ALL, "Type", type);
 	RTTI_DEFINE_MEMBER(Light, SERIALIZE_ALL, "Direction", direction);
 	RTTI_DEFINE_MEMBER(Light, SERIALIZE_ALL, "Position", position);
@@ -63,7 +54,6 @@ RTTI_DEFINE_TYPE(Light)
 
 RTTI_DEFINE_TYPE(Mesh)
 {
-	RTTI_DEFINE_TYPE_INHERITANCE(Mesh, Component);
 	RTTI_DEFINE_MEMBER(Mesh, SERIALIZE_ALL, "BBox", bbox);
 	RTTI_DEFINE_MEMBER(Mesh, SERIALIZE_ALL, "Positions", positions);
 	RTTI_DEFINE_MEMBER(Mesh, SERIALIZE_ALL, "Texcoords", uvs);
@@ -77,19 +67,16 @@ RTTI_DEFINE_TYPE(Mesh)
 
 RTTI_DEFINE_TYPE(RigidBody) 
 {
-	RTTI_DEFINE_TYPE_INHERITANCE(RigidBody, SceneComponent);
 }
 
 
 RTTI_DEFINE_TYPE(SoftBody) 
 {
-	RTTI_DEFINE_TYPE_INHERITANCE(SoftBody, SceneComponent);
 }
 
 
 RTTI_DEFINE_TYPE(Skeleton::Bone)
 {
-	RTTI_DEFINE_TYPE_INHERITANCE(Skeleton::Bone, Component);
 	RTTI_DEFINE_MEMBER(Skeleton::Bone, SERIALIZE_ALL, "Index", index);
 	RTTI_DEFINE_MEMBER(Skeleton::Bone, SERIALIZE_ALL, "Name", name);
 	RTTI_DEFINE_MEMBER(Skeleton::Bone, SERIALIZE_ALL, "Children", children);
@@ -98,7 +85,6 @@ RTTI_DEFINE_TYPE(Skeleton::Bone)
 
 RTTI_DEFINE_TYPE(Skeleton)
 {
-	RTTI_DEFINE_TYPE_INHERITANCE(Skeleton, Component);
 	RTTI_DEFINE_MEMBER(Skeleton, SERIALIZE_ALL, "Animation", animation);
 	RTTI_DEFINE_MEMBER(Skeleton, SERIALIZE_ALL, "Inv Global Transform", inverseGlobalTransform);
 	RTTI_DEFINE_MEMBER(Skeleton, SERIALIZE_ALL, "Bone Weights", boneWeights);
@@ -110,7 +96,6 @@ RTTI_DEFINE_TYPE(Skeleton)
 
 RTTI_DEFINE_TYPE(NativeScript) 
 {
-	RTTI_DEFINE_TYPE_INHERITANCE(NativeScript, SceneComponent);
 	RTTI_DEFINE_MEMBER(NativeScript, SERIALIZE_ALL, "File", file);
 	RTTI_DEFINE_MEMBER(NativeScript, SERIALIZE_ALL, "Type", type);
 }
@@ -118,7 +103,6 @@ RTTI_DEFINE_TYPE(NativeScript)
 
 RTTI_DEFINE_TYPE(Material)
 {
-	RTTI_DEFINE_TYPE_INHERITANCE(Material, Component);
 	RTTI_DEFINE_MEMBER(Material, SERIALIZE_ALL, "Base Color", albedo);
 	RTTI_DEFINE_MEMBER(Material, SERIALIZE_ALL, "Base Emissive", emissive);
 	RTTI_DEFINE_MEMBER(Material, SERIALIZE_ALL, "Metallic", metallic);
@@ -145,7 +129,6 @@ RTTI_DEFINE_TYPE(AudioStream)
 
 RTTI_DEFINE_TYPE(DDGISceneSettings) 
 {
-	RTTI_DEFINE_TYPE_INHERITANCE(DDGISceneSettings, Component);
 	RTTI_DEFINE_MEMBER(DDGISceneSettings, SERIALIZE_ALL, "Debug Probe", mDDGIDebugProbe);
 	RTTI_DEFINE_MEMBER(DDGISceneSettings, SERIALIZE_ALL, "Probe Count", mDDGIProbeCount);
 	RTTI_DEFINE_MEMBER(DDGISceneSettings, SERIALIZE_ALL, "Probe Spacing", mDDGIProbeSpacing);
@@ -713,7 +696,14 @@ void RigidBody::CreateBody(Physics& inPhysics, const Transform& inTransform)
     if (shapeSettings->GetRTTI() != JPH_RTTI(JPH::MeshShapeSettings))
         settings.mAllowDynamicOrKinematic = true;
 
-    bodyID = inPhysics.GetSystem()->GetBodyInterface().CreateBody(settings)->GetID();
+    JPH::Body* body = inPhysics.GetSystem()->GetBodyInterface().CreateBody(settings);
+
+    std::stringstream ss;
+    JPH::StreamOutWrapper stream(ss);
+    body->GetShape()->SaveBinaryState(stream);
+    shapeData = Array<uint8_t>(std::istreambuf_iterator<char>(ss), {});
+
+    bodyID = body->GetID();
 }
 
 

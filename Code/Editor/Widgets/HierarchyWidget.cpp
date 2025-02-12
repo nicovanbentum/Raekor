@@ -162,6 +162,15 @@ void HierarchyWidget::DrawChildlessNode(Scene& inScene, Entity inEntity)
 			multi_select.Clear();
 		}
 
+        if (multi_select.Size < 2)
+        {
+            if (ImGui::MenuItem("Create Child"))
+            {
+                Entity child_entity = GetScene().CreateSpatialEntity("Child");
+                GetScene().ParentTo(child_entity, inEntity);
+            }
+        }
+
 		ImGui::EndPopup();
 	}
 

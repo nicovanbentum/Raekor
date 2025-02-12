@@ -471,6 +471,19 @@ const DebugPrimitivesData& AddDebugOverlayPass(RenderGraph& inRenderGraph, Devic
 
 
 
+struct SDFUIData
+{
+    RenderGraphResourceID mDrawCommandBuffer;
+    RenderGraphResourceID mDrawCommandHeaderBuffer;
+    ComPtr<ID3D12PipelineState> mPipeline;
+};
+
+
+const SDFUIData& AddSDFUIPass(RenderGraph& inRenderGraph, Device& inDevice, 
+    RenderGraphResourceID inRenderTarget);
+
+
+
 ////////////////////////////////////////
 /// Pre-ImGui Pass
 ////////////////////////////////////////

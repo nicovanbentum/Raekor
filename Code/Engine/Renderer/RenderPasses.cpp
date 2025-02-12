@@ -6,6 +6,7 @@
 #include "Camera.h"
 #include "Components.h"
 #include "Primitives.h"
+#include "UIRenderer.h"
 #include "DebugRenderer.h"
 
 namespace RK::DX12 {
@@ -1295,6 +1296,73 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, 
     });
 }
 
+
+
+const SDFUIData& AddSDFUIPass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inRenderTarget)
+{
+    return inRenderGraph.AddGraphicsPass<SDFUIData>("SDFUI",
+    [&](RenderGraphBuilder& inBuilder, IRenderPass* inRenderPass, SDFUIData& inData)
+    {
+        inData.mDrawCommandBuffer = inBuilder.Create(Buffer::Desc 
+        {
+            .size = sizeof(float4) * 1024 * 1024,
+            .stride = sizeof(float4),
+            .debugName = "DrawCommandBuffer"
+        });
+
+        inData.mDrawCommandHeaderBuffer = inBuilder.Create(Buffer::Desc 
+        {
+            .size = sizeof(DrawCommandHeader) * 1024 * 1024,
+            .stride = sizeof(DrawCommandHeader),
+            .debugName = "DrawCommandHeaderBuffer"
+        });
+
+        inBuilder.RenderTarget(inRenderTarget);
+
+        D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inRenderPass->CreatePipelineStateDesc(inDevice, g_SystemShaders.mSDFUIShader);
+        pso_state.BlendState.RenderTarget[0].BlendEnable = true;
+        pso_state.BlendState.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
+        pso_state.BlendState.RenderTarget[0].SrcBlendAlpha = D3D12_BLEND_SRC_ALPHA;
+        pso_state.BlendState.RenderTarget[0].DestBlend = D3D12_BLEND_DEST_ALPHA;
+        pso_state.BlendState.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_DEST_ALPHA;
+        pso_state.BlendState.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
+        pso_state.InputLayout = {}; // clear the input layout, we generate the fullscreen triangle inside the vertex shader
+        pso_state.DepthStencilState.DepthEnable = FALSE;
+        pso_state.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+
+        inDevice->CreateGraphicsPipelineState(&pso_state, IID_PPV_ARGS(&inData.mPipeline));
+        inData.mPipeline->SetName(L"PSO_SDFUI");
+    },
+
+    [&inRenderGraph, &inDevice](SDFUIData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+    {
+        Slice<const Vec4> draw_commands = g_UIRenderer.GetDrawCommands();
+        Slice<const DrawCommandHeader> draw_command_headers = g_UIRenderer.GetDrawCommandHeaders();
+
+        if (draw_commands.empty() || draw_command_headers.empty())
+            return;
+
+        Buffer& draw_command_gpu_buffer = inDevice.GetBuffer(inResources.GetBuffer(inData.mDrawCommandBuffer));
+        Buffer& draw_command_header_gpu_buffer = inDevice.GetBuffer(inResources.GetBuffer(inData.mDrawCommandHeaderBuffer));
+
+        inDevice.UploadBufferData(inCmdList, draw_command_gpu_buffer, 0, draw_commands.data(), draw_commands.size_bytes());
+        inDevice.UploadBufferData(inCmdList, draw_command_header_gpu_buffer, 0, draw_command_headers.data(), draw_command_headers.size_bytes());
+
+        inCmdList->SetPipelineState(inData.mPipeline.Get());
+        inCmdList.SetViewportAndScissor(inRenderGraph.GetViewport());
+
+        inCmdList.PushGraphicsConstants(SDFUIRootConstants
+        {
+            .mDrawCommandBuffer = inResources.GetBindlessHeapIndex(inData.mDrawCommandBuffer),
+            .mDrawCommandHeaderBuffer = inResources.GetBindlessHeapIndex(inData.mDrawCommandHeaderBuffer),
+            .mCommandCount = uint32_t(draw_command_headers.size()),
+            .mRenderSize = inRenderGraph.GetViewport().GetDisplaySize(),
+            .mRenderSizeRcp = 1.0f / Vec2(inRenderGraph.GetViewport().GetDisplaySize()),
+        });
+
+        inCmdList->DrawInstanced(3, 1, 0, 0);
+    });
+}
 
 
 const PreImGuiData& AddPreImGuiPass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID ioDisplayTexture)

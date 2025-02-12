@@ -609,6 +609,9 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
 
     RenderGraphResourceID final_output = compose_data.mOutputTexture;
 
+    // Render UI on top
+    const SDFUIData& sdfui_data = AddSDFUIPass(m_RenderGraph, inDevice, final_output);
+
     switch (debug_texture)
     {
         case DEBUG_TEXTURE_SSR:

@@ -159,7 +159,7 @@ namespace type##Namespace { void sImplRTTI(RTTI& inRTTI); };    \
     void type##Namespace::sImplRTTI(RTTI& inRTTI)                                                        \
 
 
-#define RTTI_DEFINE_ENUM_MEMBER(enum_type, serial_type, custom_type_name, member_type) \
+#define RTTI_DEFINE_ENUM_MEMBER(serial_type, custom_type_name, member_type) \
     inRTTI.AddMember(new EnumMember(#member_type, #custom_type_name, serial_type))
 
 

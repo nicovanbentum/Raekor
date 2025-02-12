@@ -8,6 +8,7 @@
 #include "Script.h"
 #include "Profiler.h"
 #include "Components.h"
+#include "UIRenderer.h"
 #include "DebugRenderer.h"
 #include "ShaderGraphNodes.h"
 
@@ -140,6 +141,9 @@ void Editor::OnUpdate(float inDeltaTime)
 	g_Profiler->Reset();
 
 	PROFILE_FUNCTION_CPU();
+
+    // Clear UI draw command buffers
+    g_UIRenderer.Reset();
 
 	// clear the debug renderer vertex buffers
 	g_DebugRenderer.Reset();
@@ -387,6 +391,8 @@ void Editor::OnEvent(const SDL_Event& event)
 							}
 						}
 					}
+
+                    SetCameraEntity(Entity::Null);
 				}
 
 				g_Input->SetRelativeMouseMode(false);

@@ -5,7 +5,6 @@
 namespace RK {
 
 RTTI_DEFINE_TYPE_PRIMITIVE(Entity);
-RTTI_DEFINE_TYPE(Component) {}
 
 struct TestName
 {
@@ -101,16 +100,6 @@ void RunECStorageTests()
 
 	int new_count = ecs.Count<TestMaterial>();
 	assert(new_count == count);
-}
-
-
-void Component::Change::Commit(Scene& inScene) 
-{
-}
-
-
-void Component::Change::Revert(Scene& inScene) 
-{
 }
 
 } // namespace RK

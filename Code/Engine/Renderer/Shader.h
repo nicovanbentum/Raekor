@@ -138,6 +138,7 @@ struct SystemShadersDX12 : public IResource
     ComputeProgram mClearTextureCubeShader;
 
     GraphicsProgram mImGuiShader;
+    GraphicsProgram mSDFUIShader;
     GraphicsProgram mGrassShader;
     GraphicsProgram mGBufferShader;
     ComputeProgram  mSkinningShader;

@@ -21,6 +21,9 @@ public:
 
     void OnStart() override
     {
+        if (HasComponent<Camera>())
+            m_App->SetCameraEntity(GetEntity());
+
         // active camera = camera component of this entity!
         if (m_Character == nullptr)
         {

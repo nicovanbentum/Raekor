@@ -95,13 +95,21 @@ void Physics::Step(Scene& scene, float dt)
 }
 
 
-void Physics::OnUpdate(Scene& scene)
+void Physics::OnUpdate(Scene& inScene)
 {
 	PROFILE_FUNCTION_CPU();
 
-	if (scene.Any<SoftBody>() && scene.Count<SoftBody>())
+    for (const auto& [entity, transform, rigid_body] : inScene.Each<Transform, RigidBody>())
+    {
+        if (rigid_body.bodyID.IsInvalid() && !rigid_body.shapeData.empty())
+        {
+
+        }
+    }
+
+	if (inScene.Any<SoftBody>() && inScene.Count<SoftBody>())
 	{
-		for (const auto& [entity, transform, soft_body] : scene.Each<Transform, SoftBody>())
+		for (const auto& [entity, transform, soft_body] : inScene.Each<Transform, SoftBody>())
 		{
 			if (soft_body.mBodyID.IsInvalid() && soft_body.mSharedSettings.GetRefCount())
 			{
@@ -129,7 +137,7 @@ void Physics::OnUpdate(Scene& scene)
 
 					if (JPH::SoftBodyMotionProperties* props = (JPH::SoftBodyMotionProperties*)body->GetMotionProperties())
 					{
-						if (auto mesh = scene.GetPtr<Mesh>(entity))
+						if (auto mesh = inScene.GetPtr<Mesh>(entity))
 						{
 							for (auto i = 0u; i < props->GetVertices().size(); i++)
 							{
@@ -162,23 +170,14 @@ void Physics::GenerateRigidBodiesEntireScene(Scene& inScene)
 		Mesh& mesh = sb_mesh;
 		Transform& transform = sb_transform;
 		RigidBody& collider = sb_collider;
-
+        
         if (collider.bodyID.IsInvalid())
         {
 		    g_ThreadPool.QueueJob([&]()
 		    {
 			    collider.CreateMeshCollider(*this, mesh, transform);
-
-			    auto body_settings = JPH::BodyCreationSettings(
-				    collider.shapeSettings,
-				    JPH::Vec3(transform.position.x, transform.position.y, transform.position.z),
-				    JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w),
-				    collider.motionType,
-				    EPhysicsObjectLayers::MOVING
-			    );
-
-			    auto& body_interface = m_Physics->GetBodyInterface();
-			    collider.bodyID = body_interface.CreateAndAddBody(body_settings, JPH::EActivation::Activate);
+                collider.CreateBody(*this, transform);
+                collider.ActivateBody(*this, transform);
 		    });
         }
 	}

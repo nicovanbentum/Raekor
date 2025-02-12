@@ -6,10 +6,6 @@
 #include "Common.hlsli"
 #include "Bindless.hlsli"
 
-/*
-TODO: 
-    - Sample irradiance when calculating current irradiance to get some form of infinite bounces 
-*/
 
 uint Index2DTo1D(uint2 inCoord, uint inWidth) {
     return inCoord.x + inCoord.y * inWidth;
@@ -120,7 +116,8 @@ float3 DDGISampleIrradiance(float3 inWsPos, float3 inNormal, DDGIData inData) {
     
     float4 irradiance = 0.0.xxxx;
     
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < 8; i++) 
+    {
         // Calculate probe indices [0, 0, 0] to [1, 1, 1] , add that to the starting probe coord, retrieve the world position
         uint3 cube_indices = uint3(i & 1, (i >> 1) & 1, (i >> 2) & 1);
         uint3 current_probe_coord = start_probe_coord + cube_indices;

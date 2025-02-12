@@ -124,27 +124,6 @@ bool InspectorWidget::DrawEntityInspector(Widgets* inWidgets)
         }
     }
 
-	if (ImGui::BeginPopup("Components"))
-	{
-		for (const RTTI* rtti : g_RTTIFactory)
-		{
-			if (!rtti->IsDerivedFrom(&RTTI_OF<SceneComponent>()))
-				continue;
-
-			if (scene.Has(active_entity, rtti))
-				continue;
-
-			if (ImGui::Selectable(rtti->GetTypeName(), false))
-			{
-				scene.Add(active_entity, rtti);
-				ImGui::CloseCurrentPopup();
-			}
-		}
-
-		ImGui::EndPopup();
-	}
-
-
 	ImGui::PopStyleVar();
 	ImGui::PopStyleVar();
 

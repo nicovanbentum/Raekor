@@ -51,6 +51,9 @@ public:
 	template<typename T>
 	T& GetComponent();
 
+    template<typename T>
+    bool HasComponent();
+
 	template<typename T>
 	T* FindComponent();
 
@@ -75,6 +78,12 @@ template<typename T>
 T& INativeScript::GetComponent()
 {
 	return m_Scene->Get<T>(m_Entity);
+}
+
+template<typename T>
+bool INativeScript::HasComponent()
+{
+    return m_Scene->Has<T>(m_Entity);
 }
 
 template<typename T>

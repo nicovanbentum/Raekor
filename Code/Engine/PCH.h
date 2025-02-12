@@ -293,6 +293,7 @@ namespace RK
 #include "Jolt/Physics/PhysicsSystem.h"
 #include "Jolt/RegisterTypes.h"
 #include "Jolt/Core/TempAllocator.h"
+#include "Jolt/Core/StreamWrapper.h"
 #include "Jolt/Physics/Collision/RayCast.h"
 #include "Jolt/Physics/Collision/CastResult.h"
 #include "Jolt/Renderer/DebugRenderer.h"

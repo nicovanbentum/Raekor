@@ -52,6 +52,7 @@ RTTI_DEFINE_TYPE(SystemShadersDX12)
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Clear TextureCube Shader", mClearTextureCubeShader);
 
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "ImGui Shader", mImGuiShader);
+    RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "SDFUI Shader", mSDFUIShader);
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Grass Shader", mGrassShader);
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "GBuffer Shader", mGBufferShader);
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Skinning Shader", mSkinningShader);
@@ -189,7 +190,14 @@ bool Shader::IsOutOfDate() const
 
 bool GraphicsProgram::OnHotLoad(Device& inDevice)
 {
-    return false;
+    uint64_t ps_hash = m_PixelShader.GetHash();
+
+    if (m_PixelShader.IsOutOfDate())
+        OnCompile(inDevice);
+
+    bool new_hash = ps_hash != m_PixelShader.GetHash();
+
+    return new_hash && IsCompiled();
 }
 
 

@@ -62,6 +62,19 @@
             }
         },
 
+        "SDFUI Shader":
+        {
+            "Vertex Shader": 
+            {
+                "File Path": "Assets/Shaders/Backend/FullscreenTriangleVS.hlsl"
+            },
+
+            "Pixel Shader": 
+            {
+                "File Path": "Assets/Shaders/Backend/SDFUI.hlsl"
+            }
+        },
+
         "Grass Shader":
         {
             "Vertex Shader": 

@@ -90,6 +90,9 @@ public:
 	virtual void SetActiveEntity(Entity inEntity) {}
 	virtual Entity GetActiveEntity() const { return Entity::Null; }
 
+    virtual void SetCameraEntity(Entity inEntity) {}
+    virtual Entity GetCameraEntity() const { return Entity::Null; }
+
 	virtual void LogMessage(const String& inMessage) { std::cout << inMessage << '\n'; }
 
 	void SetGameState(EGameState inState) { m_GameState = inState; }

@@ -16,12 +16,7 @@ class TextureAsset;
 class INativeScript;
 class IComponentStorage;
 
-struct SceneComponent : public Component
-{
-	RTTI_DECLARE_TYPE(SceneComponent);
-};
-
-struct Name : public Component
+struct Name
 {
 	RTTI_DECLARE_TYPE(Name);
 
@@ -37,7 +32,7 @@ struct Name : public Component
 };
 
 
-struct Transform : public Component
+struct Transform
 {
 	RTTI_DECLARE_TYPE(Transform);
 
@@ -68,7 +63,7 @@ struct Transform : public Component
 };
 
 
-struct DirectionalLight : public SceneComponent
+struct DirectionalLight
 {
 	RTTI_DECLARE_TYPE(DirectionalLight);
 
@@ -94,7 +89,7 @@ enum ELightType
 RTTI_DECLARE_ENUM(ELightType);
 
 
-struct Light : public SceneComponent
+struct Light
 {
 	RTTI_DECLARE_TYPE(Light);
 
@@ -127,7 +122,7 @@ struct Meshlet
 };
 
 
-struct Mesh : public Component
+struct Mesh
 {
 	RTTI_DECLARE_TYPE(Mesh);
 
@@ -168,7 +163,7 @@ struct Mesh : public Component
 };
 
 
-struct RigidBody : public SceneComponent
+struct RigidBody
 {
 	RTTI_DECLARE_TYPE(RigidBody);
 
@@ -190,6 +185,7 @@ struct RigidBody : public SceneComponent
 
     Shape shape = NONE;
     Motion motion = STATIC;
+    Array<uint8_t> shapeData;
 
     BBox3D cubeBounds;
     float sphereRadius;
@@ -212,7 +208,7 @@ struct RigidBody : public SceneComponent
 };
 
 
-struct SoftBody : public SceneComponent
+struct SoftBody
 {
 	RTTI_DECLARE_TYPE(SoftBody);
 
@@ -225,7 +221,7 @@ struct SoftBody : public SceneComponent
 
 
 
-struct Skeleton : public Component
+struct Skeleton
 {
 	RTTI_DECLARE_TYPE(Skeleton);
 
@@ -261,7 +257,7 @@ struct Skeleton : public Component
 };
 
 
-struct Material : public Component
+struct Material
 {
 	RTTI_DECLARE_TYPE(Material);
 
@@ -304,7 +300,7 @@ struct Material : public Component
 };
 
 
-struct NativeScript : public SceneComponent
+struct NativeScript
 {
 	RTTI_DECLARE_TYPE(NativeScript);
 
@@ -315,7 +311,7 @@ struct NativeScript : public SceneComponent
 };
 
 
-struct AudioStream : public SceneComponent
+struct AudioStream
 {
     RTTI_DECLARE_TYPE(AudioStream);
 
@@ -323,7 +319,7 @@ struct AudioStream : public SceneComponent
 };
 
 
-struct DDGISceneSettings : public Component
+struct DDGISceneSettings
 {
 	RTTI_DECLARE_TYPE(DDGISceneSettings);
 
