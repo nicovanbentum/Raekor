@@ -1,12 +1,13 @@
 #define RAEKOR_SCRIPT
 #include "../Engine/Raekor.h"
-using namespace RK;
 
 #include "JoltPhysics/Jolt/Physics/Character/Character.h"
 #include "JoltPhysics/Jolt/Physics/Collision/Shape/CapsuleShape.h"
 
 static constexpr float cBulletSize = 0.1f;
 static constexpr uint32_t cBulletCount = 5;
+
+namespace RK {
 
 class GunScript : public INativeScript
 {
@@ -18,8 +19,6 @@ public:
         const Viewport& viewport = m_App->GetViewport();
         Vec2 screen_center = Vec2(viewport.GetDisplaySize()) / 2.0f;
 
-        //g_UIRenderer.AddCircleFilled(screen_center, m_CrosshairSize, Vec4(1.0f));
-
         float speed = 0.0f;
 
         if (RigidBody* rb = FindComponent<RigidBody>(m_Scene->GetParent(GetEntity())))
@@ -27,10 +26,6 @@ public:
             speed = m_App->GetPhysics()->GetSystem()->GetBodyInterface().GetLinearVelocity(rb->bodyID).Length();
         }
 
-        //bool is_moving_forward = m_Input->IsKeyDown(Key::W) || m_Input->IsKeyDown(Key::S);
-        //bool is_moving_sideways = m_Input->IsKeyDown(Key::A) || m_Input->IsKeyDown(Key::D);
-
-        //float gap_multiplier = g_Input->IsKeyDown(Key::LSHIFT) ? 2.5f : 2.0f;
         float gap_multiplier = glm::max(glm::abs(speed), 1.0f);
 
         if (speed > 0.0f)
@@ -106,8 +101,8 @@ public:
             m_MoveInput = Vec2(1, 1);
             m_BobSpeedCurve += inDeltaTime * bob_speed;
 
-            m_OffsetPosition.y += glm::sin(m_BobSpeedCurve) * m_BobLimit.y * (m_Input->IsKeyDown(Key::W) || m_Input->IsKeyDown(Key::S));
-            m_OffsetPosition.x += glm::cos(m_BobSpeedCurve) * m_BobLimit.x * (m_Input->IsKeyDown(Key::A) || m_Input->IsKeyDown(Key::D));
+            m_OffsetPosition.y += glm::sin(m_BobSpeedCurve) * m_BobLimit.y * ( m_Input->IsKeyDown(Key::W) || m_Input->IsKeyDown(Key::S) );
+            m_OffsetPosition.x += glm::cos(m_BobSpeedCurve) * m_BobLimit.x * ( m_Input->IsKeyDown(Key::A) || m_Input->IsKeyDown(Key::D) );
         }
 
         transform.position = glm::lerp(transform.position, m_OffsetPosition, inDeltaTime);
@@ -119,7 +114,7 @@ public:
 
     void OnEvent(const SDL_Event& inEvent) override
     {
-        if (inEvent.type == SDL_MOUSEMOTION)
+        if (inEvent.type == SDL_EVENT_MOUSE_MOTION)
         {
             const CVar& sens_cvar = g_CVariables->GetCVar("sensitivity");
             const float formula = glm::radians(0.022f * sens_cvar.mFloatValue);
@@ -128,11 +123,11 @@ public:
             m_LookInput.y = inEvent.motion.yrel * formula;
         }
 
-        if (inEvent.type == SDL_KEYDOWN && !inEvent.key.repeat)
+        if (inEvent.type == SDL_EVENT_KEY_DOWN && !inEvent.key.repeat)
         {
-            switch (inEvent.key.keysym.sym)
+            switch (inEvent.key.key)
             {
-                case SDLK_f:
+                case SDLK_F:
                 {
                     if (m_SpotlightEntity != Entity::Null)
                     {
@@ -157,12 +152,12 @@ private:
     bool m_IsMoving;
     float m_CurrentCrosshairGap;
     bool m_SpotLightEnabled = false;
-    
+
     Vec2 m_LookInput = Vec2(0, 0);
     Vec2 m_MoveInput = Vec2(0, 0);
     Vec3 m_Position = Vec3(0, 0, 0);
     Vec3 m_OffsetPosition = Vec3(0, 0, 0);
-    
+
     // crosshair settings
     float m_CrosshairGap = 8.0f;
     float m_CrosshairSize = 4.0f;
@@ -174,7 +169,7 @@ private:
     float m_SwayMaxStepDistance = 0.2f;
     bool m_EnableSway = true;
     bool m_EnableBobbing = true;
-    
+
     // bob settings
     float m_BobSpeed = 11.0f;
     float m_BobSpeedCurve = 0.0f;
@@ -184,24 +179,24 @@ private:
 };
 
 
-
 RTTI_DEFINE_TYPE(GunScript)
 {
     RTTI_DEFINE_TYPE_INHERITANCE(GunScript, INativeScript);
 
-    RTTI_DEFINE_SCRIPT_MEMBER(GunScript, SERIALIZE_ALL, Entity, "Player Entity", m_PlayerEntity);
+    RTTI_DEFINE_SCRIPT_MEMBER(GunScript, SERIALIZE_ALL, "Player Entity", m_PlayerEntity);
 
-    RTTI_DEFINE_SCRIPT_MEMBER(GunScript, SERIALIZE_ALL, float, "Crosshair Gap", m_CrosshairGap);
-    RTTI_DEFINE_SCRIPT_MEMBER(GunScript, SERIALIZE_ALL, float, "Crosshair Size", m_CrosshairSize);
-    RTTI_DEFINE_SCRIPT_MEMBER(GunScript, SERIALIZE_ALL, float, "Crosshair Thickness", m_CrosshairThickness);
+    RTTI_DEFINE_SCRIPT_MEMBER(GunScript, SERIALIZE_ALL, "Crosshair Gap", m_CrosshairGap);
+    RTTI_DEFINE_SCRIPT_MEMBER(GunScript, SERIALIZE_ALL, "Crosshair Size", m_CrosshairSize);
+    RTTI_DEFINE_SCRIPT_MEMBER(GunScript, SERIALIZE_ALL, "Crosshair Thickness", m_CrosshairThickness);
 
-    RTTI_DEFINE_SCRIPT_MEMBER(GunScript, SERIALIZE_ALL, bool, "Enable Sway", m_EnableSway);
-    RTTI_DEFINE_SCRIPT_MEMBER(GunScript, SERIALIZE_ALL, bool, "Enable Bobbing", m_EnableBobbing);
+    RTTI_DEFINE_SCRIPT_MEMBER(GunScript, SERIALIZE_ALL, "Enable Sway", m_EnableSway);
+    RTTI_DEFINE_SCRIPT_MEMBER(GunScript, SERIALIZE_ALL, "Enable Bobbing", m_EnableBobbing);
 
-    RTTI_DEFINE_SCRIPT_MEMBER(GunScript, SERIALIZE_ALL, float, "Bob Speed", m_BobSpeed);
+    RTTI_DEFINE_SCRIPT_MEMBER(GunScript, SERIALIZE_ALL, "Bob Speed", m_BobSpeed);
 
-    RTTI_DEFINE_SCRIPT_MEMBER(GunScript, SERIALIZE_ALL, float, "Sway Speed", m_SwaySpeed);
-    RTTI_DEFINE_SCRIPT_MEMBER(GunScript, SERIALIZE_ALL, float, "Sway Step", m_SwayStep);
-    RTTI_DEFINE_SCRIPT_MEMBER(GunScript, SERIALIZE_ALL, float, "Sway Distance", m_SwayMaxStepDistance);
-
+    RTTI_DEFINE_SCRIPT_MEMBER(GunScript, SERIALIZE_ALL, "Sway Speed", m_SwaySpeed);
+    RTTI_DEFINE_SCRIPT_MEMBER(GunScript, SERIALIZE_ALL, "Sway Step", m_SwayStep);
+    RTTI_DEFINE_SCRIPT_MEMBER(GunScript, SERIALIZE_ALL, "Sway Distance", m_SwayMaxStepDistance);
 }
+
+} // RK

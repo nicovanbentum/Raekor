@@ -70,15 +70,23 @@ Physics::~Physics()
 }
 
 
-void Physics::Step(Scene& scene, float dt)
+void Physics::Step(Scene& inScene, float inDeltaTime)
 {
+    if (m_Settings.state != EState::Stepping)
+        return;
+
 	PROFILE_FUNCTION_CPU();
 
-	m_Physics->Update(dt, 1, m_TempAllocator, m_JobSystem);
+    m_TotalTime += inDeltaTime;
+    while (m_TotalTime >= cTimeStep)
+    {
+	    m_Physics->Update(cTimeStep, 1, m_TempAllocator, m_JobSystem);
+        m_TotalTime = m_TotalTime - cTimeStep;
+    }
 
 	JPH::BodyInterface& body_interface = m_Physics->GetBodyInterface();
 
-	for (const auto& [entity, transform, mesh, collider] : scene.Each<Transform, Mesh, RigidBody>())
+	for (const auto& [entity, transform, mesh, collider] : inScene.Each<Transform, Mesh, RigidBody>())
 	{
 		if (collider.bodyID.IsInvalid())
 			continue;
@@ -99,11 +107,45 @@ void Physics::OnUpdate(Scene& inScene)
 {
 	PROFILE_FUNCTION_CPU();
 
-    for (const auto& [entity, transform, rigid_body] : inScene.Each<Transform, RigidBody>())
+   /* for (const auto& [entity, transform, rigid_body] : inScene.Each<Transform, RigidBody>())
     {
-        if (rigid_body.bodyID.IsInvalid() && !rigid_body.shapeData.empty())
+        if (rigid_body.bodyID.IsInvalid() && rigid_body.shape != RigidBody::NONE)
         {
+            switch (rigid_body.shape)
+            {
+                case RigidBody::CUBE:
+                {
+                    g_ThreadPool.QueueJob([&]() 
+                    {
+                        rigid_body.CreateCubeCollider(*this, rigid_body.cubeBounds);
+                        rigid_body.CreateBody(*this, transform);
+                        rigid_body.ActivateBody(*this, transform);
+                    });
+                } break;
 
+                case RigidBody::SPHERE:
+                {
+                    g_ThreadPool.QueueJob([&]()
+                    {
+                        rigid_body.CreateSphereCollider(*this, rigid_body.sphereRadius);
+                        rigid_body.CreateBody(*this, transform);
+                        rigid_body.ActivateBody(*this, transform);
+                    });
+                } break;
+            }
+        }
+    }
+    */
+    for (const auto& [entity, transform, mesh, rigid_body] : inScene.Each<Transform, Mesh, RigidBody>())
+    {
+        if (rigid_body.bodyID.IsInvalid() && rigid_body.shape == RigidBody::MESH)
+        {
+            g_ThreadPool.QueueJob([&]()
+            {
+                rigid_body.CreateMeshCollider(*this, mesh, transform);
+                rigid_body.CreateBody(*this, transform);
+                rigid_body.ActivateBody(*this, transform);
+            });
         }
     }
 
@@ -160,27 +202,27 @@ void Physics::OnUpdate(Scene& inScene)
 		//draw_settings.mDrawSoftBodyEdgeConstraints = true;
 		m_Physics->DrawBodies(draw_settings, JPH::DebugRenderer::sInstance);
 	}
+
+    g_ThreadPool.WaitForJobs();
 }
 
 
 void Physics::GenerateRigidBodiesEntireScene(Scene& inScene)
 {
-	for (const auto& [sb_entity, sb_transform, sb_mesh, sb_collider] : inScene.Each<Transform, Mesh, RigidBody>())
+	for (const auto& [entity, transform, mesh, rigid_body] : inScene.Each<Transform, Mesh, RigidBody>())
 	{
-		Mesh& mesh = sb_mesh;
-		Transform& transform = sb_transform;
-		RigidBody& collider = sb_collider;
-        
-        if (collider.bodyID.IsInvalid())
+        if (rigid_body.bodyID.IsInvalid())
         {
 		    g_ThreadPool.QueueJob([&]()
 		    {
-			    collider.CreateMeshCollider(*this, mesh, transform);
-                collider.CreateBody(*this, transform);
-                collider.ActivateBody(*this, transform);
+                rigid_body.CreateMeshCollider(*this, mesh, transform);
+                rigid_body.CreateBody(*this, transform);
+                rigid_body.ActivateBody(*this, transform);
 		    });
         }
 	}
+
+    g_ThreadPool.WaitForJobs();
 }
 
 

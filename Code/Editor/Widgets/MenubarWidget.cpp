@@ -233,7 +233,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 				if (ImGui::MenuItem(std::string(widget->GetTitle() + "Window").c_str(), subtext, &is_visible))
 				{
-					if (SDL_GetModState() & KMOD_LCTRL)
+					if (SDL_GetModState() & SDL_KMOD_LCTRL)
 					{
 						widget->Show();
 

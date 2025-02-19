@@ -163,7 +163,7 @@ bool Upscaler::InitXeSS(Device& inDevice, const Viewport& inViewport)
     if (XESS_RESULT_WARNING_OLD_DRIVER == xessIsOptimalDriver(m_XeSSContext))
     {
         SDL_ShowSimpleMessageBox(
-            SDL_MessageBoxFlags::SDL_MESSAGEBOX_ERROR, 
+            SDL_MESSAGEBOX_ERROR, 
             "DX12 Error", "Please install the latest graphics driver from your vendor for optimal Intel(R) XeSS performance and visual quality", NULL);
         return false;
     }

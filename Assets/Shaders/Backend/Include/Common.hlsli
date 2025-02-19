@@ -20,6 +20,15 @@ float3 ReconstructWorldPosition(float2 inUV, float inDepth, float4x4 inClipToWor
     return position_v.xyz / position_v.w;
 }
 
+float3 ReconstructPosition(float2 inUV, float inDepth, float4x4 inClipToViewMatrix)
+{
+    float x = inUV.x * 2.0f - 1.0f;
+    float y = (1.0 - inUV.y) * 2.0f - 1.0f;
+    float4 position_s = float4(x, y, inDepth, 1.0f);
+    float4 position_v = mul(inClipToViewMatrix, position_s);
+    return position_v.xyz / position_v.w;
+}
+
 
 float2 CalculateViewToScreenUV(float3 inPos, float4x4 inViewToClipMatrix)
 {

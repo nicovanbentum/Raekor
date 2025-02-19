@@ -75,18 +75,17 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	// Render the display image
 	static const std::array border_state_colors =
 	{
-		ImGui::GetStyleColorVec4(ImGuiCol_CheckMark),
-		ImVec4(0.35f, 0.78f, 1.0f, 1.0f),
-		ImVec4(0.0f, 1.0f, 0.0f, 1.0f),
+		cRunningColor,
+        cPausedColor,
+		ImVec4(0, 0, 0, 1),
 	};
 
-	const ImVec2 image_size = ImVec2(size.x, size.y);
-	const ImVec4 border_color = GetPhysics().GetState() != Physics::Idle ? border_state_colors[GetPhysics().GetState()] : ImVec4(0, 0, 0, 1);
-	ImGui::Image((void*)( (intptr_t)m_DisplayTexture ), size, uv0, uv1, ImVec4(1, 1, 1, 1), show_border ? border_color : ImVec4(0, 0, 0, 1));
+    ImVec4 border_color = show_border ? border_state_colors[m_Editor->GetGameState()] : ImVec4(0, 0, 0, 1);
+	ImGui::Image((ImTextureID)((intptr_t)m_DisplayTexture), size, uv0, uv1, ImVec4(1, 1, 1, 1), border_color);
 
 	m_IsMouseOver = ImGui::IsItemHovered();
-	const ImVec2 viewportMin = ImGui::GetItemRectMin();
-	const ImVec2 viewportMax = ImGui::GetItemRectMax();
+	ImVec2 viewportMin = ImGui::GetItemRectMin();
+	ImVec2 viewportMax = ImGui::GetItemRectMax();
 
 	m_WindowPos = ImGui::GetWindowPos();
 	m_WindowSize = ImGui::GetWindowSize();
@@ -254,7 +253,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 	bool can_select_entity = m_IsMouseOver;
 	can_select_entity &= ImGui::IsMouseClicked(ImGuiMouseButton_Left);
-	can_select_entity &= SDL_GetModState() == KMOD_NONE;
+	can_select_entity &= SDL_GetModState() == SDL_KMOD_NONE;
 	can_select_entity &= !ImGui::IsAnyItemHovered();
 	can_select_entity &= !g_Input->IsKeyDown(Key::LSHIFT);
 	can_select_entity &= !ImGuizmo::IsOver(m_GizmoOperation);
@@ -526,86 +525,32 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 	ImGui::SameLine();
 
-	const Physics::EState physics_state = GetPhysics().GetState();
-	ImGui::PushStyleColor(ImGuiCol_Text, border_state_colors[GetPhysics().GetState()]);
+    const EGameState game_state = m_Editor->GetGameState();
+	ImGui::PushStyleColor(ImGuiCol_Text, game_state == GAME_RUNNING ? cPausedColor : cRunningColor);
 
-	if (ImGui::Button(physics_state == Physics::Stepping ? (const char*)ICON_FA_PAUSE : (const char*)ICON_FA_PLAY))
+	if (ImGui::Button(game_state == GAME_RUNNING ? (const char*)ICON_FA_PAUSE : (const char*)ICON_FA_PLAY))
 	{
-		switch (physics_state)
-		{
-			case Physics::Idle:
-			{
-				GetPhysics().SaveState();
-				GetPhysics().SetState(Physics::Stepping);
-
-				g_Input->SetRelativeMouseMode(true);
-				m_Editor->SetGameState(GAME_RUNNING);
-
-				for (auto [entity, script] : scene.Each<NativeScript>())
-				{
-					if (script.script) 
-					{
-						try 
-						{
-							script.script->OnStart();
-						}
-						catch (std::exception& e) 
-						{
-							std::cout << e.what() << '\n';
-						}
-					}
-				}
-
-			} break;
-			case Physics::Paused:
-			{
-				GetPhysics().SetState(Physics::Stepping);
-				m_Editor->SetGameState(GAME_RUNNING);
-			} break;
-			case Physics::Stepping:
-			{
-				GetPhysics().SetState(Physics::Paused);
-				m_Editor->SetGameState(GAME_PAUSED);
-			} break;
-		}
+        if (game_state == GAME_STOPPED)
+            m_Editor->Start();
+        else if (game_state == GAME_RUNNING)
+            m_Editor->Pause();
+        else if (game_state == GAME_PAUSED)
+            m_Editor->Unpause();
 	}
 
 	ImGui::PopStyleColor();
 	ImGui::SameLine();
 
-	const Physics::EState current_physics_state = physics_state;
-	if (current_physics_state != Physics::Idle)
+	const EGameState current_game_state = game_state;
+	if (current_game_state != GAME_STOPPED)
 		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.0f, 1.0f));
 
 	if (ImGui::Button((const char*)ICON_FA_STOP))
 	{
-		if (physics_state != Physics::Idle)
-		{
-			GetPhysics().RestoreState();
-			GetPhysics().Step(scene, inDeltaTime); // Step once to trigger the restored state
-			GetPhysics().SetState(Physics::Idle);
-
-			m_Editor->SetGameState(GAME_STOPPED);
-			g_Input->SetRelativeMouseMode(false);
-
-			for (auto [entity, script] : scene.Each<NativeScript>())
-			{
-				if (script.script)
-				{
-					try
-					{
-						script.script->OnStop();
-					}
-					catch (std::exception& e)
-					{
-						std::cout << e.what() << '\n';
-					}
-				}
-			}
-		}
+        m_Editor->Stop();
 	}
 
-	if (current_physics_state != Physics::Idle)
+	if (current_game_state != GAME_STOPPED)
 		ImGui::PopStyleColor();
 
 	ImGui::PopStyleColor();
@@ -679,21 +624,21 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 void ViewportWidget::OnEvent(Widgets* inWidgets, const SDL_Event& inEvent)
 {
 
-	if (inEvent.type == SDL_KEYDOWN && !inEvent.key.repeat && !g_Input->IsRelativeMouseMode())
+	if (inEvent.type == SDL_EVENT_KEY_DOWN && !inEvent.key.repeat && !g_Input->IsRelativeMouseMode())
 	{
-		switch (inEvent.key.keysym.sym)
+		switch (inEvent.key.key)
 		{
-			case SDLK_r:
+			case SDLK_R:
 			{
 				m_GizmoOperation = ImGuizmo::OPERATION::ROTATE;
 				break;
 			}
-			case SDLK_t:
+			case SDLK_T:
 			{
 				m_GizmoOperation = ImGuizmo::OPERATION::TRANSLATE;
 				break;
 			}
-			case SDLK_s:
+			case SDLK_S:
 			{
 				m_GizmoOperation = ImGuizmo::OPERATION::SCALE;
 				break;

@@ -1,7 +1,7 @@
 #define RAEKOR_SCRIPT
 #include "../Engine/raekor.h"
-using namespace RK;
 
+namespace RK {
 
 class VehicleControllerScript : public INativeScript
 {
@@ -28,10 +28,10 @@ public:
 
     void OnStart() override
     {
-        m_WheelEntities[(int)EWheel::LeftFront]  = m_WheelEntityFL;
+        m_WheelEntities[(int)EWheel::LeftFront] = m_WheelEntityFL;
         m_WheelEntities[(int)EWheel::RightFront] = m_WheelEntityFR;
-        m_WheelEntities[(int)EWheel::LeftRear]   = m_WheelEntityBL;
-        m_WheelEntities[(int)EWheel::RightRear]  = m_WheelEntityBR;
+        m_WheelEntities[(int)EWheel::LeftRear] = m_WheelEntityBL;
+        m_WheelEntities[(int)EWheel::RightRear] = m_WheelEntityBR;
 
         RigidBody* body_collider = FindComponent<RigidBody>(m_BodyEntity);
 
@@ -127,7 +127,7 @@ public:
 
         // Determine steering and speed
         float steering_angle = 0.0f, speed = 0.0f;
-        if (m_Input->IsKeyDown(Key::D)) 
+        if (m_Input->IsKeyDown(Key::D))
             steering_angle = cMaxSteeringAngle;
 
         if (m_Input->IsKeyDown(Key::D))
@@ -214,16 +214,16 @@ private:
     StaticArray<JPH::Ref<JPH::SixDOFConstraint>, 4> m_WheelConstraints;
 };
 
-
 RTTI_DEFINE_TYPE(VehicleControllerScript)
 {
     RTTI_DEFINE_TYPE_INHERITANCE(VehicleControllerScript, INativeScript);
 
-    RTTI_DEFINE_SCRIPT_MEMBER(VehicleControllerScript, SERIALIZE_ALL, Entity, "Body", m_BodyEntity);
-    RTTI_DEFINE_SCRIPT_MEMBER(VehicleControllerScript, SERIALIZE_ALL, Entity, "Wheel (FL)", m_WheelEntityFL);
-    RTTI_DEFINE_SCRIPT_MEMBER(VehicleControllerScript, SERIALIZE_ALL, Entity, "Wheel (FR)", m_WheelEntityFR);
-    RTTI_DEFINE_SCRIPT_MEMBER(VehicleControllerScript, SERIALIZE_ALL, Entity, "Wheel (BL)", m_WheelEntityBL);
-    RTTI_DEFINE_SCRIPT_MEMBER(VehicleControllerScript, SERIALIZE_ALL, Entity, "Wheel (BR)", m_WheelEntityBR);
+    RTTI_DEFINE_SCRIPT_MEMBER(VehicleControllerScript, SERIALIZE_ALL, "Body", m_BodyEntity);
+    RTTI_DEFINE_SCRIPT_MEMBER(VehicleControllerScript, SERIALIZE_ALL, "Wheel (FL)", m_WheelEntityFL);
+    RTTI_DEFINE_SCRIPT_MEMBER(VehicleControllerScript, SERIALIZE_ALL, "Wheel (FR)", m_WheelEntityFR);
+    RTTI_DEFINE_SCRIPT_MEMBER(VehicleControllerScript, SERIALIZE_ALL, "Wheel (BL)", m_WheelEntityBL);
+    RTTI_DEFINE_SCRIPT_MEMBER(VehicleControllerScript, SERIALIZE_ALL, "Wheel (BR)", m_WheelEntityBR);
 
-    // Fields go here
 }
+
+} // RK

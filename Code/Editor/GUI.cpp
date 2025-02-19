@@ -7,7 +7,7 @@ namespace RK::GUI {
 
 void BeginFrame()
 {
-	ImGui_ImplSDL2_NewFrame();
+	ImGui_ImplSDL3_NewFrame();
 	ImGui::NewFrame();
 	ImGuizmo::BeginFrame();
 }
@@ -117,7 +117,7 @@ void SetDarkTheme()
 IVec2 GetMousePosWindow(const Viewport& inViewport, ImVec2 inMousePos)
 {
 	// get mouse position in window
-	IVec2 mouse_pos;
+	Vec2 mouse_pos;
 	SDL_GetMouseState(&mouse_pos.x, &mouse_pos.y);
 
 	// get mouse position relative to viewport

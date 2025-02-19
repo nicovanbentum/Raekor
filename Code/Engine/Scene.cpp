@@ -6,6 +6,7 @@
 #include "Input.h"
 #include "Timer.h"
 #include "Script.h"
+#include "Physics.h"
 #include "Profiler.h"
 #include "Threading.h"
 #include "Components.h"
@@ -537,7 +538,8 @@ void Scene::OpenFromFile(const String& inFilePath, Assets& ioAssets, Application
 		inApp->GetDiscordRPC().SetActivityDetails(filename.c_str());
 
 		// clear undo system
-		inApp->GetUndo()->Clear();
+        if (inApp->GetUndo())
+		    inApp->GetUndo()->Clear();
 	}
 
 	// open archive

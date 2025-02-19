@@ -1,7 +1,7 @@
 #define RAEKOR_SCRIPT
 #include "../Engine/raekor.h"
-using namespace RK;
 
+namespace RK {
 
 class AnimateSunScript : public INativeScript
 {
@@ -39,5 +39,7 @@ RTTI_DEFINE_TYPE(AnimateSunScript)
 {
     RTTI_DEFINE_TYPE_INHERITANCE(AnimateSunScript, INativeScript);
 
-    RTTI_DEFINE_SCRIPT_MEMBER(AnimateSunScript, SERIALIZE_ALL, float, "Speed", m_Speed);
+    RTTI_DEFINE_SCRIPT_MEMBER(AnimateSunScript, SERIALIZE_ALL, "Speed", m_Speed);
 }
+
+} // RK

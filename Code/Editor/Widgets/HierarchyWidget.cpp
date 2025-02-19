@@ -262,9 +262,9 @@ void HierarchyWidget::OnEvent(Widgets* inWidgets, const SDL_Event& inEvent)
 {
 	ImGuiSelectionBasicStorage& multi_select = m_Editor->GetMultiSelect();
 
-	if (inEvent.type == SDL_KEYDOWN && !inEvent.key.repeat && !g_Input->IsRelativeMouseMode())
+	if (inEvent.type == SDL_EVENT_KEY_DOWN && !inEvent.key.repeat && !g_Input->IsRelativeMouseMode())
 	{
-		switch (inEvent.key.keysym.sym)
+		switch (inEvent.key.key)
 		{
 			case SDLK_DELETE:
 			{

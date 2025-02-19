@@ -47,7 +47,7 @@ public:
     uint32_t GetMaterialsDescriptorIndex() const { return m_MaterialsDescriptor.GetIndex(); }
 
     void UploadMesh(Application* inApp, Device& inDevice, Mesh& inMesh, Skeleton* inSkeleton, CommandList& inCmdList);
-    void UpdateBLAS(Application* inApp, Device& inDevice, Mesh& inMesh, Skeleton* inSkeleton, CommandList& inCmdList);
+    void UpdateBLAS(Application* inApp, Device& inDevice, Mesh& inMesh, Skeleton& inSkeleton, CommandList& inCmdList);
     void UploadSkeleton(Application* inApp, Device& inDevice, Skeleton& inSkeleton, CommandList& inCmdList);
 
     void UploadTLAS(Application* inApp, Device& inDevice, CommandList& inCmdList);

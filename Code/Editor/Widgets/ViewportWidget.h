@@ -16,6 +16,10 @@ struct ClickableQuad
 
 class ViewportWidget : public IWidget
 {
+    static constexpr ImVec4 cRunningColor = ImVec4(0.00f, 1.00f, 0.00f, 1.00f);
+    static constexpr ImVec4 cPausedColor = ImVec4(0.35f, 0.78f, 1.00f, 1.00f);
+    static constexpr ImVec4 cStoppedColor = ImVec4(1.00f, 0.00f, 0.00f, 1.00f);
+
 public:
 	RTTI_DECLARE_VIRTUAL_TYPE(ViewportWidget);
 

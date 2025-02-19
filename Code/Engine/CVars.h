@@ -1,7 +1,7 @@
 #pragma once
 
-#include "pch.h"
-#include "rtti.h"
+#include "PCH.h"
+#include "RTTI.h"
 
 namespace RK {
 

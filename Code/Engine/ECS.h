@@ -473,16 +473,18 @@ public:
 	template<typename ...Components>
 	bool Has(Entity inEntity) const
 	{
-		if (inEntity == Entity::Null)
-			return false;
+        if (inEntity == Entity::Null)
+            return false;
 
-		( ..., [&]()
-		{
+        bool has_all = true;
+
+        ( ..., [&]()
+        {
             if (!GetComponentStorage<Components>()->Contains(inEntity))
-                return false;
-		}( ) );
+                has_all = false;
+        }( ) );
 
-		return true;
+        return has_all;
 	}
 
 	bool Has(Entity inEntity, const RTTI* inRTTI)

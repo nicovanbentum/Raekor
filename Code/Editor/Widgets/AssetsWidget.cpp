@@ -115,7 +115,7 @@ void MaterialsWidget::Draw(Widgets* inWidgets, float dt)
                         if (material.gpuAlbedoMap && !material.albedoFile.empty())
                         {
                             uint64_t texture_id = m_Editor->GetRenderInterface()->GetImGuiTextureID(material.gpuAlbedoMap);
-                            draw_list->AddImage((void*)((intptr_t)texture_id), box_min + ImVec2(1, 1), box_max - ImVec2(1, 1));
+                            draw_list->AddImage((ImTextureID)((intptr_t)texture_id), box_min + ImVec2(1, 1), box_max - ImVec2(1, 1));
                         }
                         else
                         {

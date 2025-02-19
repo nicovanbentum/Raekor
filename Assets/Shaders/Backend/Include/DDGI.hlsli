@@ -125,14 +125,14 @@ float3 DDGISampleIrradiance(float3 inWsPos, float3 inNormal, DDGIData inData) {
         uint probe_index = Index3Dto1D(current_probe_coord, inData.mProbeCount);
         ProbeData probe_data = probe_buffer[probe_index];
         
-        if (probe_data.inactive)
-            continue;
-        
         float3 probe_ws_pos = DDGIGetProbeWorldPos(current_probe_coord, inData);
         float3 pos_to_probe_dir = normalize(probe_ws_pos - inWsPos);
         
         // Initialize the weight to wrap shading
         float weight = saturate(dot(pos_to_probe_dir, inNormal));
+        
+        if (probe_data.inactive)
+            weight = weight * 0.001f; // don't knock the probe out entirely
         
         if (inData.mUseChebyshev)
         {

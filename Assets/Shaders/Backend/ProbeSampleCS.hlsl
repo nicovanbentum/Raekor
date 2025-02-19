@@ -9,6 +9,16 @@
 FRAME_CONSTANTS(fc)
 ROOT_CONSTANTS(ProbeSampleRootConstants, rc)
 
+float max3(float3 inValue)
+{
+    return max(max(inValue.x, inValue.y), inValue.z);
+}
+
+float min3(float3 inValue)
+{
+    return min(min(inValue.x, inValue.y), inValue.z);
+}
+
 [numthreads(8, 8, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID) {
     if (any(dispatchThreadID.xy >= rc.mDispatchSize.xy))
@@ -28,12 +38,12 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID) {
         return;
     }
     
-    const float3 normal = UnpackNormal(asuint(gbuffer_texture[dispatchThreadID.xy]));
+    float2 screen_uv = (float2(dispatchThreadID.xy) + 0.5f) / rc.mDispatchSize;
+    float3 position_ws = ReconstructWorldPosition(screen_uv, depth, fc.mInvViewProjectionMatrix);
+    float3 normal = UnpackNormal(asuint(gbuffer_texture[dispatchThreadID.xy]));
     
-    const float2 screen_uv = (float2(dispatchThreadID.xy) + 0.5f) / rc.mDispatchSize;
-    const float3 ws_pos = ReconstructWorldPosition(screen_uv, depth, fc.mInvViewProjectionMatrix);
-    
-    float3 offset_ws_pos = ws_pos + normal * 0.01;
+    float3 offset = min3(rc.mDDGIData.mProbeSpacing) * 0.1f;
+    float3 offset_ws_pos = position_ws + normal * offset;
     float3 irradiance = DDGISampleIrradiance(offset_ws_pos, normal, rc.mDDGIData);
     
     output_texture[dispatchThreadID.xy] = float4(irradiance, 1.0);

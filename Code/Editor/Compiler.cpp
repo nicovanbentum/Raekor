@@ -36,29 +36,25 @@ CompilerApp::CompilerApp(WindowFlags inFlags) : Application(inFlags | WindowFlag
 	GUI::SetDarkTheme();
 	ImGui::GetStyle().ScaleAllSizes(1.33333333f);
 
-	m_Renderer = SDL_CreateRenderer(m_Window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+	m_Renderer = SDL_CreateRenderer(m_Window, NULL);
+	std::cout << "Created SDL_Renderer with name: \"" << SDL_GetRendererName(m_Renderer) << "\"\n";
 
-	SDL_RendererInfo renderer_info;
-	SDL_GetRendererInfo(m_Renderer, &renderer_info);
-	std::cout << "Created SDL_Renderer with name: \"" << renderer_info.name << "\"\n";
-
-	ImGui_ImplSDL2_InitForSDLRenderer(m_Window, m_Renderer);
-	ImGui_ImplSDLRenderer2_Init(m_Renderer);
+	ImGui_ImplSDL3_InitForSDLRenderer(m_Window, m_Renderer);
+	ImGui_ImplSDLRenderer3_Init(m_Renderer);
 	SDL_SetWindowTitle(m_Window, "RK Compiler App");
-
-	SDL_SysWMinfo wminfo;
-	SDL_VERSION(&wminfo.version);
-	SDL_GetWindowWMInfo(m_Window, &wminfo);
 
 	SDL_GL_SetSwapInterval(1);
 
+    SDL_PropertiesID props = SDL_GetWindowProperties(m_Window);
+    HWND hwnd = (HWND)SDL_GetPointerProperty(props, SDL_PROP_WINDOW_WIN32_HWND_POINTER, NULL);
+
 	// Add the system tray icon
 	NOTIFYICONDATA nid = { sizeof(NOTIFYICONDATA) };
-	nid.hWnd = wminfo.info.win.window;
+	nid.hWnd = hwnd;
 	nid.uID = 1;
 	nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
 	nid.uCallbackMessage = WIN_TRAY_MESSAGE;
-	nid.hIcon = (HICON)GetClassLongPtr(wminfo.info.win.window, -14);
+	nid.hIcon = (HICON)GetClassLongPtr(hwnd, -14);
 	strcpy(nid.szTip, "RK Compiler App");
 
 	bool ret = Shell_NotifyIcon(NIM_ADD, &nid);
@@ -69,8 +65,6 @@ CompilerApp::CompilerApp(WindowFlags inFlags) : Application(inFlags | WindowFlag
 		assert(ret);
 		ret = Shell_NotifyIcon(NIM_ADD, &nid);
 	}
-
-	SDL_EventState(SDL_SYSWMEVENT, SDL_ENABLE);
 
 #ifdef NDEBUG
 	// hide the console window
@@ -136,8 +130,8 @@ void CompilerApp::OnUpdate(float inDeltaTime)
 {
 	// SDL_SetWindowTitle(m_Window, std::string(std::to_string(Timer::sToMilliseconds(inDeltaTime)) + " ms.").c_str());
 
-	ImGui_ImplSDL2_NewFrame();
-	ImGui_ImplSDLRenderer2_NewFrame();
+	ImGui_ImplSDL3_NewFrame();
+	ImGui_ImplSDLRenderer3_NewFrame();
 	ImGui::NewFrame();
 
 	if (ImGui::BeginMainMenuBar())
@@ -388,7 +382,7 @@ void CompilerApp::OnUpdate(float inDeltaTime)
 	SDL_RenderClear(m_Renderer);
 
 	ImGui::Render();
-	ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), m_Renderer);
+	ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), m_Renderer);
 
 	SDL_RenderPresent(m_Renderer);
 
@@ -502,68 +496,17 @@ void CompilerApp::OnUpdate(float inDeltaTime)
 
 void CompilerApp::OnEvent(const SDL_Event& inEvent)
 {
-	ImGui_ImplSDL2_ProcessEvent(&inEvent);
+	ImGui_ImplSDL3_ProcessEvent(&inEvent);
 
-	if (inEvent.type == SDL_WINDOWEVENT && inEvent.window.event == SDL_WINDOWEVENT_CLOSE)
+	if (inEvent.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED)
 		m_WasClosed = true;
 
-	if (inEvent.type == SDL_WINDOWEVENT && inEvent.window.event == SDL_WINDOWEVENT_MINIMIZED)
+	if (inEvent.type == SDL_EVENT_WINDOW_MINIMIZED)
 		SDL_HideWindow(m_Window);
 
-	if (inEvent.type == SDL_SYSWMEVENT)
+	if (inEvent.type == SDL_EVENT_KEY_DOWN && !inEvent.key.repeat)
 	{
-		auto& win_msg = inEvent.syswm.msg->msg.win;
-
-		switch (win_msg.msg)
-		{
-			case WM_COMMAND:
-			{
-				switch (LOWORD(win_msg.wParam))
-				{
-					case IDM_MENUITEM1:
-					{
-						OpenFromTray();
-					} break;
-
-					case IDM_EXIT:
-					{
-						m_Running = false;
-					} break;
-				}
-			} break;
-
-			case WIN_TRAY_MESSAGE:
-			{
-				switch (win_msg.lParam)
-				{
-					case WM_LBUTTONDBLCLK:
-					{
-						OpenFromTray();
-					} break;
-
-					case WM_RBUTTONDOWN:
-					case WM_CONTEXTMENU:
-					{
-						POINT pt;
-						GetCursorPos(&pt);
-
-						HMENU hMenu = CreatePopupMenu();
-						AppendMenuA(hMenu, MF_STRING, IDM_MENUITEM1, "Open");
-						AppendMenuA(hMenu, MF_SEPARATOR, 0, NULL);
-						AppendMenuA(hMenu, MF_STRING, IDM_EXIT, "Exit");
-
-						TrackPopupMenu(hMenu, TPM_RIGHTBUTTON, pt.x, pt.y, 0, GetWindowHandle(), NULL);
-						DestroyMenu(hMenu);
-					} break;
-				}
-			}
-		}
-	}
-
-
-	if (inEvent.type == SDL_KEYDOWN && !inEvent.key.repeat)
-	{
-		switch (inEvent.key.keysym.sym)
+		switch (inEvent.key.key)
 		{
 			case SDLK_DELETE:
 			{
@@ -587,16 +530,12 @@ void CompilerApp::LogMessage(const std::string& inMessage)
 {
 	Application::LogMessage(inMessage);
 
-	SDL_SysWMinfo wminfo;
-	SDL_VERSION(&wminfo.version);
-	SDL_GetWindowWMInfo(m_Window, &wminfo);
-
 	COPYDATASTRUCT cds = {};
 	cds.dwData = IPC::LOG_MESSAGE_SENT;
 	cds.lpData = (PVOID)inMessage.c_str();
 	cds.cbData = inMessage.size() + 1;
 
-	HWND hwnd = wminfo.info.win.window;
+    HWND hwnd = GetWindowHandle();
 	HWND parent = GetAncestor(hwnd, GA_PARENT);
 	SendMessage(parent, WM_COPYDATA, (WPARAM)(HWND)hwnd, (LPARAM)(LPVOID)&cds);
 }
@@ -613,10 +552,9 @@ void CompilerApp::OpenFromTray()
 
 HWND CompilerApp::GetWindowHandle()
 {
-	SDL_SysWMinfo wminfo;
-	SDL_VERSION(&wminfo.version);
-	SDL_GetWindowWMInfo(m_Window, &wminfo);
-	return wminfo.info.win.window;
+    SDL_PropertiesID props = SDL_GetWindowProperties(m_Window);
+    return (HWND)SDL_GetPointerProperty(props, SDL_PROP_WINDOW_WIN32_HWND_POINTER, NULL);
+
 }
 
 }

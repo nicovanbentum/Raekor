@@ -68,10 +68,8 @@ void OS::sCopyToClipboard(const char* inText)
 
 bool OS::sSetDarkTitleBar(SDL_Window* inWindow)
 {
-	SDL_SysWMinfo wmInfo;
-	SDL_VERSION(&wmInfo.version);
-	SDL_GetWindowWMInfo(inWindow, &wmInfo);
-	HWND hwnd = wmInfo.info.win.window;
+    SDL_PropertiesID props = SDL_GetWindowProperties(inWindow);
+    HWND hwnd = (HWND)SDL_GetPointerProperty(props, SDL_PROP_WINDOW_WIN32_HWND_POINTER, NULL);
 
 	BOOL dark = TRUE;
 	DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &dark, sizeof(dark));

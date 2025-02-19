@@ -478,9 +478,9 @@ void ShaderGraphWidget::Draw(Widgets* inWidgets, float dt)
 
 void ShaderGraphWidget::OnEvent(Widgets* inWidgets, const SDL_Event& ev)
 {
-	if (ev.type == SDL_KEYDOWN && !ev.key.repeat)
+	if (ev.type == SDL_EVENT_KEY_DOWN && !ev.key.repeat)
 	{
-		switch (ev.key.keysym.sym)
+		switch (ev.key.key)
 		{
 			case SDLK_DELETE:
 			{
@@ -508,7 +508,7 @@ void ShaderGraphWidget::OnEvent(Widgets* inWidgets, const SDL_Event& ev)
 
 			case SDL_SCANCODE_Z:
 			{
-				if (SDL_GetModState() & KMOD_LCTRL)
+				if (SDL_GetModState() & SDL_KMOD_LCTRL)
 				{
 					m_Builder = m_Builder.Undo();
 				}
@@ -516,7 +516,7 @@ void ShaderGraphWidget::OnEvent(Widgets* inWidgets, const SDL_Event& ev)
 
 			case SDL_SCANCODE_Y:
 			{
-				if (SDL_GetModState() & KMOD_LCTRL)
+				if (SDL_GetModState() & SDL_KMOD_LCTRL)
 				{
 					m_Builder = m_Builder.Redo();
 				}

@@ -1,9 +1,9 @@
 #define RAEKOR_SCRIPT
 #include "../Engine/raekor.h"
-using namespace RK;
 
+namespace RK {
 
-class CharacterControllerScript : public INativeScript 
+class CharacterControllerScript : public INativeScript
 {
 public:
     RTTI_DECLARE_VIRTUAL_TYPE(CharacterControllerScript);
@@ -28,7 +28,7 @@ public:
         m_CurrentAnimationEntity = inEntity;
     }
 
-    void OnStart() override 
+    void OnStart() override
     {
     }
 
@@ -37,7 +37,7 @@ public:
         Transform& player_transform = GetComponent<Transform>();
 
         /// HANDLE INPUT
-        
+
         // update player rotation incase any mouse input events changed it
         Vec3 cam_dir = Vec3(m_CameraDirection.x, 0.0f, m_CameraDirection.z);
         Vec3 right_vector = glm::normalize(glm::cross(cam_dir, Vec3(0.0f, 1.0f, 0.0f)));
@@ -66,12 +66,12 @@ public:
             move_dir += right_vector;
         }
 
-        if (moved && glm::any(glm::epsilonNotEqual(move_dir, Vec3(0,0,0), FLT_EPSILON)))
+        if (moved && glm::any(glm::epsilonNotEqual(move_dir, Vec3(0, 0, 0), FLT_EPSILON)))
         {
             m_PlayerDirection = glm::normalize(move_dir);
             m_Velocity += m_PlayerDirection * ( glm::max(m_Speed, 0.0001f) / m_Mass ) * inDeltaTime;
         }
-        
+
         player_transform.rotation = glm::quatLookAt(-m_PlayerDirection, Vec3(0.0f, 1.0f, 0.0f));
         player_transform.position += m_Velocity;
 
@@ -119,14 +119,14 @@ public:
         }
     }
 
-    void OnEvent(const SDL_Event& inEvent) 
+    void OnEvent(const SDL_Event& inEvent)
     {
         if (!m_Input->IsRelativeMouseMode())
             return;
 
-        if (inEvent.type == SDL_KEYDOWN && !inEvent.key.repeat)
+        if (inEvent.type == SDL_EVENT_KEY_DOWN && !inEvent.key.repeat)
         {
-            switch (inEvent.key.keysym.sym)
+            switch (inEvent.key.key)
             {
                 case SDLK_SPACE:
                 {
@@ -135,10 +135,10 @@ public:
             }
         }
 
-        if (inEvent.type == SDL_MOUSEMOTION)
+        if (inEvent.type == SDL_EVENT_MOUSE_MOTION)
         {
             Vec2 motion = Vec2(inEvent.motion.xrel, inEvent.motion.yrel);
-            m_CameraDirection = glm::toMat3(glm::angleAxis(-2.0f * (motion.x / 1920.0f ), Vec3(0.0f, 1.0f, 0.0f))) * m_CameraDirection;
+            m_CameraDirection = glm::toMat3(glm::angleAxis(-2.0f * ( motion.x / 1920.0f ), Vec3(0.0f, 1.0f, 0.0f))) * m_CameraDirection;
             // m_CameraDirection = glm::toMat3(glm::angleAxis(2.0f * (motion.y / 1080.0f), Vec3(0.0f, 0.0f, 1.0f))) * m_CameraDirection;
             m_CameraDirection = glm::normalize(m_CameraDirection);
         }
@@ -176,17 +176,19 @@ RTTI_DEFINE_TYPE(CharacterControllerScript)
 {
     RTTI_DEFINE_TYPE_INHERITANCE(CharacterControllerScript, INativeScript);
 
-    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, bool, "Follow Camera", m_FollowCamera);
-    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, Entity, "Run Animation", m_RunAnimationEntity);
-    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, Entity, "Idle Animation", m_IdleAnimationEntity);
-    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, Entity, "Jump Animation", m_JumpAnimationEntity);
+    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, "Follow Camera", m_FollowCamera);
+    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, "Run Animation", m_RunAnimationEntity);
+    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, "Idle Animation", m_IdleAnimationEntity);
+    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, "Jump Animation", m_JumpAnimationEntity);
 
-    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, float, "Test", m_Test);
-    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, float, "Mass", m_Mass);
-    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, float, "Run Speed", m_Speed);
-    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, float, "Jump Height", m_JumpHeight);
-    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, float, "Player Height", m_PlayerHeight);
-    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, float, "Camera Speed", m_CameraSpeed);
-    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, float, "Camera Height", m_CameraHeight);
-    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, float, "Camera Distance", m_CameraDistance);
+    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, "Test", m_Test);
+    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, "Mass", m_Mass);
+    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, "Run Speed", m_Speed);
+    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, "Jump Height", m_JumpHeight);
+    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, "Player Height", m_PlayerHeight);
+    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, "Camera Speed", m_CameraSpeed);
+    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, "Camera Height", m_CameraHeight);
+    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, "Camera Distance", m_CameraDistance);
 }
+
+} // RK

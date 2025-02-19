@@ -11,7 +11,7 @@
 
 namespace RK::DX12 {
 
-void RayTracedScene::UpdateBLAS(Application* inApp, Device& inDevice, Mesh& inMesh, Skeleton* inSkeleton, CommandList& inCmdList)
+void RayTracedScene::UpdateBLAS(Application* inApp, Device& inDevice, Mesh& inMesh, Skeleton& inSkeleton, CommandList& inCmdList)
 {
     D3D12_RAYTRACING_GEOMETRY_DESC geom = {};
     geom.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
@@ -21,7 +21,7 @@ void RayTracedScene::UpdateBLAS(Application* inApp, Device& inDevice, Mesh& inMe
     geom.Triangles.IndexCount = inMesh.indices.size();
     geom.Triangles.IndexFormat = DXGI_FORMAT_R32_UINT;
 
-    geom.Triangles.VertexBuffer.StartAddress = inDevice.GetBuffer(BufferID(inSkeleton->skinnedVertexBuffer))->GetGPUVirtualAddress();
+    geom.Triangles.VertexBuffer.StartAddress = inDevice.GetBuffer(BufferID(inSkeleton.skinnedVertexBuffer))->GetGPUVirtualAddress();
     geom.Triangles.VertexBuffer.StrideInBytes = sizeof(Vertex);
     geom.Triangles.VertexCount = inMesh.positions.size();
     geom.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;

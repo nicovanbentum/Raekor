@@ -6,7 +6,7 @@ project(Engine C CXX)
 file(GLOB_RECURSE HppFiles ${PROJECT_SOURCE_DIR}/*.h)
 file(GLOB_RECURSE CppFiles ${PROJECT_SOURCE_DIR}/*.cpp)
 
-# Add ImGuizmo and SPIRV Reflect to the cpp files list, disable PCH for .c files
+# Add library source files manually
 set_source_files_properties(${CMAKE_SOURCE_DIR}/ThirdParty/ImGuizmo/ImGuizmo.cpp PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
 list(APPEND CppFiles ${CMAKE_SOURCE_DIR}/ThirdParty/ImGuizmo/ImGuizmo.cpp)
 
@@ -18,6 +18,12 @@ list(APPEND CppFiles ${CMAKE_SOURCE_DIR}/ThirdParty/ufbx/ufbx.c)
 
 set_source_files_properties(${CMAKE_SOURCE_DIR}/ThirdParty/meshoptimizer/src/clusterizer.cpp PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
 list(APPEND CppFiles ${CMAKE_SOURCE_DIR}/ThirdParty/meshoptimizer/src/clusterizer.cpp)
+
+set_source_files_properties(${CMAKE_SOURCE_DIR}/ThirdParty/D3D12MemoryAllocator/src/D3D12MemAlloc.cpp PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+list(APPEND CppFiles ${CMAKE_SOURCE_DIR}/ThirdParty/D3D12MemoryAllocator/src/D3D12MemAlloc.cpp)
+
+set_source_files_properties(${CMAKE_SOURCE_DIR}/ThirdParty/samplerCPP/samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d_1spp.cpp PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+list(APPEND CppFiles ${CMAKE_SOURCE_DIR}/ThirdParty/samplerCPP/samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d_1spp.cpp)
 
 #file(GLOB_RECURSE RawPDBHppFiles ${CMAKE_SOURCE_DIR}/ThirdParty/raw_pdb/src/*.h)
 #file(GLOB_RECURSE RawPDBCppFiles ${CMAKE_SOURCE_DIR}/ThirdParty/raw_pdb/src/*.cpp)
@@ -37,9 +43,9 @@ list(APPEND ImGuiFiles ${IMGUI_DIR}/imgui_demo.cpp)
 list(APPEND ImGuiFiles ${IMGUI_DIR}/imgui_tables.cpp)
 list(APPEND ImGuiFiles ${IMGUI_DIR}/imgui_widgets.cpp)
 list(APPEND ImGuiFiles ${IMGUI_DIR}/misc/cpp/imgui_stdlib.cpp)
-list(APPEND ImGuiFiles ${IMGUI_DIR}/backends/imgui_impl_sdl2.cpp)
+list(APPEND ImGuiFiles ${IMGUI_DIR}/backends/imgui_impl_sdl3.cpp)
 list(APPEND ImGuiFiles ${IMGUI_DIR}/backends/imgui_impl_dx12.cpp)
-list(APPEND ImGuiFiles ${IMGUI_DIR}/backends/imgui_impl_sdlrenderer2.cpp)
+list(APPEND ImGuiFiles ${IMGUI_DIR}/backends/imgui_impl_sdlrenderer3.cpp)
 set_source_files_properties(ImGuiFiles PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
 
 # Append library cpp's
@@ -93,7 +99,13 @@ target_compile_definitions(Jolt PUBLIC "$<$<CONFIG:RelWithDebInfo>:JPH_DEBUG_REN
 target_link_libraries(${PROJECT_NAME} PRIVATE Jolt)
 target_link_libraries(${PROJECT_NAME} PRIVATE Dwmapi)
 target_link_libraries(${PROJECT_NAME} PRIVATE lz4::lz4)
-target_link_libraries(${PROJECT_NAME} PRIVATE SDL2::SDL2-static)
+target_link_libraries(${PROJECT_NAME} PRIVATE SDL3::SDL3-static)
+target_link_libraries(${PROJECT_NAME} PRIVATE debug ${XESS} optimized ${XESS})
+target_link_libraries(${PROJECT_NAME} PRIVATE debug ${FSR2d} optimized ${FSR2})
+target_link_libraries(${PROJECT_NAME} PRIVATE debug ${DLSSd} optimized ${DLSS})
+target_link_libraries(${PROJECT_NAME} PRIVATE debug ${FSR2DX12d} optimized ${FSR2DX12})
+target_link_libraries(${PROJECT_NAME} PRIVATE debug ${DISCORD_LIB} optimized ${DISCORD_LIB})
+target_link_libraries(${PROJECT_NAME} PRIVATE ${DXC_LIBRARY} ${DIRECT_STORAGE_LIBRARY} ${PIX} d3d12.lib dxgi.lib d3dcompiler.lib dxguid.lib)
 
 # include dependency directories 
 target_include_directories(${PROJECT_NAME} PUBLIC

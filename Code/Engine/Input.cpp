@@ -12,15 +12,15 @@ void Input::OnEvent(const SDL_Event& inEvent)
 {
     switch (inEvent.type) 
     {
-        case SDL_CONTROLLERDEVICEADDED: 
+        case SDL_EVENT_GAMEPAD_ADDED: 
         {
             const int joystick_index = inEvent.cdevice.which;
-            m_Controller = SDL_GameControllerOpen(joystick_index);
+            m_Controller = SDL_OpenGamepad(joystick_index);
         } break;
 
-        case SDL_CONTROLLERDEVICEREMOVED: 
+        case SDL_EVENT_GAMEPAD_REMOVED: 
         {
-            SDL_GameControllerClose(m_Controller);
+            SDL_CloseGamepad(m_Controller);
             m_Controller = nullptr;
         } break;
     }
@@ -31,11 +31,16 @@ void Input::OnUpdate(float inDeltaTime)
 {
     if (m_Controller == nullptr)
     {
-        for (int i = 0; i < SDL_NumJoysticks(); i++)
+        int joystick_count = 0;
+        SDL_JoystickID* joysticks = SDL_GetJoysticks(&joystick_count);
+
+        for (int i = 0; i < joystick_count; i++)
         {
-            if (SDL_IsGameController(i))
+            SDL_JoystickID joystick = joysticks[i];
+
+            if (SDL_IsGamepad(joystick))
             {
-                m_Controller = SDL_GameControllerOpen(i);
+                m_Controller = SDL_OpenGamepad(joystick);
                 break;
             }
         }
@@ -52,7 +57,7 @@ bool Input::IsKeyDown(Key key)
 bool Input::IsButtonDown(uint32_t button)
 {
 	uint32_t state = SDL_GetMouseState(NULL, NULL);
-	return state & SDL_BUTTON(button);
+	return state & SDL_BUTTON_MASK(button);
 }
 
 
@@ -64,9 +69,6 @@ bool Input::IsRelativeMouseMode()
 
 void Input::SetRelativeMouseMode(bool inEnabled)
 {
-	if (SDL_SetRelativeMouseMode(SDL_bool(inEnabled)) != 0) 
-		printf("SDL_SetRelativeMouseMode failed: %s\n", SDL_GetError());
-
 	m_RelMouseMode = inEnabled;
 }
 

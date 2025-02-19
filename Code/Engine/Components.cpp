@@ -67,6 +67,10 @@ RTTI_DEFINE_TYPE(Mesh)
 
 RTTI_DEFINE_TYPE(RigidBody) 
 {
+    RTTI_DEFINE_MEMBER(RigidBody, SERIALIZE_ALL, "Shape", shape);
+    RTTI_DEFINE_MEMBER(RigidBody, SERIALIZE_ALL, "Motion", motion);
+    RTTI_DEFINE_MEMBER(RigidBody, SERIALIZE_ALL, "Cube Bounds", cubeBounds);
+    RTTI_DEFINE_MEMBER(RigidBody, SERIALIZE_ALL, "Sphere Radius", sphereRadius);
 }
 
 
@@ -696,14 +700,8 @@ void RigidBody::CreateBody(Physics& inPhysics, const Transform& inTransform)
     if (shapeSettings->GetRTTI() != JPH_RTTI(JPH::MeshShapeSettings))
         settings.mAllowDynamicOrKinematic = true;
 
-    JPH::Body* body = inPhysics.GetSystem()->GetBodyInterface().CreateBody(settings);
-
-    std::stringstream ss;
-    JPH::StreamOutWrapper stream(ss);
-    body->GetShape()->SaveBinaryState(stream);
-    shapeData = Array<uint8_t>(std::istreambuf_iterator<char>(ss), {});
-
-    bodyID = body->GetID();
+    JPH::BodyInterface& bodies = inPhysics.GetSystem()->GetBodyInterface();
+    bodyID = bodies.CreateBody(settings)->GetID();
 }
 
 
@@ -713,28 +711,37 @@ void RigidBody::ActivateBody(Physics& inPhysics, const Transform& inTransform)
     {
         const JPH::Vec3 position = JPH::Vec3(inTransform.position.x, inTransform.position.y, inTransform.position.z);
         const JPH::Quat rotation = JPH::Quat(inTransform.rotation.x, inTransform.rotation.y, inTransform.rotation.z, inTransform.rotation.w);
-        inPhysics.GetSystem()->GetBodyInterface().AddBody(bodyID, JPH::EActivation::Activate);
-        inPhysics.GetSystem()->GetBodyInterface().SetPositionAndRotationWhenChanged(bodyID, position, rotation, JPH::EActivation::Activate);
+
+        JPH::BodyInterface& bodies = inPhysics.GetSystem()->GetBodyInterface();
+
+        bodies.AddBody(bodyID, JPH::EActivation::Activate);
+        bodies.SetPositionAndRotationWhenChanged(bodyID, position, rotation, JPH::EActivation::Activate);
     }
 }
 
 
 void RigidBody::DeactivateBody(Physics& inPhysics)
 {
-    inPhysics.GetSystem()->GetBodyInterface().RemoveBody(bodyID);
+    JPH::BodyInterface& bodies = inPhysics.GetSystem()->GetBodyInterface();
+    bodies.RemoveBody(bodyID);
 }
 
 
 void RigidBody::CreateCubeCollider(Physics& inPhysics, const BBox3D& inBBox)
 {
 	const Vec3 half_extent = inBBox.GetExtents() / 2.0f;
+
+    shape = CUBE;
+    cubeBounds = inBBox;
 	shapeSettings = new JPH::BoxShapeSettings(JPH::Vec3Arg(half_extent.x, half_extent.y, half_extent.z));
 }
 
 
-void RigidBody::CreateSphereCollider(Physics& inPhysics, float radius)
+void RigidBody::CreateSphereCollider(Physics& inPhysics, float inRadius)
 {
-    shapeSettings = new JPH::SphereShapeSettings(radius);
+    shape = SPHERE;
+    sphereRadius = inRadius;
+    shapeSettings = new JPH::SphereShapeSettings(inRadius);
 }
 
 
@@ -755,6 +762,7 @@ void RigidBody::CreateMeshCollider(Physics& inPhysics, const Mesh& inMesh, const
 		triangles.push_back(JPH::Triangle(JPH::Float3(v0.x, v0.y, v0.z), JPH::Float3(v1.x, v1.y, v1.z), JPH::Float3(v2.x, v2.y, v2.z)));
 	}
 
+    shape = MESH;
 	shapeSettings = new JPH::MeshShapeSettings(triangles);
 }
 
@@ -765,5 +773,10 @@ void RigidBody::CreateCylinderCollider(Physics& inPhysics, const Mesh& inMesh, c
 	const Vec3 half_extent = aabb.GetExtents() / 2.0f;
 	shapeSettings = new JPH::CylinderShapeSettings(half_extent.y, half_extent.x);
 }
+
+void AudioStream::Play()
+{
+}
+
 
 } // raekor

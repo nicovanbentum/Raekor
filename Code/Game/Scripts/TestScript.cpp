@@ -1,12 +1,13 @@
 #define RAEKOR_SCRIPT
 #include "../Engine/Raekor.h"
-using namespace RK;
 
 #include "JoltPhysics/Jolt/Physics/Character/Character.h"
 #include "JoltPhysics/Jolt/Physics/Collision/Shape/CapsuleShape.h"
 
 static constexpr float cBulletSize = 0.1f;
-static constexpr uint32_t cBulletCount = 5;
+static constexpr uint32_t cBulletCount = 50;
+
+namespace RK {
 
 class TestScript : public INativeScript
 {
@@ -58,7 +59,7 @@ public:
                 Mesh& mesh = m_Scene->Add<Mesh>(entity);
                 mesh.CreateSphere(mesh, cBulletSize, 16, 16);
                 m_App->GetRenderInterface()->UploadMeshBuffers(entity, mesh);
-                
+
                 RigidBody& rb = m_Scene->Add<RigidBody>(entity);
                 rb.motionType = JPH::EMotionType::Dynamic;
                 rb.CreateSphereCollider(*GetPhysics(), cBulletSize);
@@ -88,6 +89,15 @@ public:
 #endif
     }
 
+    void OnStop() override
+    {
+        for (Entity& entity : m_Bullets)
+        {
+            m_Scene->Destroy(entity);
+            entity = Entity::Null;
+        }
+    }
+
     void OnUpdate(float inDeltaTime) override
     {
         m_Character->PostSimulation(0.01f);
@@ -109,13 +119,13 @@ public:
 
         if (m_Input->IsKeyDown(Key::W))
             movement += forward;
-        
+
         if (m_Input->IsKeyDown(Key::S))
             movement -= forward;
 
         if (m_Input->IsKeyDown(Key::A))
             movement -= right;
-        
+
         if (m_Input->IsKeyDown(Key::D))
             movement += right;
 
@@ -138,6 +148,9 @@ public:
         }
         else
         {
+            JPH::Vec3 old_velocity = m_Character->GetLinearVelocity();
+            JPH::Vec3 new_velocity = JPH::Vec3(movement.x * 0.1f, old_velocity.GetY(), movement.z * 0.1f);
+            m_Character->SetLinearVelocity(new_velocity);
         }
 
         // Update transform position to match character body
@@ -149,16 +162,16 @@ public:
 
     void OnEvent(const SDL_Event& inEvent) override
     {
-        if (inEvent.type == SDL_MOUSEMOTION)
+        if (inEvent.type == SDL_EVENT_MOUSE_MOTION)
         {
             const CVar& sens_cvar = g_CVariables->GetCVar("sensitivity");
             const float formula = glm::radians(0.022f * sens_cvar.mFloatValue);
             m_Camera.Look(Vec2(inEvent.motion.xrel, inEvent.motion.yrel) * formula);
         }
 
-        if (inEvent.type == SDL_KEYDOWN && !inEvent.key.repeat)
+        if (inEvent.type == SDL_EVENT_KEY_DOWN && !inEvent.key.repeat)
         {
-            switch (inEvent.key.keysym.sym)
+            switch (inEvent.key.key)
             {
                 case SDLK_SPACE:
                 {
@@ -171,7 +184,7 @@ public:
             }
         }
 
-        if (inEvent.type == SDL_MOUSEBUTTONDOWN && inEvent.button.button == 1)
+        if (inEvent.type == SDL_EVENT_MOUSE_BUTTON_DOWN && inEvent.button.button == 1)
         {
             if (RigidBody* rb = FindComponent<RigidBody>(m_Bullets[m_BulletIndex]))
             {
@@ -183,11 +196,11 @@ public:
                 Transform transform = GetComponent<Transform>();
                 transform.position += fwd * 0.30f;
                 rb->ActivateBody(*GetPhysics(), transform);
-                
+
                 Vec3 impulse = fwd * m_BulletVelocity;
                 GetPhysics()->GetSystem()->GetBodyInterface().AddImpulse(rb->bodyID, JPH::Vec3(impulse.x, impulse.y, impulse.z));
 
-                m_BulletIndex = (m_BulletIndex + 1) % m_Bullets.size();
+                m_BulletIndex = ( m_BulletIndex + 1 ) % m_Bullets.size();
             }
         }
     }
@@ -213,9 +226,9 @@ private:
     float m_Speed = 2.5f;
     float m_JumpHeight = 5.0f;
     float m_HeightOffset = 0.65f;
-    
+
     int m_BulletIndex = 0;
-    float m_BulletVelocity = 100.0f;
+    float m_BulletVelocity = 50.0f;
     Entity m_BulletMaterial = Entity::Null;
     StaticArray<Entity, cBulletCount> m_Bullets;
 
@@ -230,15 +243,15 @@ private:
     JPH::CharacterSettings settings;
 };
 
-
-
-RTTI_DEFINE_TYPE(TestScript) 
+RTTI_DEFINE_TYPE(TestScript)
 {
     RTTI_DEFINE_TYPE_INHERITANCE(TestScript, INativeScript);
 
-    RTTI_DEFINE_SCRIPT_MEMBER(TestScript, SERIALIZE_ALL, float, "Speed", m_Speed);
-    RTTI_DEFINE_SCRIPT_MEMBER(TestScript, SERIALIZE_ALL, float, "Jump Height", m_JumpHeight);
-    RTTI_DEFINE_SCRIPT_MEMBER(TestScript, SERIALIZE_ALL, float, "Height Offset", m_HeightOffset);
-    RTTI_DEFINE_SCRIPT_MEMBER(TestScript, SERIALIZE_ALL, float, "Bullet Velocity", m_BulletVelocity);
-    RTTI_DEFINE_SCRIPT_MEMBER(TestScript, SERIALIZE_ALL, Entity, "Bullet Material", m_BulletMaterial);
-}                                                        
+    RTTI_DEFINE_SCRIPT_MEMBER(TestScript, SERIALIZE_ALL, "Speed", m_Speed);
+    RTTI_DEFINE_SCRIPT_MEMBER(TestScript, SERIALIZE_ALL, "Jump Height", m_JumpHeight);
+    RTTI_DEFINE_SCRIPT_MEMBER(TestScript, SERIALIZE_ALL, "Height Offset", m_HeightOffset);
+    RTTI_DEFINE_SCRIPT_MEMBER(TestScript, SERIALIZE_ALL, "Bullet Velocity", m_BulletVelocity);
+    RTTI_DEFINE_SCRIPT_MEMBER(TestScript, SERIALIZE_ALL, "Bullet Material", m_BulletMaterial);
+}
+
+} // RK

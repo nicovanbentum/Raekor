@@ -27,7 +27,7 @@ struct ConfigSettings
 	RTTI_DECLARE_TYPE(ConfigSettings);
 
 	bool mShowUI = true;
-	int mDisplayIndex = 0;
+	int mDisplayID = 0;
 	bool mVsyncEnabled = true;
 	String mAppName = "RK Renderer";
 	Path mFontFile = "Assets/Fonts/Inter-Medium.ttf";
@@ -50,9 +50,9 @@ using WindowFlags = uint32_t;
 
 enum EGameState
 {
-	GAME_STOPPED = 0,
+	GAME_RUNNING,
 	GAME_PAUSED,
-	GAME_RUNNING
+	GAME_STOPPED
 };
 
 
@@ -62,8 +62,11 @@ enum IPC
 	LOG_MESSAGE_RECEIVED = 2,
 };
 
+
 class Application
 {
+    RTTI_DECLARE_VIRTUAL_TYPE(Application);
+
 protected:
 	Application(WindowFlags inFlags);
 
@@ -76,7 +79,7 @@ public:
 	virtual void OnUpdate(float dt) = 0;
 	virtual void OnEvent(const SDL_Event& event) = 0;
 
-	static int OnNativeEvent(void* inUserData, SDL_Event* inEvent);
+	static bool OnNativeEvent(void* userdata, MSG* msg);
 
 	bool IsWindowBorderless() const;
 	bool IsWindowExclusiveFullscreen() const;
@@ -124,6 +127,19 @@ protected:
 };
 
 
+class Game : public Application
+{
+public:
+    Game(WindowFlags inFlags) : Application(inFlags) {}
+    virtual ~Game() = default;
+
+    virtual void Start();
+    virtual void Stop();
+
+    virtual void Pause();
+    virtual void Unpause();
+};
+
 
 struct GPUInfo
 {
@@ -131,6 +147,7 @@ struct GPUInfo
 	String mProduct;
 	String mActiveAPI;
 };
+
 
 struct GPUStats
 {
@@ -147,6 +164,7 @@ struct GPUStats
 
 };
 
+
 class IRenderInterface
 {
 public:
@@ -158,9 +176,11 @@ public:
 		int& debugVoxels	= g_CVariables->Create("r_voxelize_debug",	0);
 		int& debugCascades	= g_CVariables->Create("r_debug_cascades",	0);
 		int& disableTiming	= g_CVariables->Create("r_disable_timings",	0);
-		int& shouldVoxelize = g_CVariables->Create("r_voxelize",			0);
+		int& shouldVoxelize = g_CVariables->Create("r_voxelize",	    0);
 		int& enableTAA		= g_CVariables->Create("r_taa",				0);
+        int& mDisplayMode   = g_CVariables->Create("r_display_mode",    0);
 		int& mDebugTexture	= g_CVariables->Create("r_debug_texture",	0, true);
+        float mSensitivity  = g_CVariables->Create("sensitivity",       2.0f);
 	} m_Settings;
 
 	Settings& GetSettings() { return m_Settings; }

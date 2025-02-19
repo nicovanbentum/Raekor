@@ -40,10 +40,8 @@ Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inW
     ComPtr<IDXGIFactory4> factory = nullptr;
     gThrowIfFailed(CreateDXGIFactory2(DXGI_CREATE_FACTORY_DEBUG, IID_PPV_ARGS(&factory)));
 
-    SDL_SysWMinfo wmInfo = {};
-    SDL_VERSION(&wmInfo.version);
-    SDL_GetWindowWMInfo(inWindow, &wmInfo);
-    HWND hwnd = wmInfo.info.win.window;
+    SDL_PropertiesID props = SDL_GetWindowProperties(inWindow);
+    HWND hwnd = (HWND)SDL_GetPointerProperty(props, SDL_PROP_WINDOW_WIN32_HWND_POINTER, NULL);
 
     ComPtr<IDXGISwapChain1> swapchain = nullptr;
     gThrowIfFailed(factory->CreateSwapChainForHwnd(inDevice.GetGraphicsQueue(), hwnd, &swapchain_desc, nullptr, nullptr, &swapchain));
@@ -51,10 +49,6 @@ Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inW
 
     // Disables DXGI's automatic ALT+ENTER and PRINTSCREEN
     factory->MakeWindowAssociation(hwnd, DXGI_MWA_NO_WINDOW_CHANGES);
-
-    SDL_DisplayMode mode;
-    SDL_GetDisplayMode(SDL_GetWindowDisplayIndex(m_Window), m_Settings.mDisplayRes, &mode);
-    SDL_SetWindowDisplayMode(m_Window, &mode);
 
     m_FrameIndex = m_Swapchain->GetCurrentBackBufferIndex();
 
@@ -373,14 +367,14 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
             {
                 PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( copy_cmd_list ), PIX_COLOR(0, 255, 0), "BUILD BLASes");
 
-                for (Entity entity : m_PendingBlasUpdates)
-                    inScene.UpdateBLAS(inApp, inDevice, inScene->Get<Mesh>(entity), inScene->GetPtr<Skeleton>(entity), copy_cmd_list);
+                for (const auto& [entity, mesh, skeleton] : inScene->Each<Mesh, Skeleton>())
+                    inScene.UpdateBLAS(inApp, inDevice, mesh, skeleton, copy_cmd_list);
             }
+
 
             inDevice.FlushUploads(copy_cmd_list);
 
             // clear all pending uploads for this frame, memory will be re-used
-            m_PendingBlasUpdates.clear();
             m_PendingMeshUploads.clear();
             m_PendingTextureUploads.clear();
             m_PendingSkeletonUploads.clear();
@@ -483,7 +477,7 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
 
     DDGIOutput ddgi_output =
     {
-        .mOutput = default_textures.mBlackTexture,
+        .mOutput = default_textures.mWhiteTexture,
         .mDepthProbes = default_textures.mWhiteTexture,
         .mIrradianceProbes = default_textures.mBlackTexture,
     };
@@ -688,8 +682,8 @@ TextureID Renderer::GetDisplayTexture() const
 
 
 
-RenderInterface::RenderInterface(Application* inApp, Device& inDevice, Renderer& inRenderer, const RenderGraphResources& inResources) :
-    m_Device(inDevice), m_Viewport(inApp->GetViewport()), m_Renderer(inRenderer), m_Resources(inResources)
+RenderInterface::RenderInterface(Application* inApp, Device& inDevice, Renderer& inRenderer) :
+    m_Device(inDevice), m_Viewport(inApp->GetViewport()), m_Renderer(inRenderer)
 {
     DXGI_ADAPTER_DESC adapter_desc = {};
     m_Device.GetAdapter()->GetDesc(&adapter_desc);
@@ -1207,7 +1201,7 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
         static constexpr std::array modes =
         {
             0u /* Windowed */,
-            (uint32_t)SDL_WINDOW_FULLSCREEN_DESKTOP,
+            (uint32_t)SDL_WINDOW_FULLSCREEN,
             (uint32_t)SDL_WINDOW_FULLSCREEN
         };
 
@@ -1228,45 +1222,55 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
 
         if (ImGui::BeginCombo("Mode", mode_strings[mode]))
         {
-            for (const auto& [index, string] : gEnumerate(mode_strings))
+            if (ImGui::Selectable("Windowed", mode == 0))
             {
-                if (ImGui::Selectable(string, index == mode))
-                {
-                    SDL_SetWindowFullscreen(window, modes[index]);
+                SDL_SetWindowFullscreen(window, false);
+                m_Renderer.SetShouldResize(true);
+            }
 
-                    if (modes[index] == SDL_WINDOW_FULLSCREEN)
-                    {
-                        while (!inApp->IsWindowExclusiveFullscreen())
-                            SDL_Delay(10);
-                    }
+            if (ImGui::Selectable("Borderless", mode == 1))
+            {
+                SDL_SetWindowFullscreenMode(window, NULL);
+                SDL_SetWindowFullscreen(window, true);
 
-                    m_Renderer.SetShouldResize(true);
-                }
+                m_Renderer.SetShouldResize(true);
+            }
+
+            if (ImGui::Selectable("Fullscreen", mode == 2))
+            {
+                SDL_SetWindowFullscreen(window, true);
+                SDL_SyncWindow(window);
+                
+                SDL_DisplayID display_id = SDL_GetDisplayForWindow(window);
+                SDL_DisplayMode** display_modes = SDL_GetFullscreenDisplayModes(display_id, NULL);
+                SDL_SetWindowFullscreenMode(window, display_modes[m_Settings.mDisplayMode]);
+                SDL_SyncWindow(window);
+
+                m_Renderer.SetShouldResize(true);
             }
 
             ImGui::EndCombo();
         }
 
-        Array<String> display_names(SDL_GetNumVideoDisplays());
-        for (const auto& [index, name] : gEnumerate(display_names))
-            name = SDL_GetDisplayName(index);
+        int display_count = 0;
+        SDL_DisplayID* displays = SDL_GetDisplays(&display_count);
 
-        const int display_index = SDL_GetWindowDisplayIndex(window);
-        if (ImGui::BeginCombo("Monitor", display_names[display_index].c_str()))
+        const SDL_DisplayID display_id = SDL_GetDisplayForWindow(window);
+        if (ImGui::BeginCombo("Monitor", SDL_GetDisplayName(display_id)))
         {
-            for (const auto& [index, name] : gEnumerate(display_names))
+            for (SDL_DisplayID id : Slice(displays, display_count))
             {
-                if (ImGui::Selectable(name.c_str(), index == display_index))
+                if (ImGui::Selectable(SDL_GetDisplayName(id), display_id == id))
                 {
                     if (m_Renderer.GetSettings().mFullscreen)
                     {
                         SDL_SetWindowFullscreen(window, 0);
-                        SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED_DISPLAY(index), SDL_WINDOWPOS_CENTERED_DISPLAY(index));
-                        SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+                        SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED_DISPLAY(id), SDL_WINDOWPOS_CENTERED_DISPLAY(id));
+                        SDL_SetWindowFullscreen(window, true);
                     }
                     else
                     {
-                        SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED_DISPLAY(index), SDL_WINDOWPOS_CENTERED_DISPLAY(index));
+                        SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED_DISPLAY(id), SDL_WINDOWPOS_CENTERED_DISPLAY(id));
                     }
 
                     m_Renderer.SetShouldResize(true);
@@ -1276,36 +1280,40 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
             ImGui::EndCombo();
         }
 
-        const int current_display_index = SDL_GetWindowDisplayIndex(window);
-        const int num_display_modes = SDL_GetNumDisplayModes(current_display_index);
+        const SDL_DisplayID current_display_id = SDL_GetDisplayForWindow(window);
 
-        Array<String> display_mode_strings(num_display_modes);
-        Array<SDL_DisplayMode> display_modes(num_display_modes);
+        int num_display_modes = 0;
+        SDL_DisplayMode** display_modes = SDL_GetFullscreenDisplayModes(current_display_id, &num_display_modes);
 
         SDL_DisplayMode* new_display_mode = nullptr;
+        Array<String> display_mode_strings(num_display_modes);
 
         if (m_Renderer.GetSettings().mFullscreen)
         {
-            for (const auto& [index, display_mode] : gEnumerate(display_modes))
-                SDL_GetDisplayMode(current_display_index, index, &display_mode);
+            int num_modes = 0;
+            SDL_DisplayMode** modes = SDL_GetFullscreenDisplayModes(current_display_id, &num_modes);
 
-            for (const auto& [index, display_mode] : gEnumerate(display_modes))
-                display_mode_strings[index] = std::format("{}x{}@{}Hz", display_mode.w, display_mode.h, display_mode.refresh_rate);
+            for (int i = 0; i < num_display_modes; i++)
+            {
+                SDL_DisplayMode* display_mode = display_modes[i];
+                display_mode_strings[i] = std::format("{}x{}@{}Hz", display_mode->w, display_mode->h, display_mode->refresh_rate);
+            }
 
-            SDL_DisplayMode current_display_mode;
-            SDL_GetCurrentDisplayMode(SDL_GetWindowDisplayIndex(window), &current_display_mode);
+            const SDL_DisplayMode* current_display_mode = SDL_GetCurrentDisplayMode(current_display_id);
 
-            if (ImGui::BeginCombo("Resolution", display_mode_strings[m_Renderer.GetSettings().mDisplayRes].c_str()))
+            if (ImGui::BeginCombo("Resolution", display_mode_strings[m_Renderer.GetSettings().mDisplayMode].c_str()))
             {
                 for (int index = 0; index < display_mode_strings.size(); index++)
                 {
-                    if (ImGui::Selectable(display_mode_strings[index].c_str(), index == m_Renderer.GetSettings().mDisplayRes))
+                    if (ImGui::Selectable(display_mode_strings[index].c_str(), index == m_Renderer.GetSettings().mDisplayMode))
                     {
-                        m_Renderer.GetSettings().mDisplayRes = index;
-                        new_display_mode = &display_modes[index];
+                        m_Renderer.GetSettings().mDisplayMode = index;
+                        new_display_mode = display_modes[index];
 
-                        if (SDL_SetWindowDisplayMode(window, new_display_mode) != 0)
+                        if (!SDL_SetWindowFullscreenMode(window, new_display_mode))
                             std::cout << SDL_GetError();
+
+                        SDL_SyncWindow(window);
 
                         std::cout << std::format("SDL_SetWindowDisplayMode with {}x{} @ {}Hz\n", new_display_mode->w, new_display_mode->h, new_display_mode->refresh_rate);
 
@@ -1324,7 +1332,8 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
         ImGui::EndMenu();
     }
 
-    if (0) {
+    if (0) 
+    {
         ImGui::Text("Grass Settings");
         ImGui::DragFloat("Grass Bend", &RenderSettings::mGrassBend, 0.01f, -1.0f, 1.0f, "%.2f");
         ImGui::DragFloat("Grass Tilt", &RenderSettings::mGrassTilt, 0.01f, -1.0f, 1.0f, "%.2f");
@@ -1355,6 +1364,7 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
         need_recompile |= ImGui::Checkbox("Enable Reflections", (bool*)&m_Renderer.GetSettings().mEnableReflections);
 
         need_recompile |= ImGui::Checkbox("##GItoggle", (bool*)&m_Renderer.GetSettings().mEnableDDGI);
+
         ImGui::SameLine();
 
         if (ImGui::BeginMenu("Enable Indirect Diffuse"))
@@ -1382,7 +1392,13 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
             ImGui::EndMenu();
         }
 
-        need_recompile |= ImGui::Checkbox("##AOtoggle", (bool*)&m_Renderer.GetSettings().mEnableRTAO);
+        if (ImGui::Checkbox("##AOtoggle", (bool*)&m_Renderer.GetSettings().mEnableRTAO))
+        {
+            need_recompile = true;
+            if (m_Renderer.GetSettings().mEnableRTAO)
+                m_Renderer.GetSettings().mEnableSSAO = false;
+        }
+
         ImGui::SameLine();
 
         if (ImGui::BeginMenu("Enable Ambient Occlusion"))
@@ -1412,7 +1428,13 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
 
         ImGui::Text("SSR");
 
-        need_recompile |= ImGui::Checkbox("##SSAOtoggle", (bool*)&m_Renderer.GetSettings().mEnableSSAO);
+        if (ImGui::Checkbox("##SSAOtoggle", (bool*)&m_Renderer.GetSettings().mEnableSSAO))
+        {
+            need_recompile = true;
+            if (m_Renderer.GetSettings().mEnableSSAO)
+                m_Renderer.GetSettings().mEnableRTAO = false;
+        }
+
         ImGui::SameLine();
 
         if (ImGui::BeginMenu("SSAO"))
@@ -1560,15 +1582,15 @@ TextureID InitImGui(Device& inDevice, DXGI_FORMAT inRtvFormat, uint32_t inFrameC
     DescriptorID font_texture_view = inDevice.GetTexture(font_texture_id).GetView();
     DescriptorHeap& descriptor_heap = inDevice.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-    ImGui_ImplDX12_Init(
-        *inDevice,
-        inFrameCount,
-        inRtvFormat,
-        *descriptor_heap,
-        descriptor_heap.GetCPUDescriptorHandle(font_texture_view),
-        descriptor_heap.GetGPUDescriptorHandle(font_texture_view)
-    );
+    ImGui_ImplDX12_InitInfo init_info = {};
+    init_info.CommandQueue = inDevice.GetGraphicsQueue();
+    init_info.Device = *inDevice;
+    init_info.RTVFormat = inRtvFormat;
+    init_info.NumFramesInFlight = sFrameCount;
+    init_info.LegacySingleSrvCpuDescriptor = descriptor_heap.GetCPUDescriptorHandle(font_texture_view);
+    init_info.LegacySingleSrvGpuDescriptor = descriptor_heap.GetGPUDescriptorHandle(font_texture_view);
 
+    ImGui_ImplDX12_Init(&init_info);
     ImGui_ImplDX12_CreateDeviceObjects();
 
     //auto imgui_id = (void*)(intptr_t)inDevice.GetBindlessHeapIndex(font_texture_id);

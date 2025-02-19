@@ -105,9 +105,10 @@ public:
 	enum EState
 	{
 		Idle = 0,
-		Paused = 1,
-		Stepping = 2
+		Stepping = 1
 	};
+
+    static constexpr float cTimeStep = 1.0f / 120.0f;
 
 	Physics(IRenderInterface* inRenderer = nullptr);
 	~Physics();
@@ -131,10 +132,11 @@ public:
 private:
 	struct /* unnamed */
 	{
-		int& state = g_CVariables->Create("physics_state", int(Idle), true);
+		int& state = g_CVariables->Create("physics_enabled", int(Idle), true);
 	} m_Settings;
 
-	bool m_Debug = true;
+	bool m_Debug = false;
+    float m_TotalTime = 0;
 	JPH::PhysicsSystem* m_Physics = nullptr;
 	JPH::JobSystem* m_JobSystem = nullptr;
 	JPH::TempAllocator* m_TempAllocator = nullptr;

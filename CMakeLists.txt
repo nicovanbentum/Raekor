@@ -7,7 +7,7 @@ set(CMAKE_CONFIGURATION_TYPES "Debug;RelWithDebInfo;Release" CACHE STRING "" FOR
 project(Solution)
 
 find_package(lz4 CONFIG REQUIRED)
-find_package(SDL2 CONFIG REQUIRED)
+find_package(SDL3 CONFIG REQUIRED)
 find_package(directx-headers REQUIRED)
 
 # Enable MSVC parallel build process
@@ -16,4 +16,4 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
 
 add_subdirectory(Code/Engine)
 add_subdirectory(Code/Editor)
-add_subdirectory(Code/Scripts)
+add_subdirectory(Code/Game)

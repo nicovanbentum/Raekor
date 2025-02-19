@@ -265,13 +265,23 @@ const RTAOData& AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDe
             .debugName = "RT_AOMask"
         });
 
+        inData.mHistoryTexture = inRGBuilder.Create(Texture::Desc{
+            .format = DXGI_FORMAT_R32_FLOAT,
+            .width  = inRenderGraph.GetViewport().size.x,
+            .height = inRenderGraph.GetViewport().size.y,
+            .usage  = Texture::Usage::SHADER_READ_ONLY,
+            .debugName = "RT_AOMaskHistory"
+        });
+
         inRGBuilder.Write(inData.mOutputTexture);
 
+        inData.mHistoryTextureSRV = inRGBuilder.Read(inData.mHistoryTexture);
         inData.mGbufferDepthTextureSRV = inRGBuilder.Read(inGBuffer.mDepthTexture);
         inData.mGBufferRenderTextureSRV = inRGBuilder.Read(inGBuffer.mRenderTexture);
+        inData.mGBufferVelocityTextureSRV = inRGBuilder.Read(inGBuffer.mVelocityTexture);
     },
 
-    [&inRenderGraph, &inScene](RTAOData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
+    [&inRenderGraph, &inDevice, &inScene](RTAOData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
         if (!inScene.HasTLAS())
             return;
@@ -280,20 +290,41 @@ const RTAOData& AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDe
 
         inCmdList.PushComputeConstants(AmbientOcclusionRootConstants
         {
+            .mAOmaskTexture           = inResources.GetBindlessHeapIndex(inData.mOutputTexture),
+            .mAOmaskHistoryTexture    = inResources.GetBindlessHeapIndex(inData.mHistoryTexture),
+            .mGbufferDepthTexture     = inResources.GetBindlessHeapIndex(inData.mGbufferDepthTextureSRV),
+            .mGbufferRenderTexture    = inResources.GetBindlessHeapIndex(inData.mGBufferRenderTextureSRV),
+            .mGbufferVelocityTexture  = inResources.GetBindlessHeapIndex(inData.mGBufferVelocityTextureSRV),
+            .mDispatchSize            = viewport.size,
             .mParams = AmbientOcclusionParams {
                 .mRadius = RenderSettings::mRTAORadius,
                 .mPower  = RenderSettings::mRTAOPower,
                 .mNormalBias  = RenderSettings::mRTAONormalBias,
                 .mSampleCount = RenderSettings::mRTAOSampleCount
             },
-            .mAOmaskTexture         = inRGResources.GetBindlessHeapIndex(inData.mOutputTexture),
-            .mGbufferDepthTexture   = inRGResources.GetBindlessHeapIndex(inData.mGbufferDepthTextureSRV),
-            .mGbufferRenderTexture  = inRGResources.GetBindlessHeapIndex(inData.mGBufferRenderTextureSRV),
-            .mDispatchSize          = viewport.size
         });
 
         inCmdList->SetPipelineState(g_SystemShaders.mRTAmbientOcclusionShader.GetComputePSO());
         inCmdList->Dispatch((viewport.size.x + 7) / 8, (viewport.size.y + 7) / 8, 1);
+
+        ID3D12Resource* result_texture_resource = inDevice.GetD3D12Resource(inResources.GetTexture(inData.mOutputTexture));
+        ID3D12Resource* history_texture_resource = inDevice.GetD3D12Resource(inResources.GetTexture(inData.mHistoryTexture));
+
+        std::array barriers =
+        {
+            D3D12_RESOURCE_BARRIER(CD3DX12_RESOURCE_BARRIER::Transition(result_texture_resource, GetD3D12ResourceStates(Texture::SHADER_READ_WRITE), D3D12_RESOURCE_STATE_COPY_SOURCE)),
+            D3D12_RESOURCE_BARRIER(CD3DX12_RESOURCE_BARRIER::Transition(history_texture_resource, GetD3D12ResourceStates(Texture::SHADER_READ_ONLY), D3D12_RESOURCE_STATE_COPY_DEST))
+        };
+        inCmdList->ResourceBarrier(barriers.size(), barriers.data());
+
+        const CD3DX12_TEXTURE_COPY_LOCATION dest = CD3DX12_TEXTURE_COPY_LOCATION(history_texture_resource, 0);
+        const CD3DX12_TEXTURE_COPY_LOCATION source = CD3DX12_TEXTURE_COPY_LOCATION(result_texture_resource, 0);
+        inCmdList->CopyTextureRegion(&dest, 0, 0, 0, &source, nullptr);
+
+        for (D3D12_RESOURCE_BARRIER& barrier : barriers)
+            std::swap(barrier.Transition.StateBefore, barrier.Transition.StateAfter);
+
+        inCmdList->ResourceBarrier(barriers.size(), barriers.data());
     });
 }
 

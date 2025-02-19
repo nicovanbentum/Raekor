@@ -12,7 +12,7 @@ struct RenderSettings
 
     static inline int mSSAOSamples = 16;
     static inline float mSSAOBias = 0.025f;
-    static inline float mSSAORadius = 0.05f;
+    static inline float mSSAORadius = 0.2f;
 
     static inline int mSSRSamples = 16;
     static inline float mSSRBias = 0.025f;

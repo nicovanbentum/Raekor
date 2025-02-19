@@ -115,6 +115,7 @@ String CVariables::GetValue(const String& inName) const
 	return m_ConVars.at(inName).ToString();
 }
 
+
 void CVariables::CreateFn(const String& inName, CVar::Function inFunction)
 {
 	CVar::Function function = Create(inName, inFunction, true);

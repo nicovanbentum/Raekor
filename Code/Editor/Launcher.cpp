@@ -9,7 +9,7 @@ SDL_Image::~SDL_Image()
 	if (m_Texture)
 		SDL_DestroyTexture(m_Texture);
 	if (m_Surface)
-		SDL_FreeSurface(m_Surface);
+		SDL_DestroySurface(m_Surface);
 	if (m_PixelData)
 		stbi_image_free(m_PixelData);
 }
@@ -26,8 +26,7 @@ bool SDL_Image::Load(SDL_Renderer* inRenderer, const Path& inPath)
 		return false;
 
 	const int pitch = ( ( width * ch ) + 3 ) & ~3;
-	const int r = 0x000000FF, g = 0x0000FF00, b = 0x00FF0000, a = ( ch == 4 ) ? 0xFF000000 : 0;
-	m_Surface = SDL_CreateRGBSurfaceFrom(m_PixelData, width, height, ch * 8, pitch, r, g, b, a);
+	m_Surface = SDL_CreateSurfaceFrom(width, height, SDL_PIXELFORMAT_RGBA8888, m_PixelData, pitch);
 
 	if (!m_Surface)
 	{
@@ -61,14 +60,11 @@ Launcher::Launcher() : Application(WindowFlag::HIDDEN)
 		GUI::SetFont(m_ConfigSettings.mFontFile.string());
 	GUI::SetDarkTheme();
 
-	m_Renderer = SDL_CreateRenderer(m_Window, -1, SDL_RENDERER_PRESENTVSYNC);
+	m_Renderer = SDL_CreateRenderer(m_Window, NULL);
+	std::cout << "Created SDL_Renderer with name: \"" << SDL_GetRendererName(m_Renderer)<< "\"\n";
 
-	SDL_RendererInfo renderer_info;
-	SDL_GetRendererInfo(m_Renderer, &renderer_info);
-	std::cout << "Created SDL_Renderer with name: \"" << renderer_info.name << "\"\n";
-
-	ImGui_ImplSDL2_InitForSDLRenderer(m_Window, m_Renderer);
-	ImGui_ImplSDLRenderer2_Init(m_Renderer);
+	ImGui_ImplSDL3_InitForSDLRenderer(m_Window, m_Renderer);
+	ImGui_ImplSDLRenderer3_Init(m_Renderer);
 	SDL_SetWindowTitle(m_Window, "Launcher");
 	SDL_SetWindowMinimumSize(m_Window, 420, 90);
 
@@ -85,8 +81,8 @@ Launcher::Launcher() : Application(WindowFlag::HIDDEN)
 
 Launcher::~Launcher()
 {
-	ImGui_ImplSDL2_Shutdown();
-	ImGui_ImplSDLRenderer2_Shutdown();
+	ImGui_ImplSDL3_Shutdown();
+	ImGui_ImplSDLRenderer3_Shutdown();
 	SDL_DestroyRenderer(m_Renderer);
 	ImGui::DestroyContext();
 }
@@ -95,8 +91,8 @@ Launcher::~Launcher()
 
 void Launcher::OnUpdate(float inDeltaTime)
 {
-	ImGui_ImplSDL2_NewFrame();
-	ImGui_ImplSDLRenderer2_NewFrame();
+	ImGui_ImplSDL3_NewFrame();
+	ImGui_ImplSDLRenderer3_NewFrame();
 	ImGui::NewFrame();
 
 	ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f));
@@ -168,10 +164,10 @@ void Launcher::OnUpdate(float inDeltaTime)
 	SDL_RenderClear(m_Renderer);
 
 	if (m_BgImage.IsLoaded())
-		SDL_RenderCopy(m_Renderer, m_BgImage.GetTexture(), NULL, NULL);
+		SDL_RenderTexture(m_Renderer, m_BgImage.GetTexture(), NULL, NULL);
 
 	ImGui::Render();
-	ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), m_Renderer);
+	ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), m_Renderer);
 
 	SDL_RenderPresent(m_Renderer);
 
@@ -183,8 +179,8 @@ void Launcher::OnUpdate(float inDeltaTime)
 		SDL_SetWindowSize(m_Window, w - empty_window_space.x, h - empty_window_space.y);
 
 		// At this point the window should be perfectly fitted to the ImGui content, the window was created with HIDDEN, so now we can SHOW it
-		SDL_SetWindowPosition(m_Window, SDL_WINDOWPOS_CENTERED_DISPLAY(m_ConfigSettings.mDisplayIndex),
-										SDL_WINDOWPOS_CENTERED_DISPLAY(m_ConfigSettings.mDisplayIndex));
+		SDL_SetWindowPosition(m_Window, SDL_WINDOWPOS_CENTERED_DISPLAY(m_ConfigSettings.mDisplayID),
+										SDL_WINDOWPOS_CENTERED_DISPLAY(m_ConfigSettings.mDisplayID));
 		SDL_ShowWindow(m_Window);
 
 		m_ResizeCounter++;
@@ -195,9 +191,9 @@ void Launcher::OnUpdate(float inDeltaTime)
 
 void Launcher::OnEvent(const SDL_Event& inEvent)
 {
-	ImGui_ImplSDL2_ProcessEvent(&inEvent);
+	ImGui_ImplSDL3_ProcessEvent(&inEvent);
 
-	if (inEvent.type == SDL_WINDOWEVENT && inEvent.window.event == SDL_WINDOWEVENT_CLOSE)
+	if (inEvent.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED)
 		m_WasClosed = true;
 }
 

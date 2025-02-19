@@ -350,13 +350,30 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Mesh& ioMesh)
 
 	ImGui::DragFloat("LOD Fade", &ioMesh.lodFade, 0.001f, -1.0f, 1.0f, "%.3f");
 
-	if (ImGui::Button("Generate Normals"))
+    if (ImGui::Button("Scale UVs"))
+    {
+        for (Vec2& uv : ioMesh.uvs)
+            uv *= 2.0f;
+
+        ioMesh.CalculateVertices();
+        m_Editor->GetRenderInterface()->UploadMeshBuffers(inEntity, ioMesh);
+    }
+
+    if (ImGui::Button("Generate Normals"))
+    {
 		ioMesh.CalculateNormals();
+        ioMesh.CalculateVertices();
+        m_Editor->GetRenderInterface()->UploadMeshBuffers(inEntity, ioMesh);
+    }
 
 	ImGui::SameLine();
 
-	if (ImGui::Button("Generate Tangents"))
+    if (ImGui::Button("Generate Tangents"))
+    {
 		ioMesh.CalculateTangents();
+        ioMesh.CalculateVertices();
+        m_Editor->GetRenderInterface()->UploadMeshBuffers(inEntity, ioMesh);
+    }
 
 	return scene_changed;
 }
@@ -866,7 +883,9 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Material& inMaterial)
 		const uint32_t imgui_map = inGpuMap ? inGpuMap : inDefaultMap;
 		const uint64_t imgui_id = m_Editor->GetRenderInterface()->GetImGuiTextureID(imgui_map);
 
-		if (ImGui::ImageButton((void*)( (intptr_t)imgui_id ), ImVec2(line_height - 1, line_height - 1)))
+        ImGui::PushID(imguiID);
+
+		if (ImGui::ImageButton("##strid", ImTextureID(imgui_id), ImVec2(line_height - 1, line_height - 1)))
 		{
 			String filepath = OS::sOpenFileDialog("Image Files(*.jpg, *.jpeg, *.png)\0*.jpg;*.jpeg;*.png\0");
 
@@ -886,6 +905,8 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Material& inMaterial)
 					ImGui::OpenPopup("Error");
 			}
 		}
+
+        ImGui::PopID();
 
 		if (!inFile.empty() && inGpuMap && inGpuMap != inDefaultMap && ImGui::BeginPopupContextItem())
 		{
@@ -929,15 +950,15 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Material& inMaterial)
 	uint32_t imgui_id = 0;
 
 	ImGui::AlignTextToFramePadding(); ImGui::Text("Albedo Map       "); ImGui::SameLine();
-	DrawTextureInteraction(inMaterial.gpuAlbedoMap, inMaterial.gpuAlbedoMapSwizzle, Material::Default.gpuAlbedoMap, inMaterial.albedoFile, imgui_id);
+	DrawTextureInteraction(inMaterial.gpuAlbedoMap, inMaterial.gpuAlbedoMapSwizzle, Material::Default.gpuAlbedoMap, inMaterial.albedoFile, ++imgui_id);
 	ImGui::AlignTextToFramePadding(); ImGui::Text("Normal Map       "); ImGui::SameLine();
-	DrawTextureInteraction(inMaterial.gpuNormalMap, inMaterial.gpuNormalMapSwizzle, Material::Default.gpuNormalMap, inMaterial.normalFile, imgui_id);
+	DrawTextureInteraction(inMaterial.gpuNormalMap, inMaterial.gpuNormalMapSwizzle, Material::Default.gpuNormalMap, inMaterial.normalFile, ++imgui_id);
 	ImGui::AlignTextToFramePadding(); ImGui::Text("Emissive Map    "); ImGui::SameLine();
-	DrawTextureInteraction(inMaterial.gpuEmissiveMap, inMaterial.gpuEmissiveMapSwizzle, Material::Default.gpuEmissiveMap, inMaterial.emissiveFile, imgui_id);
+	DrawTextureInteraction(inMaterial.gpuEmissiveMap, inMaterial.gpuEmissiveMapSwizzle, Material::Default.gpuEmissiveMap, inMaterial.emissiveFile, ++imgui_id);
 	ImGui::AlignTextToFramePadding(); ImGui::Text("Metallic Map      "); ImGui::SameLine();
-	DrawTextureInteraction(inMaterial.gpuMetallicMap, inMaterial.gpuMetallicMapSwizzle, Material::Default.gpuMetallicMap, inMaterial.metallicFile, imgui_id);
+	DrawTextureInteraction(inMaterial.gpuMetallicMap, inMaterial.gpuMetallicMapSwizzle, Material::Default.gpuMetallicMap, inMaterial.metallicFile, ++imgui_id);
 	ImGui::AlignTextToFramePadding(); ImGui::Text("Roughness Map"); ImGui::SameLine();
-	DrawTextureInteraction(inMaterial.gpuRoughnessMap, inMaterial.gpuRoughnessMapSwizzle, Material::Default.gpuRoughnessMap, inMaterial.roughnessFile, imgui_id);
+	DrawTextureInteraction(inMaterial.gpuRoughnessMap, inMaterial.gpuRoughnessMapSwizzle, Material::Default.gpuRoughnessMap, inMaterial.roughnessFile, ++imgui_id);
 
 	/* for (const auto& [index, texture] : gEnumerate(inMaterial.textures))
 	{

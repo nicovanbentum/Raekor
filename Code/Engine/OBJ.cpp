@@ -26,6 +26,7 @@ bool OBJImporter::LoadFromFile(const String& inFile, Assets* inAssets)
 	bool parsing_mesh = false;
 	bool using_material = false;
 
+    uint64_t line_nr = 1;
 	uint8_t vertex_count = 0;
 	StaticArray<Vec3, 4> vertices;
 
@@ -75,6 +76,10 @@ bool OBJImporter::LoadFromFile(const String& inFile, Assets* inAssets)
 				assert(vn_index >= 0 && vn_index <= m_Normals.size());
 				assert(vt_index >= 0 && vt_index <= m_Texcoords.size());
 
+                // ehm, a face with 5 or more vertices? tf is it a pentagon or smth?
+                if (vertex_count + 1 > 4)
+                    continue;
+
 				vertices[vertex_count++] = Vec3(v_index, vt_index, vn_index);
 
 				// found a quad
@@ -116,6 +121,8 @@ bool OBJImporter::LoadFromFile(const String& inFile, Assets* inAssets)
 			else
 				std::cout << std::format("[OBJ] Multiple material libraries found, using {}\n", mtl_file);
 		}
+
+        line_nr++;
 	}
 
 	if (!obj_mesh.IsEmpty())

@@ -184,18 +184,18 @@ void EditorCameraController::OnUpdate(Camera& inCamera, float inDeltaTime)
 
 	if (g_Input->HasController())
 	{
-		SDL_GameController* controller = g_Input->GetController();
+		SDL_Gamepad* controller = g_Input->GetController();
 
-		const Sint16 x_axis = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTX);
-		const Sint16 y_axis = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTY);
+		const Sint16 x_axis = SDL_GetGamepadAxis(controller, SDL_GAMEPAD_AXIS_LEFTX);
+		const Sint16 y_axis = SDL_GetGamepadAxis(controller, SDL_GAMEPAD_AXIS_LEFTY);
 
 		float sensitivity = g_CVariables->GetValue<float>("sensitivity");
 
 		float move_x = ( x_axis / 32767.0f ) * sensitivity;
 		float move_z = ( y_axis / 32767.0f ) * sensitivity;
 
-		const Sint16 lt_axis = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERLEFT);
-		const Sint16 rt_axis = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERRIGHT);
+		const Sint16 lt_axis = SDL_GetGamepadAxis(controller, SDL_GAMEPAD_AXIS_LEFT_TRIGGER);
+		const Sint16 rt_axis = SDL_GetGamepadAxis(controller, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER);
 
 		move_x = move_x * glm::lerp(1.0f, 12.3333f, lt_axis / 32767.0f);
 		move_z = move_z * glm::lerp(1.0f, 12.3333f, lt_axis / 32767.0f);
@@ -203,8 +203,8 @@ void EditorCameraController::OnUpdate(Camera& inCamera, float inDeltaTime)
 		move_x = move_x * glm::lerp(1.0f / 12.3333f, 1.0f, 1.0f - (rt_axis / 32767.0f));
 		move_z = move_z * glm::lerp(1.0f / 12.3333f, 1.0f, 1.0f - (rt_axis / 32767.0f));
 
-		const Sint16 right_x = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTX);
-		const Sint16 right_y = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTY);
+		const Sint16 right_x = SDL_GetGamepadAxis(controller, SDL_GAMEPAD_AXIS_RIGHTX);
+		const Sint16 right_y = SDL_GetGamepadAxis(controller, SDL_GAMEPAD_AXIS_RIGHTY);
 
 		const float delta_yaw = ( right_x / 32767.0f ) * sensitivity;
 		const float delta_pitch = ( right_y / 32767.0f ) * sensitivity;
@@ -213,10 +213,10 @@ void EditorCameraController::OnUpdate(Camera& inCamera, float inDeltaTime)
 
 		float move_y = 0.0f;
 
-		if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_LEFTSHOULDER))
+		if (SDL_GetGamepadButton(controller, SDL_GAMEPAD_BUTTON_LEFT_SHOULDER))
 			move_y = -sensitivity;
 
-		if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER))
+		if (SDL_GetGamepadButton(controller, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER))
 			move_y = sensitivity;
 
 		inCamera.Move(Vec2(-move_x * inDeltaTime, move_y * inDeltaTime));
@@ -233,25 +233,25 @@ bool EditorCameraController::OnEvent(Camera& inCamera, const SDL_Event& inEvent)
 
 	if (inEvent.button.button == 2 || inEvent.button.button == 3)
 	{
-		if (inEvent.type == SDL_MOUSEBUTTONDOWN)
+		if (inEvent.type == SDL_EVENT_MOUSE_BUTTON_DOWN)
 			g_Input->SetRelativeMouseMode(true);
-		else if (inEvent.type == SDL_MOUSEBUTTONUP)
+		else if (inEvent.type == SDL_EVENT_MOUSE_BUTTON_UP)
 			g_Input->SetRelativeMouseMode(false);
 	}
 
-	if (inEvent.type == SDL_KEYDOWN && !inEvent.key.repeat && inEvent.key.keysym.sym == SDLK_LSHIFT)
+	if (inEvent.type == SDL_EVENT_KEY_DOWN && !inEvent.key.repeat && inEvent.key.key == SDLK_LSHIFT)
 	{
 		inCamera.mZoomConstant *= 20.0f;
 		inCamera.mMoveConstant *= 20.0f;
 	}
 
-	if (inEvent.type == SDL_KEYUP && !inEvent.key.repeat && inEvent.key.keysym.sym == SDLK_LSHIFT)
+	if (inEvent.type == SDL_EVENT_KEY_UP && !inEvent.key.repeat && inEvent.key.key == SDLK_LSHIFT)
 	{
 		inCamera.mZoomConstant /= 20.0f;
 		inCamera.mMoveConstant /= 20.0f;
 	}
 
-	if (inEvent.type == SDL_MOUSEMOTION)
+	if (inEvent.type == SDL_EVENT_MOUSE_MOTION)
 	{
 		const CVar& sens_cvar = g_CVariables->GetCVar("sensitivity");
 		const float formula = glm::radians(0.022f * sens_cvar.mFloatValue * 2.0f);
@@ -273,7 +273,7 @@ bool EditorCameraController::OnEvent(Camera& inCamera, const SDL_Event& inEvent)
 			}
 		}
 	}
-	else if (inEvent.type == SDL_MOUSEWHEEL)
+	else if (inEvent.type == SDL_EVENT_MOUSE_WHEEL)
 	{
 		inCamera.Zoom(float(inEvent.wheel.y));
 		camera_changed = true;

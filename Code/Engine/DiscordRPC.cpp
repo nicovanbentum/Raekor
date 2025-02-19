@@ -8,7 +8,7 @@ namespace RK {
 
 bool DiscordRPC::Init(Application* inApp)
 {
-	discord::Result result = discord::Core::Create(1322276781851672647, DiscordCreateFlags_Default, &m_Core);
+	discord::Result result = discord::Core::Create(1322276781851672647, DiscordCreateFlags_NoRequireDiscord, &m_Core);
 	
 	if (result != discord::Result::Ok) 
 		return false;
@@ -31,21 +31,28 @@ bool DiscordRPC::Init(Application* inApp)
 
 void DiscordRPC::SetActivityState(const char* inState)
 {
-	m_Activity->SetState(inState);
-	m_Core->ActivityManager().UpdateActivity(*m_Activity, [](discord::Result result) {});
+    if (m_Core && m_Activity)
+    {
+	    m_Activity->SetState(inState);
+	    m_Core->ActivityManager().UpdateActivity(*m_Activity, [](discord::Result result) {});
+    }
 }
 
 
 void DiscordRPC::SetActivityDetails(const char* inDetails)
 {
-	m_Activity->SetDetails(inDetails);
-	m_Core->ActivityManager().UpdateActivity(*m_Activity, [](discord::Result result) {});
+    if (m_Core && m_Activity)
+    {
+	    m_Activity->SetDetails(inDetails);
+	    m_Core->ActivityManager().UpdateActivity(*m_Activity, [](discord::Result result) {});
+    }
 }
 
 
 void DiscordRPC::OnUpdate()
 {
-	m_Core->RunCallbacks();
+    if (m_Core)
+	    m_Core->RunCallbacks();
 }
 
 

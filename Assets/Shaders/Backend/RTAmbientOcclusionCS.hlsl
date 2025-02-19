@@ -1,4 +1,5 @@
 #include "Include/RayTracing.hlsli"
+#include "Include/Material.hlsli"
 #include "Include/Bindless.hlsli"
 #include "Include/Packing.hlsli"
 #include "Include/Common.hlsli"
@@ -17,7 +18,10 @@ void main(uint3 threadID : SV_DispatchThreadID)
     Texture2D<float> depth_texture = ResourceDescriptorHeap[rc.mGbufferDepthTexture];
     Texture2D<float4> gbuffer_texture = ResourceDescriptorHeap[rc.mGbufferRenderTexture];
     RWTexture2D<float> ao_mask_texture = ResourceDescriptorHeap[rc.mAOmaskTexture];
+    
     RaytracingAccelerationStructure TLAS = ResourceDescriptorHeap[fc.mTLAS];
+    StructuredBuffer<RTGeometry> geometries = ResourceDescriptorHeap[fc.mInstancesBuffer];
+    StructuredBuffer<RTMaterial> materials = ResourceDescriptorHeap[fc.mMaterialsBuffer];
 
     float2 pixel_center = float2(threadID.xy) + float2(0.5, 0.5);
     float2 screen_uv = pixel_center / rc.mDispatchSize;
@@ -48,13 +52,27 @@ void main(uint3 threadID : SV_DispatchThreadID)
         RayQuery < RAY_FLAG_FORCE_OPAQUE | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER > query;
 
         query.TraceRayInline(TLAS, ray_flags, 0xFF, ray);
-        query.Proceed();
-
+        while (query.Proceed()) {}
         
         if (query.CommittedStatus() == COMMITTED_TRIANGLE_HIT)
         {
-            occlusion = saturate((ray.TMin + query.CommittedRayT()) / max(ray.TMax, 0.001));
-            occlusion = pow(occlusion, rc.mParams.mPower);
+            RTGeometry geometry = geometries[query.CommittedInstanceID()];
+            RTVertex vertex = CalculateVertexFromGeometry(geometry, query.CommittedPrimitiveIndex(), query.CommittedTriangleBarycentrics());
+            RTMaterial material = materials[geometry.mMaterialIndex];
+            
+            Surface surface;
+            surface.FromHit(vertex, material);
+            
+            if (surface.mAlbedo.a < 0.5)
+            {
+                occlusion = 1.0;
+            }
+            else
+            {
+                occlusion = saturate((ray.TMin + query.CommittedRayT()) / max(ray.TMax, 0.001));
+                occlusion = pow(occlusion, rc.mParams.mPower);
+            }
+            
         }
         // occlusion /= rc.mParams.mSampleCount;
     }

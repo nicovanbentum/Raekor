@@ -1,6 +1,7 @@
 #define RAEKOR_SCRIPT
 #include "../Engine/raekor.h"
-using namespace RK;
+
+namespace RK {
 
 class LightsScript : public INativeScript
 {
@@ -70,3 +71,5 @@ RTTI_DEFINE_TYPE(LightsScript)
 {
     RTTI_DEFINE_TYPE_INHERITANCE(LightsScript, INativeScript);
 }
+
+} // RK

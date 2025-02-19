@@ -34,19 +34,6 @@
 #ifndef RAEKOR_SCRIPT
 
 /////////////////
-// ImGui library
-#ifndef IMGUI_DEFINE_MATH_OPERATORS
-#define IMGUI_DEFINE_MATH_OPERATORS
-#endif
-#include "imgui/imconfig.h"
-#include "imgui/imgui.h"
-#include "imgui/imgui_internal.h"
-#include "imgui/misc/cpp/imgui_stdlib.h"
-#include "imgui/backends/imgui_impl_sdl2.h"
-#include "imgui/backends/imgui_impl_dx12.h"
-#include "imgui/backends/imgui_impl_sdlrenderer2.h"
-
-/////////////////
 // Icons font awesome 5 library
 #include "IconsFontAwesome5.h"
 
@@ -103,7 +90,7 @@ using ComPtr = Microsoft::WRL::ComPtr<T>;
 #ifdef _WIN32
 #include <Windows.h>
 #include <commdlg.h>
-#include <SDL2/SDL_syswm.h>
+#include <SDL3/SDL_system.h>
 #include <dwmapi.h>
 #include <DbgHelp.h>
 #include <shellapi.h>
@@ -143,6 +130,19 @@ using ComPtr = Microsoft::WRL::ComPtr<T>;
 ///////////////////////////
 // meshlet library
 #include "meshoptimizer.h"
+
+/////////////////
+// ImGui library
+#ifndef IMGUI_DEFINE_MATH_OPERATORS
+#define IMGUI_DEFINE_MATH_OPERATORS
+#endif
+#include "imgui/imconfig.h"
+#include "imgui/imgui.h"
+#include "imgui/imgui_internal.h"
+#include "imgui/misc/cpp/imgui_stdlib.h"
+#include "imgui/backends/imgui_impl_sdl3.h"
+#include "imgui/backends/imgui_impl_dx12.h"
+#include "imgui/backends/imgui_impl_sdlrenderer3.h"
 
 #endif // RAEKOR_SCRIPT
 
@@ -266,9 +266,9 @@ namespace RK
 ////////////////////////////
 // Simple DirectMedia Layer
 // Part of the API headers, types are used all over the place
-#include "SDL2/SDL.h"
-#include "SDL2/SDL_render.h"
-#include "SDL2/SDL_vulkan.h"
+#include "SDL3/SDL.h"
+#include "SDL3/SDL_render.h"
+#include "SDL3/SDL_vulkan.h"
 #undef main //stupid sdl_main
 
 
@@ -298,6 +298,8 @@ namespace RK
 #include "Jolt/Physics/Collision/CastResult.h"
 #include "Jolt/Renderer/DebugRenderer.h"
 #include "Jolt/Core/JobSystemThreadPool.h"
+#include "Jolt/ObjectStream/ObjectStreamBinaryIn.h"
+#include "Jolt/ObjectStream/ObjectStreamBinaryOut.h"
 #include "Jolt/Physics/PhysicsSettings.h"
 #include "Jolt/Physics/PhysicsSystem.h"
 #include "Jolt/Physics/StateRecorderImpl.h"

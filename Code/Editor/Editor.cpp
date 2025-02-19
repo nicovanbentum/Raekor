@@ -12,7 +12,8 @@
 #include "DebugRenderer.h"
 #include "ShaderGraphNodes.h"
 
-#include "Scripts/Scripts.h"
+#include "Game/Scripts/Scripts.h"
+
 #include "Widgets/AssetsWidget.h"
 #include "Widgets/MenubarWidget.h"
 #include "Widgets/ConsoleWidget.h"
@@ -26,7 +27,8 @@
 namespace RK {
 
 Editor::Editor(WindowFlags inWindowFlags, IRenderInterface* inRenderInterface) :
-	Application(inWindowFlags /* | WindowFlag::BORDERLESS */),
+	Game(inWindowFlags /* | WindowFlag::BORDERLESS */),
+
 	m_Scene(inRenderInterface),
 	m_Physics(inRenderInterface),
 	m_UndoSystem(m_Scene),
@@ -148,6 +150,9 @@ void Editor::OnUpdate(float inDeltaTime)
 	// clear the debug renderer vertex buffers
 	g_DebugRenderer.Reset();
 
+    // update relative mouse mode
+    SDL_SetWindowRelativeMouseMode(m_Window, g_Input->IsRelativeMouseMode());
+
 	// update the physics system
 	m_Physics.OnUpdate(m_Scene);
 
@@ -250,49 +255,46 @@ void Editor::OnUpdate(float inDeltaTime)
 
 void Editor::OnEvent(const SDL_Event& event)
 {
-	ImGui_ImplSDL2_ProcessEvent(&event);
+	ImGui_ImplSDL3_ProcessEvent(&event);
 
 	if (m_GameState != GAME_RUNNING && m_CameraEntity == Entity::Null)
 	{
 		if (const ViewportWidget* viewport_widget = m_Widgets.GetWidget<ViewportWidget>())
 		{
-			if (viewport_widget->IsHovered() || SDL_GetRelativeMouseMode() || !m_ConfigSettings.mShowUI)
+			if (viewport_widget->IsHovered() || g_Input->IsRelativeMouseMode() || !m_ConfigSettings.mShowUI)
 			{
 				EditorCameraController::OnEvent(m_Camera, event);
 			}
 		}
 	}
 
-	if (event.type == SDL_WINDOWEVENT)
+	if (event.type == SDL_EVENT_WINDOW_MINIMIZED)
 	{
-		if (event.window.event == SDL_WINDOWEVENT_MINIMIZED)
+		for (;;)
 		{
-			for (;;)
-			{
-				SDL_Event temp_event;
-				SDL_PollEvent(&temp_event);
+			SDL_Event temp_event;
+			SDL_PollEvent(&temp_event);
 
-				if (temp_event.window.event == SDL_WINDOWEVENT_RESTORED)
-					break;
-			}
-		}
-
-		if (event.window.event == SDL_WINDOWEVENT_RESIZED)
-		{
-			if (!m_ConfigSettings.mShowUI)
-			{
-				int w, h;
-				SDL_GetWindowSize(m_Window, &w, &h);
-				m_Viewport.SetDisplaySize(UVec2(w, h));
-			}
+			if (temp_event.type == SDL_EVENT_WINDOW_RESTORED)
+				break;
 		}
 	}
 
-	if (event.type == SDL_KEYDOWN && !event.key.repeat)
+	if (event.type == SDL_EVENT_WINDOW_RESIZED)
 	{
-		switch (event.key.keysym.sym)
+		if (!m_ConfigSettings.mShowUI)
 		{
-			case SDLK_d:
+			int w, h;
+			SDL_GetWindowSize(m_Window, &w, &h);
+			m_Viewport.SetDisplaySize(UVec2(w, h));
+		}
+	}
+
+	if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat)
+	{
+		switch (event.key.key)
+		{
+			case SDLK_D:
 			{
 				if (g_Input->IsKeyDown(Key::LCTRL))
 				{
@@ -301,7 +303,7 @@ void Editor::OnEvent(const SDL_Event& event)
 				}
 			} break;
 
-			case SDLK_s:
+			case SDLK_S:
 			{
 				if (g_Input->IsKeyDown(Key::LCTRL))
 				{
@@ -321,13 +323,13 @@ void Editor::OnEvent(const SDL_Event& event)
 				}
 			} break;
 
-			case SDLK_z:
+			case SDLK_Z:
 			{
 				if (g_Input->IsKeyDown(Key::LCTRL))
 					m_UndoSystem.Undo();
 			} break;
 
-			case SDLK_y:
+			case SDLK_Y:
 			{
 				if (g_Input->IsKeyDown(Key::LCTRL))
 					m_UndoSystem.Redo();
@@ -362,70 +364,14 @@ void Editor::OnEvent(const SDL_Event& event)
 				g_Input->SetRelativeMouseMode(!g_Input->IsRelativeMouseMode());
 			} break;
 
-			case SDLK_ESCAPE:
-			{
-				if (m_Physics.GetState() != Physics::Idle)
-				{
-					m_Physics.RestoreState();
-					m_Physics.Step(m_Scene, 1.0f / 60.0f);
-					m_Physics.SetState(Physics::Idle);
-
-				}
-
-				EGameState state = GetGameState();
-				SetGameState(GAME_STOPPED);
-
-				if (state != GAME_STOPPED)
-				{
-					for (auto [entity, script] : m_Scene.Each<NativeScript>())
-					{
-						if (script.script)
-						{
-							try
-							{
-								script.script->OnStop();
-							}
-							catch (std::exception& e)
-							{
-								std::cout << e.what() << '\n';
-							}
-						}
-					}
-
-                    SetCameraEntity(Entity::Null);
-				}
-
-				g_Input->SetRelativeMouseMode(false);
-
-			} break;
-
 			case SDLK_F5:
 			{
-				EGameState state = GetGameState();
-				SetGameState(GAME_RUNNING);
+                Game::Start();
+			} break;
 
-				m_Physics.SetState(Physics::Stepping);
-
-				if (state != GAME_RUNNING)
-				{
-					for (auto [entity, script] : m_Scene.Each<NativeScript>())
-					{
-						if (script.script)
-						{
-							try
-							{
-								script.script->OnStart();
-							}
-							catch (std::exception& e)
-							{
-								std::cout << e.what() << '\n';
-							}
-						}
-					}
-				}
-
-				g_Input->SetRelativeMouseMode(true);
-
+			case SDLK_ESCAPE:
+			{
+                Game::Stop();
 			} break;
 		}
 	}
@@ -527,8 +473,8 @@ void Editor::BeginImGuiDockSpace()
 		ImGuiID main_node = ImGui::DockBuilderAddNode(dockspace_id, dockspace_flags | ImGuiDockNodeFlags_DockSpace);
 		ImGui::DockBuilderSetNodeSize(main_node, viewport->Size);
 
-		ImGui::DockBuilderDockWindow(m_Widgets.GetWidget<ShaderGraphWidget>()->GetTitle().c_str(), main_node);
 		ImGui::DockBuilderDockWindow(m_Widgets.GetWidget<ViewportWidget>()->GetTitle().c_str(), main_node);
+		ImGui::DockBuilderDockWindow(m_Widgets.GetWidget<ShaderGraphWidget>()->GetTitle().c_str(), main_node);
 
 		ImGuiID SplitA, SplitB;
 		ImGui::DockBuilderSplitNode(main_node, ImGuiDir_Right, 0.15f, &SplitA, &SplitB);

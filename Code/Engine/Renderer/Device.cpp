@@ -15,6 +15,9 @@
 #include <locale>
 #include <codecvt>
 
+extern "C" { __declspec( dllexport ) extern const UINT D3D12SDKVersion = 600; }
+extern "C" { __declspec( dllexport ) extern const char* D3D12SDKPath = ".\\"; }
+
 namespace RK::DX12 {
 
 Device::Device(Application* inApp)
@@ -209,7 +212,7 @@ Device::Device(Application* inApp)
     if (!mIsRayTracingSupported)
     {
         mIsRayTracingSupported = true;
-        SDL_ShowSimpleMessageBox(SDL_MessageBoxFlags::SDL_MESSAGEBOX_ERROR, "DX12 Error", "GPU does not support D3D12_RAYTRACING_TIER_1_1.", inApp->GetWindow());
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "DX12 Error", "GPU does not support D3D12_RAYTRACING_TIER_1_1.", inApp->GetWindow());
         abort();
     }
 }

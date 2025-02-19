@@ -11,7 +11,7 @@
 
 namespace RK {
 
-class Editor : public Application
+class Editor : public Game
 {
 	struct Settings
 	{

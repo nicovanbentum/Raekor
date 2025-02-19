@@ -104,7 +104,7 @@ public:
     void OnUpdate(float inDeltaTime);
 
     bool HasController() const { return m_Controller != nullptr; }
-    SDL_GameController* GetController() { return m_Controller; }
+    SDL_Gamepad* GetController() { return m_Controller; }
 
     /* Gets the current state of a keyboard key */
 	bool IsKeyDown(Key key);
@@ -118,8 +118,8 @@ public:
 
 private:
 	bool m_RelMouseMode = false;
-	const uint8_t* m_KeyboardState;
-    SDL_GameController* m_Controller = nullptr;
+	const bool* m_KeyboardState;
+    SDL_Gamepad* m_Controller = nullptr;
 };
 
 extern Input* g_Input;

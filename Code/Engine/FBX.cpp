@@ -17,8 +17,13 @@ bool FBXImporter::LoadFromFile(const std::string& inFile, Assets* inAssets)
 	m_Directory = Path(inFile).parent_path() / "";
 
 	ufbx_load_opts opts = ufbx_load_opts {};
+    opts.target_unit_meters = 1.0f;
 	opts.allow_null_material = true;
 	opts.allow_nodes_out_of_root = true;
+    opts.space_conversion = UFBX_SPACE_CONVERSION_ADJUST_TRANSFORMS;
+    opts.target_axes.up = UFBX_COORDINATE_AXIS_POSITIVE_Y;
+    opts.target_axes.right = UFBX_COORDINATE_AXIS_POSITIVE_X;
+    opts.target_axes.front = UFBX_COORDINATE_AXIS_POSITIVE_Z;
 
 	ufbx_error error = ufbx_error {};
 	m_FbxScene = ufbx_load_file(inFile.c_str(), &opts, &error);

@@ -40,9 +40,9 @@ void ProfileWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 void ProfileWidget::OnEvent(Widgets* inWidgets, const SDL_Event& inEvent) 
 {
-	if (inEvent.type == SDL_KEYDOWN && !inEvent.key.repeat)
+	if (inEvent.type == SDL_EVENT_KEY_DOWN && !inEvent.key.repeat)
 	{
-		switch (inEvent.key.keysym.sym)
+		switch (inEvent.key.key)
 		{
 			case SDLK_SPACE:
 			{

@@ -24,9 +24,9 @@ public:
     void SetActivityDetails(const char* inDetails);
 
 private:
-    discord::Activity* m_Activity;
     discord::User* m_User = nullptr;
     discord::Core* m_Core = nullptr;
+    discord::Activity* m_Activity = nullptr;
 };
 
 }

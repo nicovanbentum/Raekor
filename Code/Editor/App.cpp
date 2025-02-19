@@ -32,7 +32,7 @@ DXApp::DXApp() :
     m_Device(this),
     m_Renderer(m_Device, m_Viewport, m_Window),
     m_RayTracedScene(m_Scene),
-    m_RenderInterface(this, m_Device, m_Renderer, m_Renderer.GetRenderGraph().GetResources())
+    m_RenderInterface(this, m_Device, m_Renderer)
 {
     g_GPUProfiler = new GPUProfiler(m_Device);
 
@@ -51,7 +51,7 @@ DXApp::DXApp() :
 
     if (!g_SystemShaders.IsCompiled())
     {
-        SDL_ShowSimpleMessageBox(SDL_MessageBoxFlags::SDL_MESSAGEBOX_ERROR, "DX12 Error", "Failed to compile system shaders", m_Window);
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "DX12 Error", "Failed to compile system shaders", m_Window);
         std::abort();
     }
 
@@ -114,7 +114,7 @@ DXApp::DXApp() :
     LogMessage(std::format("[CPU] Default material upload took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
 
     // initialize ImGui
-    ImGui_ImplSDL2_InitForD3D(m_Window);
+    ImGui_ImplSDL3_InitForD3D(m_Window);
     m_ImGuiFontTextureID = InitImGui(m_Device, Renderer::sSwapchainFormat, sFrameCount);
 
     LogMessage(std::format("[CPU] ImGui init took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
@@ -140,7 +140,7 @@ DXApp::DXApp() :
 
     if (!m_ConfigSettings.mSceneFile.empty() && fs::exists(m_ConfigSettings.mSceneFile))
     {
-        m_Scene.OpenFromFile(m_ConfigSettings.mSceneFile.string(), m_Assets);
+        m_Scene.OpenFromFile(m_ConfigSettings.mSceneFile.string(), m_Assets, this);
     }
 }
 
@@ -156,10 +156,7 @@ void DXApp::OnUpdate(float inDeltaTime)
 {
     Editor::OnUpdate(inDeltaTime);
 
-    for (const auto& [entity, mesh, skeleton] : m_Scene.Each<Mesh, Skeleton>())
-        m_Renderer.QueueBlasUpdate(entity);
-
-    if (m_ViewportChanged || m_Physics.GetState() == Physics::EState::Stepping)
+    if (m_ViewportChanged || m_GameState == GAME_RUNNING)
         RenderSettings::mPathTraceReset = true;
 
     for (const Animation& animation : m_Scene.GetComponents<Animation>())
@@ -170,7 +167,7 @@ void DXApp::OnUpdate(float inDeltaTime)
             break;
         }
     }
-    
+
     m_RenderInterface.UpdateGPUStats(m_Device);
 
     m_Renderer.OnRender(this, m_Device, m_Viewport, m_RayTracedScene, GetRenderInterface(), inDeltaTime);
@@ -185,16 +182,16 @@ void DXApp::OnEvent(const SDL_Event& inEvent)
 {
     Editor::OnEvent(inEvent);
 
-    if (inEvent.type == SDL_KEYDOWN && !inEvent.key.repeat)
+    if (inEvent.type == SDL_EVENT_KEY_DOWN && !inEvent.key.repeat)
     {
         // ALT + ENTER event (Windowed <-> Fullscreen toggle)
-        if (inEvent.key.keysym.sym == SDLK_RETURN && SDL_GetModState() & KMOD_LALT)
+        if (inEvent.key.key == SDLK_RETURN && SDL_GetModState() & SDL_KMOD_LALT)
         {
             // This only toggles between windowed and borderless fullscreen, exclusive fullscreen needs to be set from the menu
-            if (SDL_GetWindowFlags(m_Window) & SDL_WINDOW_FULLSCREEN_DESKTOP)
-                SDL_SetWindowFullscreen(m_Window, 0);
+            if (SDL_GetWindowFlags(m_Window) & SDL_WINDOW_FULLSCREEN)
+                SDL_SetWindowFullscreen(m_Window, false);
             else
-                SDL_SetWindowFullscreen(m_Window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+                SDL_SetWindowFullscreen(m_Window, true);
 
             // SDL2 should have updated the window by now, so get the new size
             int width = 0, height = 0;
@@ -204,20 +201,19 @@ void DXApp::OnEvent(const SDL_Event& inEvent)
             m_Viewport.SetRenderSize(UVec2(width, height));
             m_Renderer.SetShouldResize(true);
 
-            SDL_DisplayMode mode;
-            SDL_GetWindowDisplayMode(m_Window, &mode);
-            LogMessage(std::format("SDL Display Mode: {}x{}@{}Hz \n", mode.w, mode.h, mode.refresh_rate));
+            const SDL_DisplayMode* mode = SDL_GetWindowFullscreenMode(m_Window);
+            LogMessage(std::format("SDL Display Mode: {}x{}@{}Hz \n", mode->w, mode->h, mode->refresh_rate));
         }
 
-        switch (inEvent.key.keysym.sym)
+        switch (inEvent.key.key)
         {
-            case SDLK_z: // undo
+            case SDLK_Z: // undo
             {
                 if (g_Input->IsKeyDown(Key::LCTRL) && GetUndo()->HasUndo())
                     RenderSettings::mPathTraceReset = true;
             } break;
 
-            case SDLK_y: // redo
+            case SDLK_Y: // redo
             {
                 if (g_Input->IsKeyDown(Key::LCTRL) && GetUndo()->HasRedo())
                     RenderSettings::mPathTraceReset = true;
@@ -225,7 +221,7 @@ void DXApp::OnEvent(const SDL_Event& inEvent)
         }
     }
 
-    if (inEvent.type == SDL_WINDOWEVENT && inEvent.window.event == SDL_WINDOWEVENT_RESIZED)
+    if (inEvent.type == SDL_EVENT_WINDOW_RESIZED)
         m_Renderer.SetShouldResize(true);
 }
 
@@ -570,9 +566,9 @@ void GPUProfileWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 void GPUProfileWidget::OnEvent(Widgets* inWidgets, const SDL_Event& inEvent)
 {
-    if (inEvent.type == SDL_KEYDOWN && !inEvent.key.repeat)
+    if (inEvent.type == SDL_EVENT_KEY_DOWN && !inEvent.key.repeat)
     {
-        switch (inEvent.key.keysym.sym)
+        switch (inEvent.key.key)
         {
             case SDLK_SPACE:
             {

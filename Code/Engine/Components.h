@@ -316,6 +316,10 @@ struct AudioStream
     RTTI_DECLARE_TYPE(AudioStream);
 
     String file;
+    bool isPlaying = false;
+
+    void Play();
+    void Pause();
 };
 
 

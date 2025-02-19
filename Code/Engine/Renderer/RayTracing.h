@@ -67,8 +67,11 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
 struct RTAOData
 {
     RenderGraphResourceID mOutputTexture;
+    RenderGraphResourceID mHistoryTexture;
+    RenderGraphResourceViewID mHistoryTextureSRV;
     RenderGraphResourceViewID mGbufferDepthTextureSRV;
     RenderGraphResourceViewID mGBufferRenderTextureSRV;
+    RenderGraphResourceViewID mGBufferVelocityTextureSRV;
 };
 
 const RTAOData& AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDevice,
