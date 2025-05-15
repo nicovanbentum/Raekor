@@ -137,6 +137,7 @@ private:
     ComPtr<ID3D12CommandQueue> m_GraphicsQueue;
     ComPtr<ID3D12RootSignature> m_GlobalRootSignature;
 
+    Mutex m_UploadMutex;
     DescriptorHeap m_ClearHeap;
     uint64_t m_UploadBuffersSize = 0;
     ComPtr<ID3D12Fence1> m_UploadFence;

@@ -264,10 +264,14 @@ ComPtr<IDxcBlob> ShaderCompiler::CompileShader(const Path& inPath, const String&
         default: assert(false);
     }
 
+    arguments.push_back(L"-all-resources-bound");
+
     arguments.push_back(L"-Zi");
 #ifndef NDEBUG
     arguments.push_back(L"-Qembed_debug");
     arguments.push_back(L"-Od");
+#else
+    arguments.push_back(L"-O3");
 #endif
 
     arguments.push_back(L"-HV");
@@ -412,7 +416,7 @@ ID3D12PipelineState* ShaderCompiler::GetGraphicsPipeline(Device& inDevice, IRend
     }
     else
     {
-        GraphicsProgram program;
+        GraphicsProgram program; // shader bytecode uninitialized
         D3D12_GRAPHICS_PIPELINE_STATE_DESC desc = inRenderPass->CreatePipelineStateDesc(inDevice, program);
 
         desc.VS = CD3DX12_SHADER_BYTECODE(m_ShaderCache[inVertexShaderHash]->GetBufferPointer(), m_ShaderCache[inVertexShaderHash]->GetBufferSize());

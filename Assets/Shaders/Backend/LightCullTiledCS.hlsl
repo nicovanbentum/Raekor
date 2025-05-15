@@ -16,10 +16,6 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID, uint3 groupID : SV_Group
     RWByteAddressBuffer light_indices_buffer = ResourceDescriptorHeap[rc.mLightIndicesBuffer];
     RWStructuredBuffer<RTLight> bindless_lights_buffer = ResourceDescriptorHeap[fc.mLightsBuffer];
 
-    uint lights_count = 0;
-    uint rtlight_stride = 0;
-    bindless_lights_buffer.GetDimensions(lights_count, rtlight_stride);
- 
     if (any(dispatchThreadID.xy >= rc.mFullResSize))
         return;
 
@@ -28,7 +24,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID, uint3 groupID : SV_Group
 
     GroupMemoryBarrierWithGroupSync();
 
-    for (int light_idx = 0; light_idx < lights_count; light_idx++)
+    for (int light_idx = 0; light_idx < fc.mNrOfLights; light_idx++)
     {
         RTLight light = bindless_lights_buffer[light_idx];
 

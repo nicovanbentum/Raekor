@@ -30,6 +30,8 @@ public:
     Scene* operator-> ()                    { return &m_Scene; }
     const Scene* operator-> () const        { return &m_Scene; }
 
+    uint32_t GetInstanceIndex(Entity inEntity) const; 
+
     bool HasTLAS() const { return m_TLASBuffer.IsValid() && GetInstancesCount() > 0; }
     bool HasLights() const { return m_LightsBuffer.IsValid() && GetLightsCount() > 0; }
     bool HasInstances() const { return m_InstancesBuffer.IsValid() && GetInstancesCount() > 0; }
@@ -58,6 +60,7 @@ public:
     BufferID GrowBuffer(Device& inDevice, BufferID inBuffer, const Buffer::Desc& inDesc);
 
 private:
+    Mutex m_Mutex;
     Scene& m_Scene;
     
     BufferID m_TLASBuffer;

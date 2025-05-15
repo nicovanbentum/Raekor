@@ -6,9 +6,12 @@
 
 namespace RK::DX12 {
 
+#define EVENT_SCOPE_GPU(cmdlist, name) GPUEventScoped TOKENPASTE2(gpu_event_, __LINE__)(cmdlist, name, 0)
+
 #define PROFILE_SCOPE_GPU(cmdlist, name) GPUProfileSectionScoped TOKENPASTE2(gpu_profile_section_, __LINE__)(cmdlist, name)
 
 #define PROFILE_FUNCTION_GPU(cmdlist) GPUProfileSectionScoped TOKENPASTE2(gpu_profile_section_, __LINE__)(cmdlist, __FUNCTION__)
+
 
 struct GPUProfileSection : public ProfileSection
 {
@@ -71,9 +74,19 @@ public:
     ~GPUProfileSectionScoped();
 
 private:
-    int mIndex = 0;
-    CommandList& mCmdList;
+    int m_Index = 0;
+    CommandList& m_CmdList;
 };
 
+
+class GPUEventScoped
+{
+public:
+    GPUEventScoped(CommandList& inCmdList, const char* inName, uint32_t inColor);
+    ~GPUEventScoped();
+
+private:
+    CommandList& m_CmdList;
+};
 
 }

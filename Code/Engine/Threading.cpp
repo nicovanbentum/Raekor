@@ -45,10 +45,10 @@ Job::Ptr ThreadPool::QueueJob(const Job::Function& inFunction)
 
 	{
 		std::scoped_lock lock(m_Mutex);
+	    m_ActiveJobCount.fetch_add(1);
 		m_JobQueue.push(job);
 	}
 
-	m_ActiveJobCount.fetch_add(1);
 	m_ConditionVariable.notify_one();
 
 	return job;
@@ -57,8 +57,12 @@ Job::Ptr ThreadPool::QueueJob(const Job::Function& inFunction)
 
 void ThreadPool::WaitForJobs()
 {
-	m_ConditionVariable.notify_all();
-	while (m_ActiveJobCount.load() > 0) {}
+    std::unique_lock lock(m_Mutex);
+
+    m_ConditionVariable.wait(lock, [this] 
+    { 
+        return m_ActiveJobCount.load() == 0; 
+    });
 }
 
 
@@ -92,7 +96,7 @@ void ThreadPool::ThreadLoop(uint32_t inThreadIndex)
 		// wait releases the mutex and re-acquires when there's work available
 		m_ConditionVariable.wait(lock, [this, thread_index]
 		{
-			return ( m_JobQueue.size() || m_Quit ) && thread_index < m_ActiveThreadCount.load();
+            return m_Quit || ( m_JobQueue.size() && thread_index < m_ActiveThreadCount.load() );
 		});
 
 		if (m_JobQueue.size() && !m_Quit)
@@ -108,7 +112,10 @@ void ThreadPool::ThreadLoop(uint32_t inThreadIndex)
 			// re-lock so wait doesn't unlock an unlocked mutex
 			lock.lock();
 
-			m_ActiveJobCount.fetch_sub(1);
+            if (m_ActiveJobCount.fetch_sub(1) == 1) {
+                // Notify WaitForJobs() when all jobs are done
+                m_ConditionVariable.notify_all();
+            }
 		}
 
 	} while (!m_Quit);

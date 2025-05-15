@@ -20,7 +20,6 @@ public:
 	
 	Path& GetPath() { return m_Path; }
 	const Path& GetPath() const { return m_Path; }
-	const String& GetPathStr() { if (m_String.empty()) m_String = m_Path.string(); return m_String; }
 
 	static String GetCachedPath(const String& inAssetPath, const char* inExtension)
 	{
@@ -110,31 +109,38 @@ private:
 
 } // namespace raekor
 
-
 namespace RK {
 
 template<typename T>
 SharedPtr<T> Assets::GetAsset(const String& inPath)
 {
+    SharedPtr<T> asset_ptr = nullptr;
+
 	{
 		std::scoped_lock lock(m_Mutex);
 
 		// if it already has an asset pointer it means some other thread added it,
 		// so just return whats there, the thread that added it is responsible for loading.
-		if (auto asset = m_Assets.find(inPath); asset != m_Assets.end())
+        if (auto asset = m_Assets.find(inPath); asset != m_Assets.end())
+        {
 			return std::static_pointer_cast<T>( asset->second );
+        }
 		// if there is no asset pointer already and the file path exists on disk, insert it
-		else if (fs::exists(inPath) && fs::is_regular_file(inPath))
-			m_Assets.insert(std::make_pair(inPath, std::shared_ptr<Asset>(new T(inPath))));
-		else
+        else if (fs::exists(inPath) && fs::is_regular_file(inPath))
+        {
+            asset_ptr = std::make_shared<T>(inPath);
+			m_Assets.insert(std::make_pair(inPath, asset_ptr));
+        }
+        else
+        {
 			// can't load anything if it doesn't exist on disk
 			return nullptr;
+        }
 	}
 	// only get here if this thread created the asset pointer, try to load it.
 	// if load succeeds we return the asset pointer
-	const auto& asset = m_Assets.at(inPath);
-	if (asset->Load())
-		return std::static_pointer_cast<T>( asset );
+	if (asset_ptr->Load())
+		return asset_ptr;
 	else
 	{
 		// if load failed, lock -> remove asset pointer -> return nullptr

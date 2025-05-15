@@ -20,7 +20,9 @@ namespace RK {
 RTTI_DEFINE_TYPE_NO_FACTORY(ViewportWidget) {}
 
 ViewportWidget::ViewportWidget(Editor* inEditor) :
-	IWidget(inEditor, reinterpret_cast<const char*>( ICON_FA_VIDEO " Viewport " )) {}
+	IWidget(inEditor, reinterpret_cast<const char*>( ICON_FA_VIDEO " Viewport " )) 
+{
+}
 
 
 void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)

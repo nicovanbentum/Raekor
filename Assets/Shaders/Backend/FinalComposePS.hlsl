@@ -119,12 +119,12 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
     Texture2D input_texture = ResourceDescriptorHeap[rc.mInputTexture];
     
     float3 color = ApplyChromaticAberration(input_texture, inParams.mScreenUV);
-
+    
     color = ApplyBloom(color, inParams.mScreenUV);
 
     color = ApplyTonemapUchimura(color);
 
-    color = ApplyGammaCurve(color * rc.mSettings.mExposure);
+    color = ApplyGammaCurve(color);
 
     color = ApplyVignette(color, inParams.mScreenUV);
    

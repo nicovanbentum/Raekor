@@ -11,6 +11,7 @@ class Viewport;
 namespace RK::DX12 {
 
 class Device;
+class ScopedMarker;
 
 class CommandList
 {
@@ -31,11 +32,14 @@ public:
     uint32_t GetFrameIndex() const { return m_FrameIndex; }
     uint64_t GetFenceValue() const { return m_SubmittedFenceValue; }
 
-    void SetViewportAndScissor(Texture& inTexture);
+    void SetViewportAndScissor(Texture& inTexture, uint32_t inSubResource = 0);
     void SetViewportAndScissor(const Viewport& inViewport);
 
     void ClearBuffer(Device& inDevice, BufferID inBuffer, Vec4 inValue);
     void ClearTexture(Device& inDevice, TextureID inTexture, Vec4 inValue);
+
+    void PushMarker(const char* inLabel, uint32_t inColor);
+    void PopMarker();
 
     void BindDefaults(Device& inDevice);
     void BindIndexBuffer(Buffer& inBuffer);

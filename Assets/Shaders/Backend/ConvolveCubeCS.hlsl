@@ -46,7 +46,7 @@ void main(uint3 gid : SV_DispatchThreadID)
         irradiance += cube_texture.Sample(SamplerLinearClamp, sample_dir).rgb;
     }
     
-    irradiance = PI * irradiance * (1.0 / float(NR_OF_SAMPLES));
+    irradiance /= NR_OF_SAMPLES;
     
     convolved_texture[gid] = irradiance;
 }

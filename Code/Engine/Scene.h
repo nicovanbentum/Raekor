@@ -67,7 +67,7 @@ public:
 	Entity Clone(Entity inEntity) { return Clone(inEntity, GetParent(inEntity)); }
 
 	// load materials from disk in parallel, is used for both importing and scene loading.
-	void LoadMaterialTextures(Assets& ioAssets, Slice<const Entity> inMaterials);
+	void LoadMaterialTextures(Assets& ioAssets);
 
 	// save Scene to disk
 	void SaveToFile(const String& inFile, Assets& ioAssets, Application* inApp = nullptr);

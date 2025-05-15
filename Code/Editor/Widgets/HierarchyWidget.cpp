@@ -30,7 +30,7 @@ void HierarchyWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 	ImGuiSelectionBasicStorage& multi_select = m_Editor->GetMultiSelect();
 
-	ImGuiMultiSelectIO* ms_io = ImGui::BeginMultiSelect(ImGuiMultiSelectFlags_ScopeWindow | ImGuiMultiSelectFlags_BoxSelect1d | ImGuiMultiSelectFlags_NoRangeSelect | ImGuiMultiSelectFlags_ClearOnClickVoid, multi_select.Size, 100);
+	//ImGuiMultiSelectIO* ms_io = ImGui::BeginMultiSelect(ImGuiMultiSelectFlags_ScopeWindow | ImGuiMultiSelectFlags_BoxSelect1d | ImGuiMultiSelectFlags_NoRangeSelect | ImGuiMultiSelectFlags_ClearOnClickVoid, multi_select.Size, 100);
 
 	Scene::TraverseFunction Traverse = [](void* inContext, Scene& inScene, Entity inEntity) 
 	{
@@ -54,13 +54,22 @@ void HierarchyWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 	GetScene().TraverseDepthFirst(GetScene().GetRootEntity(), Traverse, this);
 
-	ms_io = ImGui::EndMultiSelect();
+	//ms_io = ImGui::EndMultiSelect();
 
-	if (ms_io->Requests.size())
-		multi_select.ApplyRequests(ms_io);
+    if (m_EntityClicked != Entity::Null)
+    {
+	    /*if (ms_io->Requests.size())
+		    multi_select.ApplyRequests(ms_io);
 
-	if (multi_select.Size > 1)
-		SetActiveEntity(Entity::Null);
+	    if (multi_select.Size > 1)
+		    SetActiveEntity(Entity::Null);*/
+    }
+
+    if (m_EntityClicked != Entity::Null && ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+    {
+        m_Editor->SetActiveEntity(m_Editor->GetActiveEntity() == m_EntityClicked ? Entity::Null : m_EntityClicked);
+        m_EntityClicked = Entity::Null;
+    }
 
 	ImGui::PopStyleColor(2);
 
@@ -110,8 +119,8 @@ bool HierarchyWidget::DrawFamilyNode(Scene& inScene, Entity inEntity)
 
 	if (ImGui::IsItemClicked())
 	{
+        m_EntityClicked = inEntity;
 		multi_select.Clear();
-		m_Editor->SetActiveEntity(active == inEntity ? Entity::Null : inEntity);
 	}
 
 	DropTargetNode(inScene, inEntity);
@@ -174,11 +183,11 @@ void HierarchyWidget::DrawChildlessNode(Scene& inScene, Entity inEntity)
 		ImGui::EndPopup();
 	}
 
-	if (ImGui::IsItemClicked())
-	{
-		multi_select.Clear();
-		m_Editor->SetActiveEntity(active_entity == inEntity ? Entity::Null : inEntity);
-	}
+    if (ImGui::IsItemClicked())
+    {
+        m_EntityClicked = inEntity;
+        multi_select.Clear();
+    }
 
 	ImGui::PopID();
 

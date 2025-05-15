@@ -139,7 +139,7 @@ bool OBJImporter::LoadFromFile(const String& inFile, Assets* inAssets)
 		LoadMaterials(m_Directory / mtl_file);
 
 	if (inAssets != nullptr)
-		m_Scene.LoadMaterialTextures(*inAssets, m_Materials);
+		m_Scene.LoadMaterialTextures(*inAssets);
 
 	return true;
 }

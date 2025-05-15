@@ -37,7 +37,7 @@ PS_OUTPUT main(in VS_OUTPUT input) {
     Texture2D roughness_texture = ResourceDescriptorHeap[NonUniformResourceIndex(material.mRoughnessTexture)];
     
     float4 sampled_albedo = albedo_texture.Sample(SamplerAnisoWrap, input.texcoord);
-    if (sampled_albedo.a < 0.5)
+    if (sampled_albedo.a < 0.9)
         discard;
     
     float3 sampled_normal = normals_texture.Sample(SamplerAnisoWrap, input.texcoord).rgb; // alpha channel unused

@@ -65,13 +65,15 @@ RenderGraphResourceID RenderGraphBuilder::Import(Device& inDevice, TextureID inT
 
 
 
-RenderGraphResourceViewID RenderGraphBuilder::RenderTarget(RenderGraphResourceID inGraphResourceID)
+RenderGraphResourceViewID RenderGraphBuilder::RenderTarget(RenderGraphResourceID inGraphResourceID, uint32_t inMip)
 {
     RenderGraphResourceViewDesc& desc = EmplaceDescriptorDesc(inGraphResourceID);
     assert(desc.mResourceDesc.mResourceType != RESOURCE_TYPE_BUFFER);
 
     desc.mResourceDesc.mTextureDesc.usage = Texture::Usage::RENDER_TARGET;
     m_ResourceDescriptions[inGraphResourceID].mTextureDesc.__allowRenderTarget = true;
+    desc.mResourceDesc.mTextureDesc.baseMip = inMip;
+    desc.mResourceDesc.mTextureDesc.mipLevels = 1;
 
     const RenderGraphResourceViewID graph_resource_id = RenderGraphResourceViewID(m_ResourceViewDescriptions.size() - 1);
 
@@ -83,7 +85,7 @@ RenderGraphResourceViewID RenderGraphBuilder::RenderTarget(RenderGraphResourceID
 
 
 
-RenderGraphResourceViewID RenderGraphBuilder::DepthStencilTarget(RenderGraphResourceID inGraphResourceID)
+RenderGraphResourceViewID RenderGraphBuilder::DepthStencilTarget(RenderGraphResourceID inGraphResourceID, uint32_t inMip)
 {
     assert(GetRenderPass()->m_DepthStencilFormat == DXGI_FORMAT_UNKNOWN);
 
@@ -92,6 +94,8 @@ RenderGraphResourceViewID RenderGraphBuilder::DepthStencilTarget(RenderGraphReso
     
     desc.mResourceDesc.mTextureDesc.usage = Texture::Usage::DEPTH_STENCIL_TARGET;
     m_ResourceDescriptions[inGraphResourceID].mTextureDesc.__allowDepthTarget = true;
+    desc.mResourceDesc.mTextureDesc.baseMip = inMip;
+    desc.mResourceDesc.mTextureDesc.mipLevels = 1;
 
     const RenderGraphResourceViewID graph_resource_id = RenderGraphResourceViewID(m_ResourceViewDescriptions.size() - 1);
 
@@ -387,6 +391,8 @@ void RenderGraphResources::Compile(Device& inDevice, const RenderGraphBuilder& i
 {
     PROFILE_FUNCTION_CPU();
 
+    uint64_t start_ticks = Timer::sGetCurrentTick();
+
     Array<D3D12_RESOURCE_DESC> resource_descriptions;
     resource_descriptions.reserve(inBuilder.m_ResourceDescriptions.size());
 
@@ -491,6 +497,9 @@ void RenderGraphResources::Compile(Device& inDevice, const RenderGraphBuilder& i
 
         m_ResourceViews.push_back(new_resource);
     }
+
+    uint64_t end_ticks = Timer::sGetCurrentTick();
+    std::cout << std::format("RenderGraph Compile took {:.3f} ms.\n", Timer::sGetTicksToSeconds(end_ticks - start_ticks) * 1000);
 }
 
 
@@ -680,10 +689,6 @@ RenderGraph::RenderGraph(Device& inDevice, const Viewport& inViewport, uint32_t 
 
 void RenderGraph::Clear(Device& inDevice)
 {
-    m_TimestampQueryHeap = nullptr;
-    if (m_TimestampReadbackBuffer.IsValid())
-        inDevice.ReleaseBuffer(m_TimestampReadbackBuffer);
-
     m_RenderPasses.clear();
     m_FinalBarriers.clear();
     m_RenderGraphBuilder.Clear();
@@ -951,21 +956,6 @@ bool RenderGraph::Compile(Device& inDevice, const GlobalConstants& inGlobalConst
 
     m_GlobalConstantsAllocator.Copy(GlobalConstants {});
 
-    D3D12_QUERY_HEAP_DESC query_heap_desc = {};
-    query_heap_desc.Type = D3D12_QUERY_HEAP_TYPE_TIMESTAMP;
-    query_heap_desc.Count = uint32_t(m_RenderPasses.size()) * 2u;
-
-    assert(m_TimestampQueryHeap == nullptr);
-    inDevice->CreateQueryHeap(&query_heap_desc, IID_PPV_ARGS(m_TimestampQueryHeap.GetAddressOf()));
-
-    m_TimestampReadbackBuffer = inDevice.CreateBuffer(Buffer::Desc 
-{
-        .size = sizeof(uint64_t) * query_heap_desc.Count,
-        .usage = Buffer::READBACK,
-        .mappable = true,
-        .debugName = "TimestampReadbackBuffer"
-    });
-
     return true;
 }
 
@@ -983,8 +973,6 @@ void RenderGraph::Execute(Device& inDevice, CommandList& inCmdList)
 
     for (const auto& [index, renderpass] : gEnumerate(m_RenderPasses))
     {
-        PROFILE_SCOPE_GPU(inCmdList, renderpass->GetName().c_str());
-
         if (renderpass->IsGraphics())
             renderpass->SetRenderTargets(inDevice, m_RenderGraphResources, inCmdList);
 

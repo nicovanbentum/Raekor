@@ -160,7 +160,7 @@ public:
     void CompileMaterialShaders(Entity inEntity, Material& inMaterial) override;
     void ReleaseMaterialShaders(Entity inEntity, Material& inMaterial) override;
 
-    uint32_t UploadTextureFromAsset(const TextureAsset::Ptr& inAsset, bool inIsSRGB = false, uint8_t inSwizzle = TEXTURE_SWIZZLE_RGBA) override;
+    uint32_t UploadTextureFromAsset(TextureAsset::Ptr inAsset, bool inIsSRGB = false, uint8_t inSwizzle = TEXTURE_SWIZZLE_RGBA) override;
 
     uint32_t GetSelectedEntity(const Scene& inScene, uint32_t inScreenPosX, uint32_t inScreenPosY) override;
 

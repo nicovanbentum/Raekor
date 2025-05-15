@@ -104,7 +104,7 @@ bool GltfImporter::LoadFromFile(const String& inFile, Assets* inAssets)
 
 	// Load the converted textures from disk and upload them to the GPU
 	if (inAssets != nullptr)
-		m_Scene.LoadMaterialTextures(*inAssets, Slice(m_Materials.data(), m_Materials.size()));
+		m_Scene.LoadMaterialTextures(*inAssets);
 
 	/**/
 	for (const cgltf_animation& gltf_animation : Slice(m_GltfData->animations, m_GltfData->animations_count))

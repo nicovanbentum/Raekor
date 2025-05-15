@@ -5,6 +5,7 @@
 #include "Device.h"
 #include "Resource.h"
 #include "Profiler.h"
+#include "GPUProfiler.h"
 #include "CommandList.h"
 
 namespace RK {
@@ -72,8 +73,8 @@ public:
     RenderGraphResourceID Import(Device& inDevice, BufferID inBuffer);
     RenderGraphResourceID Import(Device& inDevice, TextureID inTexture);
 
-    RenderGraphResourceViewID RenderTarget(RenderGraphResourceID inGraphResourceID);
-    RenderGraphResourceViewID DepthStencilTarget(RenderGraphResourceID inGraphResourceID);
+    RenderGraphResourceViewID RenderTarget(RenderGraphResourceID inGraphResourceID, uint32_t inMip = 0);
+    RenderGraphResourceViewID DepthStencilTarget(RenderGraphResourceID inGraphResourceID, uint32_t inMip = 0);
 
     RenderGraphResourceViewID Read(RenderGraphResourceID inGraphResourceID);
     RenderGraphResourceViewID ReadIndirectArgs(RenderGraphResourceID inGraphResourceID);
@@ -246,6 +247,7 @@ public:
     virtual void Execute(const RenderGraphResources& inResources, CommandList& inCmdList) override 
     { 
         PROFILE_SCOPE_CPU(m_Name.c_str());
+        PROFILE_SCOPE_GPU(inCmdList, m_Name.c_str());
         m_Execute(m_Data, inResources, inCmdList); 
     }
 
@@ -320,10 +322,6 @@ private:
     const Viewport& m_Viewport;
     const uint32_t m_FrameCount;
     
-    uint32_t m_TimestampCount = 0;
-    BufferID m_TimestampReadbackBuffer;
-    ComPtr<ID3D12QueryHeap> m_TimestampQueryHeap = nullptr;
-
     RingAllocator m_PerFrameAllocator;
     RingAllocator m_PerPassAllocator;
     GlobalConstantsAllocator m_GlobalConstantsAllocator;

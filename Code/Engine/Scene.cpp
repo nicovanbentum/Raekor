@@ -437,34 +437,40 @@ void Scene::Destroy(Entity inEntity)
 }
 
 
-void Scene::LoadMaterialTextures(Assets& assets, Slice<const Entity> inMaterialEntities)
+void Scene::LoadMaterialTextures(Assets& inAssets)
 {
 	Timer timer;
 
-	for (Entity entity : inMaterialEntities)
+    for (const auto& [entity, material] : Each<Material>())
 	{
-		g_ThreadPool.QueueJob([&]()
+		g_ThreadPool.QueueJob([&, entity]()
 		{
 			Material& material = Get<Material>(entity);
-			assets.GetAsset<TextureAsset>(material.albedoFile);
-			assets.GetAsset<TextureAsset>(material.normalFile);
-			assets.GetAsset<TextureAsset>(material.emissiveFile);
-			assets.GetAsset<TextureAsset>(material.metallicFile);
-			assets.GetAsset<TextureAsset>(material.roughnessFile);
-		});
+			inAssets.GetAsset<TextureAsset>(material.albedoFile);
+			inAssets.GetAsset<TextureAsset>(material.normalFile);
+			inAssets.GetAsset<TextureAsset>(material.emissiveFile);
+			inAssets.GetAsset<TextureAsset>(material.metallicFile);
+			inAssets.GetAsset<TextureAsset>(material.roughnessFile);
+
+            //if (m_Renderer)
+              //  m_Renderer->UploadMaterialTextures(entity, material, inAssets);
+		}
+        );
 	}
 
-	g_ThreadPool.WaitForJobs();
+    g_ThreadPool.WaitForJobs();
 
 	std::cout << std::format("[Scene] Load textures to RAM took {:.3f} seconds.\n", timer.Restart());
 
-	for (Entity entity : inMaterialEntities)
+    for (const auto& [entity, material] : Each<Material>())
 	{
-		Material& material = Get<Material>(entity);
+            Material& material = Get<Material>(entity);
 
-		if (m_Renderer)
-			m_Renderer->UploadMaterialTextures(entity, material, assets);
+		    if (m_Renderer)
+			    m_Renderer->UploadMaterialTextures(entity, material, inAssets);
 	}
+
+    g_ThreadPool.WaitForJobs();
 
 	std::cout << std::format("[Scene] Upload textures to GPU took {:.3f} seconds.\n", timer.GetElapsedTime());
 }
@@ -596,7 +602,7 @@ void Scene::OpenFromFile(const String& inFilePath, Assets& ioAssets, Application
 	std::cout << std::format("[Scene] Load ECStorage data took {:.3f} seconds.\n", timer.GetElapsedTime());
 
 	// load material texture data to vram
-	LoadMaterialTextures(ioAssets, GetEntities<Material>());
+	LoadMaterialTextures(ioAssets);
 
 	for (const auto& [entity, light] : Each<DirectionalLight>())
 	{
@@ -615,12 +621,17 @@ void Scene::OpenFromFile(const String& inFilePath, Assets& ioAssets, Application
 	// load mesh data to vram
 	for (const auto& [entity, mesh] : Each<Mesh>())
 	{
-		if (m_Renderer)
-			m_Renderer->UploadMeshBuffers(entity, mesh);
+        g_ThreadPool.QueueJob([this, entity, &mesh]() 
+        {
+		    if (m_Renderer)
+			    m_Renderer->UploadMeshBuffers(entity, mesh);
 
-		if (Skeleton* skeleton = GetPtr<Skeleton>(entity))
-			m_Renderer->UploadSkeletonBuffers(entity, *skeleton, mesh);
+		    if (Skeleton* skeleton = GetPtr<Skeleton>(entity))
+			    m_Renderer->UploadSkeletonBuffers(entity, *skeleton, mesh);
+        });
 	}
+
+    g_ThreadPool.WaitForJobs();
 
 	for (const auto& [entity, script] : Each<NativeScript>())
 	{
@@ -887,7 +898,7 @@ bool SceneImporter::LoadFromFile(const String& inFile, Assets* inAssets)
 		for (const auto& [imported_entity, output_entity] : m_MaterialMapping)
 			materials.push_back(output_entity);
 
-		m_Scene.LoadMaterialTextures(*inAssets, Slice(materials.data(), materials.size()));
+		m_Scene.LoadMaterialTextures(*inAssets);
 	}
 
 	return true;

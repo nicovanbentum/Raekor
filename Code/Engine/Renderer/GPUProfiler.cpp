@@ -118,14 +118,14 @@ int GPUProfiler::AllocateGPU()
 
 
 GPUProfileSectionScoped::GPUProfileSectionScoped(CommandList& inCmdList, const char* inName) :
-    mCmdList(inCmdList)
+    m_CmdList(inCmdList)
 {
     if (g_GPUProfiler->IsEnabled())
     {
         PIXBeginEvent(static_cast<ID3D12GraphicsCommandList*>( inCmdList ), PIX_COLOR(0, 255, 0), inName);
 
-        mIndex = g_GPUProfiler->AllocateGPU();
-        GPUProfileSection& section = g_GPUProfiler->GetSectionGPU(mIndex);
+        m_Index = g_GPUProfiler->AllocateGPU();
+        GPUProfileSection& section = g_GPUProfiler->GetSectionGPU(m_Index);
 
         section.mName = inName;
         section.mDepth = g_GPUProfiler->m_Depth++;
@@ -138,11 +138,24 @@ GPUProfileSectionScoped::~GPUProfileSectionScoped()
 {
     if (g_GPUProfiler->IsEnabled())
     {
-        PIXEndEvent(static_cast<ID3D12GraphicsCommandList*>( mCmdList ));
+        PIXEndEvent(static_cast<ID3D12GraphicsCommandList*>( m_CmdList));
 
         g_GPUProfiler->m_Depth--;
-        g_GPUProfiler->EndQuery(g_GPUProfiler->GetSectionGPU(mIndex), mCmdList);
+        g_GPUProfiler->EndQuery(g_GPUProfiler->GetSectionGPU(m_Index), m_CmdList);
     }
+}
+
+
+GPUEventScoped::GPUEventScoped(CommandList& inCmdList, const char* inName, uint32_t inColor) :
+    m_CmdList(inCmdList)
+{
+    inCmdList.PushMarker(inName, inColor);
+}
+
+
+GPUEventScoped::~GPUEventScoped()
+{
+    m_CmdList.PopMarker();
 }
 
 }

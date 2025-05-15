@@ -11,6 +11,12 @@
 
 namespace RK::DX12 {
 
+uint32_t RayTracedScene::GetInstanceIndex(Entity inEntity) const
+{
+    return m_Scene.GetPackedIndex<Mesh>(inEntity);
+}
+
+
 void RayTracedScene::UpdateBLAS(Application* inApp, Device& inDevice, Mesh& inMesh, Skeleton& inSkeleton, CommandList& inCmdList)
 {
     D3D12_RAYTRACING_GEOMETRY_DESC geom = {};
@@ -124,6 +130,8 @@ void RayTracedScene::UploadMesh(Application* inApp, Device& inDevice, Mesh& inMe
 
     inDevice.UploadBufferData(inCmdList, gpu_index_buffer, 0, inMesh.indices.data(), indices_size);
     inDevice.UploadBufferData(inCmdList, gpu_vertex_buffer, 0, inMesh.vertices.data(), vertices_size);
+
+    std::scoped_lock lock = std::scoped_lock(m_Mutex);
 
     const std::array barriers = 
     {

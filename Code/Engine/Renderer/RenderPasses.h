@@ -42,7 +42,7 @@ struct RenderSettings
     static inline bool mDDGIUseChebyshev = false;
     static inline float mDDGIDebugRadius = 0.25f;
     static inline IVec3 mDDGIDebugProbe = IVec3(10, 10, 5);
-    static inline IVec3 mDDGIProbeCount = IVec3(22, 22, 22);
+    static inline IVec3 mDDGIProbeCount = IVec3(16, 16, 16);
     static inline Vec3 mDDGIProbeSpacing = Vec3(6.4, 3.0, 2.8);
     static inline Vec3 mDDGICornerPosition = Vec3(-65, -1.4, -28.5);
 
@@ -334,6 +334,7 @@ struct LightingData
     DDGIData mDDGIData;
     RenderGraphResourceID mOutputTexture;
     RenderGraphResourceViewID mSkyCubeTextureSRV;
+    RenderGraphResourceViewID mDiffuseSkyCubeTextureSRV;
     RenderGraphResourceViewID mShadowMaskTextureSRV;
     RenderGraphResourceViewID mReflectionsTextureSRV;
     RenderGraphResourceViewID mGBufferDepthTextureSRV;
@@ -348,6 +349,7 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
     const GBufferOutput& inGBuffer, 
     const TiledLightCullingData& inLightData,
     RenderGraphResourceID inSkyCubeTexture,
+    RenderGraphResourceID inDiffuseCubeTexture,
     RenderGraphResourceID inShadowTexture, 
     RenderGraphResourceID inReflectionsTexture, 
     RenderGraphResourceID inAOTexture, 

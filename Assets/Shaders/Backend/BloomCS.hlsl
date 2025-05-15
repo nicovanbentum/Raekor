@@ -1,6 +1,7 @@
 #include "include/Bindless.hlsli"
 #include "include/Common.hlsli"
 
+FRAME_CONSTANTS(fc)
 ROOT_CONSTANTS(BloomRootConstants, rc)
 
 float3 Upscale(Texture2D inSrcTexture, uint inMip, float2 inUV, float2 inSrcResolutionRcp);
@@ -15,7 +16,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
     
     Texture2D src_texture = ResourceDescriptorHeap[rc.mSrcTexture];
     RWTexture2D<float4> dst_texture = ResourceDescriptorHeap[rc.mDstTexture];
-    
+
     const float2 pixel_center = float2(threadID.xy) + float2(0.5, 0.5);
     float2 screen_uv = pixel_center / rc.mDispatchSize;
     

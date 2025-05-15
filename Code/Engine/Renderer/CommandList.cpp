@@ -39,6 +39,18 @@ void CommandList::Close()
 }
 
 
+void CommandList::PushMarker(const char* inLabel, uint32_t inColor)
+{
+    PIXBeginEvent(inColor, inLabel, static_cast<ID3D12GraphicsCommandList*>( *this ));
+}
+
+
+void CommandList::PopMarker()
+{
+    PIXEndEvent(static_cast<ID3D12GraphicsCommandList*>( *this ));
+}
+
+
 void CommandList::ClearBuffer(Device& inDevice, BufferID inBuffer, Vec4 inValue)
 {
     ID3D12Resource* resource_ptr = inDevice.GetD3D12Resource(inBuffer);
@@ -141,9 +153,9 @@ void CommandList::BindVertexAndIndexBuffers(Device& inDevice, const RK::Mesh& in
 }
 
 
-void CommandList::SetViewportAndScissor(Texture& inTexture)
+void CommandList::SetViewportAndScissor(Texture& inTexture, uint32_t inSubresource)
 {
-    const D3D12_VIEWPORT vp = CD3DX12_VIEWPORT(inTexture.GetD3D12Resource());
+    const D3D12_VIEWPORT vp = CD3DX12_VIEWPORT(inTexture.GetD3D12Resource(), inSubresource);
     const D3D12_RECT scissor = CD3DX12_RECT(vp.TopLeftX, vp.TopLeftY, vp.Width, vp.Height);
 
     m_CommandList->RSSetViewports(1, &vp);

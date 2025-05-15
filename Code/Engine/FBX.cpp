@@ -69,7 +69,7 @@ bool FBXImporter::LoadFromFile(const std::string& inFile, Assets* inAssets)
 
 	// Load the converted textures from disk and upload them to the GPU
 	if (inAssets != nullptr)
-		m_Scene.LoadMaterialTextures(*inAssets, Slice(m_Materials.data(), m_Materials.size()));
+		m_Scene.LoadMaterialTextures(*inAssets);
 
 	ufbx_free_scene(m_FbxScene);
 

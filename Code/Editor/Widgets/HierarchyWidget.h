@@ -23,7 +23,8 @@ private:
 	bool DrawFamilyNode(Scene& inScene, Entity inEntity);
 	void DrawChildlessNode(Scene& inScene, Entity inEntity);
 
-	String m_Filter;
+    String m_Filter = "";
+    Entity m_EntityClicked = Entity::Null;
 };
 
 }

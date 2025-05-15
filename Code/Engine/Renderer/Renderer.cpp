@@ -272,6 +272,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     // Update all the frame constants and copy it in into the GPU ring buffer
     m_FrameConstants.mTime = m_ElapsedTime;
     m_FrameConstants.mDeltaTime = inDeltaTime;
+    m_FrameConstants.mExposure = RenderSettings::mExposure;
     m_FrameConstants.mSunConeAngle = m_Settings.mSunConeAngle;
     m_FrameConstants.mTLAS = inScene.GetTLASDescriptorIndex();
     m_FrameConstants.mShadowTLAS = inScene->GetSunLight() ? inScene.GetTLASDescriptorIndex() : inScene.GetEmptyTLASDescriptorIndex();
@@ -348,14 +349,18 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
         PROFILE_SCOPE_GPU(direct_cmd_list, "OnRender");
 
         {
-            std::scoped_lock lock = std::scoped_lock(m_UploadMutex);
+            // std::scoped_lock lock = std::scoped_lock(m_UploadMutex);
 
             // upload vertex buffers, index buffers, and BLAS for meshes
             {
                 PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( copy_cmd_list ), PIX_COLOR(0, 255, 0), "UPLOAD MESHES");
 
                 for (Entity entity : m_PendingMeshUploads)
-                    inScene.UploadMesh(inApp, inDevice, inScene->Get<Mesh>(entity), inScene->GetPtr<Skeleton>(entity), copy_cmd_list);
+                {
+                    {
+                        inScene.UploadMesh(inApp, inDevice, inScene->Get<Mesh>(entity), inScene->GetPtr<Skeleton>(entity), copy_cmd_list);
+                    }
+                }
             }
 
             // upload skeleton bone attributes and bone transform buffers
@@ -371,13 +376,17 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
                     inScene.UpdateBLAS(inApp, inDevice, mesh, skeleton, copy_cmd_list);
             }
 
+            {
+                std::scoped_lock lock = std::scoped_lock(m_UploadMutex);
 
-            inDevice.FlushUploads(copy_cmd_list);
+                inDevice.FlushUploads(copy_cmd_list);
 
-            // clear all pending uploads for this frame, memory will be re-used
-            m_PendingMeshUploads.clear();
-            m_PendingTextureUploads.clear();
-            m_PendingSkeletonUploads.clear();
+                // clear all pending uploads for this frame, memory will be re-used
+                m_PendingMeshUploads.clear();
+                m_PendingTextureUploads.clear();
+                m_PendingSkeletonUploads.clear();
+
+            }
         }
 
         //// Record uploads for the RT scene 
@@ -533,7 +542,7 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
 
         const TiledLightCullingData& light_cull_data = AddTiledLightCullingPass(m_RenderGraph, inDevice, inScene);
 
-        const LightingData& light_data = AddLightingPass(m_RenderGraph, inDevice, inScene, gbuffer_output, light_cull_data, sky_cube_data.mSkyCubeTexture, rt_shadows_texture, reflections_texture, ao_texture, ddgi_output.mOutput);
+        const LightingData& light_data = AddLightingPass(m_RenderGraph, inDevice, inScene, gbuffer_output, light_cull_data, sky_cube_data.mSkyCubeTexture, convolved_cube_data.mConvolvedCubeTexture, rt_shadows_texture, reflections_texture, ao_texture, ddgi_output.mOutput);
 
         compose_input = light_data.mOutputTexture;
 
@@ -894,7 +903,7 @@ void RenderInterface::ReleaseMaterialShaders(Entity inEntity, Material& inMateri
 }
 
 
-uint32_t RenderInterface::UploadTextureFromAsset(const TextureAsset::Ptr& inAsset, bool inIsSRGB, uint8_t inSwizzle)
+uint32_t RenderInterface::UploadTextureFromAsset(TextureAsset::Ptr inAsset, bool inIsSRGB, uint8_t inSwizzle)
 {
     dds::Header header = dds::read_header(inAsset->GetData(), inAsset->GetDataSize());
     assert(header.is_valid());
@@ -921,7 +930,8 @@ uint32_t RenderInterface::UploadTextureFromAsset(const TextureAsset::Ptr& inAsse
     if (inIsSRGB && !gIsDXGIFormatSRGB(desc.format))
         desc.format = gDXGIFormatToSRGB(desc.format);
 
-    desc.debugName = inAsset->GetPathStr().c_str();
+    String debug_name = inAsset->GetPath().string();
+    desc.debugName = debug_name.c_str();
 
     const TextureID texture = m_Device.CreateTexture(desc);
 

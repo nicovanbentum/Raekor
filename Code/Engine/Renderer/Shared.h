@@ -39,7 +39,7 @@
 #define DDGI_IRRADIANCE_TEXELS 8            // Irradiance is stored as 6x6 FORMAT_R11G11B10F texels with a 1 pixel border
 #define DDGI_IRRADIANCE_TEXELS_NO_BORDER 6  // Irradiance is stored as 6x6 FORMAT_R11G11B10F texels with a 1 pixel border
 #define DDGI_PROBES_PER_ROW 40              // Number of probes per row for the final probe texture
-#define DDGI_RAYS_PER_PROBE 256             // Basically wave size * rays per wave
+#define DDGI_RAYS_PER_PROBE 192             // Basically wave size * rays per wave
 #define DDGI_RAYS_BACKFACE_THRESHOLD 128    // if exceeded the probe is probably inside of geometry
 
 #define RT_SHADOWS_GROUP_DIM 16     // RT shadows divides the screen up in 16x16 pixel tiles
@@ -137,9 +137,10 @@ struct FrameConstants
     uint      mMaterialsBuffer;
     uint2     mViewportSize;
     
+    float     mExposure;
     uint      mNrOfLights;
     uint      mShadowTLAS;
-    uint2     mPad0;
+    uint      mPad0;
 
     float2    mJitter;
     float2    mPrevJitter;
@@ -254,8 +255,8 @@ struct SkinningRootConstants
 
 struct GbufferRootConstants
 {
-    uint     mInstanceIndex;
     uint     mEntity;
+    uint     mInstanceIndex;
 };
 
 
@@ -398,13 +399,13 @@ struct TiledLightCullingRootConstants
 struct LightingRootConstants
 {
     uint  mSkyCubeTexture;
+    uint  mDiffuseSkyCubeTexture;
     uint  mShadowMaskTexture;
     uint  mReflectionsTexture;
     uint  mGbufferDepthTexture;
     uint  mGbufferRenderTexture;
     uint  mIndirectDiffuseTexture;
     uint  mAmbientOcclusionTexture;
-    uint  mPad1;
     TiledLightCullingRootConstants mLights;
 };
 
