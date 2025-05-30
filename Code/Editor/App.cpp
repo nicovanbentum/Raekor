@@ -472,6 +472,9 @@ void GPUProfileWidget::Draw(Widgets* inWidgets, float inDeltaTime)
     ImVec2 start_pos = ImGui::GetCursorScreenPos();
     ImVec2 avail_size = ImGui::GetContentRegionAvail();
 
+    avail_size.x = glm::max(avail_size.x, 1.0f);
+    avail_size.y = glm::max(avail_size.y, 1.0f);
+
     float bar_height = ( avail_size.y / ( max_depth + 1 ) ) * m_Zoom;
     float pixels_per_tick = avail_size.x / ( highest_tick - lowest_tick );
 

@@ -64,7 +64,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 					Timer timer;
 					SDL_SetWindowTitle(m_Editor->GetWindow(), std::string("RK Editor - " + filepath).c_str());
 
-					scene.OpenFromFileAsync(filepath, IWidget::GetAssets(), m_Editor);
+					scene.OpenFromFile(filepath, IWidget::GetAssets(), m_Editor);
 
 					m_Editor->AddRecentScene(filepath);
 
