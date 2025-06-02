@@ -374,7 +374,7 @@ const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& in
 
 
 
-const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const SkyCubeData& inSkyCubeData)
+const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const SkyCubeData& inSkyCubeData, GBufferOutput& ioGBuffer)
 {
     return inRenderGraph.AddComputePass<PathTraceData>("PathTrace",
     [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, PathTraceData& inData)
@@ -397,8 +397,35 @@ const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevi
             .debugName = "RT_PathTraceAccumulation"
         });
 
-        inRGBuilder.Write(inData.mOutputTexture);
-        inRGBuilder.Write(inData.mAccumulationTexture);
+        inData.mSelectionTexture = inRGBuilder.Create(Texture::Desc
+        {
+            .format = DXGI_FORMAT_R32_UINT,
+            .width  = inRenderGraph.GetViewport().size.x,
+            .height = inRenderGraph.GetViewport().size.y,
+            .usage  = Texture::Usage::SHADER_READ_WRITE,
+            .debugName = "RT_GBufferSelection"
+        });
+
+        inData.mDepthTexture = inRGBuilder.Create(Texture::Desc
+        {
+            .format = DXGI_FORMAT_D32_FLOAT,
+            .width  = inRenderGraph.GetViewport().size.x,
+            .height = inRenderGraph.GetViewport().size.y,
+            .usage  = Texture::DEPTH_STENCIL_TARGET,
+            .debugName = "RT_GBufferDepth"
+        });
+
+        inData.mDepthWriteTexture = inRGBuilder.Create(Texture::Desc
+        {
+            .format = DXGI_FORMAT_R32_FLOAT,
+            .width = inRenderGraph.GetViewport().size.x,
+            .height = inRenderGraph.GetViewport().size.y,
+            .usage = Texture::SHADER_READ_WRITE,
+            .debugName = "RT_DepthWrite"
+        });
+
+        ioGBuffer.mDepthTexture = inData.mDepthTexture;
+        ioGBuffer.mSelectionTexture = inData.mSelectionTexture;
 
         inData.mSkyCubeTextureSRV = inRGBuilder.Read(inSkyCubeData.mSkyCubeTexture);
     },
@@ -414,6 +441,8 @@ const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevi
             .mAlphaBounces = RenderSettings::mPathTraceAlphaBounces,
             .mResultTexture = inDevice.GetBindlessHeapIndex(inResources.GetTexture(inData.mOutputTexture)),
             .mAccumulationTexture = inDevice.GetBindlessHeapIndex(inResources.GetTexture(inData.mAccumulationTexture)),
+            .mSelectionTexture = inDevice.GetBindlessHeapIndex(inResources.GetTexture(inData.mSelectionTexture)),
+            .mDepthTexture = inDevice.GetBindlessHeapIndex(inResources.GetTexture(inData.mDepthWriteTexture)),
             .mSkyCubeTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mSkyCubeTextureSRV)),
             .mDispatchSize = viewport.size,
         };
@@ -424,6 +453,23 @@ const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevi
         inCmdList->Dispatch(( viewport.size.x + 7 ) / 8, ( viewport.size.y + 7 ) / 8, 1);
 
         RenderSettings::mPathTraceReset = false;
+
+        ID3D12Resource* depth_texture = inDevice.GetD3D12Resource(inResources.GetTexture(inData.mDepthTexture));
+        ID3D12Resource* depth_write_texture = inDevice.GetD3D12Resource(inResources.GetTexture(inData.mDepthWriteTexture));
+
+        std::array barriers =
+        {
+            D3D12_RESOURCE_BARRIER(CD3DX12_RESOURCE_BARRIER::Transition(depth_texture, GetD3D12ResourceStates(Texture::DEPTH_STENCIL_TARGET), D3D12_RESOURCE_STATE_COPY_DEST)),
+            D3D12_RESOURCE_BARRIER(CD3DX12_RESOURCE_BARRIER::Transition(depth_write_texture, GetD3D12ResourceStates(Texture::SHADER_READ_WRITE), D3D12_RESOURCE_STATE_COPY_SOURCE))
+        };
+        inCmdList->ResourceBarrier(barriers.size(), barriers.data());
+
+        inCmdList->CopyResource(depth_texture, depth_write_texture);
+
+        for (D3D12_RESOURCE_BARRIER& barrier : barriers)
+            std::swap(barrier.Transition.StateBefore, barrier.Transition.StateAfter);
+
+        inCmdList->ResourceBarrier(barriers.size(), barriers.data());
     });
 }
 

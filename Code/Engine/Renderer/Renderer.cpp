@@ -509,10 +509,7 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
 
     if (m_Settings.mDoPathTrace && inDevice.IsRayTracingSupported())
     {
-        if (m_Settings.mDoPathTraceGBuffer)
-            gbuffer_output = AddGBufferPass(m_RenderGraph, inDevice, inScene).mOutput;
-
-        compose_input = AddPathTracePass(m_RenderGraph, inDevice, inScene, sky_cube_data).mOutputTexture;
+        compose_input = AddPathTracePass(m_RenderGraph, inDevice, inScene, sky_cube_data, gbuffer_output).mOutputTexture;
     }
     else
     {
@@ -1532,7 +1529,8 @@ uint32_t RenderInterface::GetSelectedEntity(const Scene& inScene, uint32_t inScr
 
     BufferID readback_buffer_id = m_Device.CreateBuffer(Buffer::Describe(sizeof(Entity), Buffer::READBACK, true, "PixelReadbackBuffer"));
 
-    auto entity_texture_barrier = D3D12_RESOURCE_BARRIER(CD3DX12_RESOURCE_BARRIER::Transition(entity_texture_resource, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_SOURCE));
+    auto state = GetD3D12ResourceStates(entity_texture.GetUsage());
+    auto entity_texture_barrier = D3D12_RESOURCE_BARRIER(CD3DX12_RESOURCE_BARRIER::Transition(entity_texture_resource, state, D3D12_RESOURCE_STATE_COPY_SOURCE));
     cmd_list->ResourceBarrier(1, &entity_texture_barrier);
 
     D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint = {};

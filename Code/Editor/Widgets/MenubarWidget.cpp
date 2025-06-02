@@ -190,11 +190,13 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			if (ImGui::MenuItem("Undo", "CTRL+Z", false, m_Editor->GetUndo()->HasUndo()))
 			{
 				m_Editor->GetUndo()->Undo();
+				m_Editor->SetViewportChanged(true);
 			}
 
 			if (ImGui::MenuItem("Redo", "CTRL+Y", false, m_Editor->GetUndo()->HasRedo()))
 			{
 				m_Editor->GetUndo()->Redo();
+				m_Editor->SetViewportChanged(true);
 			}
 
 			if (ImGui::MenuItem("Delete", "DELETE"))
@@ -203,6 +205,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 				{
 					IWidget::GetScene().DestroySpatialEntity(m_Editor->GetActiveEntity());
 					m_Editor->SetActiveEntity(Entity::Null);
+					m_Editor->SetViewportChanged(true);
 				}
 			}
 
@@ -210,6 +213,8 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			{
 				if (GetActiveEntity() != Entity::Null && GetActiveEntity() != GetScene().GetRootEntity())
 					SetActiveEntity(GetScene().Clone(GetActiveEntity()));
+
+				m_Editor->SetViewportChanged(true);
 			}
 
 			ImGui::EndMenu();

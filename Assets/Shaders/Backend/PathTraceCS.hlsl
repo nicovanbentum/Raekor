@@ -15,8 +15,10 @@ void main(uint3 threadID : SV_DispatchThreadID)
     if (any(threadID.xy >= rc.mDispatchSize.xy))
         return;
 
+    RWTexture2D<float> depth_texture         = ResourceDescriptorHeap[rc.mDepthTexture];
     RWTexture2D<float4> result_texture       = ResourceDescriptorHeap[rc.mResultTexture];
     TextureCube<float3> skycube_texture      = ResourceDescriptorHeap[rc.mSkyCubeTexture];
+    RWTexture2D<uint> selection_texture      = ResourceDescriptorHeap[rc.mSelectionTexture];
     RWTexture2D<float4> accumulation_texture = ResourceDescriptorHeap[rc.mAccumulationTexture];
     
     RaytracingAccelerationStructure TLAS        = ResourceDescriptorHeap[fc.mTLAS];
@@ -41,6 +43,9 @@ void main(uint3 threadID : SV_DispatchThreadID)
     ray.TMax = 10000.0;
     ray.Origin = fc.mCameraPosition.xyz;
     ray.Direction = normalize(target.xyz - ray.Origin);
+    
+    uint entity = 0;
+    float depth = 1.0f;
     
     float3 total_irradiance = 0.0.xxx;
     float3 total_throughput = 1.0.xxx;
@@ -68,28 +73,40 @@ void main(uint3 threadID : SV_DispatchThreadID)
             RTVertex vertex = CalculateVertexFromGeometry(geometry, query.CommittedPrimitiveIndex(), query.CommittedTriangleBarycentrics());
             RTMaterial material = materials[geometry.mMaterialIndex];
 
-            // transform to world space
+            // Transform to world space
             TransformToWorldSpace(vertex, geometry.mWorldTransform);
             
             // Setup the surface
             Surface surface;
             surface.FromHit(vertex, material);
             
+            // Store GBuffer values on first hit
+            if (bounce == 0)
+            {
+                float4 pos = mul(fc.mViewProjectionMatrix, float4(vertex.mPos, 1.0));
+                depth = (pos.xyz / pos.w).z;
+                entity = geometry.mEntity;
+            }
+            
+            // Handle transparency
             if (surface.mAlbedo.a < 0.5)
             {
                 ray.Origin = vertex.mPos + ray.Direction * 0.001;
                 continue;
             }
             
+            // Handle backfaces
             if (!query.CommittedTriangleFrontFace())
             {
                 surface.mNormal = -surface.mNormal;
             }
 
+            // Handle emissive
             irradiance = surface.mEmissive;
             const float3 Wo = -ray.Direction;
 
-           // Next event estimation
+            // Next event estimation
+            // Handle sunlight
             {
                 float3 Wi = SampleDirectionalLight(fc.mSunDirection.xyz, fc.mSunConeAngle, pcg_float2(rng));
             
@@ -98,53 +115,52 @@ void main(uint3 threadID : SV_DispatchThreadID)
                 if (!hit)
                     irradiance += EvaluateDirectionalLight(surface, fc.mSunColor, Wi, Wo);
             }
-            
-            // for (uint i = 0; i < 8; i++)
-            {
-                uint random_light_index = uint(round(float(fc.mNrOfLights - 1) * pcg_float(rng)));
-                RTLight light = lights[random_light_index];
-                
-                switch (light.mType)
-                {
-                    case RT_LIGHT_TYPE_POINT:
-                    {
-                            float3 Wi = SamplePointLight(light, vertex.mPos);
-                        
-                            float t_min = light.mAttributes.y;
-                            float t_max = length(light.mPosition.xyz - vertex.mPos);
-                            
-                            float point_radius = light.mAttributes.x * sqrt(pcg_float(rng));
-                            float point_angle = pcg_float(rng) * 2.0f * M_PI;
-                            float2 disk_point = float2(point_radius * cos(point_angle), point_radius * sin(point_angle));
-                                
-                            bool hit = TraceShadowRay(TLAS, vertex.mPos + vertex.mNormal * 0.01, Wi, t_min, t_max);
-                        
-                            if (!hit)
-                                irradiance += EvaluatePointLight(surface, light, Wi, Wo, t_max);
-                        }
-                        break;
-                    
-                    case RT_LIGHT_TYPE_SPOT:
-                    {
-                            float3 Wi = SampleSpotLight(light, vertex.mPos);
-                            float t_max = length(light.mPosition.xyz - vertex.mPos);
 
-                            float point_radius = 0.022f;
-                            float point_angle = pcg_float(rng) * 2.0f * M_PI;
-                            float2 disk_point = float2(point_radius * cos(point_angle), point_radius * sin(point_angle));
+            // Handle point and spot lights 
+            // Randomly select 1 every frame
+            uint random_light_index = uint(round(float(fc.mNrOfLights - 1) * pcg_float(rng)));
+            RTLight light = lights[random_light_index];
+                
+            switch (light.mType)
+            {
+                case RT_LIGHT_TYPE_POINT:
+                {
+                        float3 Wi = SamplePointLight(light, vertex.mPos);
                         
-                            float3 light_dir = float3(Wi.x + disk_point.x, Wi.y, Wi.z + disk_point.y);
+                        float t_min = light.mAttributes.y;
+                        float t_max = length(light.mPosition.xyz - vertex.mPos);
+                            
+                        float point_radius = light.mAttributes.x * sqrt(pcg_float(rng));
+                        float point_angle = pcg_float(rng) * 2.0f * M_PI;
+                        float2 disk_point = float2(point_radius * cos(point_angle), point_radius * sin(point_angle));
+                                
+                        bool hit = TraceShadowRay(TLAS, vertex.mPos + vertex.mNormal * 0.01, Wi, t_min, t_max);
+                        
+                        if (!hit)
+                            irradiance += EvaluatePointLight(surface, light, Wi, Wo, t_max);
+                    }
+                    break;
+                    
+                case RT_LIGHT_TYPE_SPOT:
+                {
+                        float3 Wi = SampleSpotLight(light, vertex.mPos);
+                        float t_max = length(light.mPosition.xyz - vertex.mPos);
+
+                        float point_radius = 0.022f;
+                        float point_angle = pcg_float(rng) * 2.0f * M_PI;
+                        float2 disk_point = float2(point_radius * cos(point_angle), point_radius * sin(point_angle));
+                        
+                        float3 light_dir = float3(Wi.x + disk_point.x, Wi.y, Wi.z + disk_point.y);
                                         
-                            bool hit = TraceShadowRay(TLAS, vertex.mPos + vertex.mNormal * 0.01, light_dir, 2.0f, t_max);
+                        bool hit = TraceShadowRay(TLAS, vertex.mPos + vertex.mNormal * 0.01, light_dir, 2.0f, t_max);
                         
-                            if (!hit)
-                                irradiance += EvaluateSpotLight(surface, light, Wi, Wo, t_max);
-                        }
-                        break;
-                }
+                        if (!hit)
+                            irradiance += EvaluateSpotLight(surface, light, Wi, Wo, t_max);
+                    }
+                    break;
             }
 
-            // sample the BRDF to get new outgoing direction, update ray dir and pos
+            // Sample the BRDF to get new outgoing direction, update ray dir and pos
             { 
                 ray.Origin = vertex.mPos + vertex.mNormal * 0.01;
                 surface.SampleBRDF(rng, Wo, ray.Direction, throughput);
@@ -164,6 +180,12 @@ void main(uint3 threadID : SV_DispatchThreadID)
         }
         else // Handle miss case 
         {
+            if (bounce == 0)
+            {
+                depth_texture[threadID.xy] = 1.0f;
+                selection_texture[threadID.xy] = 0;
+            }
+            
             // Calculate sky
             irradiance = skycube_texture.SampleLevel(SamplerLinearClamp, ray.Direction, 0);
             irradiance = max(irradiance, 0.0.xxx) * fc.mSunColor.a;
@@ -172,13 +194,17 @@ void main(uint3 threadID : SV_DispatchThreadID)
             bounce = rc.mBounces + 1;
         }
       
-        // prevent fireflies
+        // Prevent fireflies
         irradiance = min(irradiance, 10.0.xxx);
 
         // Update irradiance and throughput
         total_irradiance += irradiance * total_throughput;
         total_throughput *= throughput;
     }
+    
+    // Output to textures
+    depth_texture[threadID.xy] = depth;
+    selection_texture[threadID.xy] = entity;
     
     if (rc.mReset || fc.mFrameCounter < 2)
     {

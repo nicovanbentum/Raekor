@@ -230,8 +230,6 @@ void Editor::OnUpdate(float inDeltaTime)
 	}
 
 	// detect any changes to the viewport (mainly used to reset path tracers)
-	m_ViewportChanged = false;
-
 	if (ViewportWidget* widget = m_Widgets.GetWidget<ViewportWidget>())
 			m_ViewportChanged |= widget->Changed();
 
@@ -326,13 +324,19 @@ void Editor::OnEvent(const SDL_Event& event)
 			case SDLK_Z:
 			{
 				if (g_Input->IsKeyDown(Key::LCTRL))
+				{
 					m_UndoSystem.Undo();
+					m_ViewportChanged = true;
+				}
 			} break;
 
 			case SDLK_Y:
 			{
 				if (g_Input->IsKeyDown(Key::LCTRL))
+				{
 					m_UndoSystem.Redo();
+					m_ViewportChanged = true;
+				}
 			} break;
 
 			case SDLK_F1:

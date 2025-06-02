@@ -51,6 +51,9 @@ public:
 	ImGuiSelectionBasicStorage& GetMultiSelect() { return m_Selection; }
 	const ImGuiSelectionBasicStorage& GetMultiSelect() const { return m_Selection; }
 
+	bool GetViewportChanged() const { return m_ViewportChanged; }
+	void SetViewportChanged(bool inChanged) { m_ViewportChanged = inChanged; }
+
 	void BeginImGuiDockSpace();
 	void EndImGuiDockSpace();
 

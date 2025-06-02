@@ -1228,6 +1228,7 @@ const DebugPrimitivesData& AddDebugOverlayPass(RenderGraph& inRenderGraph, Devic
             return;
 
         inCmdList->SetPipelineState(inData.mPipeline.Get());
+        inCmdList.SetViewportAndScissor(inRenderGraph.GetViewport());
         
         const int size_in_bytes = glm::min(line_vertices.size_bytes(), cPrimitiveBufferSize);
         uint32_t vertex_data_offset = inRenderGraph.GetPerPassAllocator().AllocAndCopy(size_in_bytes, line_vertices.data());

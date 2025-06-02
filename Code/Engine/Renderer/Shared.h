@@ -60,6 +60,7 @@ struct LineVertex
 
 struct RTGeometry
 {
+    uint     mEntity;
     uint     mIndexBuffer;
     uint     mVertexBuffer;
     uint     mMaterialIndex;
@@ -325,6 +326,8 @@ struct PathTraceRootConstants
     uint  mAlphaBounces;
     uint  mResultTexture;
     uint  mAccumulationTexture;
+    uint  mSelectionTexture;
+    uint  mDepthTexture;
     uint  mSkyCubeTexture;
     uint2 mDispatchSize;
 };

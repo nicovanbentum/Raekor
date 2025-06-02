@@ -107,12 +107,16 @@ struct PathTraceData
 {
     RenderGraphResourceID mOutputTexture;
     RenderGraphResourceID mAccumulationTexture;
+    RenderGraphResourceID mDepthTexture;
+    RenderGraphResourceID mDepthWriteTexture;
+    RenderGraphResourceID mSelectionTexture;
     RenderGraphResourceViewID mSkyCubeTextureSRV;
 };
 
 const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevice,
     const RayTracedScene& inScene,
-    const SkyCubeData& inSkyCubeData
+    const SkyCubeData& inSkyCubeData,
+    GBufferOutput& ioGBuffer
 );
 
 

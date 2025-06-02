@@ -159,6 +159,8 @@ void DXApp::OnUpdate(float inDeltaTime)
     if (m_ViewportChanged || m_GameState == GAME_RUNNING)
         RenderSettings::mPathTraceReset = true;
 
+    m_ViewportChanged = false;
+
     for (const Animation& animation : m_Scene.GetComponents<Animation>())
     {
         if (animation.IsPlaying())
