@@ -180,12 +180,6 @@ void main(uint3 threadID : SV_DispatchThreadID)
         }
         else // Handle miss case 
         {
-            if (bounce == 0)
-            {
-                depth_texture[threadID.xy] = 1.0f;
-                selection_texture[threadID.xy] = 0;
-            }
-            
             // Calculate sky
             irradiance = skycube_texture.SampleLevel(SamplerLinearClamp, ray.Direction, 0);
             irradiance = max(irradiance, 0.0.xxx) * fc.mSunColor.a;
