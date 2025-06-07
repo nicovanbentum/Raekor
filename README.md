@@ -29,16 +29,15 @@ This project requires C++ 20.
 * Simple Job System
 * Simple CVar system
 * JoltPhysics Integration
-* Hotloadable C++ scripts (WIP)
-* Compute based Skinning & Animation (OpenGL & DX12 Only)
+* Compute based Skinning & Animation
 * Custom Scene Format
     - GLTF / FBX / OBJ import (cgltf, ufbx, assimp)
     - RTTI-based Serialisation
     - Entity Component System
     - Multi-threaded Asset Loading
 
-### DX12
-*Main project at the moment.*
+### DX12-Only
+*Main branch at the moment.*
 
 ![image](https://svgshare.com/i/yZn.svg)
 
@@ -58,7 +57,7 @@ Basic RenderGraph architecture (automatically creates resource views and handles
 ![image](https://i.imgur.com/B3pbNgd.png)
 
 ### OpenGL
-This project requires OpenGL 4.5 for direct state access functions.
+Requires OpenGL 4.5 for direct state access functions.
 
 * Deferred PBR Renderer
     - Bloom
@@ -73,7 +72,7 @@ This project requires OpenGL 4.5 for direct state access functions.
 
 ![image](https://i.imgur.com/m8HLdED.png)
 
-### VK
+### Vulkan
 Requires Vulkan 1.2 with support for descriptor indexing, device buffer address, and hardware ray tracing. 
 * Uni-Directional GPU Path Tracer using the vk_khr_ray_tracing extensions.
    - Progressive real-time rendering
