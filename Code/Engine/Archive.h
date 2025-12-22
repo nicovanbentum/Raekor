@@ -156,9 +156,9 @@ ReadArchive& ReadArchive::operator>> (T& ioRHS)
 	assert(m_JSON.GetToken(m_TokenIndex).type == JSMN_STRING);  // token index is on the type key
 	m_TokenIndex++; // increment index to type object
 
-	// This nees to be calling the T& version of GetTokenToValue, 
+	// This nees to be calling the T& version of ReadValue, 
 	// which it should because we're calling RTTI_OF<T> so it has to be a registered complex type.. right?
-	m_TokenIndex = m_JSON.GetTokenToValue(m_TokenIndex, ioRHS);
+	m_TokenIndex = m_JSON.ReadValue(m_TokenIndex, ioRHS);
 
 	return *this;
 }
@@ -179,10 +179,12 @@ WriteArchive& WriteArchive::operator<< (T& inRHS)
 		m_Ofs << ",\n";
 
 	// write the type
-	m_Writer.IndentAndWrite("\"").Write(rtti.GetTypeName()).Write("\":");
+	m_Writer.IndentAndWrite("\""); 
+	m_Writer.Write(rtti.GetTypeName());
+	m_Writer.Write("\":");
 
 	// Convert and write the object to write to JSON
-	m_Writer.GetValueToJSON(inRHS);
+	m_Writer.WriteValue(inRHS);
 
 	m_Ofs << m_Writer.GetString();
 

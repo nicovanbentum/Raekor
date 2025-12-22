@@ -17,12 +17,12 @@ public:
 
 	void ToJSON(JSON::JSONWriter& inJSON, const void* inClass) override
 	{
-		inJSON.GetValueToJSON(GetRef<T>(inClass));
+		inJSON.WriteValue(GetRef<T>(inClass));
 	}
 
 	uint32_t FromJSON(JSON::JSONData& inJSON, uint32_t inTokenIdx, void* inClass) override
 	{
-		return inJSON.GetTokenToValue(inTokenIdx, GetRef<T>(inClass));
+		return inJSON.ReadValue(inTokenIdx, GetRef<T>(inClass));
 	}
 
 	void ToBinary(File& inFile, const void* inClass) override

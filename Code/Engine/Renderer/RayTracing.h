@@ -106,6 +106,7 @@ const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& in
 struct PathTraceData
 {
     RenderGraphResourceID mOutputTexture;
+    RenderGraphResourceID mGBufferTexture;;
     RenderGraphResourceID mAccumulationTexture;
     RenderGraphResourceID mDepthTexture;
     RenderGraphResourceID mDepthWriteTexture;

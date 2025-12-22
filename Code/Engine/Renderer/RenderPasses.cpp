@@ -371,41 +371,49 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
     return inRenderGraph.AddGraphicsPass<GBufferData>("GBuffer",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, GBufferData& inData)
     {
-        inData.mOutput.mRenderTexture = ioRGBuilder.Create(Texture::Desc
+        Texture::Desc render_texture_desc =
         {
             .format = DXGI_FORMAT_R32G32B32A32_FLOAT,
             .width  = inRenderGraph.GetViewport().size.x,
             .height = inRenderGraph.GetViewport().size.y,
             .usage  = Texture::RENDER_TARGET,
-            .debugName = "RT_GBufferColor"
-        });
+            .debugName = "RT_GBufferCompressed"
+        };
 
-        inData.mOutput.mSelectionTexture = ioRGBuilder.Create(Texture::Desc
+        inData.mOutput.mRenderTexture = ioRGBuilder.Create(render_texture_desc);
+
+        Texture::Desc selection_texture_desc = 
         {
             .format = DXGI_FORMAT_R32_UINT,
             .width  = inRenderGraph.GetViewport().size.x,
             .height = inRenderGraph.GetViewport().size.y,
             .usage  = Texture::RENDER_TARGET,
             .debugName = "RT_GBufferSelection"
-        });
+        };
 
-        inData.mOutput.mVelocityTexture = ioRGBuilder.Create(Texture::Desc
+        inData.mOutput.mSelectionTexture = ioRGBuilder.Create(selection_texture_desc);
+
+        Texture::Desc velocity_texture_desc
         {
             .format = DXGI_FORMAT_R32G32_FLOAT,
             .width  = inRenderGraph.GetViewport().size.x,
             .height = inRenderGraph.GetViewport().size.y,
             .usage  = Texture::RENDER_TARGET,
             .debugName = "RT_GBufferVelocity"
-        });
+        };
 
-        inData.mOutput.mDepthTexture = ioRGBuilder.Create(Texture::Desc
+        inData.mOutput.mVelocityTexture = ioRGBuilder.Create(velocity_texture_desc);
+
+        Texture::Desc depth_stencil_texture_desc = 
         {
             .format = DXGI_FORMAT_D32_FLOAT_S8X24_UINT,
             .width  = inRenderGraph.GetViewport().size.x,
             .height = inRenderGraph.GetViewport().size.y,
             .usage  = Texture::DEPTH_STENCIL_TARGET,
             .debugName = "RT_GBufferDepth"
-        });
+        };
+
+        inData.mOutput.mDepthTexture = ioRGBuilder.Create(depth_stencil_texture_desc);
 
         ioRGBuilder.RenderTarget(inData.mOutput.mRenderTexture); // SV_Target0
         ioRGBuilder.RenderTarget(inData.mOutput.mVelocityTexture); // SV_Target1
@@ -476,7 +484,7 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
             }
 
             const Name& name = inScene->Get<Name>(entity);
-            EVENT_SCOPE_GPU(inCmdList, mesh.name.empty() ? name.name.c_str() : mesh.name.c_str());
+            EVENT_SCOPE_GPU(inCmdList, mesh.name.empty() ? "Mesh" : mesh.name.c_str());
 
             inCmdList.PushGraphicsConstants(GbufferRootConstants
             {
@@ -794,6 +802,12 @@ const GrassData& AddGrassRenderPass(RenderGraph& inGraph, Device& inDevice, cons
 
 const DownsampleData& AddDownsamplePass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inSourceTexture)
 {
+    auto CalculateMipCount = [](const uint32_t inWidth, const uint32_t inHeight) -> uint32_t
+    {
+        uint32_t max_res = glm::max(inWidth, inHeight);
+        return uint32_t((glm::min(glm::floor(glm::log2(float(max_res))), 12.0f)));
+    };
+
     return inRenderGraph.AddComputePass<DownsampleData>("SPD",
     [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, DownsampleData& inData)
     {
@@ -805,21 +819,18 @@ const DownsampleData& AddDownsamplePass(RenderGraph& inRenderGraph, Device& inDe
         const RenderGraphResourceDesc& texture_desc = inRGBuilder.GetResourceDesc(inSourceTexture);
         assert(texture_desc.mResourceType == RESOURCE_TYPE_TEXTURE);
 
-        const uint32_t nr_of_mips = gSpdCaculateMipCount(texture_desc.mTextureDesc.width, texture_desc.mTextureDesc.height);
+        const uint32_t nr_of_mips = CalculateMipCount(texture_desc.mTextureDesc.width, texture_desc.mTextureDesc.height);
 
-        assert(false); // TODO: RenderGraphBuilder::Write with subresource specifier
         for (int mip = 0u; mip < nr_of_mips; mip++)
-        {
-            // inRGBuilder.Write(inSourceTexture, mip);
-        }
+            inData.mSourceTextureMipsUAVs[mip] = inRGBuilder.WriteTexture(inSourceTexture, mip);
     },
 
-    [&inRenderGraph, &inDevice](DownsampleData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
+    [&inRenderGraph, &inDevice, CalculateMipCount](DownsampleData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
     {
         Texture& texture = inDevice.GetTexture(inRGResources.GetTextureView(inData.mSourceTextureUAV));
         const UVec4 rect_info = UVec4(0u, 0u, texture->GetDesc().Width, texture->GetDesc().Height);
 
-        glm::uvec2 work_group_offset, dispatchThreadGroupCountXY, numWorkGroupsAndMips;
+        UVec2 work_group_offset, dispatchThreadGroupCountXY, numWorkGroupsAndMips;
         work_group_offset[0] = rect_info[0] / 64; // rectInfo[0] = left
         work_group_offset[1] = rect_info[1] / 64; // rectInfo[1] = top
 
@@ -830,11 +841,11 @@ const DownsampleData& AddDownsamplePass(RenderGraph& inRenderGraph, Device& inDe
         dispatchThreadGroupCountXY[1] = endIndexY + 1 - work_group_offset[1];
 
         numWorkGroupsAndMips[0] = ( dispatchThreadGroupCountXY[0] ) * ( dispatchThreadGroupCountXY[1] );
-        numWorkGroupsAndMips[1] = gSpdCaculateMipCount(rect_info[2], rect_info[3]);
+        numWorkGroupsAndMips[1] = CalculateMipCount(rect_info[2], rect_info[3]);
 
         Buffer& atomic_buffer = inDevice.GetBuffer(inData.mGlobalAtomicBuffer);
 
-        SpdRootConstants root_constants =
+        SpdRootConstants root_constants = SpdRootConstants
         {
             .mNrOfMips = numWorkGroupsAndMips[1],
             .mNrOfWorkGroups = numWorkGroupsAndMips[0],
@@ -847,25 +858,18 @@ const DownsampleData& AddDownsamplePass(RenderGraph& inRenderGraph, Device& inDe
         for (uint32_t mip = 0u; mip < numWorkGroupsAndMips[1]; mip++)
             mips_ptr[mip] = inRGResources.GetBindlessHeapIndex(inData.mSourceTextureMipsUAVs[mip]);
 
-        static bool first_run = true;
+        inCmdList.PushComputeConstants(root_constants);
 
-        if (first_run)
-        {
-            auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(atomic_buffer.GetD3D12Resource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_DEST);
+        auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(atomic_buffer.GetD3D12Resource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_DEST);
+        inCmdList->ResourceBarrier(1, &barrier);
 
-            inCmdList->ResourceBarrier(1, &barrier);
+        const D3D12_WRITEBUFFERIMMEDIATE_PARAMETER param = { .Dest = atomic_buffer->GetGPUVirtualAddress(), .Value = 0 };
+        inCmdList->WriteBufferImmediate(1, &param, nullptr);
 
-            const D3D12_WRITEBUFFERIMMEDIATE_PARAMETER param = { .Dest = atomic_buffer->GetGPUVirtualAddress(), .Value = 0 };
-            inCmdList->WriteBufferImmediate(1, &param, nullptr);
-
-            barrier = CD3DX12_RESOURCE_BARRIER::Transition(atomic_buffer.GetD3D12Resource(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-            inCmdList->ResourceBarrier(1, &barrier);
-
-            first_run = false;
-        }
+        barrier = CD3DX12_RESOURCE_BARRIER::Transition(atomic_buffer.GetD3D12Resource(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+        inCmdList->ResourceBarrier(1, &barrier);
 
         inCmdList->SetPipelineState(g_SystemShaders.mDownsampleShader.GetComputePSO());
-        inCmdList.PushComputeConstants(root_constants);
         inCmdList->Dispatch(dispatchThreadGroupCountXY.x, dispatchThreadGroupCountXY.y, 1);
     });
 }
@@ -953,6 +957,9 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
 
     [&inRenderGraph, &inDevice, &inScene, &inLightCullData](LightingData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
+        constexpr Vec4 clear_color = Vec4(0.0f, 0.0f, 0.0f, 0.0f);
+        inCmdList->ClearRenderTargetView(inDevice.GetCPUDescriptorHandle(inResources.GetTexture(inData.mOutputTexture)), glm::value_ptr(clear_color), 0, nullptr);
+
         LightingRootConstants root_constants =
         {
             .mSkyCubeTexture          = inResources.GetBindlessHeapIndex(inData.mSkyCubeTextureSRV),
@@ -1018,6 +1025,10 @@ const TAAResolveData& AddTAAResolvePass(RenderGraph& inRenderGraph, Device& inDe
 
     [&inRenderGraph, &inDevice](TAAResolveData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
+
+        constexpr Vec4 clear_color = Vec4(0.0f, 0.0f, 0.0f, 0.0f);
+        inCmdList->ClearRenderTargetView(inDevice.GetCPUDescriptorHandle(inResources.GetTexture(inData.mOutputTexture)), glm::value_ptr(clear_color), 0, nullptr);
+
         inCmdList->SetPipelineState(inData.mPipeline.Get());
         inCmdList.SetViewportAndScissor(inRenderGraph.GetViewport());
 
@@ -1198,7 +1209,7 @@ const BloomPassData& AddBloomPass(RenderGraph& inRenderGraph, Device& inDevice, 
 
 const DebugPrimitivesData& AddDebugOverlayPass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inRenderTarget, RenderGraphResourceID inDepthTarget)
 {
-    constexpr size_t cPrimitiveBufferSize = 3 * UINT16_MAX;
+    constexpr size_t cPrimitiveBufferSize = gAlignUp(8 * 1024 * 1024, 4);
 
     return inRenderGraph.AddGraphicsPass<DebugPrimitivesData>("DebugShapes",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, DebugPrimitivesData& inData)
@@ -1233,6 +1244,10 @@ const DebugPrimitivesData& AddDebugOverlayPass(RenderGraph& inRenderGraph, Devic
         const int size_in_bytes = glm::min(line_vertices.size_bytes(), cPrimitiveBufferSize);
         uint32_t vertex_data_offset = inRenderGraph.GetPerPassAllocator().AllocAndCopy(size_in_bytes, line_vertices.data());
         inCmdList.PushGraphicsConstants(DebugPrimitivesRootConstants { .mBufferOffset = vertex_data_offset });
+
+        uint32_t capacity = inRenderGraph.GetPerPassAllocator().GetCapacity();
+        uint32_t calculated_capacity = vertex_data_offset + sizeof(float4) * line_vertices.size();
+        assert(capacity >= calculated_capacity);
 
         inCmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
         inCmdList->DrawInstanced(line_vertices.size(), 1, 0, 0);
@@ -1275,6 +1290,9 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, 
 
     [&inRenderGraph, &inDevice](ComposeData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
+        constexpr Vec4 clear_color = Vec4(0.0f, 0.0f, 0.0f, 0.0f);
+        inCmdList->ClearRenderTargetView(inDevice.GetCPUDescriptorHandle(inResources.GetTexture(inData.mOutputTexture)), glm::value_ptr(clear_color), 0, nullptr);
+        
         inCmdList->SetPipelineState(inData.mPipeline.Get());
         inCmdList.SetViewportAndScissor(inRenderGraph.GetViewport());
 

@@ -130,7 +130,7 @@ public:
             {
                 case SDLK_SPACE:
                 {
-                    m_Velocity.y = sqrtf(2.0f * m_Gravity * m_JumpHeight);
+                    m_Velocity.y = sqrtf(1.0f * m_Gravity * m_JumpHeight);
                 } break;
             }
         }

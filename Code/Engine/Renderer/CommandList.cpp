@@ -41,7 +41,7 @@ void CommandList::Close()
 
 void CommandList::PushMarker(const char* inLabel, uint32_t inColor)
 {
-    PIXBeginEvent(inColor, inLabel, static_cast<ID3D12GraphicsCommandList*>( *this ));
+    PIXBeginEvent(static_cast<ID3D12GraphicsCommandList*>(*this), inColor, inLabel);
 }
 
 
@@ -178,6 +178,7 @@ void CommandList::Submit(Device& inDevice, ID3D12CommandQueue* inQueue)
     assert(m_CommandList->GetType() == inQueue->GetDesc().Type);
     inQueue->ExecuteCommandLists(1, CommandListCast(m_CommandList.GetAddressOf()));
 }
+
 
 } // namespace Raekor
 

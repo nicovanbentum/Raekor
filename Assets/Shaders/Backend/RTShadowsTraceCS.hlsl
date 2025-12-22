@@ -48,7 +48,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID, uint3 groupID : SV_Group
         RayDesc ray;
         ray.TMin = 0.0;
         ray.TMax = 10000.0;
-        ray.Origin = ws_pos + normal * bias;
+        ray.Origin = ws_pos + normal * 0.01;
         ray.Direction = ray_dir;
 
         if (dot(normal, ray.Direction) > 0.0)

@@ -15,9 +15,9 @@ groupshared float3 lds_ProbeIrradianceRays[DDGI_RAYS_PER_PROBE];
 void main(uint3 threadID : SV_DispatchThreadID,  uint3 groupThreadID : SV_GroupThreadID, uint3 groupID : SV_GroupID, uint inGroupIndex : SV_GroupIndex) 
 {
     Texture2D<float2> rays_depth_texture = ResourceDescriptorHeap[rc.mDDGIData.mRaysDepthTexture];
-    StructuredBuffer<ProbeData> probe_buffer = ResourceDescriptorHeap[rc.mDDGIData.mProbesDataBuffer];
     Texture2D<float3> rays_irradiance_texture = ResourceDescriptorHeap[rc.mDDGIData.mRaysIrradianceTexture];
     RWTexture2D<float4> probes_irradiance_texture = ResourceDescriptorHeap[rc.mDDGIData.mProbesIrradianceTexture];
+    RWStructuredBuffer<ProbeData> probe_buffer = ResourceDescriptorHeap[rc.mDDGIData.mProbesDataBuffer];
     
     // 1D index of the probe we are on, used to read the 192 ray hits from the ray tracing results
     uint probe_index = Index2DTo1D(groupID.xy, DDGI_PROBES_PER_ROW);

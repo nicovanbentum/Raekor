@@ -3,6 +3,7 @@
 
 #include "Shared.h"
 #include "CommandList.h"
+#include "GPUProfiler.h"
 
 #include "Iter.h"
 #include "Primitives.h"
@@ -172,7 +173,7 @@ void RayTracedScene::UploadTLAS(Application* inApp, Device& inDevice, CommandLis
     if (!m_Scene.Count<Mesh>())
         return;
 
-    PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( inCmdList ), PIX_COLOR(0, 255, 0), "UPLOAD TLAS");
+    EVENT_SCOPE_GPU(inCmdList, "UPLOAD TLAS");
 
     Array<D3D12_RAYTRACING_INSTANCE_DESC> rt_instances;
     rt_instances.reserve(m_Scene.Count<Mesh>());
@@ -321,12 +322,13 @@ void RayTracedScene::UploadLights(Application* inApp, Device& inDevice, CommandL
 
 void RayTracedScene::UploadInstances(Application* inApp, Device& inDevice, CommandList& inCmdList)
 {
-    if (!m_Scene.Count<Mesh>())
+    const uint32_t nr_of_meshes = m_Scene.Count<Mesh>();
+
+    if (nr_of_meshes == 0)
         return;
 
-    PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( inCmdList ), PIX_COLOR(0, 255, 0), "UPLOAD INSTANCES");
+    EVENT_SCOPE_GPU(inCmdList, "UPLOAD INSTANCES");
 
-    const uint32_t nr_of_meshes = m_Scene.Count<Mesh>();
     Array<RTGeometry> rt_geometries;
     rt_geometries.reserve(nr_of_meshes);
 
@@ -340,7 +342,7 @@ void RayTracedScene::UploadInstances(Application* inApp, Device& inDevice, Comma
         if (!transform)
             continue;
 
-        if (!BufferID(mesh.BottomLevelAS).IsValid())
+        if (!mesh.HasBLAS())
             continue;
 
         int material_index = m_Scene.GetPackedIndex<Material>(mesh.material);
@@ -369,16 +371,16 @@ void RayTracedScene::UploadInstances(Application* inApp, Device& inDevice, Comma
         .debugName = "RT_INSTANCE_BUFFER"
     });
 
-    m_InstancesDescriptor = inDevice.GetBuffer(m_InstancesBuffer).GetDescriptor();
-
     Buffer& instance_buffer = inDevice.GetBuffer(m_InstancesBuffer);
+    m_InstancesDescriptor = instance_buffer.GetDescriptor();
+
     inDevice.UploadBufferData(inCmdList, instance_buffer, 0, rt_geometries.data(), instance_buffer.GetSize());
 }
 
 
 void RayTracedScene::UploadMaterials(Application* inApp, Device& inDevice, CommandList& inCmdList, bool inDisableAlbedo)
 {
-    PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( inCmdList ), PIX_COLOR(0, 255, 0), "UPLOAD MATERIALS");
+    EVENT_SCOPE_GPU(inCmdList, "UPLOAD MATERIALS");
 
     Slice<const Material> materials = m_Scene.GetComponentStorage<Material>()->GetComponents();
 
@@ -404,7 +406,7 @@ void RayTracedScene::UploadMaterials(Application* inApp, Device& inDevice, Comma
 
         if (inDisableAlbedo)
         {
-            rt_material.mAlbedo = Material::Default.albedo;
+            rt_material.mAlbedo = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
             rt_material.mAlbedoTexture = inDevice.GetBindlessHeapIndex(TextureID(Material::Default.gpuAlbedoMap));
         }
 

@@ -7,8 +7,8 @@
 FRAME_CONSTANTS(fc)
 ROOT_CONSTANTS(ProbeUpdateRootConstants, rc)
 
-groupshared float lds_ProbeDepthRays[DDGI_RAYS_PER_PROBE];
-groupshared float3 lds_ProbeRayDirections[DDGI_RAYS_PER_PROBE];
+groupshared float lds_ProbeDepthRays[DDGI_DEPTH_TEXELS * DDGI_DEPTH_TEXELS];
+groupshared float3 lds_ProbeRayDirections[DDGI_DEPTH_TEXELS * DDGI_DEPTH_TEXELS];
 
 [numthreads(DDGI_DEPTH_TEXELS, DDGI_DEPTH_TEXELS, 1)]
 void main(uint3 threadID : SV_DispatchThreadID,  uint3 groupThreadID : SV_GroupThreadID, uint3 groupID : SV_GroupID, uint inGroupIndex : SV_GroupIndex)
@@ -20,15 +20,15 @@ void main(uint3 threadID : SV_DispatchThreadID,  uint3 groupThreadID : SV_GroupT
     uint probe_index = Index2DTo1D(groupID.xy, DDGI_PROBES_PER_ROW);
     
     // calculate how many rays the current thread should write to lds
-    const uint rays_per_lane = DDGI_RAYS_PER_PROBE / (DDGI_DEPTH_TEXELS * DDGI_DEPTH_TEXELS);
+    const uint rays_per_lane = max(1u, DDGI_RAYS_PER_PROBE / (DDGI_DEPTH_TEXELS * DDGI_DEPTH_TEXELS));
     
     // unroll if possible as this number is usually quite small
     [unroll]
     for (uint i = 0; i < rays_per_lane; i++)
     {
         uint ray_index = inGroupIndex * rays_per_lane + i;
-        lds_ProbeRayDirections[ray_index] = SphericalFibonnaci(ray_index, DDGI_RAYS_PER_PROBE);
         lds_ProbeDepthRays[ray_index] = rays_depth_texture[uint2(ray_index, probe_index)];
+        lds_ProbeRayDirections[ray_index] = SphericalFibonnaci(ray_index, DDGI_RAYS_PER_PROBE);
     }
     
     GroupMemoryBarrierWithGroupSync();
@@ -39,7 +39,8 @@ void main(uint3 threadID : SV_DispatchThreadID,  uint3 groupThreadID : SV_GroupT
     bool is_border = probe_pixel.x == 0 || probe_pixel.x == (DDGI_DEPTH_TEXELS - 1) ||
                      probe_pixel.y == 0 || probe_pixel.y == (DDGI_DEPTH_TEXELS - 1);
     
-    if (!is_border) {
+    if (!is_border) 
+    {
         float2 octahedral_uv = ((float2(probe_pixel) + 0.5) / DDGI_DEPTH_TEXELS.xx) * 2.0 - 1.0;
         float3 octahedral_dir = OctDecode(octahedral_uv);
     
@@ -48,11 +49,11 @@ void main(uint3 threadID : SV_DispatchThreadID,  uint3 groupThreadID : SV_GroupT
         for (uint ray_index = 0; ray_index < DDGI_RAYS_PER_PROBE; ray_index++) 
         {
             // ray depth can be negative to indicate backface hit, so take abs
-            float ray_depth = abs(lds_ProbeDepthRays[ray_index]);
+            float ray_depth = abs(rays_depth_texture[uint2(ray_index, probe_index)]);
             // limit the depth to the max distance between probes, if its further we would have picked a different probe anyway
             ray_depth = min(ray_depth, length(rc.mDDGIData.mProbeSpacing * 1.5f));
         
-            float3 ray_dir = normalize(mul((float3x3) rc.mRandomRotationMatrix, lds_ProbeRayDirections[ray_index]));
+            float3 ray_dir = normalize(mul((float3x3) rc.mRandomRotationMatrix, SphericalFibonnaci(ray_index, DDGI_RAYS_PER_PROBE)));
             
             float weight = max(0.0f, dot(octahedral_dir, ray_dir));
             //weight = pow(weight, 64);

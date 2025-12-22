@@ -34,12 +34,12 @@ public:
 	virtual void OnUpdate(float inDeltaTime) override;
 	virtual void OnEvent(const SDL_Event& inEvent) override;
 
-	bool ShouldLaunch() const { return !m_WasClosed; }
+	bool ShouldLaunch() const { return m_Launch; }
 
 private:
+	bool m_Launch = false;
 	int m_NrOfRows = 0;
 	int m_ResizeCounter = 0;
-	bool m_WasClosed = false;
 	SDL_Image m_BgImage;
 	SDL_Renderer* m_Renderer;
 	HashSet<String> m_SortedCvarNames;

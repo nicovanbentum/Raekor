@@ -43,7 +43,7 @@ public:
 	void UpdateNativeScripts(float inDeltaTime);
 
 	// debug stuff
-	void RenderDebugShapes(Entity inEntity) const;
+	void RenderDebugShapes(Entity inEntity, float inOpacity) const;
 
 	// entity hierarchy stuff
 	using TraverseFunction = void(*)(void*, Scene&, Entity);

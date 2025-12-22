@@ -318,9 +318,14 @@ D3D12_RENDER_TARGET_VIEW_DESC Texture::Desc::ToRTVDesc() const
 D3D12_SHADER_RESOURCE_VIEW_DESC Texture::Desc::ToSRVDesc() const 
 { 
     D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
-    srv_desc.Format = gGetDepthFormatSRV(format);
+    srv_desc.Format = DXGI_FORMAT_UNKNOWN; // auto-deduce
     srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
     srv_desc.Texture2D.MipLevels = -1;
+
+    if (gIsDepthFormat(format))
+    {
+        srv_desc.Format = gGetDepthFormatSRV(format);
+    }
 
     const auto [r, g, b, a] = gUnswizzle(swizzle);
     srv_desc.Shader4ComponentMapping = D3D12_ENCODE_SHADER_4_COMPONENT_MAPPING(r, g, b, a);

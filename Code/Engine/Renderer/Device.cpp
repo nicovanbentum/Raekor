@@ -15,7 +15,7 @@
 #include <locale>
 #include <codecvt>
 
-extern "C" { __declspec( dllexport ) extern const UINT D3D12SDKVersion = 600; }
+extern "C" { __declspec( dllexport ) extern const UINT D3D12SDKVersion = 615; }
 extern "C" { __declspec( dllexport ) extern const char* D3D12SDKPath = ".\\"; }
 
 namespace RK::DX12 {
@@ -25,7 +25,7 @@ Device::Device(Application* inApp)
     uint32_t device_creation_flags = 0u;
 
 #if 1
-    ComPtr<ID3D12Debug1> debug_interface = nullptr;
+    ComPtr<ID3D12Debug5> debug_interface = nullptr;
     if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debug_interface))))
     {
         static bool debug_layer_enabled = OS::sCheckCommandLineOption("-debug_layer");
@@ -38,6 +38,7 @@ Device::Device(Application* inApp)
         {
             debug_interface->SetEnableGPUBasedValidation(TRUE);
             debug_interface->SetEnableSynchronizedCommandQueueValidation(TRUE);
+            debug_interface->SetGPUBasedValidationFlags(D3D12_GPU_BASED_VALIDATION_FLAGS_DISABLE_STATE_TRACKING);
         }
     }
 
@@ -346,7 +347,7 @@ TextureID Device::CreateTextureView(TextureID inTextureID, const Texture::Desc& 
 
 
 
-[[nodiscard]] TextureID Device::CreateTextureView(ID3D12Resource* inResource, const Texture::Desc& inDesc)
+TextureID Device::CreateTextureView(ID3D12Resource* inResource, const Texture::Desc& inDesc)
 {
     Texture temp_texture = Texture(inDesc);
     temp_texture.m_Resource = inResource;
@@ -358,6 +359,20 @@ TextureID Device::CreateTextureView(TextureID inTextureID, const Texture::Desc& 
     CreateDescriptor(texture_id, inDesc);
 
     return texture_id;
+}
+
+
+
+void Device::SetDebugName(BufferID inBuffer, const char* inName)
+{
+    gSetDebugName(GetD3D12Resource(inBuffer), inName);
+}
+
+
+
+void Device::SetDebugName(TextureID inTexture, const char* inName)
+{
+    gSetDebugName(GetD3D12Resource(inTexture), inName);
 }
 
 
@@ -847,35 +862,49 @@ void Device::RetireUploadBuffers(CommandList& inCmdList)
 
 
 
-void RingAllocator::CreateBuffer(Device& inDevice, uint32_t inSize, uint32_t inAlignment)
+void RingAllocator::CreateBuffer(Device& inDevice, uint32_t inCapacity, uint32_t inAlignment, const char* inName)
 {
+    m_Capacity = gAlignUp(inCapacity, inAlignment);
     m_Alignment = inAlignment;
-    m_TotalCapacity = gAlignUp(inSize, inAlignment) * sFrameCount;
 
-    m_Buffer = inDevice.CreateBuffer(Buffer::Desc 
-    { 
-        .size = m_TotalCapacity,
-        .usage = Buffer::Usage::UPLOAD, 
-        .debugName = "RingAllocatorBuffer"
-    });
+    for (Allocation& alloc : m_Buffers)
+    {
+        alloc.buffer = inDevice.CreateBuffer(Buffer::Desc
+        {
+            .size = inCapacity,
+            .usage = Buffer::UPLOAD,
+            .debugName = inName
+        });
 
-    gThrowIfFailed(inDevice.GetBuffer(m_Buffer)->Map(0, nullptr, (void**)(&m_DataPtr)));
+        inDevice.GetBuffer(alloc.buffer)->Map(0, nullptr, (void**)&alloc.pointer);
+
+        alloc.GPUVirtualAddress = inDevice.GetBuffer(alloc.buffer)->GetGPUVirtualAddress();
+    }
 }
 
+
+void RingAllocator::OnUpdate(Device& inDevice)
+{
+    m_FrameIndex = inDevice.GetFrameIndex();
+    m_BytesUsed[m_FrameIndex].store(0);
+}
 
 
 void RingAllocator::DestroyBuffer(Device& inDevice)
 {
-    if (!m_Buffer.IsValid())
-        return;
+    for (Allocation& alloc : m_Buffers)
+    {
+        if (alloc.buffer.IsValid())
+        {
+            inDevice.GetBuffer(alloc.buffer)->Unmap(0, nullptr);
+            inDevice.ReleaseBuffer(alloc.buffer);
+        }
 
-    inDevice.GetBuffer(m_Buffer)->Unmap(0, nullptr);
-    inDevice.ReleaseBuffer(m_Buffer);
+        alloc = {};
+    }
 
-    m_Buffer = BufferID();
-    m_Offset = 0;
-    m_DataPtr = nullptr;
-    m_TotalCapacity = 0;
+    m_Capacity = 0;
+    m_Alignment = 0;
 }
 
 /*
@@ -885,20 +914,16 @@ ByteAddressBuffer buffer;
 T data = buffer.Load<T>(ioOffset);
 */
 
- uint32_t RingAllocator::AllocAndCopy(uint32_t inSize, const void* inData)
+uint32_t RingAllocator::AllocAndCopy(uint32_t inSize, const void* inData)
 {
     const auto aligned_size = gAlignUp(inSize, m_Alignment);
+    assert(m_BytesUsed[m_FrameIndex] + aligned_size <= m_Capacity);
 
-    // if we're at the limit for this frame, swap back around
-    if (m_Size >= m_TotalCapacity)
-        m_Size = 0;
+    uint32_t offset = m_BytesUsed[m_FrameIndex].fetch_add(aligned_size);
 
-    m_Offset = m_Size;
-    memcpy(m_DataPtr + m_Offset, inData, inSize);
+    std::memcpy(m_Buffers[m_FrameIndex].pointer + offset, inData, inSize);
 
-    // increment the offset to the next frame
-    m_Size += aligned_size;
-    return m_Offset;
+    return offset;
 }
 
 

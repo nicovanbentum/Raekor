@@ -20,7 +20,8 @@ public:
     struct KeyFrame
     {
         KeyFrame() = default;
-        KeyFrame(float inTime, Vec3 inScale, Quat inRot, Vec3 inPos) : mTime(inTime), mScale(inScale), mRotation(inRot), mPosition(inPos) {}
+        KeyFrame(float inTime, Vec3 inScale, Quat inRot, Vec3 inPos) 
+            : mTime(inTime), mScale(inScale), mRotation(inRot), mPosition(inPos) {}
 
         float mTime = 0.0f;
         Vec3 mScale = {};

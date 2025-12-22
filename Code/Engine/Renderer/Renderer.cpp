@@ -307,9 +307,6 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
         //m_FrameConstants.mDebugLinesIndirectArgsBuffer = inDevice.GetBindlessHeapIndex(m_RenderGraph.GetResources().GetBuffer(debug_lines_pass->GetData().mIndirectArgsBuffer));
     }
 
-    // memcpy the frame constants into upload memory
-    m_RenderGraph.GetPerFrameAllocator().AllocAndCopy(m_FrameConstants);
-
     // update RenderSettings
     RenderSettings::mActiveEntity = inApp->GetActiveEntity();
 
@@ -319,7 +316,6 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
         const Transform& ddgi_transform = inScene->Get<Transform>(ddgi_entity);
         const DDGISceneSettings& ddgi_settings = inScene->Get<DDGISceneSettings>(ddgi_entity);
 
-        RenderSettings::mDDGIUseChebyshev = ddgi_settings.mUseChebyshev;
         RenderSettings::mDDGIProbeCount = ddgi_settings.mDDGIProbeCount;
         RenderSettings::mDDGIProbeSpacing = ddgi_settings.mDDGIProbeSpacing;
         RenderSettings::mDDGICornerPosition = ddgi_transform.position;
@@ -408,7 +404,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
         update_cmd_list.Submit(inDevice, inDevice.GetGraphicsQueue());
 
         // Record the entire frame into the direct cmd list
-        m_RenderGraph.Execute(inDevice, direct_cmd_list);
+        m_RenderGraph.Execute(inDevice, m_FrameConstants, direct_cmd_list);
 
         // Record commands to render ImGui to the backbuffer
         // skip if we recompiled, ImGui's descriptor tables will be invalid for 1 frame
@@ -486,7 +482,7 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
 
     DDGIOutput ddgi_output =
     {
-        .mOutput = default_textures.mWhiteTexture,
+        .mOutput = default_textures.mBlackTexture,
         .mDepthProbes = default_textures.mWhiteTexture,
         .mIrradianceProbes = default_textures.mBlackTexture,
     };
@@ -539,7 +535,9 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
 
         const TiledLightCullingData& light_cull_data = AddTiledLightCullingPass(m_RenderGraph, inDevice, inScene);
 
-        const LightingData& light_data = AddLightingPass(m_RenderGraph, inDevice, inScene, gbuffer_output, light_cull_data, sky_cube_data.mSkyCubeTexture, convolved_cube_data.mConvolvedCubeTexture, rt_shadows_texture, reflections_texture, ao_texture, ddgi_output.mOutput);
+        const LightingData& light_data = AddLightingPass(m_RenderGraph, inDevice, inScene, 
+                                                         gbuffer_output, light_cull_data, sky_cube_data.mSkyCubeTexture, convolved_cube_data.mConvolvedCubeTexture, 
+                                                         rt_shadows_texture, reflections_texture, ao_texture, ddgi_output.mOutput);
 
         compose_input = light_data.mOutputTexture;
 
@@ -996,14 +994,6 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
     {
         ImGui::SeparatorText("Settings");
 
-        need_recompile |= ImGui::Checkbox("Rasterize GBuffer", (bool*)&m_Renderer.GetSettings().mDoPathTraceGBuffer);
-
-        ImGui::SameLine(0.0f, ImGui::CalcTextSize(" ").x);
-        ImGui::Text("(?)");
-
-        if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("GBuffer is needed for certain editor functionality.");
-
         if (ImGui::SliderInt("Bounces", (int*)&RenderSettings::mPathTraceBounces, 1, 8))
             RenderSettings::mPathTraceReset = true;
 
@@ -1378,6 +1368,8 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
         {
             ImGui::SeparatorText("Debug Options");
 
+            need_recompile |= ImGui::Checkbox("Use Chebyshev Test", (bool*)&RenderSettings::mDDGIUseChebyshev);
+
             ImGui::Checkbox("Visualize Pure White Mode", (bool*)&m_Renderer.GetSettings().mDisableAlbedo);
 
             // TODO FIX DEBUG PROBE RAYS
@@ -1578,16 +1570,16 @@ TextureID InitImGui(Device& inDevice, DXGI_FORMAT inRtvFormat, uint32_t inFrameC
     unsigned char* pixels = nullptr;
     ImGui::GetIO().Fonts->GetTexDataAsAlpha8(&pixels, &width, &height);
 
-    TextureID font_texture_id = inDevice.CreateTexture(Texture::Desc
-        {
-            .format = DXGI_FORMAT_R8_UNORM,
-            .width = uint32_t(width),
-            .height = uint32_t(height),
-            .usage = Texture::SHADER_READ_ONLY,
-            .debugName = "ImGuiFontTexture"
-        });
+    TextureID font_texture = inDevice.CreateTexture(
+    {
+        .format = DXGI_FORMAT_R8_UNORM,
+        .width  = uint32_t(width),
+        .height = uint32_t(height),
+        .usage  = Texture::Usage::SHADER_READ_ONLY,
+        .debugName = "FontTexture"
+    });
 
-    DescriptorID font_texture_view = inDevice.GetTexture(font_texture_id).GetView();
+    DescriptorID font_texture_view = inDevice.GetTexture(font_texture).GetView();
     DescriptorHeap& descriptor_heap = inDevice.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
     ImGui_ImplDX12_InitInfo init_info = {};
@@ -1604,7 +1596,7 @@ TextureID InitImGui(Device& inDevice, DXGI_FORMAT inRtvFormat, uint32_t inFrameC
     //auto imgui_id = (void*)(intptr_t)inDevice.GetBindlessHeapIndex(font_texture_id);
     //ImGui::GetIO().Fonts->SetTexID(imgui_id);
 
-    return font_texture_id;
+    return font_texture;
 }
 
 

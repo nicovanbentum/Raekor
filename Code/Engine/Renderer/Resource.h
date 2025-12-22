@@ -111,6 +111,7 @@ public:
     {
         assert(!m_Storage.empty() && inID.GetIndex() < m_Storage.size());
         assert(inID.m_Generation == m_Generations[inID.GetIndex()]);
+
         return m_Storage[inID.GetIndex()];
     }
 
@@ -118,6 +119,7 @@ public:
     {
         assert(!m_Storage.empty() && inID.GetIndex() < m_Storage.size());
         assert(inID.m_Generation == m_Generations[inID.GetIndex()]);
+
         return m_Storage[inID.GetIndex()];
     }
 
@@ -137,10 +139,10 @@ public:
     auto end() const { return m_Storage.end(); }
 
 protected:
+    Mutex m_Mutex;
     Array<uint16_t> m_Generations;
     Array<uint32_t> m_FreeIndices;
     Array<T> m_Storage;
-    Mutex m_Mutex;
 };
 
 
@@ -288,20 +290,14 @@ public:
         ACCELERATION_STRUCTURE
     };
 
-    enum class ShaderUsage : int
-    {
-        READ_ONLY = Usage::SHADER_READ_ONLY,
-        READ_WRITE = Usage::SHADER_READ_WRITE
-    };
-
     struct Desc
     {
-        DXGI_FORMAT format          = DXGI_FORMAT_UNKNOWN;
-        uint64_t size               = 0;
-        uint64_t stride             = 0;
-        Usage usage                 = Usage::GENERAL;
-        bool mappable               = false;
-        const char* debugName       = nullptr;
+        DXGI_FORMAT format    = DXGI_FORMAT_UNKNOWN;
+        uint64_t size         = 0;
+        uint64_t stride       = 0;
+        Usage usage           = Usage::GENERAL;
+        bool mappable         = false;
+        const char* debugName = nullptr;
 
         inline bool operator==(const Desc& inOther) const { return std::memcmp(this, &inOther, offsetof(Desc, debugName)) == 0; }
 

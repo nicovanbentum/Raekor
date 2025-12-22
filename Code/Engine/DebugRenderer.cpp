@@ -129,6 +129,14 @@ void DebugRenderer::AddLineArrow(const Vec3& inPos, const Vec3& inDir, float inW
 }
 
 
+void DebugRenderer::AddTriangle(const Vec3& inV0, const Vec3& inV1, const Vec3& inV2, const Vec4& inColor)
+{
+    AddLine(inV0, inV1, inColor);
+    AddLine(inV0, inV2, inColor);
+    AddLine(inV1, inV2, inColor);
+}
+
+
 void DebugRenderer::AddLineSphere(const Vec3& inPos, float inRadius, const Vec4& inColor)
 {
     AddLineCircle(inPos, inRadius, Vec3(1, 0, 0), Vec3(0, 1, 0), inColor);

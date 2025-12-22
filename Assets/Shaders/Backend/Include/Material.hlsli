@@ -152,7 +152,7 @@ struct Surface
         
         float3 bitangent = normalize(cross(inVertex.mNormal, inVertex.mTangent));
         float3x3 TBN = float3x3(inVertex.mTangent, bitangent, inVertex.mNormal);
-        mNormal = normalize(mul(sampled_normal.xyz, TBN));
+        //mNormal = normalize(mul(sampled_normal.xyz, TBN));
         
         mAlbedo = inMaterial.mAlbedo * sampled_albedo;
         mEmissive = inMaterial.mEmissive.rgb * sampled_emissive;

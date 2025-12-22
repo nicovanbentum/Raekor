@@ -1,5 +1,6 @@
 #pragma once
 
+#include "PCH.h"
 #include "ECS.h"
 #include "RTTI.h"
 #include "Maths.h"
@@ -158,6 +159,7 @@ struct Mesh
 
 	uint32_t GetVertexStride() const;
 
+	bool HasBLAS() const { return BottomLevelAS != 0; }
 	bool IsLoaded() const { return vertexBuffer != 0 && indexBuffer != 0 && BottomLevelAS != 0; }
 
 };

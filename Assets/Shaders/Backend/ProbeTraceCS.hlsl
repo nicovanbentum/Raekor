@@ -48,6 +48,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
     uint probe_index = threadID.y;
     uint2 ray_texture_index = uint2(ray_index, probe_index);
     
+    
     float3 ray_dir = SphericalFibonnaci(ray_index, DDGI_RAYS_PER_PROBE);
     ray_dir = normalize(mul((float3x3)rc.mRandomRotationMatrix, ray_dir));
     
@@ -101,7 +102,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
         
         // TODO: make probe textures persistent, at this point in the rendergraph they don't exist yet
         // Infinite bounces!
-        if (fc.mFrameCounter > 0)
+        if (fc.mFrameCounter > 2)
         {
             irradiance += surface.mAlbedo.rgb * DDGISampleIrradiance(vertex.mPos, vertex.mNormal, rc.mDDGIData);
         }

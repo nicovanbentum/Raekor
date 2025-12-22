@@ -55,6 +55,9 @@ public:
     [[nodiscard]] TextureID CreateTextureView(TextureID inTextureID, const Texture::Desc& inDesc);
     [[nodiscard]] TextureID CreateTextureView(ID3D12Resource* inResource, const Texture::Desc& inDesc);
 
+    [[nodiscard]] void SetDebugName(BufferID inBuffer, const char* inName);
+    [[nodiscard]] void SetDebugName(TextureID inTexture, const char* inName);
+
     void UploadBufferData(CommandList& inCmdList, Buffer& inBuffer, uint32_t inOffset, const void* inData, uint32_t inSize);
     void UploadTextureData(Texture& inTexture, uint32_t inMip, uint32_t inLayer, uint32_t inROwPitch, const void* inData);
 
@@ -107,7 +110,7 @@ public:
     [[nodiscard]] const Texture::Pool& GetTexturePool() const { return m_Textures; }
 
     [[nodiscard]] uint64_t GetUploadBufferSize() const { return m_UploadBuffersSize; }
-    [[nodiscard]] const Array<UploadBuffer> GetUploadBuffers() const { return m_UploadBuffers; }
+    [[nodiscard]] const Array<UploadBuffer>& GetUploadBuffers() const { return m_UploadBuffers; }
 
 private:
     void CreateDescriptor(BufferID inBufferID, const Buffer::Desc& inDesc);
@@ -153,11 +156,19 @@ private:
     Texture::Pool m_Textures;
 };
 
-
 class RingAllocator
 {
 public:
-    void CreateBuffer(Device& inDevice, uint32_t inCapacity, uint32_t inAlignment);
+    struct Allocation
+    {
+        BufferID buffer;
+        uint32_t offset = 0;
+        uint8_t* pointer = nullptr;
+        D3D12_GPU_VIRTUAL_ADDRESS GPUVirtualAddress = { 0 };
+    };
+
+    void OnUpdate(Device& inDevice);
+    void CreateBuffer(Device& inDevice, uint32_t inCapacity, uint32_t inAlignment, const char* inName);
     void DestroyBuffer(Device& inDevice);
     /*
         Allocates memory and memcpy's inData to the mapped buffer. ioOffset contains the offset from the starting pointer.
@@ -173,16 +184,15 @@ public:
         return AllocAndCopy(sizeof(T), (void*)&inStruct);
     }
 
-    uint32_t GetOffset() const { return m_Offset; }
-    BufferID GetBuffer() const { return m_Buffer; }
+    uint32_t GetCapacity() const { return m_Capacity; }
+    BufferID GetBuffer() const { return m_Buffers[m_FrameIndex].buffer; }
 
 private:
-    BufferID m_Buffer;
-    uint32_t m_Size = 0;
-    uint32_t m_Offset = 0;
+    uint32_t m_Capacity = 0;
     uint32_t m_Alignment = 0;
-    uint8_t* m_DataPtr = nullptr;
-    uint32_t m_TotalCapacity = 0;
+    uint32_t m_FrameIndex = 0;
+    Allocation m_Buffers[sFrameCount];
+    Atomic<uint32_t> m_BytesUsed[sFrameCount];
 };
 
 

@@ -17,6 +17,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
 
     RWTexture2D<float> depth_texture         = ResourceDescriptorHeap[rc.mDepthTexture];
     RWTexture2D<float4> result_texture       = ResourceDescriptorHeap[rc.mResultTexture];
+    RWTexture2D<uint4> gbuffer_texture       = ResourceDescriptorHeap[rc.mGBufferTexture];
     TextureCube<float3> skycube_texture      = ResourceDescriptorHeap[rc.mSkyCubeTexture];
     RWTexture2D<uint> selection_texture      = ResourceDescriptorHeap[rc.mSelectionTexture];
     RWTexture2D<float4> accumulation_texture = ResourceDescriptorHeap[rc.mAccumulationTexture];
@@ -30,9 +31,9 @@ void main(uint3 threadID : SV_DispatchThreadID)
     uint rng = TeaHash(((threadID.y << 16) | threadID.x), fc.mFrameCounter + 1);
 
     const float2 pixel_center = float2(threadID.xy) + float2(0.5, 0.5);
-    const float2 offset_pixel_center = pixel_center + pcg_float2(rng);
+    //pixel_center = pixel_center + pcg_float2(rng);
     
-    const float2 screen_uv = offset_pixel_center / rc.mDispatchSize;
+    const float2 screen_uv = pixel_center / rc.mDispatchSize;
     
     const float2 clip = float2(screen_uv.x * 2.0 - 1.0, (1.0 - screen_uv.y) * 2.0 - 1.0);
     float4 target = normalize(mul(fc.mInvViewProjectionMatrix, float4(clip.x, clip.y, 0.0, 1.0)));
@@ -46,12 +47,15 @@ void main(uint3 threadID : SV_DispatchThreadID)
     
     uint entity = 0;
     float depth = 1.0f;
+    uint4 gbuffer = 0.xxxx;
     
     float3 total_irradiance = 0.0.xxx;
     float3 total_throughput = 1.0.xxx;
     
     float opacity = 1.0;
     int alpha_bounces = 0;
+    
+    bool write_gbuffer = true;
     
     for (int bounce = 0; bounce < rc.mBounces; bounce++)
     {
@@ -80,19 +84,22 @@ void main(uint3 threadID : SV_DispatchThreadID)
             Surface surface;
             surface.FromHit(vertex, material);
             
-            // Store GBuffer values on first hit
-            if (bounce == 0)
-            {
-                float4 pos = mul(fc.mViewProjectionMatrix, float4(vertex.mPos, 1.0));
-                depth = (pos.xyz / pos.w).z;
-                entity = geometry.mEntity;
-            }
-            
             // Handle transparency
             if (surface.mAlbedo.a < 0.5)
             {
                 ray.Origin = vertex.mPos + ray.Direction * 0.001;
                 continue;
+            }
+            
+            // Store GBuffer values on first hit
+            if (write_gbuffer)
+            {
+                float4 pos = mul(fc.mViewProjectionMatrix, float4(vertex.mPos, 1.0));
+                depth = (pos.xyz / pos.w).z;
+                entity = geometry.mEntity;
+                PackGBuffer(surface.mAlbedo, surface.mNormal, surface.mEmissive, surface.mMetallic, surface.mRoughness, gbuffer);
+                
+                write_gbuffer = false;
             }
             
             // Handle backfaces
@@ -110,14 +117,19 @@ void main(uint3 threadID : SV_DispatchThreadID)
             {
                 float3 Wi = SampleDirectionalLight(fc.mSunDirection.xyz, fc.mSunConeAngle, pcg_float2(rng));
             
-                bool hit = TraceShadowRay(shadowTLAS, vertex.mPos + vertex.mNormal * 0.01, Wi, 0.1f, 1000.0f);
+                if (dot(surface.mNormal, Wi) > 0.0)
+                {
+                    bool hit = TraceShadowRay(shadowTLAS, vertex.mPos + vertex.mNormal * 0.01, Wi, 0.0f, 10000.0f);
                 
-                if (!hit)
-                    irradiance += EvaluateDirectionalLight(surface, fc.mSunColor, Wi, Wo);
+                    if (!hit)
+                        irradiance += EvaluateDirectionalLight(surface, fc.mSunColor, Wi, Wo);
+                }
             }
+            
 
             // Handle point and spot lights 
             // Randomly select 1 every frame
+
             uint random_light_index = uint(round(float(fc.mNrOfLights - 1) * pcg_float(rng)));
             RTLight light = lights[random_light_index];
                 
@@ -133,7 +145,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
                         float point_radius = light.mAttributes.x * sqrt(pcg_float(rng));
                         float point_angle = pcg_float(rng) * 2.0f * M_PI;
                         float2 disk_point = float2(point_radius * cos(point_angle), point_radius * sin(point_angle));
-                                
+                    
                         bool hit = TraceShadowRay(TLAS, vertex.mPos + vertex.mNormal * 0.01, Wi, t_min, t_max);
                         
                         if (!hit)
@@ -190,7 +202,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
       
         // Prevent fireflies
         irradiance = min(irradiance, 10.0.xxx);
-
+        
         // Update irradiance and throughput
         total_irradiance += irradiance * total_throughput;
         total_throughput *= throughput;
@@ -198,7 +210,10 @@ void main(uint3 threadID : SV_DispatchThreadID)
     
     // Output to textures
     depth_texture[threadID.xy] = depth;
+    gbuffer_texture[threadID.xy] = gbuffer;
     selection_texture[threadID.xy] = entity;
+    
+    total_irradiance *= fc.mExposure;
     
     if (rc.mReset || fc.mFrameCounter < 2)
     {

@@ -70,7 +70,7 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
             const uint32_t tile_height = ( render_size.y + cTileSize - 1 ) / cTileSize;
             const uint32_t tile_buffer_size = tile_width * tile_height * sizeof(uint32_t);
 
-            inData.mTilesBuffer = inRGBuilder.Create(Buffer::RWTypedBuffer(DXGI_FORMAT_R32_UINT, tile_buffer_size, "ShadowTilesBuffer"));
+            inData.mTilesBuffer = inRGBuilder.Create(Buffer::RWStructuredBuffer(tile_buffer_size, sizeof(uint32_t), "ShadowTilesBuffer"));
             inData.mIndirectDispatchBuffer = inRGBuilder.Create(Buffer::RWByteAddressBuffer(sizeof(D3D12_DISPATCH_ARGUMENTS), "ShadowsDispatchBuffer"));
 
             inRGBuilder.Write(inData.mTilesBuffer);
@@ -384,8 +384,17 @@ const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevi
             .format = DXGI_FORMAT_R32G32B32A32_FLOAT,
             .width  = inRenderGraph.GetViewport().size.x,
             .height = inRenderGraph.GetViewport().size.y,
+            .usage  = Texture::SHADER_READ_WRITE,
+            .debugName = "RT_GBufferCompressed"
+        });
+
+        inData.mGBufferTexture = inRGBuilder.Create(Texture::Desc
+        {
+            .format = DXGI_FORMAT_R32G32B32A32_FLOAT,
+            .width  = inRenderGraph.GetViewport().size.x,
+            .height = inRenderGraph.GetViewport().size.y,
             .usage  = Texture::Usage::SHADER_READ_WRITE,
-            .debugName = "RT_PathTraceOutput"
+            .debugName = "RT_PathTraceNormals"
         });
 
         inData.mAccumulationTexture = inRGBuilder.Create(Texture::Desc
@@ -425,6 +434,7 @@ const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevi
         });
 
         ioGBuffer.mDepthTexture = inData.mDepthTexture;
+        ioGBuffer.mRenderTexture = inData.mGBufferTexture;
         ioGBuffer.mSelectionTexture = inData.mSelectionTexture;
 
         inData.mSkyCubeTextureSRV = inRGBuilder.Read(inSkyCubeData.mSkyCubeTexture);
@@ -444,6 +454,7 @@ const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevi
             .mSelectionTexture = inDevice.GetBindlessHeapIndex(inResources.GetTexture(inData.mSelectionTexture)),
             .mDepthTexture = inDevice.GetBindlessHeapIndex(inResources.GetTexture(inData.mDepthWriteTexture)),
             .mSkyCubeTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mSkyCubeTextureSRV)),
+            .mGBufferTexture = inDevice.GetBindlessHeapIndex(inResources.GetTexture(inData.mGBufferTexture)),
             .mDispatchSize = viewport.size,
         };
 

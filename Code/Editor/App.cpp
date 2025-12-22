@@ -91,17 +91,22 @@ DXApp::DXApp() :
     LogMessage(std::format("[CPU] Blue noise texture took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
 
     // Create default textures / assets
-    const String black_texture_file = "Assets/black4x4.dds";
-    const String white_texture_file = "Assets/white4x4.dds";
-    const String normal_texture_file = "Assets/normal4x4.dds";
-    m_DefaultBlackTexture = TextureID(m_RenderInterface.UploadTextureFromAsset(m_Assets.GetAsset<TextureAsset>(black_texture_file)));
-    m_DefaultWhiteTexture = TextureID(m_RenderInterface.UploadTextureFromAsset(m_Assets.GetAsset<TextureAsset>(white_texture_file)));
-    m_DefaultNormalTexture = TextureID(m_RenderInterface.UploadTextureFromAsset(m_Assets.GetAsset<TextureAsset>(normal_texture_file)));
+    m_DefaultBlackTexture = m_Device.CreateTexture(Texture::Desc2D(DXGI_FORMAT_R32G32B32A32_FLOAT, 1, 1, Texture::SHADER_READ_ONLY));
+    m_DefaultWhiteTexture = m_Device.CreateTexture(Texture::Desc2D(DXGI_FORMAT_R32G32B32A32_FLOAT, 1, 1, Texture::SHADER_READ_ONLY));
+    m_DefaultNormalTexture = m_Device.CreateTexture(Texture::Desc2D(DXGI_FORMAT_R32G32B32A32_FLOAT, 1, 1, Texture::SHADER_READ_ONLY));
 
-    assert(m_DefaultBlackTexture.IsValid() && m_DefaultBlackTexture.GetIndex() != 0);
-    assert(m_DefaultWhiteTexture.IsValid() && m_DefaultWhiteTexture.GetIndex() != 0);
-    assert(m_DefaultNormalTexture.IsValid() && m_DefaultNormalTexture.GetIndex() != 0);
+    constexpr std::array black_pixels = { Vec4(0.0, 0.0, 0.0, 0.0), Vec4(0.0, 0.0, 0.0, 0.0), Vec4(0.0, 0.0, 0.0, 0.0), Vec4(0.0, 0.0, 0.0, 0.0) };
+    constexpr std::array white_pixels = { Vec4(1.0, 1.0, 1.0, 1.0), Vec4(1.0, 1.0, 1.0, 1.0), Vec4(1.0, 1.0, 1.0, 1.0), Vec4(1.0, 1.0, 1.0, 1.0) };
+    constexpr std::array normal_pixels = { Vec4(0.5, 0.5, 1.0, 1.0), Vec4(0.5, 0.5, 1.0, 1.0), Vec4(0.5, 0.5, 1.0, 1.0), Vec4(0.5, 0.5, 1.0, 1.0) };
 
+    m_Device.SetDebugName(m_DefaultBlackTexture, "DefaultBlackTexture");
+    m_Device.SetDebugName(m_DefaultWhiteTexture, "DefaultWhiteTexture");
+    m_Device.SetDebugName(m_DefaultNormalTexture, "DefaultNormalTexture");
+
+    m_Device.UploadTextureData(m_Device.GetTexture(m_DefaultBlackTexture), 0, 0, sizeof(Vec4), black_pixels.data());
+    m_Device.UploadTextureData(m_Device.GetTexture(m_DefaultWhiteTexture), 0, 0, sizeof(Vec4), white_pixels.data());
+    m_Device.UploadTextureData(m_Device.GetTexture(m_DefaultNormalTexture), 0, 0, sizeof(Vec4), normal_pixels.data());
+    
     Material::Default.gpuAlbedoMap = m_DefaultWhiteTexture.GetValue();
     Material::Default.gpuNormalMap = m_DefaultNormalTexture.GetValue();
     Material::Default.gpuEmissiveMap = m_DefaultWhiteTexture.GetValue();
@@ -140,6 +145,7 @@ DXApp::DXApp() :
 
     if (!m_ConfigSettings.mSceneFile.empty() && fs::exists(m_ConfigSettings.mSceneFile))
     {
+
         m_Scene.OpenFromFile(m_ConfigSettings.mSceneFile.string(), m_Assets, this);
     }
 }

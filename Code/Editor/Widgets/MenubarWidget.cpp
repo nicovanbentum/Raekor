@@ -93,7 +93,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 			if (ImGui::MenuItem("Import scene.."))
 			{
-				std::string filepath = OS::sOpenFileDialog("Scene Files(*.scene, *.gltf, *.glb, *.fbx, *.obj)\0*.scene;*.gltf;*.glb;*.fbx;*.obj\0");
+				String filepath = OS::sOpenFileDialog("Scene Files(*.scene, *.gltf, *.glb, *.fbx, *.obj)\0*.scene;*.gltf;*.glb;*.fbx;*.obj\0");
 
 				if (!filepath.empty())
 				{
@@ -101,7 +101,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 					m_Editor->SetActiveEntity(Entity::Null);
 
-					const Path extension = fs::path(filepath).extension();
+					const Path extension = Path(filepath).extension();
 
 					Importer* importer = nullptr;
 

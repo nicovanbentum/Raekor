@@ -118,13 +118,6 @@ inline String gGetShaderISA(ID3D12PipelineState* inPipeline)
 }
 
 
-inline uint32_t gSpdCaculateMipCount(const uint32_t inWidth, const uint32_t inHeight)
-{
-    uint32_t max_res = glm::max(inWidth, inHeight);
-    return uint32_t(( glm::min(glm::floor(glm::log2(float(max_res))), float(12)) ));
-}
-
-
 inline bool gIsDepthFormat(DXGI_FORMAT inFormat)
 {
     switch (inFormat)

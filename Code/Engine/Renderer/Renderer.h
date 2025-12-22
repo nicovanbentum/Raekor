@@ -46,7 +46,7 @@ private:
         int& mEnableDDGI         = g_CVariables->Create("r_enable_ddgi",          1, true);
         int& mDebugProbeRays     = g_CVariables->Create("r_debug_gi_rays",        0, true);
         int& mDebugProbes        = g_CVariables->Create("r_debug_gi_probes",      0, true);
-        int& mEnableDebugOverlay = g_CVariables->Create("r_enable_debug_overlay", 0);
+        int& mEnableDebugOverlay = g_CVariables->Create("r_enable_debug_overlay", 1, true);
         int& mEnableRTAO         = g_CVariables->Create("r_enable_rtao",          1, true);
         int& mEnableSSAO         = g_CVariables->Create("r_enable_ssao",          0, true);
         int& mEnableSSR          = g_CVariables->Create("r_enable_ssr",           0, true);
@@ -60,7 +60,6 @@ private:
         int& mEnableBloom        = g_CVariables->Create("r_enable_bloom",         1);
         int& mEnableVignette     = g_CVariables->Create("r_enable_vignette",      1);
         int& mDoPathTrace        = g_CVariables->Create("r_path_trace",           0,   true);
-        int& mDoPathTraceGBuffer = g_CVariables->Create("r_path_trace_gbuffer",   1,   true);
         float& mSunConeAngle     = g_CVariables->Create("r_sun_cone_angle",       0.0f, true);
     } m_Settings;
 

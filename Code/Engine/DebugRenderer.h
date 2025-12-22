@@ -18,6 +18,8 @@ public:
     void AddLineCircle(const Vec3& inPos, float inRadius, const Vec3& inDir, const Vec3& inAxis, const Vec4& inColor = cDefaultLineColor);
     void AddLineArrow(const Vec3& inPos, const Vec3& inDir, float inLength, float inExtent, const Vec4& inColor = cDefaultLineColor);
     
+    void AddTriangle(const Vec3& inV0, const Vec3& inV1, const Vec3& inV2, const Vec4& inColor = cDefaultLineColor);
+    
     // filled shapes
     void AddQuadColored(const Vec3& inV0, const Vec3& inV1, const Vec3& inV2, const Vec3& inV3, const Vec4& inColor = cDefaultFillColor);
     void AddQuadTextured(const Vec3& inV0, const Vec3& inV1, const Vec3& inV2, const Vec3& inV3, uint64_t inTexture);

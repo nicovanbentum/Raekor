@@ -280,13 +280,28 @@ void Scene::UpdateNativeScripts(float inDeltaTime)
 }
 
 
-void Scene::RenderDebugShapes(Entity inEntity) const
+void Scene::RenderDebugShapes(Entity inEntity, float inOpacity) const
 {
 	// render bounding box for meshes
 	if (Has<Mesh>(inEntity))
 	{
 		const auto& [mesh, transform] = Get<Mesh, Transform>(inEntity);
 		g_DebugRenderer.AddLineCube(mesh.bbox.GetMin(), mesh.bbox.GetMax(), transform.worldTransform);
+
+		Vec4 debug_mesh_color = Vec4(0.65, 1.0, 0.8, inOpacity);
+
+		for (int i = 0; i < mesh.indices.size(); i += 3)
+		{
+			Vec3 v0 = mesh.positions[mesh.indices[i + 0]];
+			Vec3 v1 = mesh.positions[mesh.indices[i + 1]];
+			Vec3 v2 = mesh.positions[mesh.indices[i + 2]];
+
+			Vec4 v0_ws = transform.worldTransform * Vec4(v0, 1.0);
+			Vec4 v1_ws = transform.worldTransform * Vec4(v1, 1.0);
+			Vec4 v2_ws = transform.worldTransform * Vec4(v2, 1.0);
+
+			g_DebugRenderer.AddTriangle(Vec3(v0_ws), Vec3(v1_ws), Vec3(v2_ws), debug_mesh_color);
+		}
 	}
 	// render debug shape for lights
 	if (Has<Light>(inEntity))

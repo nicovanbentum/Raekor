@@ -247,7 +247,6 @@ public:
     virtual void Execute(const RenderGraphResources& inResources, CommandList& inCmdList) override 
     { 
         PROFILE_SCOPE_CPU(m_Name.c_str());
-        PROFILE_SCOPE_GPU(inCmdList, m_Name.c_str());
         m_Execute(m_Data, inResources, inCmdList); 
     }
 
@@ -306,7 +305,10 @@ public:
     bool Compile(Device& inDevice, const GlobalConstants& inGlobalConstants);
 
     /* Execute the entire graph into inCmdList. inCmdList should be open (.Begin() called). */
-    void Execute(Device& inDevice, CommandList& inCmdList);
+    void Execute(Device& inDevice, const FrameConstants& inFrameConstants, CommandList& inCmdList);
+
+    /* Update the frame constants. */
+    void UpdateFrameConstants(const FrameConstants& inFrameConstants);
 
     /* Dump the entire graph to GraphViz text, can be written directly to a file and opened using the VS Code extension. */
     String	ToGraphVizText(const Device& inDevice, TextureID inBackBuffer) const;
@@ -316,15 +318,16 @@ public:
 
     RingAllocator& GetPerPassAllocator() { return m_PerPassAllocator; }
     RingAllocator& GetPerFrameAllocator() { return m_PerFrameAllocator; }
-    GlobalConstantsAllocator& GetGlobalConstantsAllocator() { return m_GlobalConstantsAllocator; }
+    GlobalConstantsAllocator& GetGlobalConstantsAllocator() { return m_ConstantsAllocator; }
 
 private:
+    bool m_IsCompiled = false;
     const Viewport& m_Viewport;
     const uint32_t m_FrameCount;
     
     RingAllocator m_PerFrameAllocator;
     RingAllocator m_PerPassAllocator;
-    GlobalConstantsAllocator m_GlobalConstantsAllocator;
+    GlobalConstantsAllocator m_ConstantsAllocator;
 
     RenderGraphBuilder m_RenderGraphBuilder;
     RenderGraphResources m_RenderGraphResources;

@@ -159,7 +159,10 @@ void gRegisterComponentTypes()
 }
 
 
-Material Material::Default;
+Material Material::Default = Material
+{
+	.albedo = Vec4(1.0f, 0.0f, 0.5f, 1.0f) // bright pink
+};
 
 
 void Transform::Scale(Vec3 inScale)

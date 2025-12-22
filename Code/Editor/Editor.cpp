@@ -202,7 +202,13 @@ void Editor::OnUpdate(float inDeltaTime)
 
 	// render any scene dependent debug shapes
 	if (GetActiveEntity() != Entity::Null && m_ActiveEntity != m_Scene.GetRootEntity())
-		m_Scene.RenderDebugShapes(GetActiveEntity());
+	{
+		static float time = 0.0f;
+		time = time + inDeltaTime * 3.0f;
+
+		m_Scene.RenderDebugShapes(GetActiveEntity(), std::cos(time) * 0.5 + 0.5);
+
+	}
 
 	// update Skeleton and Animation components
 	m_Scene.UpdateAnimations(inDeltaTime);

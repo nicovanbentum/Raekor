@@ -486,8 +486,6 @@ void RenderGraphResources::Compile(Device& inDevice, const RenderGraphBuilder& i
         }
         else if (resource.mResourceType == RESOURCE_TYPE_TEXTURE)
         {
-            // TODO: if this check does not pass we don't need to create a new View and just use the original texture,
-            // but result is duplicate ResourceID's in m_ResourceViews and m_Resources, so when we Clear/Destroy we end up double freeing.. do I want to no-op double free or fix the logic?
             if (descriptor_desc.mResourceDesc.mTextureDesc != resource_desc.mTextureDesc)
             {
                 new_resource.mResourceID = inDevice.CreateTextureView(TextureID(device_resource_id), descriptor_desc.mResourceDesc.mTextureDesc);
@@ -695,7 +693,7 @@ void RenderGraph::Clear(Device& inDevice)
     m_RenderGraphResources.Clear(inDevice);
 
     m_PerPassAllocator.DestroyBuffer(inDevice);
-    m_GlobalConstantsAllocator.DestroyBuffer(inDevice);
+    m_ConstantsAllocator.DestroyBuffer(inDevice);
 }
 
 
@@ -945,34 +943,33 @@ bool RenderGraph::Compile(Device& inDevice, const GlobalConstants& inGlobalConst
     for (const auto& pass : m_RenderPasses)
         total_constants_size += pass->m_ConstantsSize;
 
-    if (!m_PerPassAllocator.GetBuffer().IsValid())
-        m_PerPassAllocator.CreateBuffer(inDevice, std::max(total_constants_size, 1u), sByteAddressBufferAlignment);
+    m_PerPassAllocator.CreateBuffer(inDevice, std::max(total_constants_size, 1u), sByteAddressBufferAlignment, "PerPassAllocator");
+    m_PerFrameAllocator.CreateBuffer(inDevice, sizeof(FrameConstants), sConstantAddressBufferAlignment, "PerFrameAllocator");
 
-    if (!m_GlobalConstantsAllocator.GetBuffer().IsValid())
-        m_GlobalConstantsAllocator.CreateBuffer(inDevice);
-    
-    if (!m_PerFrameAllocator.GetBuffer().IsValid())
-        m_PerFrameAllocator.CreateBuffer(inDevice, sizeof(FrameConstants), sConstantAddressBufferAlignment);
-
-    m_GlobalConstantsAllocator.Copy(GlobalConstants {});
+    m_ConstantsAllocator.CreateBuffer(inDevice);
+    m_ConstantsAllocator.Copy(GlobalConstants {});
 
     return true;
 }
 
 
-
-void RenderGraph::Execute(Device& inDevice, CommandList& inCmdList)
+void RenderGraph::Execute(Device& inDevice, const FrameConstants& inFrameConstants, CommandList& inCmdList)
 {
     PROFILE_SCOPE_CPU("RenderGraph::Execute");
     PROFILE_SCOPE_GPU(inCmdList, "RenderGraph::Execute");
 
+    m_PerPassAllocator.OnUpdate(inDevice);
+    m_PerFrameAllocator.OnUpdate(inDevice);
+
     inCmdList.BindDefaults(inDevice);
-    inCmdList.BindToSlot(inDevice.GetBuffer(m_GlobalConstantsAllocator.GetBuffer()), EBindSlot::CBV0);
-    inCmdList.BindToSlot(inDevice.GetBuffer(m_PerFrameAllocator.GetBuffer()), EBindSlot::CBV1, m_PerFrameAllocator.GetOffset());
+    inCmdList.BindToSlot(inDevice.GetBuffer(m_ConstantsAllocator.GetBuffer()), EBindSlot::CBV0);
+    inCmdList.BindToSlot(inDevice.GetBuffer(m_PerFrameAllocator.GetBuffer()), EBindSlot::CBV1, m_PerFrameAllocator.AllocAndCopy(inFrameConstants));
     inCmdList.BindToSlot(inDevice.GetBuffer(m_PerPassAllocator.GetBuffer()), EBindSlot::SRV1);
 
     for (const auto& [index, renderpass] : gEnumerate(m_RenderPasses))
     {
+        PROFILE_SCOPE_GPU(inCmdList, renderpass->GetName().c_str());
+
         if (renderpass->IsGraphics())
             renderpass->SetRenderTargets(inDevice, m_RenderGraphResources, inCmdList);
 
@@ -991,6 +988,11 @@ void RenderGraph::Execute(Device& inDevice, CommandList& inCmdList)
     }
 }
 
+
+void RenderGraph::UpdateFrameConstants(const FrameConstants& inFrameConstants)
+{
+
+}
 
 
 std::string RenderGraph::ToGraphVizText(const Device& inDevice, TextureID inBackBuffer) const

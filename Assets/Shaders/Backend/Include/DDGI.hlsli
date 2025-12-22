@@ -7,22 +7,26 @@
 #include "Bindless.hlsli"
 
 
-uint Index2DTo1D(uint2 inCoord, uint inWidth) {
+uint Index2DTo1D(uint2 inCoord, uint inWidth) 
+{
     return inCoord.x + inCoord.y * inWidth;
 }
 
 
-uint2 Index1DTo2D(uint inIndex, uint inWidth) {
+uint2 Index1DTo2D(uint inIndex, uint inWidth) 
+{
     return uint2(inIndex % inWidth, inIndex / inWidth);
 }
 
-uint Index3Dto1D(uint3 inIndex, uint3 inCount) {
+uint Index3Dto1D(uint3 inIndex, uint3 inCount) 
+{
     return inIndex.x +
            inIndex.y * inCount.x +
            inIndex.z * inCount.x * inCount.y;
 }
 
-uint3 Index1DTo3D(uint inIndex, uint3 inCount) {
+uint3 Index1DTo3D(uint inIndex, uint3 inCount) 
+{
     return uint3(
         inIndex % inCount.x,
         (inIndex / inCount.x) % inCount.y,
@@ -33,15 +37,18 @@ uint3 Index1DTo3D(uint inIndex, uint3 inCount) {
 /*
     Octahedral and spherical fibonacci projections, code from Ray Tracing Gems 2 Chapter 3
 */
-float SignNotZero(float inValue) {
+float SignNotZero(float inValue) 
+{
     return (inValue >= 0.0) ? 1.0 : -1.0;
 }
 
-float2 SignNotZero(float2 inVec) {
+float2 SignNotZero(float2 inVec) 
+{
     return float2(SignNotZero(inVec.x), SignNotZero(inVec.y));
 }
 
-float2 OctEncode(float3 inVec) {
+float2 OctEncode(float3 inVec) 
+{
     float l1norm = abs(inVec.x) + abs(inVec.y) + abs(inVec.z);
     float2 result = inVec.xy * (1.0 / l1norm);
     
@@ -51,7 +58,8 @@ float2 OctEncode(float3 inVec) {
     return result;
 }
 
-float3 OctDecode(float2 inOct) {
+float3 OctDecode(float2 inOct) 
+{
     float3 v = float3(inOct.x, inOct.y, 1.0 - abs(inOct.x) - abs(inOct.y));
     if (v.z < 0.0)
         v.xy = (1.0 - abs(v.yx)) * SignNotZero(v.xy);
@@ -59,18 +67,21 @@ float3 OctDecode(float2 inOct) {
     return normalize(v);
 }
 
-float4 DDGIGetProbeDebugColor(uint inProbeIndex, uint3 inProbeCount) {
+float4 DDGIGetProbeDebugColor(uint inProbeIndex, uint3 inProbeCount) 
+{
     return float4(Index1DTo3D(inProbeIndex, inProbeCount) & 1, 1.0);
 }
 
 
-float3 DDGIGetProbeWorldPos(uint3 inProbeCoord, DDGIData inData) {
-    return inData.mCornerPosition + inData.mProbeSpacing * inProbeCoord;
+float3 DDGIGetProbeWorldPos(uint3 inProbeCoord, DDGIData inData) 
+{
+    return (inData.mCornerPosition + inData.mProbeSpacing * inProbeCoord);
 }
 
 
 template<typename T>
-T DDGISampleProbe(uint inProbeIndex, float3 inDir, uint inProbeTexels, uint inTotalTexels, Texture2D<T> inTexture) {
+T DDGISampleProbe(uint inProbeIndex, float3 inDir, uint inProbeTexels, uint inTotalTexels, Texture2D<T> inTexture) 
+{
     uint2 texture_size = 0.xx;
     inTexture.GetDimensions(texture_size.x, texture_size.y);
     float2 pixel_uv_size = 1.0 / texture_size;
@@ -94,17 +105,20 @@ T DDGISampleProbe(uint inProbeIndex, float3 inDir, uint inProbeTexels, uint inTo
 }
 
 
-float3 DDGISampleIrradianceProbe(uint inProbeIndex, float3 inDir, Texture2D<float4> inTexture) {
+float3 DDGISampleIrradianceProbe(uint inProbeIndex, float3 inDir, Texture2D<float4> inTexture) 
+{
     return DDGISampleProbe(inProbeIndex, inDir, DDGI_IRRADIANCE_TEXELS_NO_BORDER, DDGI_IRRADIANCE_TEXELS, inTexture).rgb;
 }
 
 
-float2 DDGISampleDepthProbe(uint inProbeIndex, float3 inDir, Texture2D<float2> inTexture) {
+float2 DDGISampleDepthProbe(uint inProbeIndex, float3 inDir, Texture2D<float2> inTexture) 
+{
     return DDGISampleProbe(inProbeIndex, inDir, DDGI_DEPTH_TEXELS_NO_BORDER, DDGI_DEPTH_TEXELS, inTexture);
 }
 
 
-float3 DDGISampleIrradiance(float3 inWsPos, float3 inNormal, DDGIData inData) {
+float3 DDGISampleIrradiance(float3 inWsPos, float3 inNormal, DDGIData inData) 
+{
     // Calculate normalized position within the 8 surrounding probes, used for trilinear interpolation
     uint3 start_probe_coord = floor((inWsPos - inData.mCornerPosition) / inData.mProbeSpacing);
     float3 start_probe_ws_pos = DDGIGetProbeWorldPos(start_probe_coord, inData);
@@ -128,11 +142,18 @@ float3 DDGISampleIrradiance(float3 inWsPos, float3 inNormal, DDGIData inData) {
         float3 probe_ws_pos = DDGIGetProbeWorldPos(current_probe_coord, inData);
         float3 pos_to_probe_dir = normalize(probe_ws_pos - inWsPos);
         
-        // Initialize the weight to wrap shading
-        float weight = saturate(dot(pos_to_probe_dir, inNormal));
+        float final_weight = 1.0f;
         
-        if (probe_data.inactive)
-            weight = weight * 0.001f; // don't knock the probe out entirely
+        // wrap shading weight
+        float wrap_shading_weight = (dot(inNormal, pos_to_probe_dir) + 1.0f) * 0.5f;
+        wrap_shading_weight = saturate((wrap_shading_weight * wrap_shading_weight) + 0.2f);
+        
+        final_weight *= wrap_shading_weight;
+        
+        //if (probe_data.inactive)
+            //weight = weight * 0.001f; // don't knock the probe out entirely
+        
+        float visibility_weight = 1.0f;
         
         if (inData.mUseChebyshev)
         {
@@ -144,14 +165,27 @@ float3 DDGISampleIrradiance(float3 inWsPos, float3 inNormal, DDGIData inData) {
             if (r > mean)
             {
                 float variance = abs(square(mean) - mean2);
-                weight *= variance / (variance + square(r - mean));
+                visibility_weight *= variance / (variance + square(r - mean));
             }
+            
+            final_weight *= max(0.05f, visibility_weight);
+        }
+        
+        // avoid zero weight
+        final_weight = max(0.000001, final_weight);
+        
+        // correct for log perception
+        const float crushThreshold = 0.2;
+        if (final_weight < crushThreshold)
+        {
+            final_weight *= final_weight * final_weight * (1.0 / square(crushThreshold));
         }
         
         // Calculate trilinear interpolation weight
-        float3 tri = lerp(1.0 - ws_pos_01, ws_pos_01, cube_indices);
+        float3 tri = lerp(1.0f - ws_pos_01, ws_pos_01, cube_indices);
         float tri_weight = tri.x * tri.y * tri.z;
-        weight *= max(tri_weight, 0.001);
+        
+        final_weight *= tri_weight;
         
         // Sample the probe's irradiance texels
         float3 sampled_irradiance = DDGISampleIrradianceProbe(probe_index, inNormal, irradiance_texture);
@@ -159,10 +193,10 @@ float3 DDGISampleIrradiance(float3 inWsPos, float3 inNormal, DDGIData inData) {
         uint3 debug_color = current_probe_coord & 1;
         
         // Accumulate weighted irradiance
-        irradiance += float4(sampled_irradiance.rgb * weight, weight);
+        irradiance += float4(sampled_irradiance.rgb * final_weight, final_weight);
     }
     
-    if (irradiance.w > 0.0)
+    if (irradiance.w > 0.000001f)
         irradiance.rgb /= irradiance.w;
 
     return irradiance.rgb;

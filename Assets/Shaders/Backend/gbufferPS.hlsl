@@ -66,7 +66,7 @@ PS_OUTPUT main(in VS_OUTPUT input) {
 
     output.gbuffer = asfloat(packed);
     
-    float2 curr_pos = (input.curr_position.xyz / input.prev_position.w).xy - fc.mJitter;
+    float2 curr_pos = (input.curr_position.xyz / input.curr_position.w).xy - fc.mJitter;
     float2 prev_pos = (input.prev_position.xyz / input.prev_position.w).xy - fc.mPrevJitter;
     
     output.motionvectors = (curr_pos - prev_pos);

@@ -61,9 +61,13 @@ void JSON::WriteArchive::WriteNextObject(const RTTI& inRTTI, void* inObject)
         m_Writer.Write(",\n");
 
     // write the type
-    m_Writer.IndentAndWrite("\"").Write(inRTTI.GetTypeName()).Write("\":");
+    m_Writer.IndentAndWrite("\""); 
+    m_Writer.Write(inRTTI.GetTypeName()); 
+    m_Writer.Write("\":");
 
-    m_Writer.Write("\n").IndentAndWrite("{\n").PushIndent();
+    m_Writer.Write("\n"); 
+    m_Writer.IndentAndWrite("{\n"); 
+    m_Writer. PushIndent();
 
     for (uint32_t i = 0; i < inRTTI.GetMemberCount(); i++)
     {
@@ -71,7 +75,9 @@ void JSON::WriteArchive::WriteNextObject(const RTTI& inRTTI, void* inObject)
         if ((inRTTI.GetMember(i)->GetSerializeType() & SERIALIZE_JSON) == 0)
             continue;
         // write key
-        m_Writer.IndentAndWrite("\"").Write(inRTTI.GetMember(i)->GetCustomName()).Write("\": ");
+        m_Writer.IndentAndWrite("\"");
+        m_Writer.Write(inRTTI.GetMember(i)->GetCustomName());
+        m_Writer.Write("\": ");
         // write value
         inRTTI.GetMember(i)->ToJSON(m_Writer, inObject);
         // write delimiter
@@ -79,7 +85,9 @@ void JSON::WriteArchive::WriteNextObject(const RTTI& inRTTI, void* inObject)
             m_Writer.Write(",\n");
     }
     
-    m_Writer.Write("\n").PopIndent().IndentAndWrite("}");
+    m_Writer.Write("\n"); 
+    m_Writer.PopIndent(); 
+    m_Writer.IndentAndWrite("}");
 
     m_Ofs << m_Writer.GetString();
 

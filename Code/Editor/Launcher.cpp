@@ -135,6 +135,25 @@ void Launcher::OnUpdate(float inDeltaTime)
 				index++;
 			} break;
 
+			case CVAR_TYPE_FLOAT:
+			{
+				float value = cvar.mFloatValue;
+				String string = "##" + cvar_name;
+
+				ImGui::SetNextItemWidth(ImGui::CalcTextSize("3.1415f").x);
+
+				if (ImGui::InputFloat(string.c_str(), &value))
+					cvar = CVar(float(value));
+
+				ImGui::SameLine();
+				ImGui::Text(cvar_name.c_str());
+
+				if (index % m_NrOfRows == 0)
+					ImGui::TableNextColumn();
+
+				index++;
+			}
+
 			default: break;
 		}
 	}
@@ -149,6 +168,7 @@ void Launcher::OnUpdate(float inDeltaTime)
 	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 10);
 	if (ImGui::Button("Launch", ImVec2(-10, 20)))
 	{
+		m_Launch = true;
 		m_Running = false;
 	}
 
@@ -192,9 +212,6 @@ void Launcher::OnUpdate(float inDeltaTime)
 void Launcher::OnEvent(const SDL_Event& inEvent)
 {
 	ImGui_ImplSDL3_ProcessEvent(&inEvent);
-
-	if (inEvent.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED)
-		m_WasClosed = true;
 }
 
 } // raekor
