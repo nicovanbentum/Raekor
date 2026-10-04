@@ -217,6 +217,9 @@ public:
 
     /* Indicate if this pass calls external D3D12 code and needs to rebind defaults after. */
     bool IsExternal() const { return m_IsExternal; }
+
+    Slice<const DXGI_FORMAT> GetRenderTargetFormats() const { return m_RenderTargetFormats; }
+    DXGI_FORMAT GetDepthStencilFormat() const { return m_DepthStencilFormat; }
     void SetExternal(bool inValue) { m_IsExternal = inValue; }
 
     /* Reserve memory in the frame-based ring allocator. The render graph uses this reserved size to pre-allocate the ring buffer. */

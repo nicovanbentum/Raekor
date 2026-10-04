@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "Shader.h"
 #include "Hash.h"
+#include "Iter.h"
 #include "Timer.h"
 #include "Member.h"
 #include "Device.h"
@@ -406,35 +407,42 @@ void ShaderCompiler::ReleaseShader(uint64_t inHash)
 ID3D12PipelineState* ShaderCompiler::GetGraphicsPipeline(Device& inDevice, IRenderPass* inRenderPass, uint64_t inVertexShaderHash, uint64_t inPixelShaderHash)
 {
     if (inVertexShaderHash == 0 || inPixelShaderHash == 0)
-        return nullptr; 
+        return nullptr;
+
+    StaticArray<uint64_t, 3 + D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT> key_data = {};
+    key_data[0] = inVertexShaderHash;
+    key_data[1] = inPixelShaderHash;
+    key_data[2] = uint64_t(inRenderPass->GetDepthStencilFormat());
+
+    for (const auto& [index, format] : gEnumerate(inRenderPass->GetRenderTargetFormats()))
+        key_data[3 + index] = uint64_t(format);
+
+    const uint64_t pipeline_hash = gHashFNV1a((const char*)key_data.data(), sizeof(key_data[0]) * key_data.size());
+
+    std::scoped_lock lock(m_ShaderCompilationMutex);
 
     if (!m_ShaderCache.contains(inVertexShaderHash) || !m_ShaderCache.contains(inPixelShaderHash))
         return nullptr;
 
-    const StaticArray hash_data = { inVertexShaderHash, inPixelShaderHash };
-    const uint32_t shader_hash = gHashFNV1a((const char*)hash_data.data(), sizeof(hash_data[0]) * hash_data.size());
+    if (const auto pipeline = m_PipelineCache.find(pipeline_hash); pipeline != m_PipelineCache.end())
+        return pipeline->second.Get();
 
-    std::scoped_lock lock(m_ShaderCompilationMutex);
+    GraphicsProgram program;
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC desc = inRenderPass->CreatePipelineStateDesc(inDevice, program);
 
-    if (m_EnablePipelineCache && m_PipelineCache.contains(shader_hash))
-    {
-        return m_PipelineCache[shader_hash].Get();
-    }
-    else
-    {
-        GraphicsProgram program; // shader bytecode uninitialized
-        D3D12_GRAPHICS_PIPELINE_STATE_DESC desc = inRenderPass->CreatePipelineStateDesc(inDevice, program);
+    const ComPtr<IDxcBlob>& vertex_shader = m_ShaderCache.at(inVertexShaderHash);
+    const ComPtr<IDxcBlob>& pixel_shader = m_ShaderCache.at(inPixelShaderHash);
 
-        desc.VS = CD3DX12_SHADER_BYTECODE(m_ShaderCache[inVertexShaderHash]->GetBufferPointer(), m_ShaderCache[inVertexShaderHash]->GetBufferSize());
-        desc.PS = CD3DX12_SHADER_BYTECODE(m_ShaderCache[inPixelShaderHash]->GetBufferPointer(), m_ShaderCache[inPixelShaderHash]->GetBufferSize());
+    desc.VS = CD3DX12_SHADER_BYTECODE(vertex_shader->GetBufferPointer(), vertex_shader->GetBufferSize());
+    desc.PS = CD3DX12_SHADER_BYTECODE(pixel_shader->GetBufferPointer(), pixel_shader->GetBufferSize());
 
-        inDevice->CreateGraphicsPipelineState(&desc, IID_PPV_ARGS(m_PipelineCache[shader_hash].GetAddressOf()));
+    ComPtr<ID3D12PipelineState> pipeline_state = nullptr;
 
-        return m_PipelineCache[shader_hash].Get();
-    }
+    if (FAILED(inDevice->CreateGraphicsPipelineState(&desc, IID_PPV_ARGS(pipeline_state.GetAddressOf()))))
+        return nullptr;
 
-    assert(false);
-    return nullptr;
+    m_PipelineCache[pipeline_hash] = pipeline_state;
+    return pipeline_state.Get();
 }
 
 

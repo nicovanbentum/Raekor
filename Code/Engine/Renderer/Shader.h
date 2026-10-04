@@ -113,12 +113,10 @@ public:
     ID3D12PipelineState* GetGraphicsPipeline(Device& inDevice, IRenderPass* inRenderPass, uint64_t inVertexShaderHash, uint64_t inPixelShaderHash);
 
     void SetShaderCacheEnabled(bool inEnabled) { m_EnableShaderCache = inEnabled; }
-    void SetPipelineCacheEnabled(bool inEnabled) { m_EnablePipelineCache = inEnabled; }
 
 private:
     std::mutex m_ShaderCompilationMutex;
     Atomic<bool> m_EnableShaderCache = true;
-    Atomic<bool> m_EnablePipelineCache = true;
     HashMap<uint64_t, ComPtr<IDxcBlob>> m_ShaderCache;
     HashMap<uint64_t, ComPtr<ID3D12PipelineState>> m_PipelineCache;
 };

@@ -523,7 +523,8 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
         inCmdList.SetViewportAndScissor(inDevice.GetTexture(render_texture));
 
         // OPAQUE PASS
-        inCmdList->SetPipelineState(inData.mOpaquePipeline.Get());
+        ID3D12PipelineState* bound_pipeline = inData.mOpaquePipeline.Get();
+        inCmdList->SetPipelineState(bound_pipeline);
 
         for (const auto& [entity, mesh] : inScene->Each<Mesh>())
         {
@@ -547,15 +548,22 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
             if (material == nullptr)
                 material = &Material::Default;
 
+            ID3D12PipelineState* pipeline_state = inData.mOpaquePipeline.Get();
+
             if (material->vertexShader && material->pixelShader)
             {
-                if (ID3D12PipelineState* pipeline_state = g_ShaderCompiler.GetGraphicsPipeline(inDevice, inData.mRenderPass, material->vertexShader, material->pixelShader))
-                    inCmdList->SetPipelineState(pipeline_state);
-                else
+                pipeline_state = g_ShaderCompiler.GetGraphicsPipeline(inDevice, inData.mRenderPass, material->vertexShader, material->pixelShader);
+
+                if (pipeline_state == nullptr)
                     continue;
             }
 
-            const Name& name = inScene->Get<Name>(entity);
+            if (pipeline_state != bound_pipeline)
+            {
+                inCmdList->SetPipelineState(pipeline_state);
+                bound_pipeline = pipeline_state;
+            }
+
             EVENT_SCOPE_GPU(inCmdList, mesh.name.empty() ? "Mesh" : mesh.name.c_str());
 
             inCmdList.PushGraphicsConstants(GbufferRootConstants
@@ -575,7 +583,8 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
         }
 
         // ALPHA CLIP PASS
-        inCmdList->SetPipelineState(inData.mTransparentPipeline.Get());
+        bound_pipeline = inData.mTransparentPipeline.Get();
+        inCmdList->SetPipelineState(bound_pipeline);
 
         for (const auto& [entity, mesh] : inScene->Each<Mesh>())
         {
@@ -599,15 +608,22 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
             if (material == nullptr)
                 material = &Material::Default;
 
+            ID3D12PipelineState* pipeline_state = inData.mTransparentPipeline.Get();
+
             if (material->vertexShader && material->pixelShader)
             {
-                if (ID3D12PipelineState* pipeline_state = g_ShaderCompiler.GetGraphicsPipeline(inDevice, inData.mRenderPass, material->vertexShader, material->pixelShader))
-                    inCmdList->SetPipelineState(pipeline_state);
-                else
+                pipeline_state = g_ShaderCompiler.GetGraphicsPipeline(inDevice, inData.mRenderPass, material->vertexShader, material->pixelShader);
+
+                if (pipeline_state == nullptr)
                     continue;
             }
 
-            const Name& name = inScene->Get<Name>(entity);
+            if (pipeline_state != bound_pipeline)
+            {
+                inCmdList->SetPipelineState(pipeline_state);
+                bound_pipeline = pipeline_state;
+            }
+
             EVENT_SCOPE_GPU(inCmdList, mesh.name.empty() ? "Mesh" : mesh.name.c_str());
 
             inCmdList.PushGraphicsConstants(GbufferRootConstants
@@ -744,7 +760,6 @@ const TransparentForwardData& AddTransparentForwardPass(RenderGraph& inRenderGra
                 if (!material->isTransparent)
                     continue;
 
-                const Name& name = inScene->Get<Name>(entity);
                 EVENT_SCOPE_GPU(inCmdList, mesh.name.empty() ? "Mesh" : mesh.name.c_str());
 
                 inCmdList.PushGraphicsConstants(TransparentForwardConstants
@@ -861,8 +876,8 @@ const ShadowMapData& AddShadowMapPass(RenderGraph& inRenderGraph, Device& inDevi
 
             for (const auto& [entity, mesh] : inScene->Each<Mesh>())
             {
-                const Name& name = inScene->Get<Name>(entity);
-                EVENT_SCOPE_GPU(inCmdList, mesh.name.empty() ? name.name.c_str() : mesh.name.c_str());
+                const Name* name = inScene->GetPtr<Name>(entity);
+                EVENT_SCOPE_GPU(inCmdList, !mesh.name.empty() ? mesh.name.c_str() : name ? name->name.c_str() : "Mesh");
 
                 const int instance_index = inScene->GetPackedIndex<Mesh>(entity);
                 assert(instance_index != -1);
