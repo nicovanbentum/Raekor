@@ -104,7 +104,7 @@ public:
 
     [[nodiscard]] uint32_t GetBindlessHeapIndex(DescriptorID inID) const { return inID.GetIndex(); }
     [[nodiscard]] uint32_t GetBindlessHeapIndex(BufferID inID) const { return GetBindlessHeapIndex(GetBuffer(inID).GetDescriptor()); }
-    [[nodiscard]] uint32_t GetBindlessHeapIndex(TextureID inID) const { return GetBindlessHeapIndex(GetTexture(inID).GetView()); }
+    [[nodiscard]] uint32_t GetBindlessHeapIndex(TextureID inID) const { return GetBindlessHeapIndex(GetTexture(inID).GetDescriptor()); }
 
     [[nodiscard]] const Buffer::Pool& GetBufferPool() const { return m_Buffers; }
     [[nodiscard]] const Texture::Pool& GetTexturePool() const { return m_Textures; }

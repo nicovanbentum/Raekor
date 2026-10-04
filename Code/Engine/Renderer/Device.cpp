@@ -22,6 +22,13 @@ namespace RK::DX12 {
 
 Device::Device(Application* inApp)
 {
+
+    if (OS::sCheckCommandLineOption("-hook_pix"))
+    {
+        HMODULE pix_module = PIXLoadLatestWinPixGpuCapturerLibrary();
+        assert(pix_module);
+    }
+
     uint32_t device_creation_flags = 0u;
 
 #if 1
@@ -44,12 +51,6 @@ Device::Device(Application* inApp)
 
     device_creation_flags |= DXGI_CREATE_FACTORY_DEBUG;
 #endif
-
-    if (OS::sCheckCommandLineOption("-hook_pix"))
-    {
-        HMODULE pix_module = PIXLoadLatestWinPixGpuCapturerLibrary();
-        assert(pix_module);
-    }
 
     ComPtr<IDXGIFactory6> factory = nullptr;
     gThrowIfFailed(CreateDXGIFactory2(device_creation_flags, IID_PPV_ARGS(&factory)));
@@ -147,17 +148,19 @@ Device::Device(Application* inApp)
 
         switch (bind_slot)
         {
-            case EBindSlot::CBV0: case EBindSlot::CBV1:
+            case EBindSlot::CBV0: 
+            case EBindSlot::CBV1:
                 param.Descriptor.ShaderRegister = b_registers++;
                 param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
                 break;
             
-            case EBindSlot::SRV0: case EBindSlot::SRV1:
+            case EBindSlot::SRV0: 
+            case EBindSlot::SRV1:
                 param.Descriptor.ShaderRegister = t_registers++;
                 param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV;
                 break;
 
-            default: assert(false);
+            default: RK_ASSERT(false);
         }
 
         root_params.push_back(param);
@@ -261,6 +264,8 @@ TextureID Device::CreateTexture(const Texture::Desc& inDesc)
     Texture texture = Texture(inDesc);
     D3D12_RESOURCE_DESC resource_desc = inDesc.ToResourceDesc();
     D3D12MA::ALLOCATION_DESC alloc_desc = inDesc.ToAllocationDesc();
+
+    RK_ASSERT(inDesc.width > 0 && inDesc.height > 0);
 
     D3D12_CLEAR_VALUE clear_value = {};
     D3D12_CLEAR_VALUE* clear_value_ptr = nullptr;
@@ -519,6 +524,9 @@ void Device::CreateDescriptor(TextureID inID, const Texture::Desc& inDesc)
         default:
             assert(false); // should not be able to get here
     }
+
+    texture.m_DescriptorHandleCPU = GetCPUDescriptorHandle(inID).ptr;
+    texture.m_DescriptorHandleGPU = GetGPUDescriptorHandle(inID).ptr;
 }
 
 
@@ -587,14 +595,14 @@ D3D12_CPU_DESCRIPTOR_HANDLE Device::GetCPUDescriptorHandle(TextureID inID)
     switch (texture.GetDesc().usage)
     {
         case Texture::RENDER_TARGET:
-            return GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_RTV).GetCPUDescriptorHandle(texture.GetView());
+            return GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_RTV).GetCPUDescriptorHandle(texture.GetDescriptor());
 
         case Texture::DEPTH_STENCIL_TARGET:
-            return GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_DSV).GetCPUDescriptorHandle(texture.GetView());
+            return GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_DSV).GetCPUDescriptorHandle(texture.GetDescriptor());
 
         case Texture::SHADER_READ_ONLY:
         case Texture::SHADER_READ_WRITE:
-            return GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).GetCPUDescriptorHandle(texture.GetView());
+            return GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).GetCPUDescriptorHandle(texture.GetDescriptor());
         default:
             assert(false);
     }
@@ -624,7 +632,7 @@ D3D12_GPU_DESCRIPTOR_HANDLE Device::GetGPUDescriptorHandle(BufferID inID)
 D3D12_GPU_DESCRIPTOR_HANDLE Device::GetGPUDescriptorHandle(TextureID inID)
 {
     Texture& texture = GetTexture(inID);
-    return GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).GetGPUDescriptorHandle(texture.GetView());
+    return GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).GetGPUDescriptorHandle(texture.GetDescriptor());
 }
 
 
@@ -672,7 +680,7 @@ DescriptorID Device::CreateShaderResourceView(ID3D12Resource* inResource, const 
 
 DescriptorID Device::CreateUnorderedAccessView(ID3D12Resource* inResource, const D3D12_UNORDERED_ACCESS_VIEW_DESC* inDesc)
 {
-    assert(inResource->GetDesc().Flags & D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+    RK_ASSERT(inResource->GetDesc().Flags & D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
 
     DescriptorHeap& heap = m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV];
     DescriptorID descriptor = heap.Add(inResource);

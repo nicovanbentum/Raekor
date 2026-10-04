@@ -45,22 +45,23 @@ private:
         int& mDisableAlbedo      = g_CVariables->Create("r_disable_albedo",       0, true);
         int& mEnableDDGI         = g_CVariables->Create("r_enable_ddgi",          1, true);
         int& mDebugProbeRays     = g_CVariables->Create("r_debug_gi_rays",        0, true);
-        int& mDebugProbes        = g_CVariables->Create("r_debug_gi_probes",      0, true);
+        int& mDebugProbes        = g_CVariables->Create("r_debug_gi_probes",      1, true);
         int& mEnableDebugOverlay = g_CVariables->Create("r_enable_debug_overlay", 1, true);
-        int& mEnableRTAO         = g_CVariables->Create("r_enable_rtao",          1, true);
+        int& mEnableRTAO         = g_CVariables->Create("r_enable_rtao",          0, true);
         int& mEnableSSAO         = g_CVariables->Create("r_enable_ssao",          0, true);
         int& mEnableSSR          = g_CVariables->Create("r_enable_ssr",           0, true);
-        int& mEnableShadows      = g_CVariables->Create("r_enable_shadows",       1);
+        int& mEnableShadows      = g_CVariables->Create("r_enable_shadows",       0);
         int& mEnableReflections  = g_CVariables->Create("r_enable_reflections",   0);
         int& mEnableAutoExposure = g_CVariables->Create("r_enable_auto_exposure", 0);
         int& mFullscreen         = g_CVariables->Create("r_fullscreen",           0);
         int& mDisplayMode        = g_CVariables->Create("r_display_mode",         0);
         int& mEnableTAA          = g_CVariables->Create("r_enable_taa",           1);
         int& mEnableDoF          = g_CVariables->Create("r_enable_dof",           0);
-        int& mEnableBloom        = g_CVariables->Create("r_enable_bloom",         1);
-        int& mEnableVignette     = g_CVariables->Create("r_enable_vignette",      1);
+        int& mEnableBloom        = g_CVariables->Create("r_enable_bloom",         0);
+        int& mEnableVignette     = g_CVariables->Create("r_enable_vignette",      0);
         int& mDoPathTrace        = g_CVariables->Create("r_path_trace",           0,   true);
         float& mSunConeAngle     = g_CVariables->Create("r_sun_cone_angle",       0.0f, true);
+        float& mJitterScale      = g_CVariables->Create("r_jitter_scale",         1.0f, true);
     } m_Settings;
 
 public:
@@ -117,6 +118,8 @@ private:
     bool                        m_ShouldResize = false;
     bool                        m_ShouldRecompile = false;
     bool                        m_ShouldCaptureNextFrame = false;
+    BufferID                    m_DebugLinesVertexBuffer;
+    BufferID                    m_DebugLinesIndirectArgsBuffer;
     BackBufferData              m_BackBufferData[sFrameCount];
     FrameConstants              m_FrameConstants = {};
     GlobalConstants             m_GlobalConstants = {};

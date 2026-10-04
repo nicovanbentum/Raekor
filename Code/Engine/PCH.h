@@ -172,6 +172,7 @@ using ComPtr = Microsoft::WRL::ComPtr<T>;
 #include <algorithm>
 #include <filesystem>
 #include <type_traits>
+#include <shared_mutex>
 #include <unordered_map>
 #include <source_location>
 
@@ -188,6 +189,7 @@ using StringView = std::string_view;
 using StringBuilder = std::stringstream;
 
 using Mutex = std::mutex;
+using SharedMutex = std::shared_mutex;
 
 template<typename T>
 using Slice = std::span<T>;

@@ -95,10 +95,10 @@ struct Light
 	RTTI_DECLARE_TYPE(Light);
 
 	ELightType type = LIGHT_TYPE_NONE;
-	Vec3 direction = { 0.0f, -1.0f, 0.0f }; // used for Directional and Spot light
-	Vec4 position = { 0.0f, 0.0f, 0.0f, 0.0f }; // Used for Spot and Point light
+	Vec3 direction = { 0.0f, -1.0f, 0.0f }; // runtime property, used for Directional and Spot light
+	Vec4 position = { 0.0f, 0.0f, 0.0f, 0.0f }; // runtime property, used for Spot and Point light
 	Vec4 color = { 1.0f, 1.0f, 1.0f, 1.0f }; // rgb = color, a = intensity
-	Vec4 attributes = { 1.0f, 0.1f, 0.0f, 0.0f }; // x = radius, y = range, z = inner radius / cone angle, w = outer cone angle
+	Vec4 attributes = { 1.0f, 0.1f, 0.0f, 0.0f }; // x = radius (point), y = range (spot), z = inner cone angle, w = outer cone angle
 };
 
 
@@ -160,6 +160,7 @@ struct Mesh
 	uint32_t GetVertexStride() const;
 
 	bool HasBLAS() const { return BottomLevelAS != 0; }
+	bool HasVertices() const { return !vertices.empty(); }
 	bool IsLoaded() const { return vertexBuffer != 0 && indexBuffer != 0 && BottomLevelAS != 0; }
 
 };

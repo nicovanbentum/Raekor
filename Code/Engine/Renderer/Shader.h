@@ -91,7 +91,7 @@ public:
     const Shader& GetComputeShader() const { return m_ComputeShader; }
 
     bool CompilePSO(Device& inDevice, const char* inDebugName = nullptr);
-    ID3D12PipelineState* GetComputePSO() { return m_ComputePipeline.Get(); }
+    ID3D12PipelineState* GetComputePSO() const { return m_ComputePipeline.Get(); }
 
     bool OnCompile(Device& inDevice) override;
     bool OnHotLoad(Device& inDevice) override;
@@ -132,15 +132,17 @@ struct SystemShadersDX12 : public IResource
     NO_COPY_NO_MOVE(SystemShadersDX12);
     RTTI_DECLARE_VIRTUAL_TYPE(SystemShadersDX12);
 
-    ComputeProgram mClearBufferShader;
-    ComputeProgram mClearTexture2DShader;
-    ComputeProgram mClearTexture3DShader;
-    ComputeProgram mClearTextureCubeShader;
+    GraphicsProgram mCopyTextureShader;
+    ComputeProgram  mClearBufferShader;
+    ComputeProgram  mClearTexture2DShader;
+    ComputeProgram  mClearTexture3DShader;
+    ComputeProgram  mClearTextureCubeShader;
 
     GraphicsProgram mImGuiShader;
     GraphicsProgram mSDFUIShader;
     GraphicsProgram mGrassShader;
     GraphicsProgram mGBufferShader;
+    GraphicsProgram mGBufferAlphaClipShader;
     ComputeProgram  mSkinningShader;
     GraphicsProgram mLightingShader;
     ComputeProgram  mLightCullShader;
@@ -149,12 +151,14 @@ struct SystemShadersDX12 : public IResource
     GraphicsProgram mTAAResolveShader;
     GraphicsProgram mFinalComposeShader;
     GraphicsProgram mDebugPrimitivesShader;
+    GraphicsProgram mTransparentForwardShader;
 
     ComputeProgram mSSRTraceShader;
     ComputeProgram mSSAOTraceShader;
 
     ComputeProgram mSkyCubeShader;
     ComputeProgram mConvolveCubeShader;
+    ComputeProgram mIntegrateBrdfShader;
 
     GraphicsProgram mProbeDebugShader;
     GraphicsProgram mProbeDebugRaysShader;

@@ -100,17 +100,15 @@ public:
 	const Mat4x4& GetView() const { return m_View; }
 	const Mat4x4& GetProjection() const { return m_Projection; }
 
-	inline const UVec2& GetRenderSize() const { return size; }
-	void SetRenderSize(const UVec2& inSize) { size = inSize; }
+	inline const UVec2& GetRenderSize() const { return m_RenderSize; }
+	void SetRenderSize(const UVec2& inSize) { m_RenderSize = inSize; }
 
 	inline const UVec2 GetDisplaySize() const { return m_DisplaySize; }
 	void SetDisplaySize(const UVec2& inSize) { m_DisplaySize = inSize; }
 
-public:
-	// public out of convenience
-	UVec2 size = UVec2(1u, 1u); // m_RenderSize
-
 private:
+	// public out of convenience
+	UVec2 m_RenderSize = UVec2(1u, 1u);
 	UVec2 m_DisplaySize = UVec2(1u, 1u);
 		
 	Mat4x4 m_View;

@@ -53,7 +53,9 @@ void KeyFrames::LoadFromAssimp(const aiNodeAnim* nodeAnim)
 
 void KeyFrames::LoadFromGltf(const cgltf_animation_channel* channel)
 {
-	assert(channel->sampler->interpolation == cgltf_interpolation_type_linear);
+	if (channel->sampler->interpolation != cgltf_interpolation_type_linear)
+		return;
+
 	float buffer[4]; // covers time (scalar float values), pos and scale (vec3) and rotation (quat)
 
 	switch (channel->target_path)

@@ -150,8 +150,8 @@ float3 DDGISampleIrradiance(float3 inWsPos, float3 inNormal, DDGIData inData)
         
         final_weight *= wrap_shading_weight;
         
-        //if (probe_data.inactive)
-            //weight = weight * 0.001f; // don't knock the probe out entirely
+        if (probe_data.inactive)
+            final_weight = final_weight * 0.001f; // don't knock the probe out entirely
         
         float visibility_weight = 1.0f;
         
@@ -159,13 +159,15 @@ float3 DDGISampleIrradiance(float3 inWsPos, float3 inNormal, DDGIData inData)
         {
             // Chebyshev visibility test
             float2 depth = DDGISampleDepthProbe(probe_index, -pos_to_probe_dir, depth_texture);
-            float r = length(probe_ws_pos - inWsPos);
-            float mean = depth.r, mean2 = depth.g;
             
-            if (r > mean)
+            float dist = length(probe_ws_pos - inWsPos);
+            float mean = depth.r, mean2 = depth.g;
+            float variance = max(mean2 - mean * mean, 1e-5);
+            
+            if (dist > mean)
             {
-                float variance = abs(square(mean) - mean2);
-                visibility_weight *= variance / (variance + square(r - mean));
+                float d = dist - mean;
+                visibility_weight = variance / (variance + d * d);
             }
             
             final_weight *= max(0.05f, visibility_weight);
@@ -190,13 +192,13 @@ float3 DDGISampleIrradiance(float3 inWsPos, float3 inNormal, DDGIData inData)
         // Sample the probe's irradiance texels
         float3 sampled_irradiance = DDGISampleIrradianceProbe(probe_index, inNormal, irradiance_texture);
         
-        uint3 debug_color = current_probe_coord & 1;
+        // float4 debug_color = DDGIGetProbeDebugColor(probe_index, inData.mProbeCount);
         
         // Accumulate weighted irradiance
-        irradiance += float4(sampled_irradiance.rgb * final_weight, final_weight);
+        irradiance += float4(sampled_irradiance * final_weight, final_weight);
     }
     
-    if (irradiance.w > 0.000001f)
+    if (irradiance.w > 0.0001f)
         irradiance.rgb /= irradiance.w;
 
     return irradiance.rgb;

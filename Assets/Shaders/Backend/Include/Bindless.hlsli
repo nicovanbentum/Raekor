@@ -7,6 +7,12 @@
  //                            "RootConstants(num32BitConstants=32, b0), " \
  //                            "StaticSampler(s0, addressU = TEXTURE_ADDRESS_CLAMP, filter = FILTER_ANISOTROPIC)"
 
+template<typename T>
+T GetResource(uint index) 
+{ 
+return ResourceDescriptorHeap[index]; 
+}
+
 #define ROOT_CONSTANTS(T, name) ConstantBuffer<T> name : register(b0, space0);
 
 #define CBV0(T, name) ConstantBuffer<T> name : register(b1, space0);
@@ -34,5 +40,8 @@ SamplerState SamplerAnisoClamp        : register(s6);
 
 #define PASS_CONSTANTS(name) SRV1(name)
 #define FRAME_CONSTANTS(name) CBV1(FrameConstants, name)
+
+#define SAMPLER_DESCRIPTOR_HEAP(i) SamplerDescriptorHeap[i]
+#define RESOURCE_DESCRIPTOR_HEAP(i) ResourceDescriptorHeap[i]
 
 #endif // BINDLESS_HLSLI

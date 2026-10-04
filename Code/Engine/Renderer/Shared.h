@@ -26,6 +26,8 @@
     using float3x3 = glm::mat3;
     using float4x4 = glm::mat4;
 
+    using Texture2D = uint;
+
 #else
 
     #define IF_CPP(code)
@@ -33,6 +35,7 @@
 
 #endif
 
+#define BRDF_LUT_SIZE 512
 #define DDGI_TRACE_SIZE 64                  // Thread group size for the ray trace shader. Sorry AMD, I'm running a 3080
 #define DDGI_DEPTH_TEXELS 16                // Depth is stored as 16x16 FORMAT_R32F texels
 #define DDGI_DEPTH_TEXELS_NO_BORDER 14      // Depth is stored as 16x16 FORMAT_R32F texels
@@ -49,7 +52,7 @@
 #define LIGHT_CULL_TILE_SIZE 16 // Light culling uses 16x16 pixel screen tiles
 #define LIGHT_CULL_MAX_LIGHTS 1024 // Max lights per tile for light culling
 
-#define BINDLESS_BLUE_NOISE_TEXTURE_INDEX 3
+#define BINDLESS_BLUE_NOISE_TEXTURE_INDEX 5
 
 struct LineVertex
 {
@@ -165,6 +168,12 @@ struct DebugPrimitivesRootConstants
 };
 
 
+struct GPULinesRootConstants
+{
+    uint mVertexBuffer;
+};
+
+
 struct DDGIData
 {
     int3   mProbeCount;
@@ -191,6 +200,12 @@ struct ClearTextureRootConstants
 {
     float4 mClearValue;
     uint mTexture;
+};
+
+
+struct CopyTextureConstants
+{
+    uint mSrcTexture;
 };
 
 
@@ -240,6 +255,12 @@ struct SkyCubeRootConstants
     uint mSkyCubeTexture;
     float3 mSunLightDirection;
     float4 mSunLightColor;
+};
+
+
+struct IntegrateBrdfConstants
+{
+    uint mOutputTexture;
 };
 
 
@@ -404,8 +425,27 @@ struct TiledLightCullingRootConstants
 
 
 
+struct TransparentForwardConstants
+{
+    uint     mEntity;
+    uint     mInstanceIndex;
+    uint     shadowMaskTexture;
+    uint     reflectionsTexture;
+    uint     indirectDiffuseTexture;
+    uint     skyCubeTexture;
+    uint     diffuseSkyCubeTexture;
+    uint     brdfLutTexture;
+    TiledLightCullingRootConstants lights;
+};
+
+
+
 struct LightingRootConstants
 {
+    uint  mBrdfLutTexture;
+    uint  mPad0;
+    uint  mPad1;
+    uint  mPad2;
     uint  mSkyCubeTexture;
     uint  mDiffuseSkyCubeTexture;
     uint  mShadowMaskTexture;

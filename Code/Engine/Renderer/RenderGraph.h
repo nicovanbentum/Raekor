@@ -150,8 +150,14 @@ public:
     TextureID GetTexture(RenderGraphResourceID inResource) const;
     ResourceID GetResource(RenderGraphResourceID inResource) const;
 
+    ID3D12Resource* GetD3D12Resource(Device& inDevice, RenderGraphResourceID inResource) const;
+    ID3D12Resource* GetD3D12Resource(Device& inDevice, RenderGraphResourceViewID inResource) const;
+
     uint32_t GetBindlessHeapIndex(RenderGraphResourceID inResource) const { return m_Resources[inResource].mDescriptorID.GetIndex(); }
     uint32_t GetBindlessHeapIndex(RenderGraphResourceViewID inResource) const { return m_ResourceViews[inResource].mDescriptorID.GetIndex(); }
+
+    bool IsBuffer(RenderGraphResourceID inResource) const { return m_Resources[inResource].mResourceType == RESOURCE_TYPE_BUFFER; }
+    bool IsTexture(RenderGraphResourceID inResource) const { return m_Resources[inResource].mResourceType == RESOURCE_TYPE_TEXTURE; }
 
     bool IsBuffer(RenderGraphResourceViewID inResource) const { return m_ResourceViews[inResource].mResourceType == RESOURCE_TYPE_BUFFER; }
     bool IsTexture(RenderGraphResourceViewID inResource) const { return m_ResourceViews[inResource].mResourceType == RESOURCE_TYPE_TEXTURE; }
@@ -163,6 +169,22 @@ private:
 };
 
 
+struct ResourceBarrier
+{
+    RenderGraphResourceID mResource;
+    D3D12_RESOURCE_BARRIER mBarrier;
+
+    static ResourceBarrier UAV(RenderGraphResourceID inRenderGraphResourceID);
+    static ResourceBarrier Transition(RenderGraphResourceID inRenderGraphResourceID, D3D12_RESOURCE_STATES inStateBefore, D3D12_RESOURCE_STATES inStateAfter, uint32_t inSubResourceIndex);
+};
+
+
+struct Discard
+{
+    RenderGraphResourceID mResource;
+    D3D12_DISCARD_REGION mRegion;
+};
+
 
 class IRenderPass
 {
@@ -172,10 +194,10 @@ public:
     friend class RenderGraphBuilder;
 
     template<typename T>
-    using SetupFn = std::function<void(RenderGraphBuilder& inBuilder, IRenderPass* inRenderPass, T& inData)>;
+    using SetupFunction = std::function<void(RenderGraphBuilder& inBuilder, IRenderPass* inRenderPass, T& inData)>;
 
     template<typename T>
-    using ExecFn = std::function<void(T& inData, const RenderGraphResources& inResources, CommandList& inCmdList)>;
+    using ExecuteFunction = std::function<void(T& inData, const RenderGraphResources& inResources, CommandList& inCmdList)>;
 
     IRenderPass(const String& inName) : m_Name(inName) {}
 
@@ -188,6 +210,8 @@ public:
     const String& GetName() const { return m_Name; }
 
     bool IsCreated(RenderGraphResourceID inResource) const;
+    bool IsDiscarded(RenderGraphResourceID inResource) const;
+
     bool IsRead(RenderGraphResourceViewID inResource) const;
     bool IsWritten(RenderGraphResourceViewID inResource) const;
 
@@ -200,15 +224,12 @@ public:
 
     /* AddExitBarrier is exposed to the user to add manual barriers around resources they have no control over (external code like FSR2).
     D3D12_RESOURCE_TRANSITION_BARRIER::StateAfter could be overwritten by the graph if it finds a better match during graph compilation. */
-    void AddExitBarrier(const D3D12_RESOURCE_BARRIER& inBarrier) { m_ExitBarriers.push_back(inBarrier); }
+    void AddExitBarrier(const ResourceBarrier& inBarrier) { m_ExitBarriers.push_back(inBarrier); }
+
+    void AddDiscard(const Discard& inDiscard) { m_DiscardedResources.push_back(inDiscard); }
 
     D3D12_COMPUTE_PIPELINE_STATE_DESC  CreatePipelineStateDesc(Device& inDevice, const ComputeProgram& inShaderProgram);
     D3D12_GRAPHICS_PIPELINE_STATE_DESC CreatePipelineStateDesc(Device& inDevice, const GraphicsProgram& inShaderProgram);
-
-private:
-    void FlushBarriers(Device& inDevice, CommandList& inCmdList, const Slice<D3D12_RESOURCE_BARRIER>& inBarriers) const;
-    void SetRenderTargets(Device& inDevice, const RenderGraphResources& inRenderResources, CommandList& inCmdList) const;
-
 
 protected:
     String	  m_Name;
@@ -222,7 +243,8 @@ protected:
     Array<DXGI_FORMAT> m_RenderTargetFormats;
     DXGI_FORMAT m_DepthStencilFormat = DXGI_FORMAT_UNKNOWN;
 
-    Array<D3D12_RESOURCE_BARRIER> m_ExitBarriers;
+    Array<Discard> m_DiscardedResources;
+    Array<ResourceBarrier> m_ExitBarriers;
 };
 
 
@@ -233,7 +255,7 @@ class RenderPass : public IRenderPass
 public:
     friend class RenderGraph;
 
-    RenderPass(const std::string& inName, const IRenderPass::ExecFn<T>& inExecute) :
+    RenderPass(const std::string& inName, const IRenderPass::ExecuteFunction<T>& inExecute) :
         IRenderPass(inName), m_Execute(inExecute)
     {
     }
@@ -253,9 +275,9 @@ public:
     T& GetData() { return m_Data; }
 
 protected:
-    T			m_Data;
-    SetupFn<T>	m_Setup;
-    ExecFn<T>	m_Execute;
+    T			        m_Data;
+    SetupFunction<T>	m_Setup;
+    ExecuteFunction<T>	m_Execute;
 };
 
 
@@ -264,7 +286,7 @@ template<typename T>
 class GraphicsRenderPass : public RenderPass<T>
 {
 public:
-    GraphicsRenderPass(const std::string& inName, const IRenderPass::ExecFn<T>& inExecuteFn) : RenderPass<T>(inName, inExecuteFn) {}
+    GraphicsRenderPass(const String& inName, const IRenderPass::ExecuteFunction<T>& inExecuteFn) : RenderPass<T>(inName, inExecuteFn) {}
 
     virtual bool IsCompute() override { return false; }
     virtual bool IsGraphics() override { return true; }
@@ -276,7 +298,7 @@ template<typename T>
 class ComputeRenderPass : public RenderPass<T>
 {
 public:
-    ComputeRenderPass(const std::string& inName, const IRenderPass::ExecFn<T>& inExecuteFn) : RenderPass<T>(inName, inExecuteFn) {}
+    ComputeRenderPass(const String& inName, const IRenderPass::ExecuteFunction<T>& inExecuteFn) : RenderPass<T>(inName, inExecuteFn) {}
 
     virtual bool IsCompute() override { return true; }
     virtual bool IsGraphics() override { return false; }
@@ -290,13 +312,13 @@ public:
     RenderGraph(Device& inDevice, const Viewport& inViewport, uint32_t inFrameCount);
 
     template<typename T, typename PassType>
-    const T& AddPass(const String& inName, const IRenderPass::SetupFn<T>& inSetup, const IRenderPass::ExecFn<T>& inExecute);
+    const T& AddPass(const String& inName, const IRenderPass::SetupFunction<T>& inSetup, const IRenderPass::ExecuteFunction<T>& inExecute);
 
     template<typename T>
-    const T& AddGraphicsPass(const String& inName, const IRenderPass::SetupFn<T>& inSetup, const IRenderPass::ExecFn<T>& inExecute);
+    const T& AddGraphicsPass(const String& inName, const IRenderPass::SetupFunction<T>& inSetup, const IRenderPass::ExecuteFunction<T>& inExecute);
 
     template<typename T>
-    const T& AddComputePass(const String& inName, const IRenderPass::SetupFn<T>& inSetup, const IRenderPass::ExecFn<T>& inExecute);
+    const T& AddComputePass(const String& inName, const IRenderPass::SetupFunction<T>& inSetup, const IRenderPass::ExecuteFunction<T>& inExecute);
 
     /* Clears the graph by destroying all the render passes and their associated resources. After clearing the user is free to call Compile again. */
     void Clear(Device& inDevice);
@@ -309,6 +331,12 @@ public:
 
     /* Update the frame constants. */
     void UpdateFrameConstants(const FrameConstants& inFrameConstants);
+
+    /* Flush barriers at the end of a pass */
+    void FlushBarriers(Device& inDevice, CommandList& inCmdList, const Slice<ResourceBarrier>& inBarriers) const;
+
+    /* Set render targets before the start of a pass */
+    void SetRenderTargets(Device& inDevice, IRenderPass* inRenderPass, CommandList& inCmdList) const;
 
     /* Dump the entire graph to GraphViz text, can be written directly to a file and opened using the VS Code extension. */
     String	ToGraphVizText(const Device& inDevice, TextureID inBackBuffer) const;
@@ -332,12 +360,12 @@ private:
     RenderGraphBuilder m_RenderGraphBuilder;
     RenderGraphResources m_RenderGraphResources;
     Array<UniquePtr<IRenderPass>> m_RenderPasses;
-    Array<D3D12_RESOURCE_BARRIER> m_FinalBarriers;
+    Array<ResourceBarrier> m_FinalBarriers;
 };
 
 
 template<typename T, typename PassType>
-const T& RenderGraph::AddPass(const String& inName, const IRenderPass::SetupFn<T>& inSetup, const IRenderPass::ExecFn<T>& inExecute)
+const T& RenderGraph::AddPass(const String& inName, const IRenderPass::SetupFunction<T>& inSetup, const IRenderPass::ExecuteFunction<T>& inExecute)
 {
     // have to use index here, taking the emplace_back ref would invalidate it if we add aditional passes inside of the setup function
     const int pass_index = m_RenderPasses.size();
@@ -354,14 +382,14 @@ const T& RenderGraph::AddPass(const String& inName, const IRenderPass::SetupFn<T
 
 
 template<typename T>
-const T& RenderGraph::AddGraphicsPass(const String& inName, const IRenderPass::SetupFn<T>& inSetup, const IRenderPass::ExecFn<T>& inExecute)
+const T& RenderGraph::AddGraphicsPass(const String& inName, const IRenderPass::SetupFunction<T>& inSetup, const IRenderPass::ExecuteFunction<T>& inExecute)
 {
     return RenderGraph::AddPass<T, GraphicsRenderPass<T>>(inName, inSetup, inExecute);
 }
 
 
 template<typename T>
-const T& RenderGraph::AddComputePass(const String& inName, const IRenderPass::SetupFn<T>& inSetup, const IRenderPass::ExecFn<T>& inExecute)
+const T& RenderGraph::AddComputePass(const String& inName, const IRenderPass::SetupFunction<T>& inSetup, const IRenderPass::ExecuteFunction<T>& inExecute)
 {
     return RenderGraph::AddPass<T, ComputeRenderPass<T>>(inName, inSetup, inExecute);
 }

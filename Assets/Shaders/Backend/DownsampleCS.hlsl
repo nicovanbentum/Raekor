@@ -14,24 +14,25 @@ groupshared AF1 spdIntermediateG[16][16];
 groupshared AF1 spdIntermediateB[16][16];
 groupshared AF1 spdIntermediateA[16][16];
 
-static const RWTexture2D<float4> TextureMip0 = ResourceDescriptorHeap[rc.mTextureMip0];
-static const globallycoherent RWTexture2D<float4> TextureMip6 = ResourceDescriptorHeap[rc.mTextureMip6];
+static const RWTexture2DArray<float4> TextureMip0 = ResourceDescriptorHeap[rc.mTextureMip0];
+static const globallycoherent RWTexture2DArray<float4> TextureMip6 = ResourceDescriptorHeap[rc.mTextureMip6];
 static const globallycoherent RWStructuredBuffer<uint> GlobalAtomicBuffer = ResourceDescriptorHeap[rc.mGlobalAtomicBuffer];
 
 AF4 SpdLoadSourceImage(ASU2 tex, AU1 slice) 
 {
-    return TextureMip0[tex];
+    return TextureMip0[uint3(tex, slice)];
 }
 
 AF4 SpdLoad(ASU2 tex, AU1 slice) 
 {
-    return TextureMip6[tex];
+    return TextureMip6[uint3(tex, slice)];
 }
 
-void SpdStore(ASU2 pix, AF4 outValue, AU1 mip, AU1 slice) {
+void SpdStore(ASU2 pix, AF4 outValue, AU1 mip, AU1 slice) 
+{
     if (mip == 5) 
     {
-        TextureMip6[pix] = outValue;
+        TextureMip6[uint3(pix, slice)] = outValue;
         return;
     }
     
@@ -54,8 +55,8 @@ void SpdStore(ASU2 pix, AF4 outValue, AU1 mip, AU1 slice) {
         case 12: bindless_index = rc.mTextureMip13; break;
     }
     
-    RWTexture2D<float4> texture = ResourceDescriptorHeap[NonUniformResourceIndex(bindless_index)];
-    texture[pix] = outValue;
+    RWTexture2DArray<float4> texture = ResourceDescriptorHeap[NonUniformResourceIndex(bindless_index)];
+    texture[uint3(pix, slice)] = outValue;
 }
 
 void SpdIncreaseAtomicCounter(AU1 slice) 
@@ -100,5 +101,5 @@ AF4 SpdReduce4(AF4 v0, AF4 v1, AF4 v2, AF4 v3)
 [numthreads(256, 1, 1)]
 void main(uint3 group_id : SV_GroupID, uint group_index : SV_GroupIndex) 
 {
-    SpdDownsample(group_id.xy, group_index, rc.mNrOfMips, rc.mNrOfWorkGroups, 0);
+    SpdDownsample(group_id.xy, group_index, rc.mNrOfMips, rc.mNrOfWorkGroups, group_id.z);
 }

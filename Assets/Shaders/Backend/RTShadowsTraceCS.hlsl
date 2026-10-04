@@ -25,30 +25,29 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID, uint3 groupID : SV_Group
     RWTexture2D<uint> result_texture = ResourceDescriptorHeap[rc.mShadowMaskTexture];
     RaytracingAccelerationStructure TLAS = ResourceDescriptorHeap[fc.mShadowTLAS];
 
-    const float2 pixel_center = float2(dispatchThreadID.xy) + float2(0.5, 0.5);
+    const float2 pixel_center = float2(dispatchThreadID.xy) + float2(0.5f, 0.5f);
     float2 screen_uv = pixel_center / rc.mDispatchSize;
 
     float depth = gbuffer_depth_texture[dispatchThreadID.xy];
     
     uint hit = 0;
     
-    uint rng = TeaHash(((dispatchThreadID.y << 16) | dispatchThreadID.x), fc.mFrameCounter + 1);
-    
-    if (depth < 1.0)
+    if (depth < 1.0f)
     {
-        const float4 blue_noise = SampleBlueNoise(dispatchThreadID.xy, fc.mFrameCounter);
-        const float3 ray_dir = SampleDirectionalLight(fc.mSunDirection.xyz, fc.mSunConeAngle, pcg_float2(rng));
+        uint rng = TeaHash(((dispatchThreadID.y << 16) | dispatchThreadID.x), fc.mFrameCounter + 1);
+        float4 blue_noise = SampleBlueNoise(dispatchThreadID.xy, fc.mFrameCounter);
+        float3 ray_dir = SampleDirectionalLight(fc.mSunDirection.xyz, fc.mSunConeAngle, pcg_float2(rng));
         
-        const float3 normal = UnpackNormal(asuint(gbuffer_texture[dispatchThreadID.xy]));
-        const float3 ws_pos = ReconstructWorldPosition(screen_uv, depth, fc.mInvViewProjectionMatrix);
-        const float3 vs_pos = mul(fc.mViewMatrix, float4(ws_pos, 1.0)).xyz;
+        float3 normal = UnpackNormal(asuint(gbuffer_texture[dispatchThreadID.xy]));
+        float3 ws_pos = ReconstructWorldPosition(screen_uv, depth, fc.mInvViewProjectionMatrix);
+        float3 vs_pos = mul(fc.mViewMatrix, float4(ws_pos, 1.0)).xyz;
 
-        const float bias = (-vs_pos.z + length(ws_pos.xyz)) * 1e-3;
+        float bias = (-vs_pos.z + length(ws_pos.xyz)) * 1e-3;
 
         RayDesc ray;
-        ray.TMin = 0.0;
-        ray.TMax = 10000.0;
-        ray.Origin = ws_pos + normal * 0.01;
+        ray.TMin = 0.0f;
+        ray.TMax = 10000.0f;
+        ray.Origin = ws_pos + normal * 0.01f;
         ray.Direction = ray_dir;
 
         if (dot(normal, ray.Direction) > 0.0)
@@ -60,7 +59,10 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID, uint3 groupID : SV_Group
             query.Proceed();
             
             hit = query.CommittedStatus() == COMMITTED_TRIANGLE_HIT;
-
+        }
+        else
+        {
+            hit = true;
         }
     }
     

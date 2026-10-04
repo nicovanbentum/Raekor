@@ -65,7 +65,7 @@ void RayTracedScene::UpdateBLAS(Application* inApp, Device& inDevice, Mesh& inMe
 
     inCmdList->BuildRaytracingAccelerationStructure(&desc, 0, nullptr);
 
-    inDevice.ReleaseBuffer(scratch_buffer_id);
+    // inDevice.ReleaseBuffer(scratch_buffer_id);
 }
 
 
@@ -349,6 +349,7 @@ void RayTracedScene::UploadInstances(Application* inApp, Device& inDevice, Comma
         material_index = material_index == -1 ? 0 : material_index;
 
         uint32_t vertex_buffer = mesh.vertexBuffer;
+
         if (Skeleton* skeleton = m_Scene.GetPtr<Skeleton>(entity))
             vertex_buffer = skeleton->skinnedVertexBuffer;
 

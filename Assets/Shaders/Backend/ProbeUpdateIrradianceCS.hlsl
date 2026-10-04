@@ -7,7 +7,6 @@
 FRAME_CONSTANTS(fc)
 ROOT_CONSTANTS(ProbeUpdateRootConstants, rc)
 
-groupshared float lds_ProbeDepthRays[DDGI_RAYS_PER_PROBE];
 groupshared float3 lds_ProbeRayDirections[DDGI_RAYS_PER_PROBE];
 groupshared float3 lds_ProbeIrradianceRays[DDGI_RAYS_PER_PROBE];
 
@@ -31,7 +30,6 @@ void main(uint3 threadID : SV_DispatchThreadID,  uint3 groupThreadID : SV_GroupT
     for (uint i = 0; i < rays_per_lane; i++)
     {
         uint ray_index = inGroupIndex * rays_per_lane + i;
-        lds_ProbeDepthRays[ray_index] = rays_depth_texture[uint2(ray_index, probe_index)].x;
         lds_ProbeRayDirections[ray_index] = SphericalFibonnaci(ray_index, DDGI_RAYS_PER_PROBE);
         lds_ProbeIrradianceRays[ray_index] = rays_irradiance_texture[uint2(ray_index, probe_index)];
     }
@@ -53,21 +51,21 @@ void main(uint3 threadID : SV_DispatchThreadID,  uint3 groupThreadID : SV_GroupT
         float4 irradiance = 0.xxxx;
         uint backface_count = 0;
 
-        if (!probe_data.inactive)
+         if (!probe_data.inactive)
         {
             for (uint ray_index = 0; ray_index < DDGI_RAYS_PER_PROBE; ray_index++) 
             {
-                float3 ray_irradiance = lds_ProbeIrradianceRays[ray_index];
-            
-                float3 ray_dir = normalize(mul((float3x3) rc.mRandomRotationMatrix, lds_ProbeRayDirections[ray_index]));
+                float2 ray_depth = rays_depth_texture[uint2(ray_index, probe_index)];
+                float3 ray_irradiance = rays_irradiance_texture[uint2(ray_index, probe_index)];
+                
+                float3 ray_dir = normalize(mul((float3x3) rc.mRandomRotationMatrix, SphericalFibonnaci(ray_index, DDGI_RAYS_PER_PROBE)));
                 
                 float weight = saturate(dot(octahedral_dir, ray_dir));
                 
-                if (weight > 0.0001)
+                if (weight > 0.0001f)
                 {
                     irradiance += float4(ray_irradiance * weight, weight);
                 }
-            
             }
         }
         
@@ -82,8 +80,10 @@ void main(uint3 threadID : SV_DispatchThreadID,  uint3 groupThreadID : SV_GroupT
         float3 final_irradiance = fc.mFrameCounter < 2 ? irradiance.rgb : avg_irradiance;
 
         probes_irradiance_texture[threadID.xy] = float4(final_irradiance, 1.0);
-
-        // probes_irradiance_texture[threadID.xy] = float3(octahedral_uv * 0.5 + 0.5, 0.0);
+        
+        // probes_irradiance_texture[threadID.xy] = DDGIGetProbeDebugColor(probe_index, rc.mDDGIData.mProbeCount);
+        
+        //probes_irradiance_texture[threadID.xy] = float3(octahedral_uv * 0.5 + 0.5, 0.0);
     }
     
     AllMemoryBarrierWithGroupSync();

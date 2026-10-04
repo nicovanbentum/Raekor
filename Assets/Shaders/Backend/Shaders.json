@@ -1,6 +1,19 @@
 {
 	"SystemShadersDX12":
     {
+
+        "Copy Texture Shader":
+        {
+            "Vertex Shader": 
+            {
+                "File Path": "Assets/Shaders/Backend/FullscreenTriangleVS.hlsl"
+            },
+            "Pixel Shader":
+            {
+                "File Path": "Assets/Shaders/Backend/CopyTexture2D.hlsl"
+            }
+        }, 
+
         "Clear Buffer Shader":
         {
             "Compute Shader": 
@@ -46,6 +59,14 @@
             "Compute Shader": 
             {
                 "File Path": "Assets/Shaders/Backend/ConvolveCubeCS.hlsl"
+            }
+        },
+
+        "Integrate BRDF Shader":
+        {
+            "Compute Shader":
+            {
+                "File Path": "Assets/Shaders/Backend/IntegrateBrdfCS.hlsl"
             }
         },
 
@@ -95,6 +116,21 @@
                 "File Path": "Assets/Shaders/Backend/GBufferVS.hlsl"
             },
 
+            "Pixel Shader": 
+            {
+                "File Path": "Assets/Shaders/Backend/GBufferPS.hlsl"
+            }
+        },
+
+        "GBuffer Alpha Clip Shader":
+        {
+            "Defines": "#define ENABLE_DISCARD",
+
+            "Vertex Shader": 
+            {
+                "File Path": "Assets/Shaders/Backend/GBufferVS.hlsl"
+            },
+            
             "Pixel Shader": 
             {
                 "File Path": "Assets/Shaders/Backend/GBufferPS.hlsl"
@@ -202,6 +238,19 @@
             "Pixel Shader": 
             {
                 "File Path":"Assets/Shaders/Backend/DebugLinesPS.hlsl"
+            }
+        },
+
+        "Transparent Forward Shader":
+        {
+            "Vertex Shader":
+            {
+                "File Path": "Assets/Shaders/Backend/TransparentForwardVS.hlsl"
+            },
+
+            "Pixel Shader": 
+            {
+                "File Path": "Assets/Shaders/Backend/TransparentForwardPS.hlsl"
             }
         },
 

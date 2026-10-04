@@ -25,8 +25,8 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
             inData.mOutputTexture = inRGBuilder.Create(Texture::Desc
             {
                 .format = DXGI_FORMAT_R32_UINT,
-                .width  = (inRenderGraph.GetViewport().size.x + cPackedRaysWidth - 1 ) / cPackedRaysWidth,
-                .height = (inRenderGraph.GetViewport().size.y + cPackedRaysHeight  - 1 ) / cPackedRaysHeight,
+                .width  = (inRenderGraph.GetViewport().GetRenderSize().x + cPackedRaysWidth - 1 ) / cPackedRaysWidth,
+                .height = (inRenderGraph.GetViewport().GetRenderSize().y + cPackedRaysHeight - 1) / cPackedRaysHeight,
                 .usage  = Texture::Usage::SHADER_READ_WRITE,
                 .debugName = "RT_PackedShadowRayHits"
             });
@@ -109,14 +109,14 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
         [&inRenderGraph, &inDevice, &inScene](ClassifyShadowTilesData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
         {
             const Viewport& viewport = inRenderGraph.GetViewport();
-            const UVec2 dispatch_size = UVec2(( viewport.size.x + cTileSize - 1 ) / cTileSize, ( viewport.size.y + cTileSize - 1 ) / cTileSize);
+            const UVec2 dispatch_size = UVec2((viewport.GetRenderSize().x + cTileSize - 1) / cTileSize, (viewport.GetRenderSize().y + cTileSize - 1) / cTileSize);
 
             inCmdList.PushComputeConstants(ShadowsClassifyRootConstants 
             { 
                 .mShadowMaskTexture = inResources.GetBindlessHeapIndex(inData.mTracedShadowRaysTextureSRV),
                 .mTilesBuffer       = inResources.GetBindlessHeapIndex(inData.mTilesBufferUAV),
                 .mDispatchBuffer    = inResources.GetBindlessHeapIndex(inData.mIndirectDispatchBufferUAV),
-                .mDispatchSize      = viewport.size
+                .mDispatchSize      = viewport.GetRenderSize()
             });
 
             inCmdList->SetPipelineState(g_SystemShaders.mClassifyShadowTilesShader.GetComputePSO());
@@ -132,8 +132,8 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
             inData.mShadowsTexture = inRGBuilder.Create(Texture::Desc
             {
                 .format = DXGI_FORMAT_R32G32_FLOAT,
-                .width  = inRenderGraph.GetViewport().size.x,
-                .height = inRenderGraph.GetViewport().size.y,
+                .width  = inRenderGraph.GetViewport().GetRenderSize().x,
+                .height = inRenderGraph.GetViewport().GetRenderSize().y,
                 .usage  = Texture::Usage::SHADER_READ_WRITE,
                 .debugName = "RT_ShadowMask"
             });
@@ -141,8 +141,8 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
             inData.mShadowsTextureHistory = inRGBuilder.Create(Texture::Desc
             {
                 .format = DXGI_FORMAT_R32G32_FLOAT,
-                .width  = inRenderGraph.GetViewport().size.x,
-                .height = inRenderGraph.GetViewport().size.y,
+                .width  = inRenderGraph.GetViewport().GetRenderSize().x,
+                .height = inRenderGraph.GetViewport().GetRenderSize().y,
                 .usage  = Texture::Usage::SHADER_READ_WRITE,
                 .debugName = "RT_ShadowMaskHistory"
             });
@@ -259,16 +259,16 @@ const RTAOData& AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDe
     {
         inData.mOutputTexture = inRGBuilder.Create(Texture::Desc{
             .format = DXGI_FORMAT_R32_FLOAT,
-            .width  = inRenderGraph.GetViewport().size.x,
-            .height = inRenderGraph.GetViewport().size.y,
+            .width  = inRenderGraph.GetViewport().GetRenderSize().x,
+            .height = inRenderGraph.GetViewport().GetRenderSize().y,
             .usage  = Texture::Usage::SHADER_READ_WRITE,
             .debugName = "RT_AOMask"
         });
 
         inData.mHistoryTexture = inRGBuilder.Create(Texture::Desc{
             .format = DXGI_FORMAT_R32_FLOAT,
-            .width  = inRenderGraph.GetViewport().size.x,
-            .height = inRenderGraph.GetViewport().size.y,
+            .width  = inRenderGraph.GetViewport().GetRenderSize().x,
+            .height = inRenderGraph.GetViewport().GetRenderSize().y,
             .usage  = Texture::Usage::SHADER_READ_ONLY,
             .debugName = "RT_AOMaskHistory"
         });
@@ -295,7 +295,7 @@ const RTAOData& AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDe
             .mGbufferDepthTexture     = inResources.GetBindlessHeapIndex(inData.mGbufferDepthTextureSRV),
             .mGbufferRenderTexture    = inResources.GetBindlessHeapIndex(inData.mGBufferRenderTextureSRV),
             .mGbufferVelocityTexture  = inResources.GetBindlessHeapIndex(inData.mGBufferVelocityTextureSRV),
-            .mDispatchSize            = viewport.size,
+            .mDispatchSize            = viewport.GetRenderSize(),
             .mParams = AmbientOcclusionParams {
                 .mRadius = RenderSettings::mRTAORadius,
                 .mPower  = RenderSettings::mRTAOPower,
@@ -305,7 +305,7 @@ const RTAOData& AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDe
         });
 
         inCmdList->SetPipelineState(g_SystemShaders.mRTAmbientOcclusionShader.GetComputePSO());
-        inCmdList->Dispatch((viewport.size.x + 7) / 8, (viewport.size.y + 7) / 8, 1);
+        inCmdList->Dispatch((viewport.GetRenderSize().x + 7) / 8, (viewport.GetRenderSize().y + 7) / 8, 1);
 
         ID3D12Resource* result_texture_resource = inDevice.GetD3D12Resource(inResources.GetTexture(inData.mOutputTexture));
         ID3D12Resource* history_texture_resource = inDevice.GetD3D12Resource(inResources.GetTexture(inData.mHistoryTexture));
@@ -338,8 +338,8 @@ const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& in
         inData.mOutputTexture = inRGBuilder.Create(Texture::Desc
             {
                 .format    = DXGI_FORMAT_R16G16B16A16_FLOAT,
-                .width     = inRenderGraph.GetViewport().size.x,
-                .height    = inRenderGraph.GetViewport().size.y,
+                .width     = inRenderGraph.GetViewport().GetRenderSize().x,
+                .height    = inRenderGraph.GetViewport().GetRenderSize().y,
                 .mipLevels = 0, // let it calculate the nr of mips
                 .usage     = Texture::Usage::SHADER_READ_WRITE,
                 .debugName = "RT_Reflections"
@@ -364,11 +364,11 @@ const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& in
             .mSkyCubeTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mSkyCubeTextureSRV)),
             .mGbufferDepthTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mGBufferDepthTextureSRV)),
             .mGbufferRenderTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mGbufferRenderTextureSRV)),
-            .mDispatchSize = viewport.size
+            .mDispatchSize = viewport.GetRenderSize()
             });
 
         inCmdList->SetPipelineState(g_SystemShaders.mRTReflectionsShader.GetComputePSO());
-        inCmdList->Dispatch(( viewport.size.x + 7 ) / 8, ( viewport.size.y + 7 ) / 8, 1);
+        inCmdList->Dispatch(( viewport.GetRenderSize().x + 7 ) / 8, ( viewport.GetRenderSize().y + 7 ) / 8, 1);
     });
 }
 
@@ -382,8 +382,8 @@ const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevi
         inData.mOutputTexture = inRGBuilder.Create(Texture::Desc
         {
             .format = DXGI_FORMAT_R32G32B32A32_FLOAT,
-            .width  = inRenderGraph.GetViewport().size.x,
-            .height = inRenderGraph.GetViewport().size.y,
+            .width  = inRenderGraph.GetViewport().GetRenderSize().x,
+            .height = inRenderGraph.GetViewport().GetRenderSize().y,
             .usage  = Texture::SHADER_READ_WRITE,
             .debugName = "RT_GBufferCompressed"
         });
@@ -391,8 +391,8 @@ const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevi
         inData.mGBufferTexture = inRGBuilder.Create(Texture::Desc
         {
             .format = DXGI_FORMAT_R32G32B32A32_FLOAT,
-            .width  = inRenderGraph.GetViewport().size.x,
-            .height = inRenderGraph.GetViewport().size.y,
+            .width  = inRenderGraph.GetViewport().GetRenderSize().x,
+            .height = inRenderGraph.GetViewport().GetRenderSize().y,
             .usage  = Texture::Usage::SHADER_READ_WRITE,
             .debugName = "RT_PathTraceNormals"
         });
@@ -400,8 +400,8 @@ const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevi
         inData.mAccumulationTexture = inRGBuilder.Create(Texture::Desc
         {
             .format = DXGI_FORMAT_R32G32B32A32_FLOAT,
-            .width  = inRenderGraph.GetViewport().size.x,
-            .height = inRenderGraph.GetViewport().size.y,
+            .width  = inRenderGraph.GetViewport().GetRenderSize().x,
+            .height = inRenderGraph.GetViewport().GetRenderSize().y,
             .usage  = Texture::Usage::SHADER_READ_WRITE,
             .debugName = "RT_PathTraceAccumulation"
         });
@@ -409,8 +409,8 @@ const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevi
         inData.mSelectionTexture = inRGBuilder.Create(Texture::Desc
         {
             .format = DXGI_FORMAT_R32_UINT,
-            .width  = inRenderGraph.GetViewport().size.x,
-            .height = inRenderGraph.GetViewport().size.y,
+            .width  = inRenderGraph.GetViewport().GetRenderSize().x,
+            .height = inRenderGraph.GetViewport().GetRenderSize().y,
             .usage  = Texture::Usage::SHADER_READ_WRITE,
             .debugName = "RT_GBufferSelection"
         });
@@ -418,8 +418,8 @@ const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevi
         inData.mDepthTexture = inRGBuilder.Create(Texture::Desc
         {
             .format = DXGI_FORMAT_D32_FLOAT,
-            .width  = inRenderGraph.GetViewport().size.x,
-            .height = inRenderGraph.GetViewport().size.y,
+            .width  = inRenderGraph.GetViewport().GetRenderSize().x,
+            .height = inRenderGraph.GetViewport().GetRenderSize().y,
             .usage  = Texture::DEPTH_STENCIL_TARGET,
             .debugName = "RT_GBufferDepth"
         });
@@ -427,8 +427,8 @@ const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevi
         inData.mDepthWriteTexture = inRGBuilder.Create(Texture::Desc
         {
             .format = DXGI_FORMAT_R32_FLOAT,
-            .width = inRenderGraph.GetViewport().size.x,
-            .height = inRenderGraph.GetViewport().size.y,
+            .width = inRenderGraph.GetViewport().GetRenderSize().x,
+            .height = inRenderGraph.GetViewport().GetRenderSize().y,
             .usage = Texture::SHADER_READ_WRITE,
             .debugName = "RT_DepthWrite"
         });
@@ -455,13 +455,13 @@ const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevi
             .mDepthTexture = inDevice.GetBindlessHeapIndex(inResources.GetTexture(inData.mDepthWriteTexture)),
             .mSkyCubeTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mSkyCubeTextureSRV)),
             .mGBufferTexture = inDevice.GetBindlessHeapIndex(inResources.GetTexture(inData.mGBufferTexture)),
-            .mDispatchSize = viewport.size,
+            .mDispatchSize = viewport.GetRenderSize(),
         };
 
         inCmdList.PushComputeConstants(constants);
 
         inCmdList->SetPipelineState(g_SystemShaders.mRTPathTraceShader.GetComputePSO());
-        inCmdList->Dispatch(( viewport.size.x + 7 ) / 8, ( viewport.size.y + 7 ) / 8, 1);
+        inCmdList->Dispatch(( viewport.GetRenderSize().x + 7 ) / 8, ( viewport.GetRenderSize().y + 7 ) / 8, 1);
 
         RenderSettings::mPathTraceReset = false;
 
@@ -540,7 +540,7 @@ DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTr
         {
             .format = DXGI_FORMAT_R16G16_FLOAT,
             .width  = uint32_t(DDGI_DEPTH_TEXELS * DDGI_PROBES_PER_ROW),
-            .height = uint32_t(DDGI_DEPTH_TEXELS * ( total_probe_count / DDGI_PROBES_PER_ROW )),
+            .height = uint32_t(DDGI_DEPTH_TEXELS * std::max( total_probe_count / DDGI_PROBES_PER_ROW , 1)),
             .usage  = Texture::Usage::SHADER_READ_ONLY,
             .debugName = "DDGI_UpdatedDepth"
         });
@@ -549,7 +549,7 @@ DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTr
         {
             .format = DXGI_FORMAT_R16G16B16A16_FLOAT,
             .width  = uint32_t(DDGI_IRRADIANCE_TEXELS * DDGI_PROBES_PER_ROW),
-            .height = uint32_t(DDGI_IRRADIANCE_TEXELS * ( total_probe_count / DDGI_PROBES_PER_ROW )),
+            .height = uint32_t(DDGI_IRRADIANCE_TEXELS * std::max( total_probe_count / DDGI_PROBES_PER_ROW, 1 )),
             .usage  = Texture::Usage::SHADER_READ_ONLY,
             .debugName = "DDGI_UpdatedIrradiance"
         });
@@ -702,8 +702,8 @@ DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTr
         inData.mOutputTexture = ioRGBuilder.Create(Texture::Desc
         {
             .format = DXGI_FORMAT_R32G32B32A32_FLOAT,
-            .width  = inRenderGraph.GetViewport().size.x,
-            .height = inRenderGraph.GetViewport().size.y,
+            .width  = inRenderGraph.GetViewport().GetRenderSize().x,
+            .height = inRenderGraph.GetViewport().GetRenderSize().y,
             .usage  = Texture::SHADER_READ_WRITE,
             .debugName = "RT_DDGISampleOutput"
         });
@@ -845,58 +845,23 @@ const ProbeDebugData& AddProbeDebugPass(RenderGraph& inRenderGraph, Device& inDe
 
 
 
-const ProbeDebugRaysData& AddProbeDebugRaysPass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inRenderTarget, RenderGraphResourceID inDepthTarget)
+const ProbeDebugRaysData& AddProbeDebugRaysPass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inRenderTarget, RenderGraphResourceID inDepthTarget, BufferID inLinesVertexBuffer, BufferID inIndirectArgsBuffer)
 {
     return inRenderGraph.AddGraphicsPass<ProbeDebugRaysData>("DDGI Debug Rays",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ProbeDebugRaysData& inData)
     {
-        inData.mVertexBuffer = ioRGBuilder.Create(Buffer::Desc
-        {
-            .size   = sizeof(Vec4) * UINT16_MAX,
-            .stride = sizeof(Vec4),
-            .usage  = Buffer::Usage::SHADER_READ_WRITE,
-            .debugName = "DebugLinesVertexBuffer"
-        });
-
-
-        inData.mIndirectArgsBuffer = ioRGBuilder.Create(Buffer::Desc
-        {
-            .size  = sizeof(D3D12_DRAW_ARGUMENTS),
-            .usage = Buffer::Usage::SHADER_READ_WRITE,
-            .debugName = "DebugLinesIndirectArgsBuffer"
-        });
-
-        // ioRGBuilder.Write(inData.mVertexBuffer);
+        inData.mIndirectArgsBuffer = ioRGBuilder.Import(inDevice, inIndirectArgsBuffer);
+        ioRGBuilder.ReadIndirectArgs(inData.mIndirectArgsBuffer);
 
         ioRGBuilder.RenderTarget(inRenderTarget);
         ioRGBuilder.DepthStencilTarget(inDepthTarget);
-
-        D3D12_INDIRECT_ARGUMENT_DESC indirect_args =
-        {
-            .Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW
-        };
-
-        const D3D12_COMMAND_SIGNATURE_DESC cmdsig_desc =
-        {
-            .ByteStride = sizeof(D3D12_DRAW_ARGUMENTS),
-            .NumArgumentDescs = 1,
-            .pArgumentDescs = &indirect_args
-        };
-
-        inDevice->CreateCommandSignature(&cmdsig_desc, nullptr, IID_PPV_ARGS(inData.mCommandSignature.GetAddressOf()));
-
-        constexpr std::array vertex_layout =
-        {
-            D3D12_INPUT_ELEMENT_DESC { "POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-        };
 
         D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inRenderPass->CreatePipelineStateDesc(inDevice, g_SystemShaders.mProbeDebugRaysShader);
 
         pso_state.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
         pso_state.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
         pso_state.RasterizerState.AntialiasedLineEnable = true;
-        pso_state.InputLayout.NumElements = uint32_t(vertex_layout.size());
-        pso_state.InputLayout.pInputElementDescs = vertex_layout.data();
+        pso_state.InputLayout = {};
 
         inDevice->CreateGraphicsPipelineState(&pso_state, IID_PPV_ARGS(inData.mPipeline.GetAddressOf()));
         inData.mPipeline->SetName(L"PSO_PROBE_DEBUG_RAYS");
@@ -904,33 +869,13 @@ const ProbeDebugRaysData& AddProbeDebugRaysPass(RenderGraph& inRenderGraph, Devi
 
     [&inDevice](ProbeDebugRaysData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
     {
-        ID3D12Resource* vertices_buffer_resource = inDevice.GetD3D12Resource(inRGResources.GetBuffer(inData.mVertexBuffer));
-        ID3D12Resource* indirect_args_buffer_resource = inDevice.GetD3D12Resource(inRGResources.GetBuffer(inData.mIndirectArgsBuffer));
-
-        auto vertices_entry_barrier = CD3DX12_RESOURCE_BARRIER::Transition(vertices_buffer_resource, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
-        auto indirect_args_entry_barrier = CD3DX12_RESOURCE_BARRIER::Transition(indirect_args_buffer_resource, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT);
-        std::array entry_barriers = { vertices_entry_barrier, indirect_args_entry_barrier };
-
-        auto vertices_exit_barrier = CD3DX12_RESOURCE_BARRIER::Transition(vertices_buffer_resource, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-        auto indirect_args_exit_barrier = CD3DX12_RESOURCE_BARRIER::Transition(indirect_args_buffer_resource, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-        std::array exit_barriers = { vertices_exit_barrier, indirect_args_exit_barrier };
-
-        Buffer& vertex_buffer = inDevice.GetBuffer(inRGResources.GetBuffer(inData.mVertexBuffer));
-
-        const D3D12_VERTEX_BUFFER_VIEW vertex_view = 
-        {
-            .BufferLocation = vertex_buffer->GetGPUVirtualAddress(),
-            .SizeInBytes = uint32_t(vertex_buffer->GetDesc().Width),
-            .StrideInBytes = sizeof(float4)
-        };
-
-        inCmdList->ResourceBarrier(entry_barriers.size(), entry_barriers.data());
-        inCmdList->IASetVertexBuffers(0, 1, &vertex_view);
         inCmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
         inCmdList->SetPipelineState(inData.mPipeline.Get());
-        inCmdList->ExecuteIndirect(inData.mCommandSignature.Get(), 1, indirect_args_buffer_resource, 0, nullptr, 0);
+
+        ID3D12Resource* indirect_args_buffer_resource = inDevice.GetD3D12Resource(inRGResources.GetBuffer(inData.mIndirectArgsBuffer));
+        inCmdList->ExecuteIndirect(inDevice.GetCommandSignature(COMMAND_SIGNATURE_DRAW), 1, indirect_args_buffer_resource, 0, nullptr, 0);
+        
         inCmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-        inCmdList->ResourceBarrier(exit_barriers.size(), exit_barriers.data());
     });
 }
 

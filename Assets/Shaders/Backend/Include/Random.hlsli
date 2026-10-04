@@ -8,7 +8,8 @@
 #define GOLDEN_RATIO 0.61803398875
 
 // Animation over time from https://www.shadertoy.com/view/XtGBDc
-float4 SampleBlueNoise(uint2 inCoord, uint inFrameCounter) {
+float4 SampleBlueNoise(uint2 inCoord, uint inFrameCounter) 
+{
     Texture2D<float4> blue_noise_texture = ResourceDescriptorHeap[BINDLESS_BLUE_NOISE_TEXTURE_INDEX];
     float4 blue_noise = blue_noise_texture[inCoord.xy % 128];
     return frac(blue_noise + (GOLDEN_RATIO * (inFrameCounter & 255)));
@@ -16,7 +17,8 @@ float4 SampleBlueNoise(uint2 inCoord, uint inFrameCounter) {
 
 static const float PHI = sqrt(5) * 0.5 + 0.5;
 
-float3 SphericalFibonnaci(uint i, uint n) {
+float3 SphericalFibonnaci(uint i, uint n) 
+{
     float fraction = (i * (PHI - 1)) - floor(i * (PHI - 1));
     float phi = 2.0 * M_PI * fraction;
     float cos_theta = 1.0 - (2.0 * i + 1.0) * (1.0 / n);
@@ -25,7 +27,8 @@ float3 SphericalFibonnaci(uint i, uint n) {
 }
 
 // From Ray Tracing Gems chapter 6
-float3 offsetRay(float3 p, float3 n) {
+float3 offsetRay(float3 p, float3 n) 
+{
     const float origin = 1.0 / 32.0;
     const float float_scale = 1.0 / 65536.0;
     const float int_scale = 256.0;
@@ -42,7 +45,8 @@ float3 offsetRay(float3 p, float3 n) {
                   abs(p.z) < origin ? p.z + float_scale * n.z : p_i.z);
 }
 
-float3 SampleCosineWeightedHemisphere(float2 rng) {
+float3 SampleCosineWeightedHemisphere(float2 rng) 
+{
     float phi = rng.x * M_PI * 2.0;
     float cos_theta = sqrt(max(0.0, 1.0 - rng.y));
     float sin_theta = sqrt(max(0.0, 1.0 - cos_theta * cos_theta));
@@ -53,21 +57,24 @@ float3 SampleCosineWeightedHemisphere(float2 rng) {
     return float3(cos_phi * sin_theta, sin_phi * sin_theta, cos_theta);
 }
 
-float2 uniformSampleDisk(float2 u) {
+float2 uniformSampleDisk(float2 u) 
+{
     float r = sqrt(u.x);
     float theta = 2 * M_PI * u.y;
     return float2(r * cos(theta), r * sin(theta));
 }
 
-float2 uniformSampleDisk(float2 u, float radius) {
+float2 uniformSampleDisk(float2 u, float radius) 
+{
     float r = radius * sqrt(u.x);
     float theta = 2 * M_PI * u.y;
     return float2(r * cos(theta), r * sin(theta));
 }
 
-float3 uniformSampleCone(const float2 u, float cosThetaMax) {
+float3 uniformSampleCone(float2 u, float cosThetaMax) 
+{
     float cosTheta = (1.0 - u.x) + u.x * cosThetaMax;
-    float sinTheta = sqrt(1.0 - cosTheta * cosTheta);
+    float sinTheta = sqrt(saturate(1.0 - cosTheta * cosTheta));
     float phi = u.y * 2 * M_PI;
     return float3(cos(phi) * sinTheta, sin(phi) * sinTheta, cosTheta);
 }
@@ -80,26 +87,31 @@ uint pcg_hash(inout uint in_state) {
     return in_state;
 }
 
-float pcg_float(inout uint in_state) {
+float pcg_float(inout uint in_state) 
+{
     return pcg_hash(in_state) / float(uint(0xffffffff));
 }
 
-float2 pcg_float2(inout uint in_state) {
+float2 pcg_float2(inout uint in_state) 
+{
     return float2(pcg_float(in_state), pcg_float(in_state));
 }
 
-float3 pcg_float3(inout uint in_state) {
+float3 pcg_float3(inout uint in_state) 
+{
     return float3(pcg_float(in_state), pcg_float(in_state), pcg_float(in_state));
 }
 
 
-float InterleavedGradientNoise(float2 pixel) {
+float InterleavedGradientNoise(float2 pixel) 
+{
     float3 magic = float3(0.06711056f, 0.00583715f, 52.9829189f);
     return frac(magic.z * frac(dot(pixel, magic.xy)));
 }
 
 
-uint TeaHash(uint val0, uint val1) {
+uint TeaHash(uint val0, uint val1) 
+{
     uint v0 = val0;
     uint v1 = val1;
     uint s0 = 0;

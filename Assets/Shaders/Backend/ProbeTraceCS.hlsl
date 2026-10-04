@@ -66,8 +66,10 @@ void main(uint3 threadID : SV_DispatchThreadID)
 
     float hitT = length(rc.mDDGIData.mProbeSpacing);
     float3 irradiance = 0.xxx;
+    float3 debug_irradiance = 0.xxx;
 
-    if (query.CommittedStatus() == COMMITTED_TRIANGLE_HIT)
+    bool ray_hit = query.CommittedStatus() == COMMITTED_TRIANGLE_HIT;
+    if (ray_hit)
     {
         hitT = ray.TMin + query.CommittedRayT();
 
@@ -92,37 +94,45 @@ void main(uint3 threadID : SV_DispatchThreadID)
 
         {
             uint rng = 0;
-            float3 Wi = SampleDirectionalLight(fc.mSunDirection.xyz, fc.mSunConeAngle, pcg_float2(rng));
+            float3 Wi = SampleDirectionalLight(fc.mSunDirection.xyz, 0.0f, pcg_float2(rng));
         
-            bool hit = TraceShadowRay(TLAS, vertex.mPos + vertex.mNormal * 0.01, Wi, 0.1f, 1000.0f);
+            if (dot(surface.mNormal, Wi) > 0.0)
+            {
+                bool hit = TraceShadowRay(TLAS, vertex.mPos + vertex.mNormal * 0.01, Wi, 0.0f, 10000.0f);
             
-            if (!hit)
-                irradiance += EvaluateDirectionalLight(surface, fc.mSunColor, Wi, Wo);
+                if (!hit)
+                    irradiance += EvaluateDirectionalLight(surface, fc.mSunColor, Wi, Wo);
+            }
         }
         
-        // TODO: make probe textures persistent, at this point in the rendergraph they don't exist yet
+        debug_irradiance = irradiance;
+        
         // Infinite bounces!
         if (fc.mFrameCounter > 2)
         {
-            irradiance += surface.mAlbedo.rgb * DDGISampleIrradiance(vertex.mPos, vertex.mNormal, rc.mDDGIData);
+            //irradiance += surface.mAlbedo.rgb * DDGISampleIrradiance(vertex.mPos, vertex.mNormal, rc.mDDGIData);
         }
     }
     else
     {
         irradiance = skycube_texture.SampleLevel(SamplerLinearClamp, ray.Direction, 0);
         irradiance = max(irradiance, 0.0.xxx) * fc.mSunColor.a;
+        debug_irradiance = irradiance;
         
         hitT = ray.TMax;
     }
     
-#if 0
+#if 1
     if (probe_index == rc.mDebugProbeIndex) {
        // Resets indirect draw args VertexCount to 0 and InstanceCount to 1
        if (ray_index == 0)
            ResetDebugLineCount();
         
-       float4 debug_ray_color = float4(irradiance, 1.0);
-       float3 debug_ray_start = ray.Origin + ray.Direction * 0.25;
+       float min_scale = min(min(rc.mDDGIData.mProbeSpacing.x, rc.mDDGIData.mProbeSpacing.y), rc.mDDGIData.mProbeSpacing.z);
+       float probe_scale = min_scale * rc.mDDGIData.mProbeRadius;
+        
+       float4 debug_ray_color = float4(debug_irradiance, 1.0);
+       float3 debug_ray_start = ray.Origin + ray.Direction * probe_scale;
        float3 debug_ray_end   = ray.Origin + ray.Direction * hitT;
         
        // InterlockedAdd( 2 ) to the VertexCount, use the original value as write index into the line vertex buffer

@@ -38,4 +38,8 @@
 #define TEXTURE_SWIZZLE_BBBB 0b10'10'10'10
 #define TEXTURE_SWIZZLE_AAAA 0b11'11'11'11
 
+#define KiB(n) ((uint64_t)(n) << 10)
+#define MiB(n) ((uint64_t)(n) << 20)
+#define GiB(n) ((uint64_t)(n) << 30)
+
 

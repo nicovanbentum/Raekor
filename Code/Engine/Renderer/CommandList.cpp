@@ -82,6 +82,51 @@ void CommandList::ClearTexture(Device& inDevice, TextureID inTexture, Vec4 inVal
 }
 
 
+
+void CommandList::DiscardTexture(Device& inDevice, TextureID inTexture)
+{
+#if 0
+    ID3D12Resource* resource_ptr = inDevice.GetD3D12Resource(inTexture);
+    m_CommandList->DiscardResource(resource_ptr, nullptr);
+#endif
+}
+
+
+void CommandList::ClearRenderTarget(Device& inDevice, TextureID inTexture, Vec4 inColorValue)
+{
+    RK_ASSERT(!gIsDepthFormat(inDevice.GetTexture(inTexture).GetFormat()));
+
+    D3D12_CPU_DESCRIPTOR_HANDLE cpu_Descriptor_handle = inDevice.GetCPUDescriptorHandle(inTexture);
+    m_CommandList->ClearRenderTargetView(cpu_Descriptor_handle, &inColorValue[0], 0, nullptr);
+}
+
+
+void CommandList::ClearDepthStencilTarget(Device& inDevice, TextureID inTexture, const float* inDepthValue, const uint8_t* inStencilValue)
+{
+    RK_ASSERT(gIsDepthFormat(inDevice.GetTexture(inTexture).GetFormat()));
+
+    D3D12_CLEAR_FLAGS clear_flags = D3D12_CLEAR_FLAGS(0);
+
+    float depth_clear_value = 1.0f;
+    uint8_t stencil_clear_value = 0u;
+
+    if (inDepthValue)
+    {
+        depth_clear_value = *inDepthValue;
+        clear_flags |= D3D12_CLEAR_FLAG_DEPTH;
+    }
+
+    if (inStencilValue)
+    {
+        stencil_clear_value = *inStencilValue;
+        clear_flags |= D3D12_CLEAR_FLAG_STENCIL;
+    }
+
+    D3D12_CPU_DESCRIPTOR_HANDLE cpu_Descriptor_handle = inDevice.GetCPUDescriptorHandle(inTexture);
+    m_CommandList->ClearDepthStencilView(cpu_Descriptor_handle, clear_flags, depth_clear_value, stencil_clear_value, 0, nullptr);
+}
+
+
 void CommandList::BindDefaults(Device& inDevice)
 {
     m_CommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -102,16 +147,49 @@ void CommandList::BindToSlot(Buffer& inBuffer, EBindSlot inSlot, uint32_t inOffs
 {
     switch (inSlot)
     {
-        case EBindSlot::CBV0: case EBindSlot::CBV1:
+        case EBindSlot::CBV0: 
+        case EBindSlot::CBV1:
             m_CommandList->SetGraphicsRootConstantBufferView(inSlot, inBuffer->GetGPUVirtualAddress() + inOffset);
             m_CommandList->SetComputeRootConstantBufferView(inSlot, inBuffer->GetGPUVirtualAddress() + inOffset);
             break;
-        case EBindSlot::SRV0: case EBindSlot::SRV1:
+        case EBindSlot::SRV0: 
+        case EBindSlot::SRV1:
             m_CommandList->SetGraphicsRootShaderResourceView(inSlot, inBuffer->GetGPUVirtualAddress() + inOffset);
             m_CommandList->SetComputeRootShaderResourceView(inSlot, inBuffer->GetGPUVirtualAddress() + inOffset);
             break;
         default: assert(false);
     }
+}
+
+
+void CommandList::BindComputeProgram(const ComputeProgram& inProgram)
+{
+    m_CommandList->SetPipelineState(inProgram.GetComputePSO());
+}
+
+
+void CommandList::BindGraphicsProgram(const GraphicsProgram& inProgram)
+{
+    // not implemented yet
+    RK_ASSERT(false);
+}
+
+
+void CommandList::Dispatch(uint32_t inThreadGroupCountX, uint32_t inThreadGroupCountY, uint32_t inThreadGroupCountZ)
+{
+    m_CommandList->Dispatch(inThreadGroupCountX, inThreadGroupCountY, inThreadGroupCountZ);
+}
+
+
+void CommandList::Draw(uint32_t inVertexCount, uint32_t inInstanceCount, int32_t inVertexOffset, uint32_t inInstanceOffset)
+{
+    m_CommandList->DrawInstanced(inVertexCount, inInstanceCount, inVertexOffset, inInstanceOffset);
+}
+
+
+void CommandList::DrawIndexed(uint32_t inIndexCount, uint32_t inInstanceCount, uint32_t inIndexOffset, int32_t inVertexOffset, uint32_t inInstanceOffset)
+{
+    m_CommandList->DrawIndexedInstanced(inIndexCount, inInstanceCount, inIndexOffset, inVertexOffset, inInstanceOffset);
 }
 
 

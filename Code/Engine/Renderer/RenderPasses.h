@@ -39,9 +39,10 @@ struct RenderSettings
     static inline uint32_t mPathTraceBounces = 2u;
     static inline uint32_t mPathTraceAlphaBounces = 4u;
 
-    static inline bool mDDGIUseChebyshev = false;
+    static inline bool mDDGIUseChebyshev = true;
+    static inline bool mDDGIUseMultibounce = true;
     static inline float mDDGIDebugRadius = 0.25f;
-    static inline IVec3 mDDGIDebugProbe = IVec3(10, 10, 5);
+    static inline IVec3 mDDGIDebugProbe = IVec3(0, 0, 0);
     static inline IVec3 mDDGIProbeCount = IVec3(16, 16, 16);
     static inline Vec3 mDDGIProbeSpacing = Vec3(6.4, 3.0, 2.8);
     static inline Vec3 mDDGICornerPosition = Vec3(-65, -1.4, -28.5);
@@ -159,12 +160,25 @@ struct ConvolveCubeData
 {
     RenderGraphResourceViewID mCubeTextureSRV;
     RenderGraphResourceID mConvolvedCubeTexture;
-    ComPtr<ID3D12PipelineState> mPipeline;
 };
 
 const ConvolveCubeData& AddConvolveSkyCubePass(RenderGraph& inRenderGraph, Device& inDevice,
+    const Scene& inScene,
     const SkyCubeData& inSkyCubeData
 );
+
+
+
+////////////////////////////////////////
+/// Integrate specular BRDF Pass
+////////////////////////////////////////
+struct IntegrateBrdfData
+{
+    bool isGenerated = false;
+    RenderGraphResourceID outputTexture;
+};
+
+const IntegrateBrdfData& AddIntegrateBrdfPass(RenderGraph& inRenderGraph, Device& inDevice);
 
 
 
@@ -202,6 +216,23 @@ struct GBufferData
 };
 
 const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice,
+    const RayTracedScene& inScene
+);
+
+
+////////////////////////////////////////
+/// Transparent Foward Render Pass
+////////////////////////////////////////
+
+struct TransparentForwardData
+{
+    RenderGraphResourceViewID mOutputTexture;
+    RenderGraphResourceViewID mDepthTexture;
+    ComPtr<ID3D12PipelineState> mPipeline;
+    IRenderPass* mRenderPass = nullptr;
+};
+
+const TransparentForwardData& AddForwardPass(RenderGraph& inRenderGraph, Device& inDevice,
     const RayTracedScene& inScene
 );
 
@@ -308,7 +339,8 @@ struct DownsampleData
 };
 
 const DownsampleData& AddDownsamplePass(RenderGraph& inRenderGraph, Device& inDevice,
-    RenderGraphResourceID inSourceTexture
+    RenderGraphResourceID inSourceTexture,
+    const char* inName
 );
 
 
@@ -333,6 +365,7 @@ struct LightingData
 {
     DDGIData mDDGIData;
     RenderGraphResourceID mOutputTexture;
+    RenderGraphResourceViewID mBrdfLutTextureSRV;
     RenderGraphResourceViewID mSkyCubeTextureSRV;
     RenderGraphResourceViewID mDiffuseSkyCubeTextureSRV;
     RenderGraphResourceViewID mShadowMaskTextureSRV;
@@ -348,6 +381,7 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
     const RayTracedScene& inScene,
     const GBufferOutput& inGBuffer, 
     const TiledLightCullingData& inLightData,
+    RenderGraphResourceID inBrdfLutTexture,
     RenderGraphResourceID inSkyCubeTexture,
     RenderGraphResourceID inDiffuseCubeTexture,
     RenderGraphResourceID inShadowTexture, 
@@ -377,6 +411,14 @@ const TAAResolveData& AddTAAResolvePass(RenderGraph& inRenderGraph, Device& inDe
     const GBufferOutput& inGBuffer,
     RenderGraphResourceID inColorTexture
 );
+
+
+struct CopyTextureGraphicsData
+{
+    ComPtr<ID3D12PipelineState> mPipeline;
+    RenderGraphResourceViewID mSrcTextureSRV;
+    RenderGraphResourceViewID mDstTextureRTV;
+};
 
 
 ////////////////////////////////////////

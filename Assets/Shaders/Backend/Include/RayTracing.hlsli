@@ -11,6 +11,9 @@ RTVertex InterpolateVertices(RTVertex v0, RTVertex v1, RTVertex v2, float3 inBar
     vertex.mNormal = v0.mNormal * inBaryCentrics.x + v1.mNormal * inBaryCentrics.y + v2.mNormal * inBaryCentrics.z;
     vertex.mTangent = v0.mTangent * inBaryCentrics.x + v1.mTangent * inBaryCentrics.y + v2.mTangent * inBaryCentrics.z;
     
+    //float3 vert_normal = normalize(cross(v0.mPos - v1.mPos, v0.mPos - v2.mPos));
+    //vertex.mNormal = vert_normal;
+    
     return vertex;
 }
 
@@ -24,7 +27,7 @@ RTVertex CalculateVertexFromGeometry(RTGeometry inGeometry, uint inPrimitiveInde
     const RTVertex v1 = vertex_buffer[indices.y];
     const RTVertex v2 = vertex_buffer[indices.z];
         
-    // float3 vert_normal = normalize(cross(v0.mPos - v1.mPos, v0.mPos - v2.mPos));
+    float3 vert_normal = normalize(cross(v0.mPos - v1.mPos, v0.mPos - v2.mPos));
         
     const float3 barycentrics = float3(1.0 - inBaryCentrics.x - inBaryCentrics.y, inBaryCentrics.x, inBaryCentrics.y);
     return InterpolateVertices(v0, v1, v2, barycentrics);

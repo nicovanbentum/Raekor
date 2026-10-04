@@ -116,10 +116,11 @@ bool GltfImporter::LoadFromFile(const String& inFile, Assets* inAssets)
 
 		for (const cgltf_animation_channel& channel : Slice(gltf_animation.channels, gltf_animation.channels_count))
 		{
-			const String node_name = String(channel.target_node->name);
-
-			animation.LoadKeyframes(node_name, &channel);
-
+			if (channel.target_node->name)
+			{
+				const String node_name = String(channel.target_node->name);
+				animation.LoadKeyframes(node_name, &channel);
+			}
 		}
 
 		name.name = gltf_animation.name ? gltf_animation.name : "Animation";
@@ -386,7 +387,9 @@ void GltfImporter::ConvertBones(Entity inEntity, const cgltf_node& inNode)
 	if (!inNode.mesh || !inNode.skin)
 		return;
 
-	Mesh& mesh = m_Scene.Get<Mesh>(inEntity);
+	if (m_Scene.Has<Mesh>(inEntity))
+		return;
+
 	Skeleton& skeleton = m_Scene.Add<Skeleton>(inEntity);
 
 	for (const auto& [index, primitive] : gEnumerate(Slice(inNode.mesh->primitives, inNode.mesh->primitives_count)))
@@ -449,11 +452,14 @@ void GltfImporter::ConvertBones(Entity inEntity, const cgltf_node& inNode)
 	skeleton.boneWSTransformMatrices.resize(skeleton.boneOffsetMatrices.size(), glm::mat4(1.0f));
 
 	if (m_Renderer)
+	{
+		Mesh& mesh = m_Scene.Get<Mesh>(inEntity);
 		m_Renderer->UploadSkeletonBuffers(inEntity, skeleton, mesh);
+	}
 
 	if (cgltf_node* root_bone = inNode.skin->skeleton)
 	{
-		skeleton.rootBone.name = root_bone->name;
+		skeleton.rootBone.name = root_bone->name ? root_bone->name : "";
 		skeleton.rootBone.index = GetJointIndex(&inNode, root_bone);
 
 		// recursive lambda to loop over the node hierarchy, dear lord help us all
@@ -466,7 +472,7 @@ void GltfImporter::ConvertBones(Entity inEntity, const cgltf_node& inNode)
 				if (index != -1)
 				{
 					Skeleton::Bone& child_bone = boneNode.children.emplace_back();
-					child_bone.name = node->name;
+					child_bone.name = node->name ? node->name : "";
 					child_bone.index = index;
 
 					copyHierarchy(copyHierarchy, node, child_bone);
@@ -496,6 +502,11 @@ void GltfImporter::ConvertMaterial(Entity inEntity, const cgltf_material& gltfMa
 	Material& material = m_Scene.Add<Material>(inEntity);
 	material.isTransparent = gltfMaterial.alpha_mode != cgltf_alpha_mode_opaque;
 
+	auto HasImageOnDisk = [](cgltf_image* image) -> bool 
+	{
+		return image && image->uri != nullptr && strncmp(image->uri, "data:", 5) != 0;
+	};
+
 	if (gltfMaterial.has_pbr_metallic_roughness)
 	{
 		material.metallic = gltfMaterial.pbr_metallic_roughness.metallic_factor;
@@ -503,21 +514,33 @@ void GltfImporter::ConvertMaterial(Entity inEntity, const cgltf_material& gltfMa
 		memcpy(glm::value_ptr(material.albedo), gltfMaterial.pbr_metallic_roughness.base_color_factor, sizeof(material.albedo));
 
 		if (cgltf_texture* texture = gltfMaterial.pbr_metallic_roughness.base_color_texture.texture)
-			material.albedoFile = TextureAsset::GetCachedPath(m_Directory.string() + texture->image->uri);
+		{
+			if (HasImageOnDisk(texture->image))
+				material.albedoFile = TextureAsset::GetCachedPath(m_Directory.string() + texture->image->uri);
+		}
 
 		if (cgltf_texture* texture = gltfMaterial.pbr_metallic_roughness.metallic_roughness_texture.texture)
 		{
-			String cached_texture_path = TextureAsset::GetCachedPath(m_Directory.string() + texture->image->uri);
-			material.metallicFile = cached_texture_path;
-			material.roughnessFile = cached_texture_path;
+			if (HasImageOnDisk(texture->image))
+			{
+				String cached_texture_path = TextureAsset::GetCachedPath(m_Directory.string() + texture->image->uri);
+				material.metallicFile = cached_texture_path;
+				material.roughnessFile = cached_texture_path;
+			}
 		}
 	}
 
 	if (cgltf_texture* normal_texture = gltfMaterial.normal_texture.texture)
-		material.normalFile = TextureAsset::GetCachedPath(m_Directory.string() + normal_texture->image->uri);
+	{
+		if (HasImageOnDisk(normal_texture->image))
+			material.normalFile = TextureAsset::GetCachedPath(m_Directory.string() + normal_texture->image->uri);
+	}
 
 	if (cgltf_texture* emissive_texture = gltfMaterial.emissive_texture.texture)
-		material.emissiveFile = TextureAsset::GetCachedPath(m_Directory.string() + emissive_texture->image->uri);
+	{
+		if (HasImageOnDisk(emissive_texture->image))
+			material.emissiveFile = TextureAsset::GetCachedPath(m_Directory.string() + emissive_texture->image->uri);
+	}
 
 	memcpy(glm::value_ptr(material.emissive), gltfMaterial.emissive_factor, sizeof(material.emissive));
 }

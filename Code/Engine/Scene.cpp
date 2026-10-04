@@ -289,6 +289,7 @@ void Scene::RenderDebugShapes(Entity inEntity, float inOpacity) const
 		g_DebugRenderer.AddLineCube(mesh.bbox.GetMin(), mesh.bbox.GetMax(), transform.worldTransform);
 
 		Vec4 debug_mesh_color = Vec4(0.65, 1.0, 0.8, inOpacity);
+#if 0
 
 		for (int i = 0; i < mesh.indices.size(); i += 3)
 		{
@@ -302,6 +303,7 @@ void Scene::RenderDebugShapes(Entity inEntity, float inOpacity) const
 
 			g_DebugRenderer.AddTriangle(Vec3(v0_ws), Vec3(v1_ws), Vec3(v2_ws), debug_mesh_color);
 		}
+#endif
 	}
 	// render debug shape for lights
 	if (Has<Light>(inEntity))
@@ -602,6 +604,8 @@ void Scene::OpenFromFile(const String& inFilePath, Assets& ioAssets, Application
 
 	std::cout << std::format("[Scene] Load Hierarchy data took {:.3f} seconds.\n", timer.GetElapsedTime());
 
+	timer.Restart();
+
 	// read in tables
 	Array<SceneTable> tables;
 	file.seekg(header.IndexTableStart);
@@ -632,7 +636,7 @@ void Scene::OpenFromFile(const String& inFilePath, Assets& ioAssets, Application
 	}
 
 	timer.Restart();
-
+	
 	// load mesh data to vram
 	for (const auto& [entity, mesh] : Each<Mesh>())
 	{

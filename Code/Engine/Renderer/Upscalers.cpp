@@ -19,9 +19,12 @@ UVec2 Upscaler::sGetRenderResolution(UVec2 inDisplayResolution, EUpscalerQuality
 
     switch (inQuality)
     {
-        case UPSCALER_QUALITY_QUALITY: display_res /= 1.5f; break;
-        case UPSCALER_QUALITY_BALANCED: display_res /= 1.7f; break;
-        case UPSCALER_QUALITY_PERFORMANCE: display_res /= 2.0f; break;
+        case UPSCALER_QUALITY_QUALITY: display_res /= 1.5f; 
+            break;
+        case UPSCALER_QUALITY_BALANCED: display_res /= 1.7f; 
+            break;
+        case UPSCALER_QUALITY_PERFORMANCE: display_res /= 2.0f; 
+            break;
         default: break;
     }
 
@@ -168,7 +171,7 @@ bool Upscaler::InitXeSS(Device& inDevice, const Viewport& inViewport)
         return false;
     }
 
-    const xess_2d_t display_res = { inViewport.size.x, inViewport.size.y };
+    const xess_2d_t display_res = { inViewport.GetDisplaySize().x, inViewport.GetDisplaySize().y};
     xess_properties_t props = {};
     status = xessGetProperties(m_XeSSContext, &display_res, &props);
     if (status != XESS_RESULT_SUCCESS)
@@ -183,7 +186,7 @@ bool Upscaler::InitXeSS(Device& inDevice, const Viewport& inViewport)
 
     xess_d3d12_init_params_t params = {};
     params.outputResolution = display_res;
-    params.initFlags = XESS_INIT_FLAG_ENABLE_AUTOEXPOSURE;
+    params.initFlags = XESS_INIT_FLAG_ENABLE_AUTOEXPOSURE | XESS_INIT_FLAG_JITTERED_MV;
     params.qualitySetting = Upscaler::sGetQualityXeSS(EUpscalerQuality(m_Settings.mUpscaleQuality));
 
     status = xessD3D12Init(m_XeSSContext, &params);

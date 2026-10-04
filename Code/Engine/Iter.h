@@ -23,6 +23,15 @@ constexpr auto gEnumerate(T&& iterable)
     return iterable_wrapper { std::forward<T>(iterable) };
 }
 
+template<typename Container0, typename... Containers>
+auto gJoin(Container0& first, Containers&... rest)
+{
+    using T = typename Container0::value_type;
+
+    static_assert((std::same_as<T, typename Containers::value_type> && ...));
+
+    return std::array<std::span<T>, 1 + sizeof...(Containers)>{ std::span<T>{first}, std::span<T>{rest}... };
+}
 
 template <typename Tpl, typename Fx, size_t... Indices>
 void _for_each_tuple_element_impl(Tpl&& Tuple, Fx Func, std::index_sequence<Indices...>)

@@ -1,4 +1,4 @@
-#include "pch.h"
+#include "PCH.h"
 #include "Renderer.h"
 
 #include "Shared.h"
@@ -95,6 +95,9 @@ Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inW
 
         g_ThreadPool.WaitForJobs();
     });
+
+    m_DebugLinesVertexBuffer = inDevice.CreateBuffer(Buffer::RWStructuredBuffer(sizeof(Vec4) * UINT16_MAX, sizeof(Vec4), "DebugLinesVertexBuffer"));
+    m_DebugLinesIndirectArgsBuffer = inDevice.CreateBuffer(Buffer::RWByteAddressBuffer(sizeof(D3D12_DRAW_ARGUMENTS), "DebugLinesIndirectArgsBuffer"));
 }
 
 
@@ -260,8 +263,8 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     float jitter_offset_y = 0;
     ffxFsr2GetJitterOffset(&jitter_offset_x, &jitter_offset_y, m_FrameCounter, jitter_phase_count);
 
-    const float jitter_x = 2.0f * jitter_offset_x / (float)m_RenderGraph.GetViewport().GetRenderSize().x;
-    const float jitter_y = -2.0f * jitter_offset_y / (float)m_RenderGraph.GetViewport().GetRenderSize().y;
+    const float jitter_x = 2.0f * jitter_offset_x / (float)m_RenderGraph.GetViewport().GetRenderSize().x * m_Settings.mJitterScale;
+    const float jitter_y = -2.0f * jitter_offset_y / (float)m_RenderGraph.GetViewport().GetRenderSize().y * m_Settings.mJitterScale;
     const Mat4x4 jitter_matrix = glm::translate(Mat4x4(1.0f), Vec3(jitter_x, jitter_y, 0));
 
     bool enable_jitter = m_Settings.mEnableTAA || m_Upscaler.GetActiveUpscaler();
@@ -301,11 +304,9 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
         m_FrameConstants.mPrevViewProjectionMatrix = m_FrameConstants.mViewProjectionMatrix;
     }
 
-    // TODO: instead of updating this every frame, make these buffers global?
-    {
-        //m_FrameConstants.mDebugLinesVertexBuffer = inDevice.GetBindlessHeapIndex(m_RenderGraph.GetResources().GetBuffer(debug_lines_pass->GetData().mVertexBuffer));
-        //m_FrameConstants.mDebugLinesIndirectArgsBuffer = inDevice.GetBindlessHeapIndex(m_RenderGraph.GetResources().GetBuffer(debug_lines_pass->GetData().mIndirectArgsBuffer));
-    }
+    // GPU driven debug line buffers, accessable from any shader
+    m_FrameConstants.mDebugLinesVertexBuffer = inDevice.GetBindlessHeapIndex(m_DebugLinesVertexBuffer);
+    m_FrameConstants.mDebugLinesIndirectArgsBuffer = inDevice.GetBindlessHeapIndex(m_DebugLinesIndirectArgsBuffer);
 
     // update RenderSettings
     RenderSettings::mActiveEntity = inApp->GetActiveEntity();
@@ -381,7 +382,6 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
                 m_PendingMeshUploads.clear();
                 m_PendingTextureUploads.clear();
                 m_PendingSkeletonUploads.clear();
-
             }
         }
 
@@ -470,8 +470,10 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
 
     m_RenderGraph.Clear(inDevice);
 
-    const DefaultTexturesData& default_textures = AddDefaultTexturesPass(m_RenderGraph, inDevice, inRenderInterface->GetBlackTexture(), inRenderInterface->GetWhiteTexture());
-
+    const DefaultTexturesData& default_textures = AddDefaultTexturesPass(m_RenderGraph, 
+                                                                         inDevice, 
+                                                                         TextureID(inRenderInterface->GetBlackTexture()), 
+                                                                         TextureID(inRenderInterface->GetWhiteTexture()));
     GBufferOutput gbuffer_output = GBufferOutput
     {
         .mDepthTexture = default_textures.mWhiteTexture,
@@ -501,7 +503,11 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
 
     const SkyCubeData& sky_cube_data = AddSkyCubePass(m_RenderGraph, inDevice, inScene);
 
-    const ConvolveCubeData& convolved_cube_data = AddConvolveSkyCubePass(m_RenderGraph, inDevice, sky_cube_data);
+    const DownsampleData& sky_cube_downsample_data = AddDownsamplePass(m_RenderGraph, inDevice, sky_cube_data.mSkyCubeTexture, "Skycube Prefilter");
+
+    const ConvolveCubeData& convolved_cube_data = AddConvolveSkyCubePass(m_RenderGraph, inDevice, inScene, sky_cube_data);
+
+    const IntegrateBrdfData& integrate_brdf_data = AddIntegrateBrdfPass(m_RenderGraph, inDevice);
 
     if (m_Settings.mDoPathTrace && inDevice.IsRayTracingSupported())
     {
@@ -536,7 +542,7 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
         const TiledLightCullingData& light_cull_data = AddTiledLightCullingPass(m_RenderGraph, inDevice, inScene);
 
         const LightingData& light_data = AddLightingPass(m_RenderGraph, inDevice, inScene, 
-                                                         gbuffer_output, light_cull_data, sky_cube_data.mSkyCubeTexture, convolved_cube_data.mConvolvedCubeTexture, 
+                                                         gbuffer_output, light_cull_data, integrate_brdf_data.outputTexture, sky_cube_data.mSkyCubeTexture, convolved_cube_data.mConvolvedCubeTexture, 
                                                          rt_shadows_texture, reflections_texture, ao_texture, ddgi_output.mOutput);
 
         compose_input = light_data.mOutputTexture;
@@ -545,7 +551,7 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
             AddProbeDebugPass(m_RenderGraph, inDevice, ddgi_output, light_data.mOutputTexture, gbuffer_output.mDepthTexture);
 
         if (m_Settings.mEnableDDGI && m_Settings.mDebugProbeRays && inDevice.IsRayTracingSupported())
-            AddProbeDebugRaysPass(m_RenderGraph, inDevice, light_data.mOutputTexture, gbuffer_output.mDepthTexture);
+            AddProbeDebugRaysPass(m_RenderGraph, inDevice, light_data.mOutputTexture, gbuffer_output.mDepthTexture, m_DebugLinesVertexBuffer, m_DebugLinesIndirectArgsBuffer);
 
         if (m_Settings.mEnableSSR)
             AddSSRTracePass(m_RenderGraph, inDevice, gbuffer_output, compose_input).mOutputTexture;
@@ -562,13 +568,13 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
     // turn off any post processing effects for debug textures (this might change in the future)
     if (debug_texture == DEBUG_TEXTURE_NONE)
     {
+        if (m_Settings.mEnableDoF)
+            compose_input = AddDepthOfFieldPass(m_RenderGraph, inDevice, compose_input, gbuffer_output.mDepthTexture).mOutputTexture;
+
         if (m_Settings.mEnableBloom)
             bloom_output = AddBloomPass(m_RenderGraph, inDevice, compose_input).mOutputTexture;
 
-        if (m_Settings.mEnableDoF && gbuffer_output.mDepthTexture != default_textures.mWhiteTexture)
-            compose_input = AddDepthOfFieldPass(m_RenderGraph, inDevice, compose_input, gbuffer_output.mDepthTexture).mOutputTexture;
-
-        if (m_Settings.mEnableDebugOverlay && gbuffer_output.mDepthTexture != default_textures.mWhiteTexture)
+        if (m_Settings.mEnableDebugOverlay)
             AddDebugOverlayPass(m_RenderGraph, inDevice, compose_input, gbuffer_output.mDepthTexture);
     }
     else
@@ -586,6 +592,7 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
         bloom_output = compose_input;
     }
 
+    // pick an upscaler if TAA is disabled
     if (!m_Settings.mEnableTAA)
     {
         switch (m_Upscaler.GetActiveUpscaler())
@@ -602,7 +609,7 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
         }
     }
 
-    // applies post processing, tonemapping etc.
+    // apply post processing, tonemapping etc.
     const ComposeData& compose_data = AddComposePass(m_RenderGraph, inDevice, bloom_output, compose_input);
 
     RenderGraphResourceID final_output = compose_data.mOutputTexture;
@@ -823,9 +830,9 @@ void RenderInterface::UploadMeshBuffers(Entity inEntity, Mesh& inMesh)
 
 void RenderInterface::DestroyMeshBuffers(Entity inEntity, Mesh& inMesh)
 {
-    m_Device.ReleaseBuffer(inMesh.indexBuffer);
-    m_Device.ReleaseBuffer(inMesh.vertexBuffer);
-    m_Device.ReleaseBuffer(inMesh.BottomLevelAS);
+    m_Device.ReleaseBuffer(BufferID(inMesh.indexBuffer));
+    m_Device.ReleaseBuffer(BufferID(inMesh.vertexBuffer));
+    m_Device.ReleaseBuffer(BufferID(inMesh.BottomLevelAS));
 }
 
 
@@ -835,32 +842,32 @@ void RenderInterface::UploadSkeletonBuffers(Entity inEntity, Skeleton& inSkeleto
     inSkeleton.boneWSTransformMatrices.resize(inSkeleton.boneOffsetMatrices.size(), Mat4x4(1.0f));
 
     inSkeleton.boneIndexBuffer = m_Device.CreateBuffer(Buffer::Desc {
-        .size = uint32_t(inSkeleton.boneIndices.size() * sizeof(IVec4)),
+        .size   = uint32_t(inSkeleton.boneIndices.size() * sizeof(IVec4)),
         .stride = sizeof(IVec4),
-        .usage = Buffer::Usage::SHADER_READ_ONLY,
+        .usage  = Buffer::Usage::SHADER_READ_ONLY,
         .debugName = "BoneIndicesBuffer"
         }).GetValue();
 
     inSkeleton.boneWeightBuffer = m_Device.CreateBuffer(Buffer::Desc {
-        .size = uint32_t(inSkeleton.boneWeights.size() * sizeof(Vec4)),
+        .size   = uint32_t(inSkeleton.boneWeights.size() * sizeof(Vec4)),
         .stride = sizeof(Vec4),
-        .usage = Buffer::Usage::SHADER_READ_ONLY,
+        .usage  = Buffer::Usage::SHADER_READ_ONLY,
         .debugName = "BoneWeightsBuffer"
         }).GetValue();
 
     inSkeleton.boneTransformsBuffer = m_Device.CreateBuffer(Buffer::Desc {
-        .size = uint32_t(inSkeleton.boneTransformMatrices.size() * sizeof(Mat4x4)),
+        .size   = uint32_t(inSkeleton.boneTransformMatrices.size() * sizeof(Mat4x4)),
         .stride = sizeof(Mat4x4),
-        .usage = Buffer::Usage::SHADER_READ_ONLY,
+        .usage  = Buffer::Usage::SHADER_READ_ONLY,
         .debugName = "BoneTransformsBuffer"
         }).GetValue();
 
     inSkeleton.skinnedVertexBuffer = m_Device.CreateBuffer(Buffer::Desc {
-        .size = uint32_t(sizeof(inMesh.vertices[0]) * inMesh.vertices.size()),
+        .size   = uint32_t(sizeof(inMesh.vertices[0]) * inMesh.vertices.size()),
         .stride = sizeof(RTVertex),
-        .usage = Buffer::Usage::SHADER_READ_WRITE,
+        .usage  = Buffer::Usage::SHADER_READ_WRITE,
         .debugName = "SkinnedVertexBuffer"
-        }).GetValue();
+    }).GetValue();
 
     m_Renderer.QueueSkeletonUpload(inEntity);
 }
@@ -868,10 +875,10 @@ void RenderInterface::UploadSkeletonBuffers(Entity inEntity, Skeleton& inSkeleto
 
 void RenderInterface::DestroySkeletonBuffers(Entity inEntity, Skeleton& inSkeleton)
 {
-    m_Device.ReleaseBuffer(inSkeleton.boneIndexBuffer);
-    m_Device.ReleaseBuffer(inSkeleton.boneWeightBuffer);
-    m_Device.ReleaseBuffer(inSkeleton.skinnedVertexBuffer);
-    m_Device.ReleaseBuffer(inSkeleton.boneTransformsBuffer);
+    m_Device.ReleaseBuffer(BufferID(inSkeleton.boneIndexBuffer));
+    m_Device.ReleaseBuffer(BufferID(inSkeleton.boneWeightBuffer));
+    m_Device.ReleaseBuffer(BufferID(inSkeleton.skinnedVertexBuffer));
+    m_Device.ReleaseBuffer(BufferID(inSkeleton.boneTransformsBuffer));
 }
 
 
@@ -901,7 +908,7 @@ void RenderInterface::ReleaseMaterialShaders(Entity inEntity, Material& inMateri
 uint32_t RenderInterface::UploadTextureFromAsset(TextureAsset::Ptr inAsset, bool inIsSRGB, uint8_t inSwizzle)
 {
     dds::Header header = dds::read_header(inAsset->GetData(), inAsset->GetDataSize());
-    assert(header.is_valid());
+    RK_ASSERT(header.is_valid());
 
     Texture::Desc desc = {};
     desc.swizzle = inSwizzle;
@@ -919,7 +926,10 @@ uint32_t RenderInterface::UploadTextureFromAsset(TextureAsset::Ptr inAsset, bool
     }
 
     if (header.is_cubemap())
+    {
         desc.dimension = Texture::TEX_DIM_CUBE;
+        desc.usage = Texture::SHADER_READ_WRITE;
+    }
 
     // HACK: texture conversion is hardcoded to BC3_UNORM, so add SRGB here..
     if (inIsSRGB && !gIsDXGIFormatSRGB(desc.format))
@@ -1050,6 +1060,7 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
                         {
                             upscaler.SetActiveUpscalerQuality(EUpscalerQuality(quality_idx));
                             need_recompile = true;
+                            
                         }
                     }
 
@@ -1057,6 +1068,8 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
                 }
             }
         }
+
+        ImGui::DragFloat("Jitter Scale", &m_Renderer.GetSettings().mJitterScale, 0.01f, 0.0f, 100.0f, "%.2f");
 
         ImGui::EndMenu();
     }
@@ -1368,12 +1381,24 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
         {
             ImGui::SeparatorText("Debug Options");
 
-            need_recompile |= ImGui::Checkbox("Use Chebyshev Test", (bool*)&RenderSettings::mDDGIUseChebyshev);
+            ImGui::Checkbox("Use Chebyshev Test", (bool*)&RenderSettings::mDDGIUseChebyshev);
 
             ImGui::Checkbox("Visualize Pure White Mode", (bool*)&m_Renderer.GetSettings().mDisableAlbedo);
 
-            // TODO FIX DEBUG PROBE RAYS
-            //need_recompile |= ImGui::Checkbox("Visualize Indirect Diffuse Rays", (bool*)&m_Renderer.GetSettings().mDebugProbeRays);
+            need_recompile |= ImGui::Checkbox("##ddgiproberaydebug", (bool*)&m_Renderer.GetSettings().mDebugProbeRays);
+
+            ImGui::SameLine();
+
+            if (ImGui::BeginMenu("Visualize Indirect Diffuse Rays"))
+            {
+                ImGui::SeparatorText("Settings");
+
+                ImGui::DragInt("X", &RenderSettings::mDDGIDebugProbe[0], 1, 0, RenderSettings::mDDGIProbeCount[0]);
+                ImGui::DragInt("Y", &RenderSettings::mDDGIDebugProbe[1], 1, 0, RenderSettings::mDDGIProbeCount[1]);
+                ImGui::DragInt("Z", &RenderSettings::mDDGIDebugProbe[2], 1, 0, RenderSettings::mDDGIProbeCount[2]);
+
+                ImGui::EndMenu();
+            }
 
             need_recompile |= ImGui::Checkbox("##ddgiprobedebug", (bool*)&m_Renderer.GetSettings().mDebugProbes);
 
@@ -1503,7 +1528,10 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
     ImGui::PopItemFlag();
 
     if (need_recompile)
+    {
+        m_Renderer.SetShouldResize(true);
         m_Renderer.SetShouldRecompile(true); // call for a resize so the rendergraph gets recompiled (hacky, TODO: FIXME: pls fix)
+    }
 }
 
 
@@ -1579,7 +1607,7 @@ TextureID InitImGui(Device& inDevice, DXGI_FORMAT inRtvFormat, uint32_t inFrameC
         .debugName = "FontTexture"
     });
 
-    DescriptorID font_texture_view = inDevice.GetTexture(font_texture).GetView();
+    DescriptorID font_texture_view = inDevice.GetTexture(font_texture).GetDescriptor();
     DescriptorHeap& descriptor_heap = inDevice.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
     ImGui_ImplDX12_InitInfo init_info = {};
@@ -1620,7 +1648,7 @@ void RenderImGui(RenderGraph& inRenderGraph, Device& inDevice, CommandList& inCm
     inCmdList->RSSetScissorRects(1, &bb_scissor);
 
     const DescriptorHeap& rtv_heap = inDevice.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-    const std::array rtv = { rtv_heap.GetCPUDescriptorHandle(inDevice.GetTexture(inBackBuffer).GetView()) };
+    const std::array rtv = { rtv_heap.GetCPUDescriptorHandle(inDevice.GetTexture(inBackBuffer).GetDescriptor()) };
 
     inCmdList->OMSetRenderTargets(rtv.size(), rtv.data(), FALSE, nullptr);
 

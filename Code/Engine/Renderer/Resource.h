@@ -2,6 +2,7 @@
 
 #include "RenderUtil.h"
 #include "Defines.h"
+#include "RTTI.h"
 
 namespace RK::DX12 {
 
@@ -51,8 +52,12 @@ class TypedResourceID : public ResourceID
 {
 public:
     TypedResourceID() = default;
-    TypedResourceID(uint32_t inValue) : ResourceID(inValue) {}
-    TypedResourceID(ResourceID inValue) : ResourceID(inValue) {}
+    explicit TypedResourceID(uint32_t inValue) : ResourceID(inValue) {}
+    explicit TypedResourceID(ResourceID inValue) : ResourceID(inValue) {}
+
+    // prevent BufferID(TextureID()) / TextureID(BufferID())
+    operator uint32_t() const = delete;
+    operator ResourceID() const = delete;
 };
 
 
@@ -82,6 +87,7 @@ public:
 
             id.m_Index = m_Storage.size() - 1;
             id.m_Generation = 0;
+
         }
         else
         {
@@ -99,9 +105,9 @@ public:
     {
         std::scoped_lock lock(m_Mutex);
 
-        assert(inID.IsValid());
-        assert(inID.m_Index < m_Storage.size());
-        assert(inID.m_Generation == m_Generations[inID.GetIndex()]);
+        RK_ASSERT(inID.IsValid());
+        RK_ASSERT(inID.m_Index < m_Storage.size());
+        RK_ASSERT(inID.m_Generation == m_Generations[inID.GetIndex()]);
 
         m_Generations[inID.GetIndex()]++;
         m_FreeIndices.push_back(inID.GetIndex());
@@ -109,16 +115,16 @@ public:
 
     T& Get(TypedID inID)
     {
-        assert(!m_Storage.empty() && inID.GetIndex() < m_Storage.size());
-        assert(inID.m_Generation == m_Generations[inID.GetIndex()]);
+        RK_ASSERT(!m_Storage.empty() && inID.GetIndex() < m_Storage.size());
+        RK_ASSERT(inID.m_Generation == m_Generations[inID.GetIndex()]);
 
         return m_Storage[inID.GetIndex()];
     }
 
     const T& Get(TypedID inID) const
     {
-        assert(!m_Storage.empty() && inID.GetIndex() < m_Storage.size());
-        assert(inID.m_Generation == m_Generations[inID.GetIndex()]);
+        RK_ASSERT(!m_Storage.empty() && inID.GetIndex() < m_Storage.size());
+        RK_ASSERT(inID.m_Generation == m_Generations[inID.GetIndex()]);
 
         return m_Storage[inID.GetIndex()];
     }
@@ -192,6 +198,8 @@ public:
     enum Usage
     {
         GENERAL,
+        COPY_SRC,
+        COPY_DST,
         SHADER_READ_ONLY,
         SHADER_READ_WRITE,
         RENDER_TARGET,
@@ -247,12 +255,13 @@ public:
     explicit Texture(const Texture& inRHS) = default;
 
     const Desc& GetDesc() const { return m_Desc; }
-    DescriptorID GetView() const { return m_Descriptor; }
 
     Usage GetUsage() const { return m_Desc.usage; }
     uint32_t GetWidth() const { return m_Desc.width; }
     uint32_t GetHeight() const { return m_Desc.height; }
     uint32_t GetDepth() const { return m_Desc.depthOrArrayLayers; }
+    uint32_t GetLayers() const { return m_Desc.depthOrArrayLayers; }
+    uint32_t GetMipCount() const { return m_Desc.mipLevels; }
     DXGI_FORMAT GetFormat() const { return m_Desc.format; }
     
     bool HasDescriptor() const { return m_Descriptor.IsValid(); }
@@ -266,6 +275,8 @@ public:
 private:
     Desc m_Desc = {};
     DescriptorID m_Descriptor;
+    uint64_t m_DescriptorHandleCPU = 0;
+    uint64_t m_DescriptorHandleGPU = 0;
 };
 
 
@@ -281,6 +292,8 @@ public:
     {
         GENERAL,
         UPLOAD,
+        COPY_SRC,
+        COPY_DST,
         READBACK,
         INDEX_BUFFER,
         VERTEX_BUFFER,

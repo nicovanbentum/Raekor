@@ -46,6 +46,7 @@ RTTI_DEFINE_TYPE(ComputeProgram)
 
 RTTI_DEFINE_TYPE(SystemShadersDX12)
 {
+    RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Copy Texture Shader", mCopyTextureShader);
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Clear Buffer Shader", mClearBufferShader);
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Clear Texture2D Shader", mClearTexture2DShader);
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Clear Texture3D Shader", mClearTexture3DShader);
@@ -55,6 +56,7 @@ RTTI_DEFINE_TYPE(SystemShadersDX12)
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "SDFUI Shader", mSDFUIShader);
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Grass Shader", mGrassShader);
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "GBuffer Shader", mGBufferShader);
+    RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "GBuffer Alpha Clip Shader", mGBufferAlphaClipShader);
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Skinning Shader", mSkinningShader);
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Lighting Shader", mLightingShader);
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Light Cull Shader", mLightCullShader);
@@ -63,12 +65,14 @@ RTTI_DEFINE_TYPE(SystemShadersDX12)
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "TAA Resolve Shader", mTAAResolveShader);
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Final Compose Shader", mFinalComposeShader);
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Debug Primitives Shader", mDebugPrimitivesShader);
+    RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Transparent Forward Shader", mTransparentForwardShader);
 
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "SSR Trace Shader", mSSRTraceShader);
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "SSAO Trace Shader", mSSAOTraceShader);
 
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Sky Cube Shader", mSkyCubeShader);
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Convolve Cube Shader", mConvolveCubeShader);
+    RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Integrate BRDF Shader", mIntegrateBrdfShader);
 
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Probe Debug Shader", mProbeDebugShader);
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Probe Debug Rays Shader", mProbeDebugRaysShader);
@@ -355,6 +359,8 @@ ComPtr<IDxcBlob> ShaderCompiler::CompileShader(const Path& inPath, const String&
 
         OutputDebugStringA(std::format("{}({}): Error: {}", fs::absolute(inPath).string(), line_nr, error_msg).c_str());
     }
+
+    gThrowIfFailed(result->GetStatus(&hr_status));
 
     if (!SUCCEEDED(hr_status))
     {

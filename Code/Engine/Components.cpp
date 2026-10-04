@@ -425,7 +425,7 @@ void Mesh::CreateSphere(Mesh& ioMesh, float inRadius, uint32_t inSectorCount, ui
 		}
 	}
 	
-	ioMesh.CalculateNormals();
+	//ioMesh.CalculateNormals();
 	ioMesh.CalculateTangents();
 	ioMesh.CalculateVertices();
 	ioMesh.CalculateBoundingBox();

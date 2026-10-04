@@ -164,14 +164,16 @@ const ProbeDebugData& AddProbeDebugPass(RenderGraph& inRenderGraph, Device& inDe
 struct ProbeDebugRaysData
 {
     RenderGraphResourceID mVertexBuffer;
+    RenderGraphResourceViewID mVertexBufferSRV;
     RenderGraphResourceID mIndirectArgsBuffer;
     ComPtr<ID3D12PipelineState> mPipeline;
-    ComPtr<ID3D12CommandSignature> mCommandSignature;
 };
 
 const ProbeDebugRaysData& AddProbeDebugRaysPass(RenderGraph& inRenderGraph, Device& inDevice,
     RenderGraphResourceID inRenderTarget,
-    RenderGraphResourceID inDepthTarget
+    RenderGraphResourceID inDepthTarget,
+    BufferID inLinesVertexBuffer,
+    BufferID inIndirectArgsBuffer
 );
 
 } // Raekor

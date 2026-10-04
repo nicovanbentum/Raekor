@@ -11,16 +11,14 @@ PASS_CONSTANTS(pc)
 FRAME_CONSTANTS(fc)
 ROOT_CONSTANTS(DebugPrimitivesRootConstants, rc)
 
-VS_OUTPUT main(
-#ifdef DEBUG_PROBE_RAYS
-    in float4 inVertex : POSITION, 
-#endif
-in uint inVertexID : SV_VertexID
-)
+VS_OUTPUT main(in uint inVertexID : SV_VertexID)
 {
     VS_OUTPUT output;
 
-#ifndef DEBUG_PROBE_RAYS
+#ifdef DEBUG_PROBE_RAYS
+    RWStructuredBuffer<float4> vertex_buffer = ResourceDescriptorHeap[fc.mDebugLinesVertexBuffer];
+    float4 inVertex = vertex_buffer[inVertexID];
+#else 
     float4 inVertex = pc.Load<float4>(rc.mBufferOffset + sizeof(float4) * inVertexID);
 #endif
     

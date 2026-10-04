@@ -11,6 +11,10 @@ D3D12_RESOURCE_STATES GetD3D12ResourceStates(Buffer::Usage inUsage)
     {
         case Buffer::Usage::GENERAL:
             return D3D12_RESOURCE_STATE_COMMON;
+        case Buffer::Usage::COPY_DST:
+            return D3D12_RESOURCE_STATE_COPY_DEST;
+        case Buffer::Usage::COPY_SRC:
+            return D3D12_RESOURCE_STATE_COPY_SOURCE;
         case Buffer::Usage::VERTEX_BUFFER:
             return D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
         case Buffer::Usage::INDEX_BUFFER:
@@ -41,6 +45,10 @@ D3D12_RESOURCE_STATES GetD3D12ResourceStates(Texture::Usage inUsage)
     {
         case Texture::Usage::GENERAL:
             return D3D12_RESOURCE_STATE_COMMON;
+        case Texture::Usage::COPY_DST:
+            return D3D12_RESOURCE_STATE_COPY_DEST;
+        case Texture::Usage::COPY_SRC:
+            return D3D12_RESOURCE_STATE_COPY_SOURCE;
         case Texture::Usage::RENDER_TARGET:
             return D3D12_RESOURCE_STATE_RENDER_TARGET;
         case Texture::Usage::DEPTH_STENCIL_TARGET:
@@ -202,14 +210,14 @@ D3D12_UNORDERED_ACCESS_VIEW_DESC Buffer::Desc::ToUAVDesc() const
     // Raw buffer
     if (stride == 0 && format == DXGI_FORMAT_R32_TYPELESS)
     {
-        assert(size >= 4);
+        RK_ASSERT(size >= 4);
         uav_desc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_RAW;
         uav_desc.Buffer.NumElements = size / sizeof(uint32_t);
     }
     // Structured buffer
     else if (stride > 0 && format == DXGI_FORMAT_UNKNOWN) 
     {
-        assert(size > 0);
+        RK_ASSERT(size > 0);
         uav_desc.Buffer.StructureByteStride = stride;
         uav_desc.Buffer.NumElements = size / stride;
     }
@@ -217,15 +225,15 @@ D3D12_UNORDERED_ACCESS_VIEW_DESC Buffer::Desc::ToUAVDesc() const
     else if (format != DXGI_FORMAT_UNKNOWN)
     {
         const size_t format_size = gBitsPerPixel(format);
-        assert(size && format_size && format_size%8 == 0);
+        RK_ASSERT(size && format_size && format_size%8 == 0);
         uav_desc.Buffer.NumElements = size / ( format_size / 8 );
     }
 
     // defined both a stride and format, bad time!
-    assert((stride > 0 && format != DXGI_FORMAT_UNKNOWN) == false);
+    RK_ASSERT((stride > 0 && format != DXGI_FORMAT_UNKNOWN) == false);
 
     // defined neither a stride or a format, bad time!
-    assert(stride > 0 || format != DXGI_FORMAT_UNKNOWN);
+    RK_ASSERT(stride > 0 || format != DXGI_FORMAT_UNKNOWN);
 
     return uav_desc;
 }
@@ -233,6 +241,8 @@ D3D12_UNORDERED_ACCESS_VIEW_DESC Buffer::Desc::ToUAVDesc() const
 
 D3D12_RESOURCE_DESC Texture::Desc::ToResourceDesc() const
 {
+    RK_ASSERT(width > 0 && height > 0);
+
     D3D12_RESOURCE_DESC resource_desc = {};
 
     switch (dimension)
@@ -253,11 +263,14 @@ D3D12_RESOURCE_DESC Texture::Desc::ToResourceDesc() const
     switch (usage)
     {
         case Texture::RENDER_TARGET: 
-            resource_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET; break;
+            resource_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET; 
+            break;
         case Texture::DEPTH_STENCIL_TARGET: 
-            resource_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL; break;
+            resource_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL; 
+            break;
         case Texture::SHADER_READ_WRITE: 
-            resource_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS; break;
+            resource_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS; 
+            break;
     }
 
     if (__allowDepthTarget)

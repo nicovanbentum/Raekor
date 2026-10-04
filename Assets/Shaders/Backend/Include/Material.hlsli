@@ -19,19 +19,19 @@ float DistributionGGX(float3 N, float3 H, float roughness)
     float denom = (NdotH2 * (a2 - 1.0) + 1.0);
     denom = 3.14159265359 * denom * denom;
 
-    return nom / (denom + 0.001);
+    return nom / (denom + 0.00001);
 }
 
 
 float GeometrySchlickGGX(float NdotV, float roughness) 
 {
-    float r = (roughness + 1.0);
-    float k = (r*r) / 8.0;
+    float a = roughness;
+    float k = (a * a) / 2.0;
 
     float nom   = NdotV;
     float denom = NdotV * (1.0 - k) + k;
 
-    return nom / (denom + 0.001);
+    return nom / (denom + 0.00001);
 }
 
 
@@ -66,17 +66,21 @@ float3 SampleSpecularGGX(float2 Xi, float Roughness, float3 N)
 {
     float a = Roughness * Roughness;
     float Phi = 2 * M_PI * Xi.x;
-    float CosTheta = sqrt((1 - Xi.y) / (1 + (a * a - 1) * Xi.y));
-    float SinTheta = sqrt(1 - CosTheta * CosTheta);
+    float CosTheta = sqrt((1.0 - Xi.y) / (1.0 + (a*a - 1.0) * Xi.y));
+    float SinTheta = sqrt(1.0 - CosTheta * CosTheta);
+    
     float3 H;
     H.x = SinTheta * cos(Phi);
     H.y = SinTheta * sin(Phi);
     H.z = CosTheta;
+    
     float3 UpVector = abs(N.z) < 0.999 ? float3(0, 0, 1) : float3(1, 0, 0);
     float3 TangentX = normalize(cross(UpVector, N));
     float3 TangentY = cross(N, TangentX);
+    
     // Tangent to world space
-    return TangentX * H.x + TangentY * H.y + N * H.z;
+    return normalize(TangentX * H.x + TangentY * H.y + N * H.z);
+
 }
 
 
@@ -199,10 +203,10 @@ struct Surface
         return weight;
     }
     
-    void SampleDiffuse(inout uint rng, float3 Wo, out float3 direction, out float3 weight)
+    void SampleDiffuse(float2 rand, float3 Wo, out float3 direction, out float3 weight)
     {
         weight = SampleDiffuseWeight(Wo, direction, mNormal);
-        direction = mul(BuildOrthonormalBasis(mNormal), SampleCosineWeightedHemisphere(pcg_float2(rng)));
+        direction = mul(BuildOrthonormalBasis(mNormal), SampleCosineWeightedHemisphere(rand));
     }
     
     float sampleSpecularPDF(float3 Wo, float3 Wh)  // not actually used, useful for MIS
@@ -229,13 +233,13 @@ struct Surface
         return fresnel * Smith_G1_GGX(alpha, NdotL, alpha * alpha, NdotL * NdotL);
     }
     
-    void SampleSpecular(inout uint rng, float3 Wo, out float3 direction, out float3 weight)
+    void SampleSpecular(float2 rand, float3 Wo, out float3 direction, out float3 weight)
     {
         float3 Wh = mNormal;
         
         if (mRoughness > 0.0)
         {
-            Wh = SampleSpecularGGX(pcg_float2(rng), mRoughness, mNormal);
+            Wh = SampleSpecularGGX(rand, mRoughness, mNormal);
             //Wh = SampleSpecularGGXVNDF(Wo, float2(mRoughness, mRoughness), pcg_float2(rng));
         }
         
@@ -248,11 +252,11 @@ struct Surface
     {
         if (mRoughness < 1.0 && pcg_float(rng) < 0.5)
         {
-            SampleSpecular(rng, Wo, direction, weight);
+            SampleSpecular(pcg_float2(rng), Wo, direction, weight);
         }
         else
         {
-            SampleDiffuse(rng, Wo, direction, weight);
+            SampleDiffuse(pcg_float2(rng), Wo, direction, weight);
         }
     }
 };

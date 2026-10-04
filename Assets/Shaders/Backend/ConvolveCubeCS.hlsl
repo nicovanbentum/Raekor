@@ -6,7 +6,7 @@
 ROOT_CONSTANTS(ConvolveCubeRootConstants, rc)
 
 #define PI 3.14159265359
-#define NR_OF_SAMPLES 16
+#define NR_OF_SAMPLES 512
 
 float3 GetCubemapDirection(float2 inUV, uint inFace)
 {
@@ -36,14 +36,15 @@ void main(uint3 gid : SV_DispatchThreadID)
     
     float2 uv = (float2(gid.xy) + 0.5) / float2(width, height);
     float3 dir = normalize(GetCubemapDirection(uv, gid.z));
+    float3x3 basis = BuildOrthonormalBasis(dir);
     
     float3 irradiance = 0.xxx;
     
     for (int i = 0; i < NR_OF_SAMPLES; i++)
     {
         float2 rand = Hammersley2D(i, NR_OF_SAMPLES);
-        float3 sample_dir = normalize(dir + SampleCosineWeightedHemisphere(float2(rand.x, rand.y)));
-        irradiance += cube_texture.Sample(SamplerLinearClamp, sample_dir).rgb;
+        float3 sample_dir = normalize(mul(basis, uniformSampleCone(rand, 0.1)));
+        irradiance += cube_texture.SampleLevel(SamplerLinearWrap, sample_dir, 0);
     }
     
     irradiance /= NR_OF_SAMPLES;

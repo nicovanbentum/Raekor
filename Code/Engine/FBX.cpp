@@ -7,7 +7,7 @@
 
 namespace RK {
 
-bool FBXImporter::LoadFromFile(const std::string& inFile, Assets* inAssets)
+bool FBXImporter::LoadFromFile(const String& inFile, Assets* inAssets)
 {
 	/*
 	* LOAD FBX FROM DISK
@@ -73,7 +73,7 @@ bool FBXImporter::LoadFromFile(const std::string& inFile, Assets* inAssets)
 
 	ufbx_free_scene(m_FbxScene);
 
-	return false;
+	return true;
 }
 
 
@@ -130,6 +130,12 @@ void FBXImporter::ParseNode(const ufbx_node* inNode, Entity inParent, Entity inE
 		// TODO: ANIMATION
 		//if (inNode->bone)
 		//	ConvertBones(inEntity, inNode->bone);
+	}
+
+	if (inNode->light)
+	{
+		if (inNode->light->type == UFBX_LIGHT_POINT || inNode->light->type == UFBX_LIGHT_SPOT)
+			ConvertLight(inEntity, inNode->light);
 	}
 
 	for (const ufbx_node* child : inNode->children)
@@ -245,6 +251,30 @@ void FBXImporter::ConvertMesh(Entity inEntity, const ufbx_mesh* inMesh, const uf
 }
 
 
+void FBXImporter::ConvertLight(Entity inEntity, const ufbx_light* inLight)
+{
+	Light& light = m_Scene.Add<Light>(inEntity);
+
+	switch (inLight->type)
+	{
+		case UFBX_LIGHT_POINT:
+			light.type = LIGHT_TYPE_POINT;
+			break;
+		case UFBX_LIGHT_SPOT:
+			light.type = LIGHT_TYPE_SPOT;
+			break;
+		default:
+			RK_ASSERT(false);
+	};
+	
+	light.color = Vec4(inLight->color.x, inLight->color.y, inLight->color.z, inLight->intensity);
+	light.attributes.x = inLight->outer_angle;
+	light.attributes.y = inLight->inner_angle;
+	light.attributes.z = inLight->inner_angle;
+	light.attributes.w = inLight->outer_angle;
+}
+
+
 void FBXImporter::ConvertBones(Entity inEntity, const ufbx_bone_list* inSkeleton)
 {
 
@@ -261,7 +291,15 @@ void FBXImporter::ConvertMaterial(Entity inEntity, const ufbx_material* inMateri
 			material.albedo[i] = albedo.value_vec4.v[i];
 
 	if (albedo.texture && albedo.texture_enabled && albedo.texture->type == UFBX_TEXTURE_FILE)
+	{
 		material.albedoFile = TextureAsset::GetCachedPath(m_Directory.string() + albedo.texture->relative_filename.data);
+
+		if (albedo.texture->layers.count == 1)
+		{
+			if (albedo.texture->layers.data->alpha < 1.0f || albedo.texture->layers.data->blend_mode == UFBX_BLEND_REPLACE)
+				material.isTransparent = true;
+		}
+	}
 
 	const ufbx_material_map& normal_map = inMaterial->pbr.normal_map;
 	if (normal_map.texture && normal_map.texture_enabled && normal_map.texture->type == UFBX_TEXTURE_FILE)

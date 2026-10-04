@@ -42,7 +42,7 @@ void main(uint3 threadID : SV_DispatchThreadID,  uint3 groupThreadID : SV_GroupT
         {
             if (++backface_count >= DDGI_RAYS_BACKFACE_THRESHOLD)
             {
-                // probe_data.inactive = true;
+                probe_data.inactive = true;
                 break;
             }
         }

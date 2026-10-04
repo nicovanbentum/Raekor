@@ -169,7 +169,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 						m_Editor->GetRenderInterface()->GetScreenshotBuffer(pixel_data.data());
 
 						stbi_flip_vertically_on_write(true);
-						stbi_write_png(save_path.c_str(), viewport.size.x, viewport.size.y, 4, pixel_data.data(), viewport.size.x * 4);
+						stbi_write_png(save_path.c_str(), viewport.GetRenderSize().x, viewport.GetRenderSize().y, 4, pixel_data.data(), viewport.GetRenderSize().x * 4);
 
 						m_Editor->LogMessage("[System] Screenshot saved to " + save_path);
 					}

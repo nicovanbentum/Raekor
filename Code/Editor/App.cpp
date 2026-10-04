@@ -84,7 +84,7 @@ DXApp::DXApp() :
         .debugName = "BlueNoise128x1spp"
     });
 
-    assert(m_Device.GetBindlessHeapIndex(bluenoise_texture) == BINDLESS_BLUE_NOISE_TEXTURE_INDEX);
+    RK_ASSERT(m_Device.GetBindlessHeapIndex(bluenoise_texture) == BINDLESS_BLUE_NOISE_TEXTURE_INDEX);
 
     m_Device.UploadTextureData(m_Device.GetTexture(bluenoise_texture), 0, 0, sizeof(Vec4) * 128, blue_noise_samples.data());
 

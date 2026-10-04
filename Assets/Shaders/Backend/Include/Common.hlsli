@@ -68,9 +68,14 @@ template<typename T>
 T square(T inValue) { return inValue * inValue; }
 
 
-float LuminanceLinear(float3 inLinearRGB)
+float LuminanceLinear(float3 inColor)
 {
-    return dot(inLinearRGB, float3(0.2127, 0.7152, 0.0722));
+    return max(dot(inColor, float3(0.2127, 0.7152, 0.0722)), 0.00000001f);
+}
+
+float LuminanceSRGB(float3 inColor)
+{
+    return max(dot(inColor, float3(0.299f, 0.587f, 0.114f)), 0.00000001f);
 }
 
 // Building an Orthonormal Basis, Revisited

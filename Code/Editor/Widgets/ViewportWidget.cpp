@@ -436,7 +436,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 				mesh.material = material_entity;
 
-				constexpr float radius = 4.5f;
+				constexpr float radius = 2.5f;
 				Mesh::CreateSphere(mesh, radius, 32, 32);
 				GetRenderInterface().UploadMeshBuffers(entity, mesh);
 				GetRenderInterface().UploadMaterialTextures(material_entity, ball_material, GetAssets());
@@ -601,7 +601,24 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			ImGui::Text("Sampler Heap: %i", GetRenderInterface().GetGPUStats().mLiveSamplerHeap.load());
 			ImGui::Text("Resource Heap: %i", GetRenderInterface().GetGPUStats().mLiveResourceHeap.load());
 #endif
-			ImGui::Text("Materials: %i", GetScene().Count<Material>());
+
+			uint32_t opaque_material_count = 0;
+			uint32_t transparent_material_count = 0;
+
+			for (const auto& [entity, material] : GetScene().Each<Material>())
+			{
+				if (material.isTransparent)
+					transparent_material_count++;
+				else
+					opaque_material_count++;
+			}
+
+			uint32_t light_count = 0;
+
+
+			ImGui::Text("Lights: %i", GetScene().Count<Light>());
+			ImGui::Text("Opaque Materials: %i", opaque_material_count);
+			ImGui::Text("Transparent Materials: %i", transparent_material_count);
 			ImGui::Text("Draw calls: %i", GetScene().Count<Mesh>());
 			ImGui::Text("Transforms: %i", GetScene().Count<Transform>());
 			ImGui::Text("Triangle Count: %i", triangle_count);
