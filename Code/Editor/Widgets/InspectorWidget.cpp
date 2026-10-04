@@ -1240,7 +1240,6 @@ bool InspectorWidget::DrawComponent(Entity inEntity, NativeScript& inScript)
 	ImGui::SeparatorText("Variables");
 	ImGui::PopStyleVar();
 
-	// the script instance can be null if the type failed to construct / bind, there's nothing to edit then
 	if (inScript.script == nullptr)
 	{
 		if (!inScript.type.empty())

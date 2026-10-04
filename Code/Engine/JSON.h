@@ -349,7 +349,6 @@ inline void JSONWriter::WriteValue(const T& inValue)
 		// potentially skip
 		if (( rtti.GetMember(i)->GetSerializeType() & SERIALIZE_JSON ) == 0)
 			continue;
-		// write delimiter, done before the key so skipped members can't leave a trailing comma
 		if (!is_first_member)
 			Write(",\n");
 		is_first_member = false;
@@ -377,7 +376,6 @@ inline void JSONWriter::WriteValue(const T& inValue)
 {
 	if constexpr (std::is_floating_point_v<T>)
 	{
-		// std::to_string uses %f which rounds to 6 decimals, to_chars writes the shortest string that round-trips exactly
 		char buffer[64];
 		const std::to_chars_result result = std::to_chars(buffer, buffer + sizeof(buffer), inValue);
 		Write(std::string_view(buffer, result.ptr));
@@ -395,7 +393,6 @@ inline void JSONWriter::WriteValue(const bool& inBool)
 
 inline void JSONWriter::WriteValue(const std::string& inString)
 {
-	// escape quotes and backslashes so the string can't break the JSON structure, JSONData undoes this when parsing
 	std::string escaped;
 	escaped.reserve(inString.size() + 2);
 

@@ -76,7 +76,6 @@ void JSON::WriteArchive::WriteNextObject(const RTTI& inRTTI, void* inObject)
         // potentially skip
         if ((inRTTI.GetMember(i)->GetSerializeType() & SERIALIZE_JSON) == 0)
             continue;
-        // write delimiter, done before the key so skipped members can't leave a trailing comma
         if (!is_first_member)
             m_Writer.Write(",\n");
         is_first_member = false;

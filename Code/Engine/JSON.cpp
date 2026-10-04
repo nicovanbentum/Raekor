@@ -15,7 +15,6 @@ JSONData::JSONData(const Path& inPath, bool inTokenizeOnly)
 	jsmn_init(&parser);
 
 	const auto nr_of_tokens = jsmn_parse(&parser, m_StrBuffer.c_str(), m_StrBuffer.size(), NULL, 0);
-	// jsmn returns a negative error code for malformed / truncated JSON
 	if (nr_of_tokens <= 0)
 	{
 		if (nr_of_tokens < 0)
@@ -56,7 +55,6 @@ JSONData::JSONData(const Path& inPath, bool inTokenizeOnly)
 		}
 		else if (token.type == JSMN_STRING)
 		{
-			// undo the escaping done by JSONWriter::WriteValue(const std::string&)
 			String& string = m_Strings[index];
 			string.reserve(token.end - token.start);
 
