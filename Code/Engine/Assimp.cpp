@@ -53,7 +53,7 @@ bool AssimpImporter::LoadFromFile(const std::string& file, Assets* inAssets)
 	// error cases
 	if (!m_AiScene || ( !m_AiScene->HasMeshes() && !m_AiScene->HasMaterials() ))
 	{
-		std::cerr << "[ASSIMP] Error loading " << file << ": " << m_Importer->GetErrorString() << '\n';
+		gLogError("Assimp", "Error loading {}: {}", file, m_Importer->GetErrorString());
 		return false;
 	}
 

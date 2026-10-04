@@ -36,8 +36,28 @@ CompilerApp::CompilerApp(WindowFlags inFlags) : Application(inFlags | WindowFlag
 	GUI::SetDarkTheme();
 	ImGui::GetStyle().ScaleAllSizes(1.33333333f);
 
+	const String ipc_window_value = OS::sGetCommandLineValue("-ipc_window");
+
+	if (!ipc_window_value.empty())
+	{
+		const HWND ipc_window = (HWND)std::stoull(ipc_window_value);
+
+		m_IPCLogSink = g_Logger.AddSink([ipc_window](const LogMessage& inMessage)
+		{
+			const String data = gSerializeLogMessage(inMessage);
+
+			COPYDATASTRUCT cds = {};
+			cds.dwData = IPC::LOG_MESSAGE_SENT;
+			cds.lpData = (PVOID)data.data();
+			cds.cbData = DWORD(data.size());
+
+			DWORD_PTR result = 0;
+			SendMessageTimeoutA(ipc_window, WM_COPYDATA, 0, (LPARAM)&cds, SMTO_ABORTIFHUNG | SMTO_BLOCK, 100, &result);
+		});
+	}
+
 	m_Renderer = SDL_CreateRenderer(m_Window, NULL);
-	std::cout << "Created SDL_Renderer with name: \"" << SDL_GetRendererName(m_Renderer) << "\"\n";
+	gLogInfo("Asset Compiler", "Created SDL_Renderer with name \"{}\"", SDL_GetRendererName(m_Renderer));
 
 	ImGui_ImplSDL3_InitForSDLRenderer(m_Window, m_Renderer);
 	ImGui_ImplSDLRenderer3_Init(m_Renderer);
@@ -115,6 +135,9 @@ CompilerApp::CompilerApp(WindowFlags inFlags) : Application(inFlags | WindowFlag
 
 CompilerApp::~CompilerApp()
 {
+	if (m_IPCLogSink)
+		g_Logger.RemoveSink(m_IPCLogSink);
+
 	NOTIFYICONDATA nid = { sizeof(NOTIFYICONDATA) };
 	nid.uID = 1;
 	nid.hWnd = GetWindowHandle();
@@ -413,7 +436,7 @@ void CompilerApp::OnUpdate(float inDeltaTime)
 
 				std::scoped_lock lock(m_FilesInFlightMutex);
 				m_FilesInFlight.erase(index);
-				LogMessage(std::format("[Assets] Converted {}", file.mAssetPath));
+				gLogInfo("Assets", "Converted {}", file.mAssetPath);
 			});
 		}
 		else if (file.mAssetType == ASSET_TYPE_EMBEDDED)
@@ -438,7 +461,7 @@ void CompilerApp::OnUpdate(float inDeltaTime)
 
 				std::scoped_lock lock(m_FilesInFlightMutex);
 				m_FilesInFlight.erase(index);
-				LogMessage(std::format("[Assets] Converted {}", file.mAssetPath));
+				gLogInfo("Assets", "Converted {}", file.mAssetPath);
 			});
 		}
 		else if (file.mAssetType == ASSET_TYPE_SCENE && m_CompileScenes)
@@ -486,7 +509,7 @@ void CompilerApp::OnUpdate(float inDeltaTime)
 
 				std::scoped_lock lock(m_FilesInFlightMutex);
 				m_FilesInFlight.erase(index);
-				LogMessage(std::format("[Assets] Converted {}", file.mAssetPath));
+				gLogInfo("Assets", "Converted {}", file.mAssetPath);
 			});
 		}
 	}
@@ -523,21 +546,6 @@ void CompilerApp::OnEvent(const SDL_Event& inEvent)
 		}
 	}
 
-}
-
-
-void CompilerApp::LogMessage(const std::string& inMessage)
-{
-	Application::LogMessage(inMessage);
-
-	COPYDATASTRUCT cds = {};
-	cds.dwData = IPC::LOG_MESSAGE_SENT;
-	cds.lpData = (PVOID)inMessage.c_str();
-	cds.cbData = inMessage.size() + 1;
-
-    HWND hwnd = GetWindowHandle();
-	HWND parent = GetAncestor(hwnd, GA_PARENT);
-	SendMessage(parent, WM_COPYDATA, (WPARAM)(HWND)hwnd, (LPARAM)(LPVOID)&cds);
 }
 
 

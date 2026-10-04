@@ -419,7 +419,7 @@ void RenderGraphResources::Compile(Device& inDevice, const RenderGraphBuilder& i
 
     if (allocation_info.SizeInBytes > m_Allocator.GetSize() IF_DEBUG(|| do_resize_test))
     {
-        std::cout << std::format("Allocating RenderGraphResources: {} MB\n", allocation_info.SizeInBytes / 1024 / 1024);
+        gLogInfo("Render Graph", "Allocating {} MB for transient resources", allocation_info.SizeInBytes / 1024 / 1024);
         
         m_Allocator.Clear();
         m_Allocator.Release();
@@ -497,7 +497,7 @@ void RenderGraphResources::Compile(Device& inDevice, const RenderGraphBuilder& i
     }
 
     uint64_t end_ticks = Timer::sGetCurrentTick();
-    std::cout << std::format("RenderGraph Compile took {:.3f} ms.\n", Timer::sGetTicksToSeconds(end_ticks - start_ticks) * 1000);
+    gLogDebug("Render Graph", "Compile took {:.3f} ms", Timer::sGetTicksToSeconds(end_ticks - start_ticks) * 1000);
 }
 
 
@@ -804,7 +804,7 @@ bool RenderGraph::Compile(Device& inDevice, const GlobalConstants& inGlobalConst
         {
             if (renderpass->IsRead(resource))
             {
-                 std::cout << std::format("[RENDER GRAPH] Warning: Resource {} is both written to and read from in renderpass {}\n", 
+                 gLogWarning("Render Graph", "Resource {} is both written to and read from in renderpass {}", 
                      m_RenderGraphBuilder.GetResourceDesc(m_RenderGraphBuilder.GetResourceViewDesc(resource).mGraphResourceID).mTextureDesc.debugName, renderpass->GetName());
 
                 return false;
@@ -841,7 +841,7 @@ bool RenderGraph::Compile(Device& inDevice, const GlobalConstants& inGlobalConst
             if (!has_reads_or_writes)
             {
                 const char* name = desc.mResourceType == RESOURCE_TYPE_BUFFER ? desc.mBufferDesc.debugName : desc.mTextureDesc.debugName;
-                std::cout << std::format("[RENDER GRAPH] Warning: Resource \"{}\" is created but no read or write was specified in renderpass \"{}\" \n", name ? name : " ", renderpass->GetName());
+                gLogWarning("Render Graph", "Resource \"{}\" is created but no read or write was specified in renderpass \"{}\"", name ? name : " ", renderpass->GetName());
             }
         }
     }

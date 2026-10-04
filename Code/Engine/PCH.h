@@ -230,6 +230,10 @@ using Optional = std::optional<T>;
 
 }
 
+#include <format>
+#include <functional>
+#include "Log.h"
+
 ///////////////////////
 // Math library
 #include "glm.hpp"

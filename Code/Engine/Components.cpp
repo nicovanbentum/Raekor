@@ -247,7 +247,7 @@ Quat Transform::GetRotationWorldSpace() const
 
 void Transform::Print()
 {
-	std::cout << glm::to_string(worldTransform) << '\n';
+	gLogInfo("Transform", "{}", glm::to_string(worldTransform));
 }
 
 

@@ -195,7 +195,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     static bool force_hotload = OS::sCheckCommandLineOption("-force_enable_hotload");
     bool need_recompile = IF_DEBUG_ELSE(g_SystemShaders.OnHotLoad(inDevice), force_hotload ? g_SystemShaders.OnHotLoad(inDevice) : false);
     if (need_recompile)
-        std::cout << std::format("Hotloaded system shaders.\n");
+        gLogInfo("DX12", "Hotloaded system shaders");
 
     static bool do_stress_test = OS::sCheckCommandLineOption("-stress_test");
 
@@ -1145,7 +1145,7 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
         {
             Timer timer;
 
-            inApp->LogMessage("Generating Meshlets..");
+            gLogInfo("Renderer", "Generating meshlets...");
 
             for (const auto& [entity, mesh] : inScene.Each<Mesh>())
             {
@@ -1189,7 +1189,7 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
                 }
             }
 
-            inApp->LogMessage(std::format("Generating Meshlets took {:.3f} seconds.", timer.GetElapsedTime()));
+            gLogInfo("Renderer", "Generating meshlets took {:.3f} seconds", timer.GetElapsedTime());
         }
 
         if (ImGui::Button("Save As GraphViz.."))
@@ -1326,11 +1326,11 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
                         new_display_mode = display_modes[index];
 
                         if (!SDL_SetWindowFullscreenMode(window, new_display_mode))
-                            std::cout << SDL_GetError();
+                            gLogError("SDL", "{}", SDL_GetError());
 
                         SDL_SyncWindow(window);
 
-                        std::cout << std::format("SDL_SetWindowDisplayMode with {}x{} @ {}Hz\n", new_display_mode->w, new_display_mode->h, new_display_mode->refresh_rate);
+                        gLogInfo("App", "SDL_SetWindowDisplayMode with {}x{} @ {}Hz", new_display_mode->w, new_display_mode->h, new_display_mode->refresh_rate);
 
                         m_Renderer.SetShouldResize(true);
                     }

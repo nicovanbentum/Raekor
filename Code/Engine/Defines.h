@@ -12,12 +12,6 @@
 #define TOKENPASTE2(x, y) TOKENPASTE(x, y)
 #endif
 
-#define COUT_NC "\033[0m"
-#define COUT_RED(str) "\033[0;31m" str COUT_NC
-#define COUT_GREEN(str) "\033[1;32m" str COUT_NC
-
-#define LOG_CATCH(code) try { code; } catch(std::exception e) { std::cout << e.what() << '\n'; }
-
 #ifndef PRAGMA_OPTIMIZE_OFF
 #define PRAGMA_OPTIMIZE_OFF __pragma( optimize( "", off ) )
 #endif

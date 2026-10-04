@@ -17,7 +17,7 @@ static void TraceImpl(const char* inFMT, ...)
 	vsnprintf(buffer, sizeof(buffer), inFMT, list);
 
 	// Print to the TTY
-	std::cout << buffer << '\n';
+	gLogDebug("Physics", "{}", buffer);
 }
 
 
@@ -25,7 +25,7 @@ static void TraceImpl(const char* inFMT, ...)
 static bool AssertFailedImpl(const char* inExpression, const char* inMessage, const char* inFile, uint32_t inLine)
 {
 	// Print to the TTY
-	std::cout << inFile << ":" << inLine << ": (" << inExpression << ") " << ( inMessage != nullptr ? inMessage : "" ) << '\n';
+	gLogError("Physics", "{}:{}: ({}) {}", inFile, inLine, inExpression, inMessage != nullptr ? inMessage : "");
 
 	// Breakpoint
 	return true;
@@ -56,7 +56,7 @@ Physics::Physics(IRenderInterface* inRenderer)
 	m_JobSystem = new JPH::JobSystemThreadPool(JPH::cMaxPhysicsJobs, JPH::cMaxPhysicsBarriers, std::thread::hardware_concurrency() - 1);
 	m_StateRecorder = new JPH::StateRecorderImpl();
 
-	std::cout << "[Physics] JoltPhysics initialized.\n";
+	gLogInfo("Physics", "JoltPhysics initialized");
 }
 
 

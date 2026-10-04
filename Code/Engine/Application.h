@@ -79,8 +79,6 @@ public:
 	virtual void OnUpdate(float dt) = 0;
 	virtual void OnEvent(const SDL_Event& event) = 0;
 
-	static bool OnNativeEvent(void* userdata, MSG* msg);
-
 	bool IsWindowBorderless() const;
 	bool IsWindowExclusiveFullscreen() const;
 
@@ -95,8 +93,6 @@ public:
 
     virtual void SetCameraEntity(Entity inEntity) {}
     virtual Entity GetCameraEntity() const { return Entity::Null; }
-
-	virtual void LogMessage(const String& inMessage) { std::cout << inMessage << '\n'; }
 
 	void SetGameState(EGameState inState) { m_GameState = inState; }
 	EGameState GetGameState() const { return m_GameState; }

@@ -43,10 +43,10 @@ CVariables::CVariables(int argc, char** argv)
 		const String value = string.substr(equals_pos + 1);
 
 		if (!SetValue(cvar, value))
-			std::cout << "[Engine] Failed to set cvar \"" << cvar << "\" to " << value << '\n';
+			gLogWarning("CVars", "Failed to set cvar \"{}\" to {}", cvar, value);
 		else
 		{
-			std::cout << "[Engine] Succesfully set cvar \"" << cvar << "\" to " << value << '\n';
+			gLogInfo("CVars", "Set cvar \"{}\" to {}", cvar, value);
 		}
 	}
 }

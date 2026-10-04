@@ -171,7 +171,7 @@ bool ShaderGraphBuilder::GenerateCodeFromTemplate(String& ioCode)
 
 	for (int i = 0; i < pin_indegree.size(); i++)
 	{
-		std::cout << "Node " << i << " has " << pin_outdegree[i] << "incoming links and " << pin_indegree[i] << " out links\n";
+		gLogDebug("Shader Graph", "Node {} has {} incoming links and {} out links", i, pin_outdegree[i], pin_indegree[i]);
 
 		if (pin_indegree[i] == 0)
 		{
@@ -212,11 +212,11 @@ bool ShaderGraphBuilder::GenerateCodeFromTemplate(String& ioCode)
 
 		std::reverse(sorted_nodes.begin(), sorted_nodes.end());
 
-		std::cout << "Node evaluation order: \n";
+		String evaluation_order;
 		for (int node_index : sorted_nodes)
-			std::cout << node_index << "  ";
+			evaluation_order += std::format("{} ", node_index);
 
-		std::cout << '\n';
+		gLogDebug("Shader Graph", "Node evaluation order: {}", evaluation_order);
 
 		String main_code;
 		for (int node_index : sorted_nodes)
@@ -246,9 +246,7 @@ bool ShaderGraphBuilder::GenerateCodeFromTemplate(String& ioCode)
 		auto main_code_end = main_code_start + std::strlen("@Main");
 		ioCode = ioCode.substr(0, main_code_start) + main_code + ioCode.substr(main_code_end);
 
-		std::cout << "Generated Shader Code:\n";
-		std::cout << global_code << '\n';
-		std::cout << main_code << '\n';
+		gLogDebug("Shader Graph", "Generated shader code:\n{}\n{}", global_code, main_code);
 
 		return true;
 	}

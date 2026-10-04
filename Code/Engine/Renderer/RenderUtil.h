@@ -43,11 +43,11 @@ inline void gThrowIfFailed(HRESULT inResult, ID3D12Device* inDevice = nullptr)
             HRESULT reason = inDevice->GetDeviceRemovedReason();
             switch (reason)
             {
-                case DXGI_ERROR_DEVICE_HUNG:            std::cerr << std::format("DXGI_ERROR_DEVICE_HUNG");           break;
-                case DXGI_ERROR_DEVICE_REMOVED:         std::cerr << std::format("DXGI_ERROR_DEVICE_REMOVED");        break;
-                case DXGI_ERROR_DEVICE_RESET:           std::cerr << std::format("DXGI_ERROR_DEVICE_RESET");          break;
-                case DXGI_ERROR_DRIVER_INTERNAL_ERROR:  std::cerr << std::format("DXGI_ERROR_DRIVER_INTERNAL_ERROR"); break;
-                case DXGI_ERROR_INVALID_CALL:           std::cerr << std::format("DXGI_ERROR_INVALID_CALL");          break;
+                case DXGI_ERROR_DEVICE_HUNG:            gLogError("DX12", "DXGI_ERROR_DEVICE_HUNG");           break;
+                case DXGI_ERROR_DEVICE_REMOVED:         gLogError("DX12", "DXGI_ERROR_DEVICE_REMOVED");        break;
+                case DXGI_ERROR_DEVICE_RESET:           gLogError("DX12", "DXGI_ERROR_DEVICE_RESET");          break;
+                case DXGI_ERROR_DRIVER_INTERNAL_ERROR:  gLogError("DX12", "DXGI_ERROR_DRIVER_INTERNAL_ERROR"); break;
+                case DXGI_ERROR_INVALID_CALL:           gLogError("DX12", "DXGI_ERROR_INVALID_CALL");          break;
             }
         }
         __debugbreak();

@@ -70,7 +70,7 @@ Device::Device(Application* inApp)
 
         static const auto NGXLogCallback = [](const char* message, NVSDK_NGX_Logging_Level loggingLevel, NVSDK_NGX_Feature sourceComponent) 
         {
-            std::cout << message << '\n';
+            gLogDebug("DLSS", "{}", message);
         };
 
         NVSDK_NGX_FeatureCommonInfo ngx_common_info = {};
@@ -180,7 +180,7 @@ Device::Device(Application* inApp)
     HRESULT serialize_vrs_hr = D3DX12SerializeVersionedRootSignature(&root_signature_desc, D3D_ROOT_SIGNATURE_VERSION_1_1, &signature, &error);
 
     if (error)
-        OutputDebugStringA((char*)error->GetBufferPointer());
+        gLogError("DX12", "Root signature serialization failed: {}", (const char*)error->GetBufferPointer());
 
     gThrowIfFailed(serialize_vrs_hr);
     gThrowIfFailed(m_Device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&m_GlobalRootSignature)));

@@ -138,7 +138,7 @@ bool ComputeProgram::CompilePSO(Device& inDevice, const char* inDebugName)
 
     if (m_ComputePipeline && inDebugName)
     {
-        std::cout << std::format("[DX12] Compute PSO {} compilation took {:.2f} ms \n", inDebugName, Timer::sToMilliseconds(timer.GetElapsedTime()));
+        gLogDebug("DX12", "Compute PSO {} compilation took {:.2f} ms", inDebugName, Timer::sToMilliseconds(timer.GetElapsedTime()));
         m_ComputePipeline->SetPrivateData(WKPDID_D3DDebugObjectName, strlen(inDebugName), inDebugName);
     }
 
@@ -338,7 +338,7 @@ ComPtr<IDxcBlob> ShaderCompiler::CompileShader(const Path& inPath, const String&
         std::scoped_lock lock = std::scoped_lock(m_ShaderCompilationMutex);
 
         char* error_c_str = (char*)errors->GetBufferPointer();
-        std::cout << error_c_str << '\n';
+        gLogError("DX12", "{}", error_c_str);
 
         String error_str;
         int line_nr = 0, char_nr = 0;
@@ -366,7 +366,7 @@ ComPtr<IDxcBlob> ShaderCompiler::CompileShader(const Path& inPath, const String&
     if (!SUCCEEDED(hr_status))
     {
         outHash = 0;
-        std::cout << std::format("[DX12] Compilation {} for shader: {} \n", COUT_RED("failed"), inPath.string());
+        gLogError("DX12", "Compilation failed for shader: {}", inPath.string());
         return nullptr;
     }
 
@@ -378,7 +378,7 @@ ComPtr<IDxcBlob> ShaderCompiler::CompileShader(const Path& inPath, const String&
     if (!SUCCEEDED(hr_status))
     {
         outHash = 0;
-        std::cout << std::format("[DX12] Compilation {} for shader: {} \n", COUT_RED("failed"), inPath.string());
+        gLogError("DX12", "Compilation failed for shader: {}", inPath.string());
         return nullptr;
     }
 
@@ -391,7 +391,7 @@ ComPtr<IDxcBlob> ShaderCompiler::CompileShader(const Path& inPath, const String&
         m_ShaderCache.insert({ outHash, shader });
     }
 
-    std::cout << std::format("[DX12] Compilation {} for shader: {} \n", COUT_GREEN("finished"), inPath.string());
+    gLogDebug("DX12", "Compiled shader: {}", inPath.string());
 
     return shader;
 }

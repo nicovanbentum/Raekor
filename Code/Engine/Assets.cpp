@@ -22,7 +22,7 @@ String TextureAsset::Convert(const String& inPath)
 
 	if (mip0_pixels == nullptr)
 	{
-		std::cout << std::format("[STBI] Failed to load {}\n", inPath);
+		gLogError("STBI", "Failed to load {}", inPath);
 		return String();
 	}
 	
@@ -46,7 +46,7 @@ String TextureAsset::Convert(const String& inPath)
 		height = aligned_height;
 
 		String filename = Path(inPath).filename().string();
-		std::cout << std::format("[Assets] Image {} at {}x{} is not a power of 2.\n", filename, width, height);
+		gLogWarning("Assets", "Image {} at {}x{} is not a power of 2.", filename, width, height);
 	}
 
 	// TODO: gpu mip mapping, cant right now because assets are loaded in parallel but OpenGL can't do multithreading
@@ -64,7 +64,7 @@ String TextureAsset::Convert(const String& inPath)
 		{
 			actual_mip_count = mip_index;
 			String filename = Path(inPath).filename().string();
-			std::cout << std::format("[Assets] Mip {} of Image {} at {}x{} is not a power of 2\n", mip_index, filename, mip_size.x, mip_size.y);
+			gLogWarning("Assets", "Mip {} of Image {} at {}x{} is not a power of 2", mip_index, filename, mip_size.x, mip_size.y);
 			break;
 		}
 
@@ -82,7 +82,7 @@ String TextureAsset::Convert(const String& inPath)
 		if (!gIsPow2(mip_size.x) || !gIsPow2(mip_size.y))
 		{
 			String filename = Path(inPath).filename().string();
-			std::cout << std::format("[Assets] Mip {} of Image {} at {}x{} is not a power of 2\n", mip_index, filename, mip_size.x, mip_size.y);
+			gLogWarning("Assets", "Mip {} of Image {} at {}x{} is not a power of 2", mip_index, filename, mip_size.x, mip_size.y);
 			break;
 		}
 
@@ -177,7 +177,7 @@ bool TextureAsset::Load()
 
 	if (!header.is_valid())
 	{
-		std::cerr << "File " << m_Path << " not a DDS file!\n";;
+		gLogError("Assets", "File {} is not a DDS file", m_Path.string());
 		return false;
 	}
 
@@ -224,9 +224,9 @@ ScriptAsset::~ScriptAsset()
 {
 	if (m_HModule)
 		if (!FreeLibrary((HMODULE)m_HModule))
-			std::cout << std::format("FreeLibrary(\"{}\") call failed! \n", m_Path.stem().string());
+			gLogError("Assets", "FreeLibrary(\"{}\") failed", m_Path.stem().string());
 
-	std::cout << std::format("[Assets] Unloaded {}\n", m_TempPath.string());
+	gLogInfo("Assets", "Unloaded {}", m_TempPath.string());
 
 	std::error_code error_code;
 	fs::remove(m_TempPath, error_code);
@@ -254,13 +254,13 @@ bool ScriptAsset::Load()
 	fs::remove(m_TempPath, remove_error_code);
 
 	if (remove_error_code)
-		std::cout << std::format("[Assets] Failed to remove {}\n", m_TempPath.string());
+		gLogError("Assets", "Failed to remove {}", m_TempPath.string());
 
 	std::error_code copy_error_code;
 	fs::copy(m_Path, m_TempPath, copy_error_code);
 
 	if (copy_error_code)
-		std::cout << std::format("[Assets] Failed to copy {} to {}\n", m_Path.string(), m_TempPath.string());
+		gLogError("Assets", "Failed to copy {} to {}", m_Path.string(), m_TempPath.string());
 
 	String temp_path_str = m_TempPath.string();
 	m_HModule = LoadLibraryA(temp_path_str.c_str());
@@ -268,7 +268,7 @@ bool ScriptAsset::Load()
 	if (!m_HModule)
 		return false;
 
-	std::cout << std::format("[Assets] Loaded {}\n", temp_path_str);
+	gLogInfo("Assets", "Loaded {}", temp_path_str);
 
 	if (FARPROC address = GetProcAddress((HMODULE)m_HModule, SCRIPT_EXPORTED_FUNCTION_STR))
 	{

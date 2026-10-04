@@ -119,7 +119,7 @@ bool OBJImporter::LoadFromFile(const String& inFile, Assets* inAssets)
 			if (mtl_file.empty())
 				line >> mtl_file;
 			else
-				std::cout << std::format("[OBJ] Multiple material libraries found, using {}\n", mtl_file);
+				gLogWarning("OBJ", "Multiple material libraries found, using {}", mtl_file);
 		}
 
         line_nr++;

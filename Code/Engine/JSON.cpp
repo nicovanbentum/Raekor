@@ -18,7 +18,7 @@ JSONData::JSONData(const Path& inPath, bool inTokenizeOnly)
 	if (nr_of_tokens <= 0)
 	{
 		if (nr_of_tokens < 0)
-			std::cout << std::format("[JSON] Failed to parse {}, error code {}\n", inPath.string(), nr_of_tokens);
+			gLogError("JSON", "Failed to parse {}, error code {}", inPath.string(), nr_of_tokens);
 
 		return;
 	}

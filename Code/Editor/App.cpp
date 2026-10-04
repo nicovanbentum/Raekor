@@ -55,7 +55,7 @@ DXApp::DXApp() :
         std::abort();
     }
 
-    LogMessage(std::format("[CPU] Shader compilation took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
+    gLogInfo("CPU", "Shader compilation took {:.2f} ms", Timer::sToMilliseconds(timer.Restart()));
 
     // Creating the SRVs at heap index 0 results in a 4x4 black square in the top left of the texture,
     // this is a hacky workaround. at least we get the added benefit of 0 being an 'invalid' index :D
@@ -88,7 +88,7 @@ DXApp::DXApp() :
 
     m_Device.UploadTextureData(m_Device.GetTexture(bluenoise_texture), 0, 0, sizeof(Vec4) * 128, blue_noise_samples.data());
 
-    LogMessage(std::format("[CPU] Blue noise texture took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
+    gLogInfo("CPU", "Blue noise texture took {:.2f} ms", Timer::sToMilliseconds(timer.Restart()));
 
     // Create default textures / assets
     m_DefaultBlackTexture = m_Device.CreateTexture(Texture::Desc2D(DXGI_FORMAT_R32G32B32A32_FLOAT, 1, 1, Texture::SHADER_READ_ONLY));
@@ -116,13 +116,13 @@ DXApp::DXApp() :
     m_RenderInterface.SetBlackTexture(m_DefaultBlackTexture.GetValue());
     m_RenderInterface.SetWhiteTexture(m_DefaultWhiteTexture.GetValue());
 
-    LogMessage(std::format("[CPU] Default material upload took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
+    gLogInfo("CPU", "Default material upload took {:.2f} ms", Timer::sToMilliseconds(timer.Restart()));
 
     // initialize ImGui
     ImGui_ImplSDL3_InitForD3D(m_Window);
     m_ImGuiFontTextureID = InitImGui(m_Device, Renderer::sSwapchainFormat, sFrameCount);
 
-    LogMessage(std::format("[CPU] ImGui init took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
+    gLogInfo("CPU", "ImGui init took {:.2f} ms", Timer::sToMilliseconds(timer.Restart()));
 
     // initialize DirectStorage 1.0
     DSTORAGE_QUEUE_DESC queue_desc =
@@ -133,7 +133,7 @@ DXApp::DXApp() :
         .Device = *m_Device,
     };
 
-    LogMessage(std::format("[CPU] DirectStorage init took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
+    gLogInfo("CPU", "DirectStorage init took {:.2f} ms", Timer::sToMilliseconds(timer.Restart()));
 
     m_Widgets.Register<GPUProfileWidget>(this);
     m_Widgets.Register<DeviceResourcesWidget>(this);
@@ -210,7 +210,7 @@ void DXApp::OnEvent(const SDL_Event& inEvent)
             m_Renderer.SetShouldResize(true);
 
             const SDL_DisplayMode* mode = SDL_GetWindowFullscreenMode(m_Window);
-            LogMessage(std::format("SDL Display Mode: {}x{}@{}Hz \n", mode->w, mode->h, mode->refresh_rate));
+            gLogInfo("App", "SDL display mode: {}x{}@{}Hz", mode->w, mode->h, mode->refresh_rate);
         }
 
         switch (inEvent.key.key)

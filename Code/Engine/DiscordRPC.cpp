@@ -15,7 +15,7 @@ bool DiscordRPC::Init(Application* inApp)
 
 	m_Core->SetLogHook(discord::LogLevel::Debug, [inApp](discord::LogLevel level, const char* message) 
 	{
-		inApp->LogMessage(std::format("[Discord] {}", message));
+		gLogDebug("Discord", "{}", message);
 	});
 
 	m_Activity = new discord::Activity();

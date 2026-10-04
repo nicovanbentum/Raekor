@@ -8,7 +8,24 @@ namespace RK {
 RTTI_DEFINE_TYPE_NO_FACTORY(ConsoleWidget) {}
 
 
-ConsoleWidget::ConsoleWidget(Editor* inEditor) : IWidget(inEditor, reinterpret_cast<const char*>( ICON_FA_TERMINAL "  Console " )) {}
+ConsoleWidget::ConsoleWidget(Editor* inEditor) : IWidget(inEditor, reinterpret_cast<const char*>( ICON_FA_TERMINAL "  Console " ))
+{
+	m_LogSink = g_Logger.AddSink([this](const LogMessage& inMessage)
+	{
+		std::scoped_lock lock(m_ItemsMutex);
+
+		if (m_Items.size() >= cMaxItems)
+			m_Items.erase(m_Items.begin(), m_Items.begin() + cMaxItems / 4);
+
+		m_Items.push_back(inMessage);
+	}, true);
+}
+
+
+ConsoleWidget::~ConsoleWidget()
+{
+	g_Logger.RemoveSink(m_LogSink);
+}
 
 
 void ConsoleWidget::Draw(Widgets* inWidgets, float inDeltaTime)
@@ -23,19 +40,61 @@ void ConsoleWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 	m_Visible = ImGui::IsWindowAppearing();
 
+	constexpr StaticArray level_colors =
+	{
+		ImVec4(0.55f, 0.55f, 0.55f, 1.0f),
+		ImVec4(0.90f, 0.90f, 0.90f, 1.0f),
+		ImVec4(1.00f, 0.80f, 0.30f, 1.0f),
+		ImVec4(1.00f, 0.40f, 0.40f, 1.0f)
+	};
+
+	for (int level = 0; level < LOG_LEVEL_COUNT; level++)
+	{
+		ImGui::PushStyleColor(ImGuiCol_Text, level_colors[level]);
+		ImGui::Checkbox(gToString(ELogLevel(level)), &m_ShowLevel[level]);
+		ImGui::PopStyleColor();
+		ImGui::SameLine();
+	}
+
+	m_Filter.Draw("##ConsoleFilter", ImGui::GetContentRegionAvail().x);
+
 	const float footer_height = ImGui::GetStyle().ItemSpacing.y + ImGui::GetFrameHeightWithSpacing();
 
 	ImGui::BeginChild("##LOG", ImVec2(ImGui::GetContentRegionAvail().x, -footer_height), false, ImGuiWindowFlags_HorizontalScrollbar);
 
+	bool clear_items = false;
+
 	if (ImGui::BeginPopupContextWindow())
 	{
-		if (ImGui::Selectable("clear")) m_Items.clear();
+		if (ImGui::Selectable("Clear"))
+			clear_items = true;
+
 		ImGui::EndPopup();
 	}
 
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 1));
-	for (const String& item : m_Items)
-		ImGui::TextUnformatted(item.c_str());
+
+	{
+		std::scoped_lock lock(m_ItemsMutex);
+
+		if (clear_items)
+			m_Items.clear();
+
+		for (const LogMessage& item : m_Items)
+		{
+			if (!m_ShowLevel[item.mLevel])
+				continue;
+
+			const String line = std::format("[{}] {}", item.mCategory, item.mText);
+
+			if (!m_Filter.PassFilter(line.c_str()))
+				continue;
+
+			ImGui::PushStyleColor(ImGuiCol_Text, level_colors[item.mLevel]);
+			ImGui::TextUnformatted(line.c_str());
+			ImGui::PopStyleColor();
+		}
+	}
 
 	if (m_ShouldScrollToBottom || ImGui::GetScrollY() >= ImGui::GetScrollMaxY())
 	{
@@ -58,32 +117,7 @@ void ConsoleWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	if (ImGui::InputText("##Input", &m_InputBuffer, flags, sEditCallback, (void*)this))
 	{
 		if (!m_InputBuffer.empty())
-		{
-			m_Items.push_back(m_InputBuffer);
-			m_ShouldScrollToBottom = true;
-
-			std::istringstream stream(m_InputBuffer);
-			std::string name, value;
-			stream >> name >> value;
-
-			bool success = g_CVariables->SetValue(name, value);
-			if (!success)
-			{
-				if (!g_CVariables->Exists(name))
-					m_Items.emplace_back("cvar \"" + name + "\" does not exist.");
-
-				else if (value.empty())
-					m_Items.emplace_back("Please provide a value.");
-
-				else
-					m_Items.emplace_back("Failed to set cvar " + name + " to " + "\"" + value + "\"");
-			}
-			else
-			{
-				if (name.starts_with('r'))
-					m_Editor->GetRenderInterface()->OnResize(m_Editor->GetViewport());
-			}
-		}
+			ExecuteCommand(m_InputBuffer);
 
 		m_InputBuffer.clear();
 		ImGui::SetKeyboardFocusHere();
@@ -136,10 +170,30 @@ void ConsoleWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 }
 
 
-void ConsoleWidget::LogMessage(const std::string& inMessage)
+void ConsoleWidget::ExecuteCommand(const String& inCommand)
 {
-	std::scoped_lock lock(m_ItemsMutex);
-	m_Items.push_back(inMessage);
+	m_CommandHistory.push_back(inCommand);
+	m_ShouldScrollToBottom = true;
+
+	gLogInfo("Console", "> {}", inCommand);
+
+	std::istringstream stream(inCommand);
+	std::string name, value;
+	stream >> name >> value;
+
+	if (g_CVariables->SetValue(name, value))
+	{
+		if (name.starts_with('r'))
+			m_Editor->GetRenderInterface()->OnResize(m_Editor->GetViewport());
+	}
+	else if (!g_CVariables->Exists(name))
+		gLogWarning("Console", "cvar \"{}\" does not exist.", name);
+
+	else if (value.empty())
+		gLogWarning("Console", "Please provide a value for cvar \"{}\".", name);
+
+	else
+		gLogWarning("Console", "Failed to set cvar \"{}\" to \"{}\".", name, value);
 }
 
 
@@ -214,8 +268,8 @@ int ConsoleWidget::sEditCallback(ImGuiInputTextCallbackData* data)
 	if (data->EventKey == ImGuiKey_UpArrow && console->m_ActiveItem)
 		console->m_ActiveItem = GoToPreviousItem();
 
-    if (data->EventKey == ImGuiKey_UpArrow && data->BufTextLen == 0)
-        data->InsertChars(0, console->m_Items.back().c_str());
+    if (data->EventKey == ImGuiKey_UpArrow && data->BufTextLen == 0 && !console->m_CommandHistory.empty())
+        data->InsertChars(0, console->m_CommandHistory.back().c_str());
 
 	return 0;
 }

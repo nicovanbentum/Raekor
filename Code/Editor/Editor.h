@@ -34,8 +34,6 @@ public:
 	Physics* GetPhysics() final { return &m_Physics; }
 	UndoSystem* GetUndo() final { return &m_UndoSystem; }
 
-	void LogMessage(const String& inMessage) final;
-
 	Settings& GetSettings() { return m_Settings; }
 	const Settings& GetSettings() const { return m_Settings; }
 
@@ -76,7 +74,6 @@ protected:
 	ImGuiID m_DockSpaceID;
 	bool m_DockSpaceBuilt = false;
 
-	Array<String> m_Messages;
 	Atomic<Entity> m_ActiveEntity = Entity::Null;
 	ImGuiSelectionBasicStorage m_Selection;
 

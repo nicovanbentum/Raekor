@@ -61,7 +61,7 @@ Launcher::Launcher() : Application(WindowFlag::HIDDEN)
 	GUI::SetDarkTheme();
 
 	m_Renderer = SDL_CreateRenderer(m_Window, NULL);
-	std::cout << "Created SDL_Renderer with name: \"" << SDL_GetRendererName(m_Renderer)<< "\"\n";
+	gLogInfo("Launcher", "Created SDL_Renderer with name \"{}\"", SDL_GetRendererName(m_Renderer));
 
 	ImGui_ImplSDL3_InitForSDLRenderer(m_Window, m_Renderer);
 	ImGui_ImplSDLRenderer3_Init(m_Renderer);

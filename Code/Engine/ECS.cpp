@@ -81,7 +81,7 @@ void RunECStorageTests()
 	assert(ecs.Get<TestName>(entity).name == "SecondEntity");
 
 	for (const auto& [entity, name, transform] : ecs.Each<TestName, TestTransform>())
-		std::cout << name.name << std::endl;
+		gLogDebug("ECS", "{}", name.name);
 
 	Array<Entity> entities;
 

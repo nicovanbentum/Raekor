@@ -31,7 +31,7 @@ bool FBXImporter::LoadFromFile(const String& inFile, Assets* inAssets)
 	if (m_FbxScene == nullptr)
 		return false;
 
-	std::cout << "[FBX Import] File load took " << Timer::sToMilliseconds(timer.Restart()) << " ms.\n";
+	gLogInfo("FBX", "File load took {:.2f} ms", Timer::sToMilliseconds(timer.Restart()));
 
 	for (const ufbx_material* material : m_FbxScene->materials)
 	{
@@ -65,7 +65,7 @@ bool FBXImporter::LoadFromFile(const String& inFile, Assets* inAssets)
 			m_Scene.ParentTo(entity, root_entity);
 	}
 
-	std::cout << "[GLTF] Meshes & nodes took " << Timer::sToMilliseconds(timer.Restart()) << " ms.\n";
+	gLogInfo("FBX", "Meshes & nodes took {:.2f} ms", Timer::sToMilliseconds(timer.Restart()));
 
 	// Load the converted textures from disk and upload them to the GPU
 	if (inAssets != nullptr)

@@ -84,7 +84,7 @@ GameApp::GameApp() :
 
     m_Device.UploadTextureData(m_Device.GetTexture(bluenoise_texture), 0, 0, sizeof(Vec4) * 128, blue_noise_samples.data());
 
-    LogMessage(std::format("[CPU] Shader compilation took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
+    gLogInfo("CPU", "Shader compilation took {:.2f} ms", Timer::sToMilliseconds(timer.Restart()));
 
     // Create default textures / assets
     m_DefaultBlackTexture  = m_Device.CreateTexture(Texture::Desc2D(DXGI_FORMAT_R32G32B32A32_FLOAT, 1, 1, Texture::SHADER_READ_ONLY));
@@ -112,7 +112,7 @@ GameApp::GameApp() :
     m_RenderInterface.SetBlackTexture(m_DefaultBlackTexture.GetValue());
     m_RenderInterface.SetWhiteTexture(m_DefaultWhiteTexture.GetValue());
 
-    LogMessage(std::format("[CPU] Default material upload took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
+    gLogInfo("CPU", "Default material upload took {:.2f} ms", Timer::sToMilliseconds(timer.Restart()));
 
     // initialize ImGui
     ImGui_ImplSDL3_InitForD3D(m_Window);
@@ -297,7 +297,7 @@ void GameApp::OnEvent(const SDL_Event& inEvent)
                 }
                 catch (const std::exception& e)
                 {
-                    std::cerr << e.what() << '\n';
+                    gLogError("Script", "{}", e.what());
                 }
             }
         }

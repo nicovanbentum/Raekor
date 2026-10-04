@@ -13,7 +13,37 @@
 #include "iter.h"
 #include "OS.h"
 
+#include <commctrl.h>
+#pragma comment(lib, "comctl32.lib")
+
 namespace RK {
+
+static LRESULT CALLBACK sWindowSubclassProc(HWND inWindow, UINT inMessage, WPARAM inWParam, LPARAM inLParam, UINT_PTR inSubclassID, DWORD_PTR inRefData)
+{
+	if (inMessage == WM_COPYDATA)
+	{
+		const COPYDATASTRUCT* copied_data = (const COPYDATASTRUCT*)inLParam;
+
+		if (copied_data && copied_data->dwData == IPC::LOG_MESSAGE_SENT && copied_data->lpData)
+		{
+			LogMessage message;
+
+			if (gDeserializeLogMessage(StringView((const char*)copied_data->lpData, copied_data->cbData), message))
+				g_Logger.Log(message.mLevel, message.mCategory, message.mText);
+
+			return TRUE;
+		}
+	}
+
+	return DefSubclassProc(inWindow, inMessage, inWParam, inLParam);
+}
+
+
+static HWND sGetWindowHandle(SDL_Window* inWindow)
+{
+	return (HWND)SDL_GetPointerProperty(SDL_GetWindowProperties(inWindow), SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
+}
+
 
 RTTI_DEFINE_TYPE_NO_FACTORY(Application)
 {
@@ -33,6 +63,14 @@ static constexpr const char* CONFIG_FILE_STR = "config.json";
 
 Application::Application(WindowFlags inFlags)
 {
+	String log_file_name = OS::sGetCommandLineValue("-log_file");
+
+	if (log_file_name.empty())
+		log_file_name = OS::sGetExecutablePath().stem().string();
+
+	fs::create_directories("Logs");
+	g_Logger.OpenFile(Path("Logs") / ( log_file_name + ".log" ));
+
 	gRegisterPrimitiveTypes();
 	gRegisterComponentTypes();
 
@@ -52,7 +90,7 @@ Application::Application(WindowFlags inFlags)
 
 	if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD))
 	{
-		LogMessage(SDL_GetError());
+		gLogError("SDL", "SDL_Init failed: {}", SDL_GetError());
 		std::abort();
 	}
 
@@ -108,7 +146,8 @@ Application::Application(WindowFlags inFlags)
 	if (( inFlags & WindowFlag::HIDDEN ) == 0)
 		SDL_ShowWindow(m_Window);
 
-    // SDL_SetWindowsMessageHook(OnNativeEvent, this);
+	if (HWND window = sGetWindowHandle(m_Window))
+		SetWindowSubclass(window, sWindowSubclassProc, 0, (DWORD_PTR)this);
 
 	m_DiscordRPC.Init(this);
 }
@@ -116,6 +155,9 @@ Application::Application(WindowFlags inFlags)
 
 Application::~Application()
 {
+	if (HWND window = sGetWindowHandle(m_Window))
+		RemoveWindowSubclass(window, sWindowSubclassProc, 0);
+
 	m_DiscordRPC.Destroy();
 
 	m_ConfigSettings.mDisplayID = SDL_GetDisplayForWindow(m_Window);
@@ -136,7 +178,7 @@ void RandomlyResizeWindow(SDL_Window* inWindow)
 
 	SDL_SetWindowSize(inWindow, mode->w, mode->h);
 
-	std::cout << std::format("Resizing Window to {}x{}\n", mode->w, mode->h);
+	gLogInfo("App", "Resizing window to {}x{}", mode->w, mode->h);
 }
 
 
@@ -177,24 +219,6 @@ void Application::Run()
 
 		m_FrameCounter++;
 	}
-}
-
-
-bool Application::OnNativeEvent(void* inUserData, MSG* inMessage)
-{
-	Application* app = (Application*)inUserData;
-
-	if (inMessage->message == WM_COPYDATA)
-	{
-		const PCOPYDATASTRUCT copied_data = (PCOPYDATASTRUCT)inMessage->lParam;
-
-		if (copied_data->dwData == IPC::LOG_MESSAGE_SENT)
-		{
-			app->LogMessage((const char*)copied_data->lpData);
-		}
-	}
-
-	return 0;
 }
 
 
@@ -264,7 +288,7 @@ void Game::Start()
                 }
                 catch (std::exception& e)
                 {
-                    std::cout << e.what() << '\n';
+                    gLogError("Script", "{}", e.what());
                 }
             }
         }
@@ -333,7 +357,7 @@ void Game::Stop()
                 }
                 catch (std::exception& e)
                 {
-                    std::cout << e.what() << '\n';
+                    gLogError("Script", "{}", e.what());
                 }
             }
         }

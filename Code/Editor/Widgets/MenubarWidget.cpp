@@ -70,7 +70,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 					m_Editor->SetActiveEntity(Entity::Null);
 
-					m_Editor->LogMessage("[Scene] Open from file took " + std::to_string(Timer::sToMilliseconds(timer.GetElapsedTime())) + " ms.");
+					gLogInfo("Scene", "Open from file took {:.0f} ms", Timer::sToMilliseconds(timer.GetElapsedTime()));
 				}
 			}
 
@@ -82,9 +82,9 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 				{
 					g_ThreadPool.QueueJob([this, filepath]()
 					{
-						m_Editor->LogMessage("[Editor] Saving scene...");
+						gLogInfo("Editor", "Saving scene...");
 						GetScene().SaveToFile(filepath, IWidget::GetAssets());
-						m_Editor->LogMessage("[Editor] Saved scene to " + fs::relative(filepath).string() + "");
+						gLogInfo("Editor", "Saved scene to {}", fs::relative(filepath).string());
 					});
 				}
 
@@ -118,7 +118,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 					{
 						importer->LoadFromFile(filepath, &GetAssets());
 
-						m_Editor->LogMessage(std::format("[Scene] Import from file took {:.0f} ms", Timer::sToMilliseconds(timer.GetElapsedTime())));
+						gLogInfo("Scene", "Import from file took {:.0f} ms", Timer::sToMilliseconds(timer.GetElapsedTime()));
 					}
 				}
 			}
@@ -171,10 +171,10 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 						stbi_flip_vertically_on_write(true);
 						stbi_write_png(save_path.c_str(), viewport.GetRenderSize().x, viewport.GetRenderSize().y, 4, pixel_data.data(), viewport.GetRenderSize().x * 4);
 
-						m_Editor->LogMessage("[System] Screenshot saved to " + save_path);
+						gLogInfo("Editor", "Screenshot saved to {}", save_path);
 					}
 					else 
-						m_Editor->LogMessage("[System] Unable to save screenshot to " + save_path);
+						gLogError("Editor", "Unable to save screenshot to {}", save_path);
 				}
 			}
 

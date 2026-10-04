@@ -74,7 +74,7 @@ Editor::Editor(WindowFlags inWindowFlags, IRenderInterface* inRenderInterface) :
 		m_Widgets.Register<HierarchyWidget>(this);
 	}
 
-	LogMessage("[Editor] initialization done");
+	gLogInfo("Editor", "Initialization done");
 
 	// hide the console window
 	if (!IsDebuggerPresent())
@@ -92,7 +92,8 @@ Editor::Editor(WindowFlags inWindowFlags, IRenderInterface* inRenderInterface) :
 
 	if (g_CVariables->Create("launch_asset_compiler_on_startup", 0))
 	{
-		String compiler_app_cmd_line = OS::sGetExecutablePath().string() + " -asset_compiler";
+		const HWND editor_window = (HWND)SDL_GetPointerProperty(SDL_GetWindowProperties(m_Window), SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
+		String compiler_app_cmd_line = std::format("{} -asset_compiler -log_file=AssetCompiler -ipc_window={}", OS::sGetExecutablePath().string(), uint64_t(editor_window));
 
 		PROCESS_INFORMATION pi = {};
 		STARTUPINFO si = { sizeof(si) };
@@ -116,10 +117,7 @@ Editor::Editor(WindowFlags inWindowFlags, IRenderInterface* inRenderInterface) :
 		}
 
 		if (m_CompilerProcess == nullptr)
-			LogMessage("[Editor] Failed to start asset compiler process.");
-
-		if (m_CompilerWindow == nullptr)
-			LogMessage("[Editor] Failed to hook asset compiler window.");
+			gLogError("Editor", "Failed to start asset compiler process.");
 	}
 
 	m_Camera.SetPosition(Vec3(1.0f, 1.0f, -1.0f));
@@ -317,9 +315,9 @@ void Editor::OnEvent(const SDL_Event& event)
 					{
 						g_ThreadPool.QueueJob([this, filepath]()
 						{
-							LogMessage("[Editor] Saving scene...");
+							gLogInfo("Editor", "Saving scene...");
 							m_Scene.SaveToFile(filepath, m_Assets);
-							LogMessage("[Editor] Saved scene to " + fs::relative(filepath).string() + "");
+							gLogInfo("Editor", "Saved scene to {}", fs::relative(filepath).string());
 						});
 					}
 
@@ -398,7 +396,7 @@ void Editor::OnEvent(const SDL_Event& event)
 				}
 				catch (const std::exception& e)
 				{
-					std::cerr << e.what() << '\n';
+					gLogError("Script", "{}", e.what());
 				}
 			}
 		}
@@ -406,27 +404,6 @@ void Editor::OnEvent(const SDL_Event& event)
 
 	if (m_ConfigSettings.mShowUI && GetGameState() != GAME_RUNNING)
 		m_Widgets.OnEvent(event);
-}
-
-
-void Editor::LogMessage(const String& inMessage)
-{
-	Application::LogMessage(inMessage);
-
-	if (ConsoleWidget* console_widget = m_Widgets.GetWidget<ConsoleWidget>())
-	{
-		// Flush any pending messages
-		if (!m_Messages.empty())
-			for (const String& message : m_Messages)
-				console_widget->LogMessage(message);
-
-		m_Messages.clear();
-		console_widget->LogMessage(inMessage);
-	}
-	else
-	{
-		m_Messages.push_back(inMessage);
-	}
 }
 
 

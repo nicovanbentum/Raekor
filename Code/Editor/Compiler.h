@@ -111,12 +111,12 @@ public:
 
 	virtual void OnUpdate(float inDeltaTime) override;
 	virtual void OnEvent(const SDL_Event& inEvent) override;
-	virtual void LogMessage(const String& inMessage) override;
 
 	void OpenFromTray();
 	HWND GetWindowHandle();
 
 private:
+	uint32_t m_IPCLogSink = 0;
 	uint64_t m_StartTicks = 0;
 	uint64_t m_FinishedTicks = 0;
 	Path m_CurrentPath;

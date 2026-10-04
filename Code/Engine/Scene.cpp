@@ -266,7 +266,7 @@ void Scene::UpdateNativeScripts(float inDeltaTime, Application* inApp)
 			}
 			catch (const std::exception& e)
 			{
-				std::cerr << e.what() << '\n';
+				gLogError("Script", "{}", e.what());
 			}
 		}
         else if (!script.type.empty() && inApp)
@@ -475,7 +475,7 @@ void Scene::LoadMaterialTextures(Assets& inAssets)
 
     g_ThreadPool.WaitForJobs();
 
-	std::cout << std::format("[Scene] Load textures to RAM took {:.3f} seconds.\n", timer.Restart());
+	gLogInfo("Scene", "Load textures to RAM took {:.3f} seconds.", timer.Restart());
 
     for (const auto& [entity, material] : Each<Material>())
 	{
@@ -487,7 +487,7 @@ void Scene::LoadMaterialTextures(Assets& inAssets)
 
     g_ThreadPool.WaitForJobs();
 
-	std::cout << std::format("[Scene] Upload textures to GPU took {:.3f} seconds.\n", timer.GetElapsedTime());
+	gLogInfo("Scene", "Upload textures to GPU took {:.3f} seconds.", timer.GetElapsedTime());
 }
 
 
@@ -575,14 +575,14 @@ void Scene::OpenFromFile(const String& inFilePath, Assets& ioAssets, Application
 	if (header.MagicNumber != SceneHeader::sMagicNumber)
 	{
 		if (inApp) 
-			inApp->LogMessage(std::format("[Scene] Magic number mismatch!"));
+			gLogError("Scene", "Magic number mismatch in {}", inFilePath);
 		return;
 	}
 	
 	if (header.Version != SceneHeader::sVersion)
 	{
 		if (inApp)
-			inApp->LogMessage(std::format("[Scene] Format version mismatch!!"));
+			gLogError("Scene", "Format version mismatch in {}", inFilePath);
 		return;
 	}
 
@@ -600,7 +600,7 @@ void Scene::OpenFromFile(const String& inFilePath, Assets& ioAssets, Application
 	ReadFileBinary(file, pairs);
 	m_Hierarchy.insert(pairs);
 
-	std::cout << std::format("[Scene] Load Hierarchy data took {:.3f} seconds.\n", timer.GetElapsedTime());
+	gLogInfo("Scene", "Load Hierarchy data took {:.3f} seconds.", timer.GetElapsedTime());
 
 	timer.Restart();
 
@@ -616,7 +616,7 @@ void Scene::OpenFromFile(const String& inFilePath, Assets& ioAssets, Application
 		if (storage == m_Components.end() || storage->second == nullptr)
 		{
 			if (inApp)
-				inApp->LogMessage(std::format("[Scene] Skipped unknown component table with hash {:#x}", table.Hash));
+				gLogWarning("Scene", "Skipped unknown component table with hash {:#x}", table.Hash);
 			continue;
 		}
 
@@ -624,7 +624,7 @@ void Scene::OpenFromFile(const String& inFilePath, Assets& ioAssets, Application
 		storage->second->Read(archive);
 	}
 
-	std::cout << std::format("[Scene] Load ECStorage data took {:.3f} seconds.\n", timer.GetElapsedTime());
+	gLogInfo("Scene", "Load ECStorage data took {:.3f} seconds.", timer.GetElapsedTime());
 
 	// load material texture data to vram
 	LoadMaterialTextures(ioAssets);
@@ -681,7 +681,7 @@ void Scene::OpenFromFile(const String& inFilePath, Assets& ioAssets, Application
         }
 	}
 
-	std::cout << std::format("[Scene] Upload mesh data to GPU took {:.3f} seconds.\n", timer.GetElapsedTime());
+	gLogInfo("Scene", "Upload mesh data to GPU took {:.3f} seconds.", timer.GetElapsedTime());
 }
 
 
@@ -705,14 +705,14 @@ void Scene::OpenFromFileAsync(const String& inFilePath, Assets& ioAssets, Applic
 	if (header.MagicNumber != SceneHeader::sMagicNumber)
 	{
 		if (inApp)
-			inApp->LogMessage(std::format("[Scene] Magic number mismatch!"));
+			gLogError("Scene", "Magic number mismatch in {}", inFilePath);
 		return;
 	}
 
 	if (header.Version != SceneHeader::sVersion)
 	{
 		if (inApp)
-			inApp->LogMessage(std::format("[Scene] Format version mismatch!!"));
+			gLogError("Scene", "Format version mismatch in {}", inFilePath);
 		return;
 	}
 
@@ -730,7 +730,7 @@ void Scene::OpenFromFileAsync(const String& inFilePath, Assets& ioAssets, Applic
 	ReadFileBinary(file, pairs);
 	m_Hierarchy.insert(pairs);
 
-	std::cout << std::format("[Scene] Load Hierarchy data took {:.3f} seconds.\n", timer.GetElapsedTime());
+	gLogInfo("Scene", "Load Hierarchy data took {:.3f} seconds.", timer.GetElapsedTime());
 
 	// read in tables
 	Array<SceneTable> tables;
@@ -744,7 +744,7 @@ void Scene::OpenFromFileAsync(const String& inFilePath, Assets& ioAssets, Applic
 		if (storage == m_Components.end() || storage->second == nullptr)
 		{
 			if (inApp)
-				inApp->LogMessage(std::format("[Scene] Skipped unknown component table with hash {:#x}", table.Hash));
+				gLogWarning("Scene", "Skipped unknown component table with hash {:#x}", table.Hash);
 			continue;
 		}
 
@@ -752,7 +752,7 @@ void Scene::OpenFromFileAsync(const String& inFilePath, Assets& ioAssets, Applic
 		storage->second->Read(archive);
 	}
 
-	std::cout << std::format("[Scene] Load ECStorage data took {:.3f} seconds.\n", timer.GetElapsedTime());
+	gLogInfo("Scene", "Load ECStorage data took {:.3f} seconds.", timer.GetElapsedTime());
 
     for (const auto& [entity, script] : Each<NativeScript>())
     {
@@ -840,10 +840,10 @@ void Scene::BindScriptToEntity(Entity inEntity, NativeScript& inScript, Applicat
 
 		inScript.script->OnBind();
 
-		std::clog << std::format("[Scene] Attached {} to entity {} \n", inScript.script->GetRTTI().GetTypeName(), uint32_t(inEntity));
+		gLogInfo("Scene", "Attached {} to entity {}", inScript.script->GetRTTI().GetTypeName(), uint32_t(inEntity));
 	}
 	else
-		std::clog << std::format("Failed to bind script {} to entity {} \n", inScript.file, uint32_t(inEntity)) << '\n';
+		gLogError("Scene", "Failed to bind script {} to entity {}", inScript.file, uint32_t(inEntity));
 }
 
 
@@ -877,11 +877,11 @@ bool SceneImporter::LoadFromFile(const String& inFile, Assets* inAssets)
 
 	if (!m_ImportedScene.Count<Mesh>() || !m_ImportedScene.Count<Material>())
 	{
-		std::cout << std::format("[Scene] Error loading {} \n", inFile);
+		gLogError("Scene", "Error loading {}", inFile);
 		return false;
 	}
 
-	std::cout << "[Scene Import] File load took " << Timer::sToMilliseconds(timer.Restart()) << " ms.\n";
+	gLogInfo("Scene Import", "File load took {:.2f} ms", Timer::sToMilliseconds(timer.Restart()));
 
 	/*
 	* PARSE MATERIALS
@@ -897,7 +897,7 @@ bool SceneImporter::LoadFromFile(const String& inFile, Assets* inAssets)
 		m_MaterialMapping[entity] = new_entity;
 	}
 
-	std::cout << "[Scene Import] Materials took " << Timer::sToMilliseconds(timer.Restart()) << " ms.\n";
+	gLogInfo("Scene Import", "Materials took {:.2f} ms", Timer::sToMilliseconds(timer.Restart()));
 
 	/*
 	* PARSE NODES & MESHES
@@ -920,7 +920,7 @@ bool SceneImporter::LoadFromFile(const String& inFile, Assets* inAssets)
 			 m_Scene.ParentTo(entity, root_entity);
 	}
 
-	std::cout << "[Scene Import] Meshes & nodes took " << Timer::sToMilliseconds(timer.Restart()) << " ms.\n";
+	gLogInfo("Scene Import", "Meshes & nodes took {:.2f} ms", Timer::sToMilliseconds(timer.Restart()));
 
 	// Load the converted textures from disk and upload them to the GPU
 	if (inAssets != nullptr)

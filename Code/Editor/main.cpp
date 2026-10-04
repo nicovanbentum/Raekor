@@ -35,7 +35,7 @@ int main(int argc, char** argv)
     else
         app = new DX12::DXApp();
 
-    app->LogMessage(std::format("[App] App creation took {:.2f} seconds", timer.GetElapsedTime()));
+    gLogInfo("App", "App creation took {:.2f} seconds", timer.GetElapsedTime());
 
     app->Run();
 
