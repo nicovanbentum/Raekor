@@ -70,7 +70,7 @@ public:
     void OnResize(Device& inDevice, Viewport& inViewport, bool inExclusiveFullscreen = false);
     void OnRender(Application* inApp, Device& inDevice, Viewport& inViewport, RayTracedScene& inScene, IRenderInterface* inRenderInterfacee, float inDeltaTime);
 
-    void Recompile(Device& inDevice, const RayTracedScene& inScene, IRenderInterface* inRenderInterface);
+    void Recompile(Device& inDevice, RayTracedScene& inScene, IRenderInterface* inRenderInterface);
 
     CommandList& StartSingleSubmit();
     void FlushSingleSubmit(Device& inDevice, CommandList& inCommandList);

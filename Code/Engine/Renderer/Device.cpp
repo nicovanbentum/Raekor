@@ -224,6 +224,9 @@ Device::Device(Application* inApp)
 
 Device::~Device()
 {
+    for (DeferredRelease& release : m_DeferredReleaseQueue)
+        release.mResource.Release();
+
     for (Buffer& buffer : m_Buffers)
         buffer.Release();
 
@@ -236,13 +239,25 @@ void Device::OnUpdate()
 {
     m_FrameIndex = ++m_FrameCounter % sFrameCount;
 
-    if (m_FrameCounter % ( sFrameCount + 1 ) == 0)
-    {
-        for (DeviceResource resource : m_DeferredReleaseQueue)
-            resource.Release();
+    std::scoped_lock lock(m_ReleaseMutex);
 
-       m_DeferredReleaseQueue.clear();
+    size_t kept_count = 0;
+
+    for (DeferredRelease& release : m_DeferredReleaseQueue)
+    {
+        if (m_FrameCounter < release.mFrameCounter + sFrameCount + 1)
+        {
+            m_DeferredReleaseQueue[kept_count++] = release;
+            continue;
+        }
+
+        release.mResource.Release();
+
+        if (release.mDescriptor.IsValid())
+            m_Heaps[release.mDescriptorHeapType].Remove(release.mDescriptor);
     }
+
+    m_DeferredReleaseQueue.resize(kept_count);
 }
 
 
@@ -384,34 +399,48 @@ void Device::SetDebugName(TextureID inTexture, const char* inName)
 
 void Device::ReleaseBuffer(BufferID inBufferID)
 {
+    assert(inBufferID.IsValid());
     Buffer& buffer = GetBuffer(inBufferID);
-    m_DeferredReleaseQueue.push_back(buffer);
+
+    {
+        std::scoped_lock lock(m_ReleaseMutex);
+        m_DeferredReleaseQueue.push_back(DeferredRelease
+        {
+            .mResource = buffer,
+            .mDescriptor = buffer.GetDescriptor(),
+            .mDescriptorHeapType = GetD3D12HeapType(buffer.GetUsage()),
+            .mFrameCounter = m_FrameCounter
+        });
+    }
 
     buffer.m_Resource = nullptr;
     buffer.m_Allocation = nullptr;
 
-    assert(inBufferID.IsValid());
     m_Buffers.Remove(inBufferID);
-
-    if (buffer.HasDescriptor())
-        ReleaseDescriptor(buffer.GetUsage(), buffer.GetDescriptor());
 }
 
 
 
 void Device::ReleaseTexture(TextureID inTextureID)
 {
+    assert(inTextureID.IsValid());
     Texture& texture = GetTexture(inTextureID);
-    m_DeferredReleaseQueue.push_back(texture);
+
+    {
+        std::scoped_lock lock(m_ReleaseMutex);
+        m_DeferredReleaseQueue.push_back(DeferredRelease
+        {
+            .mResource = texture,
+            .mDescriptor = texture.GetDescriptor(),
+            .mDescriptorHeapType = texture.HasDescriptor() ? GetD3D12HeapType(texture.GetUsage()) : D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
+            .mFrameCounter = m_FrameCounter
+        });
+    }
 
     texture.m_Resource = nullptr;
     texture.m_Allocation = nullptr;
 
-    assert(inTextureID.IsValid());
     m_Textures.Remove(inTextureID);
-
-    if (texture.HasDescriptor())
-        ReleaseDescriptor(texture.GetUsage(), texture.GetDescriptor());
 }
 
 
@@ -529,33 +558,6 @@ void Device::CreateDescriptor(TextureID inID, const Texture::Desc& inDesc)
     texture.m_DescriptorHandleGPU = GetGPUDescriptorHandle(inID).ptr;
 }
 
-
-void Device::ReleaseDescriptor(Buffer::Usage inUsage, DescriptorID inDescriptorID)
-{
-    UNREFERENCED_PARAMETER(inUsage); // I just like API consistency
-    m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].Remove(inDescriptorID);
-}
-
-
-void Device::ReleaseDescriptor(Texture::Usage inUsage, DescriptorID inDescriptorID)
-{
-    D3D12_DESCRIPTOR_HEAP_TYPE heap_type;
-
-    switch (inUsage)
-    {
-        case Texture::DEPTH_STENCIL_TARGET:
-            heap_type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV; break;
-        case Texture::RENDER_TARGET:
-            heap_type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV; break;
-        case Texture::SHADER_READ_ONLY:
-        case Texture::SHADER_READ_WRITE:
-            heap_type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV; break;
-        default:
-            assert(false);
-    }
-
-    m_Heaps[heap_type].Remove(inDescriptorID);
-}
 
 
 void Device::ReleaseDescriptorImmediate(Buffer::Usage inUsage, DescriptorID inDescriptorID)
@@ -692,60 +694,68 @@ DescriptorID Device::CreateUnorderedAccessView(ID3D12Resource* inResource, const
 
 
 
-void Device::UploadBufferData(CommandList& inCmdList, Buffer& inBuffer, uint32_t inOffset, const void* inData, uint32_t inSize)
+uint8_t* Device::AllocateUploadMemory(uint64_t inSize, uint64_t inAlignment, BufferID& outBuffer, uint64_t& outOffset)
 {
+    for (UploadBuffer& buffer : m_UploadBuffers)
     {
-        std::scoped_lock lock = std::scoped_lock(m_UploadMutex);
+        if (!buffer.mRetired && buffer.mFrameIndex != m_FrameCounter)
+            continue;
 
-        for (UploadBuffer& buffer : m_UploadBuffers)
-        {
-            if (buffer.mRetired && inSize <= buffer.mCapacity - buffer.mSize)
-            {
-                memcpy(buffer.mPtr + buffer.mSize, inData, inSize);
+        const uint64_t offset = gAlignUp(buffer.mSize, inAlignment);
 
-                ID3D12Resource* buffer_resource = GetD3D12Resource(buffer.mID);
-                inCmdList->CopyBufferRegion(inBuffer.GetD3D12Resource(), inOffset, buffer_resource, buffer.mSize, inSize);
+        if (offset + inSize > buffer.mCapacity)
+            continue;
 
-                buffer.mSize += inSize;
-                buffer.mRetired = false;
-                buffer.mFrameIndex = m_FrameCounter;
+        buffer.mSize = offset + inSize;
+        buffer.mRetired = false;
+        buffer.mFrameIndex = m_FrameCounter;
 
-                return;
-            }
-        }
+        outBuffer = buffer.mID;
+        outOffset = offset;
+        return buffer.mPtr + offset;
     }
 
-    BufferID buffer_id = CreateBuffer(Buffer::Desc
-    {
-        .size = inSize,
-        .usage = Buffer::Usage::UPLOAD,
-        .debugName = "StagingBuffer"
-    });
+    const uint64_t capacity = std::max(gAlignUp(inSize, D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT), sMinUploadBufferSize);
 
+    const BufferID buffer_id = CreateBuffer(Buffer::Describe(capacity, Buffer::Usage::UPLOAD, true, "StagingBuffer"));
     Buffer& buffer = GetBuffer(buffer_id);
 
     uint8_t* mapped_ptr = nullptr;
-    const CD3DX12_RANGE range = CD3DX12_RANGE(0, 0);
-    gThrowIfFailed(buffer->Map(0, &range, reinterpret_cast<void**>( &mapped_ptr )));
-
-    memcpy(mapped_ptr, inData, inSize);
-
-    std::scoped_lock lock = std::scoped_lock(m_UploadMutex);
-
-    assert(inBuffer.GetSize() >= inSize);
-    inCmdList->CopyBufferRegion(inBuffer.GetD3D12Resource(), inOffset, buffer.GetD3D12Resource(), 0, inSize);
+    const CD3DX12_RANGE read_range = CD3DX12_RANGE(0, 0);
+    gThrowIfFailed(buffer->Map(0, &read_range, reinterpret_cast<void**>( &mapped_ptr )));
 
     m_UploadBuffers.emplace_back(UploadBuffer
     {
         .mRetired    = false,
         .mSize       = inSize,
-        .mCapacity   = inSize,
+        .mCapacity   = capacity,
         .mPtr        = mapped_ptr,
         .mID         = buffer_id,
         .mFrameIndex = m_FrameCounter,
     });
 
     m_UploadBuffersSize += buffer.GetD3D12Allocation()->GetSize();
+
+    outBuffer = buffer_id;
+    outOffset = 0;
+    return mapped_ptr;
+}
+
+
+
+void Device::UploadBufferData(CommandList& inCmdList, Buffer& inBuffer, uint32_t inOffset, const void* inData, uint32_t inSize)
+{
+    assert(inBuffer.GetSize() >= inOffset + inSize);
+
+    std::scoped_lock lock = std::scoped_lock(m_UploadMutex);
+
+    BufferID upload_buffer;
+    uint64_t upload_offset = 0;
+    uint8_t* upload_ptr = AllocateUploadMemory(inSize, sizeof(Vec4), upload_buffer, upload_offset);
+
+    std::memcpy(upload_ptr, inData, inSize);
+
+    inCmdList->CopyBufferRegion(inBuffer.GetD3D12Resource(), inOffset, GetD3D12Resource(upload_buffer), upload_offset, inSize);
 }
 
 
@@ -759,76 +769,29 @@ void Device::UploadTextureData(Texture& inTexture, uint32_t inMip, uint32_t inLa
     D3D12_RESOURCE_DESC desc = inTexture.GetD3D12Resource()->GetDesc();
     uint32_t subresource = D3D12CalcSubresource(inMip, inLayer, 0, desc.MipLevels, desc.DepthOrArraySize);
     m_Device->GetCopyableFootprints(&desc, subresource, 1, 0, &footprint, &nr_of_rows, &row_size, &total_size);
-    
-    {
-        std::scoped_lock lock = std::scoped_lock(m_UploadMutex);
-
-        for (UploadBuffer& buffer : m_UploadBuffers) 
-        {
-            if (buffer.mRetired && total_size <= buffer.mCapacity - buffer.mSize) 
-            {
-                uint8_t* data_ptr = (uint8_t*)inData;
-                uint8_t* offset_ptr = buffer.mPtr + footprint.Offset;
-
-                for (uint32_t row = 0u; row < nr_of_rows; row++)
-                {
-                    uint8_t* copy_src = data_ptr + row * inRowPitch;
-                    uint8_t* copy_dst = offset_ptr + row * footprint.Footprint.RowPitch;
-                    std::memcpy(copy_dst, copy_src, row_size);
-                }
-
-
-                m_TextureUploads.emplace_back(TextureUpload 
-                {
-                    .mBufferPart = CD3DX12_TEXTURE_COPY_LOCATION(GetD3D12Resource(buffer.mID), footprint),
-                    .mTexturePart = CD3DX12_TEXTURE_COPY_LOCATION(inTexture.GetD3D12Resource(), subresource)
-                });
-
-                buffer.mSize += total_size;
-                buffer.mRetired = false;
-                buffer.mFrameIndex = m_FrameCounter;
-
-                return;
-            }
-        }
-    }
-
-
-    BufferID buffer_id = CreateBuffer(Buffer::Describe(total_size, Buffer::Usage::UPLOAD, true, "StagingBuffer"));
-    Buffer& buffer = GetBuffer(buffer_id);
-
-    uint8_t* mapped_ptr = nullptr;
-    gThrowIfFailed(buffer->Map(0, nullptr, (void**)&mapped_ptr));
-
-    uint8_t* data_ptr = (uint8_t*)inData;
-    uint8_t* offset_ptr = mapped_ptr + footprint.Offset;
-
-    for (uint32_t row = 0u; row < nr_of_rows; row++)
-    {
-        uint8_t* copy_src = data_ptr + row * inRowPitch;
-        uint8_t* copy_dst = offset_ptr + row * footprint.Footprint.RowPitch;
-        std::memcpy(copy_dst, copy_src, row_size);
-    }
 
     std::scoped_lock lock = std::scoped_lock(m_UploadMutex);
 
-    m_TextureUploads.emplace_back(TextureUpload
-        {
-            .mBufferPart = CD3DX12_TEXTURE_COPY_LOCATION(buffer.GetD3D12Resource(), footprint),
-            .mTexturePart = CD3DX12_TEXTURE_COPY_LOCATION(inTexture.GetD3D12Resource(), subresource)
-        });
+    BufferID upload_buffer;
+    uint64_t upload_offset = 0;
+    uint8_t* upload_ptr = AllocateUploadMemory(total_size, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, upload_buffer, upload_offset);
 
-    m_UploadBuffers.emplace_back(UploadBuffer
+    footprint.Offset = upload_offset;
+
+    const uint8_t* data_ptr = (const uint8_t*)inData;
+
+    for (uint32_t row = 0u; row < nr_of_rows; row++)
     {
-        .mRetired    = false,
-        .mSize       = total_size,
-        .mCapacity   = total_size,
-        .mPtr        = mapped_ptr,
-        .mID         = buffer_id,
-        .mFrameIndex = m_FrameCounter,
-    });
+        const uint8_t* copy_src = data_ptr + row * inRowPitch;
+        uint8_t* copy_dst = upload_ptr + row * footprint.Footprint.RowPitch;
+        std::memcpy(copy_dst, copy_src, row_size);
+    }
 
-    m_UploadBuffersSize += buffer.GetD3D12Allocation()->GetSize();
+    m_TextureUploads.emplace_back(TextureUpload
+    {
+        .mBufferPart = CD3DX12_TEXTURE_COPY_LOCATION(GetD3D12Resource(upload_buffer), footprint),
+        .mTexturePart = CD3DX12_TEXTURE_COPY_LOCATION(inTexture.GetD3D12Resource(), subresource)
+    });
 }
 
 
@@ -858,6 +821,8 @@ void Device::FlushUploads(CommandList& inCmdList)
 
 void Device::RetireUploadBuffers(CommandList& inCmdList)
 {
+    std::scoped_lock lock = std::scoped_lock(m_UploadMutex);
+
     for (UploadBuffer& buffer : m_UploadBuffers)
     {
         if (buffer.mFrameIndex + sFrameCount + 1 < m_FrameCounter)
@@ -866,6 +831,16 @@ void Device::RetireUploadBuffers(CommandList& inCmdList)
             buffer.mRetired = true;
         }
     }
+
+    std::erase_if(m_UploadBuffers, [this](const UploadBuffer& inBuffer)
+    {
+        if (!inBuffer.mRetired || inBuffer.mFrameIndex + sUploadBufferIdleFrames >= m_FrameCounter)
+            return false;
+
+        m_UploadBuffersSize -= GetBuffer(inBuffer.mID).GetD3D12Allocation()->GetSize();
+        ReleaseBuffer(inBuffer.mID);
+        return true;
+    });
 }
 
 

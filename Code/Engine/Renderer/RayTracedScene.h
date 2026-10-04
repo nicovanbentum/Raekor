@@ -52,7 +52,8 @@ public:
     void UpdateBLAS(Application* inApp, Device& inDevice, Mesh& inMesh, Skeleton& inSkeleton, CommandList& inCmdList);
     void UploadSkeleton(Application* inApp, Device& inDevice, Skeleton& inSkeleton, CommandList& inCmdList);
 
-    void UploadTLAS(Application* inApp, Device& inDevice, CommandList& inCmdList);
+    void UploadTLASInstances(Application* inApp, Device& inDevice, CommandList& inCmdList);
+    void BuildTLAS(Device& inDevice, CommandList& inCmdList);
     void UploadLights(Application* inApp, Device& inDevice, CommandList& inCmdList);
     void UploadInstances(Application* inApp, Device& inDevice, CommandList& inCmdList);
     void UploadMaterials(Application* inApp, Device& inDevice, CommandList& inCmdList, bool inDisableAlbedo);
@@ -76,6 +77,7 @@ private:
     BufferID m_InstancesBuffer;
     BufferID m_MaterialsBuffer;
     BufferID m_D3D12InstancesBuffer;
+    uint32_t m_TLASInstanceCount = 0;
 
     DescriptorID m_LightsDescriptor;
     DescriptorID m_InstancesDescriptor;

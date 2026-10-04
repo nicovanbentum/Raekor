@@ -115,8 +115,11 @@ public:
 private:
     void CreateDescriptor(BufferID inBufferID, const Buffer::Desc& inDesc);
     void CreateDescriptor(TextureID inTextureID, const Texture::Desc& inDesc);
-    void ReleaseDescriptor(Buffer::Usage inUsage, DescriptorID inDescriptorID);
-    void ReleaseDescriptor(Texture::Usage inUsage, DescriptorID inDescriptorID);
+
+    uint8_t* AllocateUploadMemory(uint64_t inSize, uint64_t inAlignment, BufferID& outBuffer, uint64_t& outOffset);
+
+    static constexpr uint64_t sMinUploadBufferSize = 8 * 1024 * 1024;
+    static constexpr uint64_t sUploadBufferIdleFrames = 120;
 
     /* USE WITH CAUTION. ONLY USE WHEN YOU KNOW THE GPU IS NO LONGER USING THE RESOURCE!! */
     void ReleaseDescriptorImmediate(Buffer::Usage inUsage, DescriptorID inDescriptorID);
@@ -124,6 +127,14 @@ private:
     void ReleaseDescriptorImmediate(Texture::Usage inUsage, DescriptorID inDescriptorID);
 
 private:
+    struct DeferredRelease
+    {
+        DeviceResource mResource;
+        DescriptorID mDescriptor;
+        D3D12_DESCRIPTOR_HEAP_TYPE mDescriptorHeapType = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+        uint64_t mFrameCounter = 0;
+    };
+
     uint32_t m_FrameIndex = 0;
     uint64_t m_FrameCounter = 0;
 
@@ -147,7 +158,8 @@ private:
     Array<UploadBuffer> m_UploadBuffers;
     Array<BufferUpload> m_BufferUploads;
     Array<TextureUpload> m_TextureUploads;
-    Array<DeviceResource> m_DeferredReleaseQueue;
+    Mutex m_ReleaseMutex;
+    Array<DeferredRelease> m_DeferredReleaseQueue;
     StaticArray<DescriptorHeap, D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES> m_Heaps;
     StaticArray<ComPtr<ID3D12CommandSignature>, COMMAND_SIGNATURE_COUNT> m_CommandSignatures;
 

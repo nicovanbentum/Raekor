@@ -282,18 +282,18 @@ const SkinningData& AddSkinningPass(RenderGraph& inRenderGraph, Device& inDevice
     {
         inCmdList->SetPipelineState(g_SystemShaders.mSkinningShader.GetComputePSO());
 
-        Array<D3D12_RESOURCE_BARRIER> uav_barriers;
-        uav_barriers.reserve(inScene.Count<Skeleton>());
-        
+        Array<D3D12_RESOURCE_BARRIER> post_skinning_barriers;
+        post_skinning_barriers.reserve(inScene.Count<Skeleton>());
+
         for (const auto& [entity, mesh, skeleton] : inScene.Each<Mesh, Skeleton>())
         {
+            if (!skeleton.gpuBuffersUploaded)
+                continue;
+
             if (const Name* name = inScene.GetPtr<Name>(entity))
                 PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>(inCmdList), PIX_COLOR(0, 255, 0), name->name.c_str());
 
             Buffer& bone_matrix_buffer = inDevice.GetBuffer(BufferID(skeleton.boneTransformsBuffer));
-        
-            auto uav_to_copy_barrier = CD3DX12_RESOURCE_BARRIER::Transition(bone_matrix_buffer.GetD3D12Resource(), GetD3D12ResourceStates(Texture::SHADER_READ_ONLY), D3D12_RESOURCE_STATE_COPY_DEST);
-            inCmdList->ResourceBarrier(1, &uav_to_copy_barrier);
 
             const Mat4x4* bone_matrices_data = skeleton.boneTransformMatrices.data();
             const size_t bone_matrices_size = skeleton.boneTransformMatrices.size() * sizeof(Mat4x4);
@@ -315,12 +315,12 @@ const SkinningData& AddSkinningPass(RenderGraph& inRenderGraph, Device& inDevice
 
             inCmdList->Dispatch((mesh.positions.size() + 63) / 64, 1, 1);
 
-            Buffer& skinned_vertex_buffer = inDevice.GetBuffer(BufferID(skeleton.skinnedVertexBuffer));
-            uav_barriers.push_back(CD3DX12_RESOURCE_BARRIER::UAV(skinned_vertex_buffer.GetD3D12Resource()));
+            ID3D12Resource* skinned_vertex_buffer = inDevice.GetD3D12Resource(BufferID(skeleton.skinnedVertexBuffer));
+            post_skinning_barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(skinned_vertex_buffer, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE));
         }
 
-        if (uav_barriers.size())
-            inCmdList->ResourceBarrier(uav_barriers.size(), uav_barriers.data());
+        if (!post_skinning_barriers.empty())
+            inCmdList->ResourceBarrier(post_skinning_barriers.size(), post_skinning_barriers.data());
     });
 }
 

@@ -11,6 +11,37 @@
 
 namespace RK::DX12 {
 
+const BuildAccelerationStructuresData& AddBuildAccelerationStructuresPass(RenderGraph& inRenderGraph, Device& inDevice, RayTracedScene& inScene)
+{
+    return inRenderGraph.AddComputePass<BuildAccelerationStructuresData>("Build Acceleration Structures",
+    [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, BuildAccelerationStructuresData& inData)
+    {
+    },
+    [&inDevice, &inScene](BuildAccelerationStructuresData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+    {
+        static const int& update_skinning = g_CVariables->Create("update_skinning", 1, true);
+
+        const D3D12_RESOURCE_BARRIER uav_barrier = CD3DX12_RESOURCE_BARRIER::UAV(nullptr);
+
+        if (update_skinning)
+        {
+            for (const auto& [entity, mesh, skeleton] : inScene->Each<Mesh, Skeleton>())
+            {
+                if (mesh.HasBLAS() && skeleton.gpuBuffersUploaded)
+                    inScene.UpdateBLAS(nullptr, inDevice, mesh, skeleton, inCmdList);
+            }
+        }
+
+        inCmdList->ResourceBarrier(1, &uav_barrier);
+
+        inScene.BuildTLAS(inDevice, inCmdList);
+
+        inCmdList->ResourceBarrier(1, &uav_barrier);
+    });
+}
+
+
+
 const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferOutput& inGBuffer)
 {
     static constexpr int cTileSize = RT_SHADOWS_GROUP_DIM;

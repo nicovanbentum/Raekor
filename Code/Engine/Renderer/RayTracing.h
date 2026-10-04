@@ -9,6 +9,15 @@ namespace RK::DX12 {
 
 struct GBufferData;
 
+struct BuildAccelerationStructuresData
+{
+};
+
+const BuildAccelerationStructuresData& AddBuildAccelerationStructuresPass(RenderGraph& inRenderGraph, Device& inDevice,
+    RayTracedScene& inScene
+);
+
+
 ////////////////////////////////////////
 /// Ray-traced Shadows Compute Passes
 ////////////////////////////////////////

@@ -252,6 +252,8 @@ struct Skeleton
 	uint32_t boneWeightBuffer;
 	uint32_t boneTransformsBuffer;
 	uint32_t skinnedVertexBuffer;
+	uint32_t blasScratchBuffer = 0;
+	bool gpuBuffersUploaded = false;
 
 	void DebugDraw(const Bone& inBone, const Mat4x4& inTransform);
 

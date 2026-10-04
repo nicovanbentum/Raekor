@@ -277,8 +277,6 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     m_FrameConstants.mDeltaTime = inDeltaTime;
     m_FrameConstants.mExposure = RenderSettings::mExposure;
     m_FrameConstants.mSunConeAngle = m_Settings.mSunConeAngle;
-    m_FrameConstants.mTLAS = inScene.GetTLASDescriptorIndex();
-    m_FrameConstants.mShadowTLAS = inScene->GetSunLight() ? inScene.GetTLASDescriptorIndex() : inScene.GetEmptyTLASDescriptorIndex();
     m_FrameConstants.mFrameCounter = m_FrameCounter;
     m_FrameConstants.mPrevJitter = m_FrameConstants.mJitter;
     m_FrameConstants.mJitter = enable_jitter ? Vec2(jitter_x, jitter_y) : Vec2(0.0f, 0.0f);
@@ -287,9 +285,6 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     m_FrameConstants.mCameraPosition = Vec4(vp.GetPosition(), 1.0f);
     m_FrameConstants.mViewportSize = inViewport.GetRenderSize();
     m_FrameConstants.mNrOfLights = inScene->Count<Light>();
-    m_FrameConstants.mLightsBuffer = inScene.GetLightsDescriptorIndex();
-    m_FrameConstants.mMaterialsBuffer = inScene.GetMaterialsDescriptorIndex();
-    m_FrameConstants.mInstancesBuffer = inScene.GetInstancesDescriptorIndex();
     m_FrameConstants.mViewMatrix = vp.GetView();
     m_FrameConstants.mInvViewMatrix = glm::inverse(vp.GetView());
     m_FrameConstants.mProjectionMatrix = final_proj_matrix;
@@ -332,7 +327,6 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     }
 
     static const int& upload_tlas = g_CVariables->Create("upload_scene", 1, true);
-    static const int& update_skinning = g_CVariables->Create("update_skinning", 1, true);
     // Start recording pending scene changes to the copy cmd list
     CommandList& copy_cmd_list = GetBackBufferData().mCopyCmdList;
     CommandList& direct_cmd_list = GetBackBufferData().mDirectCmdList;
@@ -364,15 +358,6 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
             for (Entity entity : m_PendingSkeletonUploads)
                 inScene.UploadSkeleton(inApp, inDevice, inScene->Get<Skeleton>(entity), copy_cmd_list);
 
-            // update bottom level AS for entities that have both a mesh and skeleton
-            if (update_skinning)
-            {
-                PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( copy_cmd_list ), PIX_COLOR(0, 255, 0), "BUILD BLASes");
-
-                for (const auto& [entity, mesh, skeleton] : inScene->Each<Mesh, Skeleton>())
-                    inScene.UpdateBLAS(inApp, inDevice, mesh, skeleton, copy_cmd_list);
-            }
-
             {
                 std::scoped_lock lock = std::scoped_lock(m_UploadMutex);
 
@@ -392,9 +377,15 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
 
             inScene.UploadInstances(inApp, inDevice, copy_cmd_list);
             inScene.UploadMaterials(inApp, inDevice, copy_cmd_list, m_Settings.mDisableAlbedo);
-            inScene.UploadTLAS(inApp, inDevice, copy_cmd_list);
+            inScene.UploadTLASInstances(inApp, inDevice, copy_cmd_list);
             inScene.UploadLights(inApp, inDevice, copy_cmd_list);
         }
+
+        m_FrameConstants.mTLAS = inScene.GetTLASDescriptorIndex();
+        m_FrameConstants.mShadowTLAS = inScene->GetSunLight() ? inScene.GetTLASDescriptorIndex() : inScene.GetEmptyTLASDescriptorIndex();
+        m_FrameConstants.mLightsBuffer = inScene.GetLightsDescriptorIndex();
+        m_FrameConstants.mMaterialsBuffer = inScene.GetMaterialsDescriptorIndex();
+        m_FrameConstants.mInstancesBuffer = inScene.GetInstancesDescriptorIndex();
 
         //// Submit all copy commands
         copy_cmd_list.Close();
@@ -464,7 +455,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
 
 
 
-void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRenderInterface* inRenderInterface)
+void Renderer::Recompile(Device& inDevice, RayTracedScene& inScene, IRenderInterface* inRenderInterface)
 {
     g_GPUProfiler->SetEnabled(true);
 
@@ -500,6 +491,9 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
     RenderGraphResourceID reflections_texture = default_textures.mBlackTexture;
 
     const SkinningData& skinning_data = AddSkinningPass(m_RenderGraph, inDevice, inScene);
+
+    if (inDevice.IsRayTracingSupported())
+        AddBuildAccelerationStructuresPass(m_RenderGraph, inDevice, inScene);
 
     const SkyCubeData& sky_cube_data = AddSkyCubePass(m_RenderGraph, inDevice, inScene);
 
@@ -869,6 +863,9 @@ void RenderInterface::UploadSkeletonBuffers(Entity inEntity, Skeleton& inSkeleto
         .debugName = "SkinnedVertexBuffer"
     }).GetValue();
 
+    inSkeleton.blasScratchBuffer = 0;
+    inSkeleton.gpuBuffersUploaded = false;
+
     m_Renderer.QueueSkeletonUpload(inEntity);
 }
 
@@ -879,6 +876,12 @@ void RenderInterface::DestroySkeletonBuffers(Entity inEntity, Skeleton& inSkelet
     m_Device.ReleaseBuffer(BufferID(inSkeleton.boneWeightBuffer));
     m_Device.ReleaseBuffer(BufferID(inSkeleton.skinnedVertexBuffer));
     m_Device.ReleaseBuffer(BufferID(inSkeleton.boneTransformsBuffer));
+
+    if (inSkeleton.blasScratchBuffer != 0)
+    {
+        m_Device.ReleaseBuffer(BufferID(inSkeleton.blasScratchBuffer));
+        inSkeleton.blasScratchBuffer = 0;
+    }
 }
 
 

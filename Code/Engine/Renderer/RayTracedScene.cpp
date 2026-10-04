@@ -12,6 +12,13 @@
 
 namespace RK::DX12 {
 
+static Buffer::Desc sScratchBufferDesc(uint64_t inSize, const char* inDebugName)
+{
+    constexpr uint64_t alignment = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BYTE_ALIGNMENT;
+    return Buffer::RWByteAddressBuffer(std::max(gAlignUp(inSize, alignment), alignment), inDebugName);
+}
+
+
 uint32_t RayTracedScene::GetInstanceIndex(Entity inEntity) const
 {
     return m_Scene.GetPackedIndex<Mesh>(inEntity);
@@ -48,24 +55,26 @@ void RayTracedScene::UpdateBLAS(Application* inApp, Device& inDevice, Mesh& inMe
 
     BufferID blas_buffer_id = BufferID(inMesh.BottomLevelAS);
 
-    const BufferID scratch_buffer_id = inDevice.CreateBuffer(Buffer::Desc
+    const Buffer::Desc scratch_desc = sScratchBufferDesc(prebuild_info.UpdateScratchDataSizeInBytes, "SCRATCH_BUFFER_BLAS_REFIT");
+
+    if (inSkeleton.blasScratchBuffer == 0 || inDevice.GetBuffer(BufferID(inSkeleton.blasScratchBuffer)).GetSize() < scratch_desc.size)
     {
-        .size = prebuild_info.ScratchDataSizeInBytes,
-        .debugName = "SCRATCH_BUFFER_BLAS_RT"
-    });
+        if (inSkeleton.blasScratchBuffer != 0)
+            inDevice.ReleaseBuffer(BufferID(inSkeleton.blasScratchBuffer));
+
+        inSkeleton.blasScratchBuffer = inDevice.CreateBuffer(scratch_desc).GetValue();
+    }
 
     Buffer& blas_buffer = inDevice.GetBuffer(blas_buffer_id);
-    Buffer& scratch_buffer = inDevice.GetBuffer(scratch_buffer_id);
+    Buffer& scratch_buffer = inDevice.GetBuffer(BufferID(inSkeleton.blasScratchBuffer));
 
     D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC desc = {};
-    desc.Inputs = inputs; 
+    desc.Inputs = inputs;
     desc.DestAccelerationStructureData = blas_buffer->GetGPUVirtualAddress();
     desc.SourceAccelerationStructureData = blas_buffer->GetGPUVirtualAddress();
     desc.ScratchAccelerationStructureData = scratch_buffer->GetGPUVirtualAddress();
 
     inCmdList->BuildRaytracingAccelerationStructure(&desc, 0, nullptr);
-
-    // inDevice.ReleaseBuffer(scratch_buffer_id);
 }
 
 
@@ -112,11 +121,7 @@ void RayTracedScene::UploadMesh(Application* inApp, Device& inDevice, Mesh& inMe
 
     inMesh.BottomLevelAS = blas_buffer_id.GetValue();
 
-    const BufferID scratch_buffer_id = inDevice.CreateBuffer(Buffer::Desc
-    {
-        .size = prebuild_info.ScratchDataSizeInBytes,
-        .debugName = "SCRATCH_BUFFER_BLAS_RT"
-    });
+    const BufferID scratch_buffer_id = inDevice.CreateBuffer(sScratchBufferDesc(prebuild_info.ScratchDataSizeInBytes, "SCRATCH_BUFFER_BLAS_RT"));
 
     Buffer& blas_buffer = inDevice.GetBuffer(blas_buffer_id);
     Buffer& scratch_buffer = inDevice.GetBuffer(scratch_buffer_id);
@@ -144,8 +149,7 @@ void RayTracedScene::UploadMesh(Application* inApp, Device& inDevice, Mesh& inMe
 
     inCmdList->BuildRaytracingAccelerationStructure(&desc, 0, nullptr);
 
-    // TODO: validation layer warning??
-    //inDevice.ReleaseBuffer(scratch_buffer_id);
+    inDevice.ReleaseBuffer(scratch_buffer_id);
 }
 
 
@@ -164,16 +168,20 @@ void RayTracedScene::UploadSkeleton(Application* inApp, Device& inDevice, Skelet
     };
 
     inCmdList->ResourceBarrier(barriers.size(), barriers.data());
+
+    inSkeleton.gpuBuffersUploaded = true;
 }
 
 
 
-void RayTracedScene::UploadTLAS(Application* inApp, Device& inDevice, CommandList& inCmdList)
+void RayTracedScene::UploadTLASInstances(Application* inApp, Device& inDevice, CommandList& inCmdList)
 {
+    m_TLASInstanceCount = 0;
+
     if (!m_Scene.Count<Mesh>())
         return;
 
-    EVENT_SCOPE_GPU(inCmdList, "UPLOAD TLAS");
+    EVENT_SCOPE_GPU(inCmdList, "UPLOAD TLAS INSTANCES");
 
     Array<D3D12_RAYTRACING_INSTANCE_DESC> rt_instances;
     rt_instances.reserve(m_Scene.Count<Mesh>());
@@ -218,21 +226,27 @@ void RayTracedScene::UploadTLAS(Application* inApp, Device& inDevice, CommandLis
 
     m_D3D12InstancesBuffer = GrowBuffer(inDevice, m_D3D12InstancesBuffer, Buffer::Desc
     {
-        .size = rt_instances.size() * sizeof(D3D12_RAYTRACING_INSTANCE_DESC),
+        .size = std::max(rt_instances.size(), size_t(1)) * sizeof(D3D12_RAYTRACING_INSTANCE_DESC),
         .debugName = "D3D12_RAYTRACING_INSTANCE Buffer"
     });
 
+    m_TLASInstanceCount = uint32_t(rt_instances.size());
+
     Buffer& instance_buffer = inDevice.GetBuffer(m_D3D12InstancesBuffer);
-    inDevice.UploadBufferData(inCmdList, instance_buffer, 0, rt_instances.data(), instance_buffer.GetSize());
-    
-    const auto after_copy_barrier = CD3DX12_RESOURCE_BARRIER::Transition(instance_buffer.GetD3D12Resource(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-    inCmdList->ResourceBarrier(1, &after_copy_barrier);
+
+    if (!rt_instances.empty())
+    {
+        inDevice.UploadBufferData(inCmdList, instance_buffer, 0, rt_instances.data(), rt_instances.size() * sizeof(D3D12_RAYTRACING_INSTANCE_DESC));
+
+        const auto after_copy_barrier = CD3DX12_RESOURCE_BARRIER::Transition(instance_buffer.GetD3D12Resource(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+        inCmdList->ResourceBarrier(1, &after_copy_barrier);
+    }
 
     const D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs =
     {
         .Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL,
         .Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE,
-        .NumDescs = uint32_t(rt_instances.size()),
+        .NumDescs = m_TLASInstanceCount,
         .DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY,
         .InstanceDescs = instance_buffer->GetGPUVirtualAddress()
     };
@@ -267,17 +281,32 @@ void RayTracedScene::UploadTLAS(Application* inApp, Device& inDevice, CommandLis
     m_TLASDescriptor = inDevice.GetBuffer(m_TLASBuffer).GetDescriptor();
     m_EmptyTLASDescriptor = inDevice.GetBuffer(m_EmptyTLASBuffer).GetDescriptor();
 
-    m_ScratchBuffer = GrowBuffer(inDevice, m_ScratchBuffer, Buffer::Desc
-    {
-        .size = prebuild_info.ScratchDataSizeInBytes,
-        .debugName = "TLAS_SCRATCH_BUFFER"
-    });
+    m_ScratchBuffer = GrowBuffer(inDevice, m_ScratchBuffer, sScratchBufferDesc(prebuild_info.ScratchDataSizeInBytes, "TLAS_SCRATCH_BUFFER"));
 
-    m_EmptyScratchBuffer = GrowBuffer(inDevice, m_EmptyScratchBuffer, Buffer::Desc
+    m_EmptyScratchBuffer = GrowBuffer(inDevice, m_EmptyScratchBuffer, sScratchBufferDesc(empty_prebuild_info.ScratchDataSizeInBytes, "TLAS_EMPTY_SCRATCH_BUFFER"));
+}
+
+
+void RayTracedScene::BuildTLAS(Device& inDevice, CommandList& inCmdList)
+{
+    if (!m_TLASBuffer.IsValid() || !m_EmptyTLASBuffer.IsValid())
+        return;
+
+    const D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs =
     {
-        .size = empty_prebuild_info.ScratchDataSizeInBytes,
-        .debugName = "TLAS_SCRATCH_BUFFER"
-    });
+        .Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL,
+        .Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE,
+        .NumDescs = m_TLASInstanceCount,
+        .DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY,
+        .InstanceDescs = inDevice.GetBuffer(m_D3D12InstancesBuffer)->GetGPUVirtualAddress()
+    };
+
+    const D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS no_inputs =
+    {
+        .Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL,
+        .Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE,
+        .DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY
+    };
 
     D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC desc = {};
     desc.Inputs = inputs;
@@ -316,7 +345,7 @@ void RayTracedScene::UploadLights(Application* inApp, Device& inDevice, CommandL
 
     Buffer& lights_buffer = inDevice.GetBuffer(m_LightsBuffer);
     
-    inDevice.UploadBufferData(inCmdList, lights_buffer, 0, lights.data(), lights_buffer.GetSize());
+    inDevice.UploadBufferData(inCmdList, lights_buffer, 0, lights.data(), lights.size_bytes());
 }
 
 
@@ -329,8 +358,7 @@ void RayTracedScene::UploadInstances(Application* inApp, Device& inDevice, Comma
 
     EVENT_SCOPE_GPU(inCmdList, "UPLOAD INSTANCES");
 
-    Array<RTGeometry> rt_geometries;
-    rt_geometries.reserve(nr_of_meshes);
+    Array<RTGeometry> rt_geometries(nr_of_meshes, RTGeometry {});
 
     for (const auto& [entity, mesh] : m_Scene.Each<Mesh>())
     {
@@ -353,7 +381,10 @@ void RayTracedScene::UploadInstances(Application* inApp, Device& inDevice, Comma
         if (Skeleton* skeleton = m_Scene.GetPtr<Skeleton>(entity))
             vertex_buffer = skeleton->skinnedVertexBuffer;
 
-        rt_geometries.emplace_back(RTGeometry
+        const int instance_index = m_Scene.GetPackedIndex<Mesh>(entity);
+        assert(instance_index >= 0 && instance_index < int(nr_of_meshes));
+
+        rt_geometries[instance_index] = RTGeometry
         {
             .mEntity = entity,
             .mIndexBuffer = inDevice.GetBindlessHeapIndex(BufferID(mesh.indexBuffer)),
@@ -361,7 +392,7 @@ void RayTracedScene::UploadInstances(Application* inApp, Device& inDevice, Comma
             .mMaterialIndex = uint32_t(material_index),
             .mWorldTransform = transform->worldTransform,
             .mPrevWorldTransform = transform->prevWorldTransform
-        });
+        };
     }
 
     m_InstancesBuffer = GrowBuffer(inDevice, m_InstancesBuffer, Buffer::Desc
@@ -375,7 +406,7 @@ void RayTracedScene::UploadInstances(Application* inApp, Device& inDevice, Comma
     Buffer& instance_buffer = inDevice.GetBuffer(m_InstancesBuffer);
     m_InstancesDescriptor = instance_buffer.GetDescriptor();
 
-    inDevice.UploadBufferData(inCmdList, instance_buffer, 0, rt_geometries.data(), instance_buffer.GetSize());
+    inDevice.UploadBufferData(inCmdList, instance_buffer, 0, rt_geometries.data(), rt_geometries.size() * sizeof(RTGeometry));
 }
 
 
@@ -426,7 +457,7 @@ void RayTracedScene::UploadMaterials(Application* inApp, Device& inDevice, Comma
     m_MaterialsDescriptor = inDevice.GetBuffer(m_MaterialsBuffer).GetDescriptor();
 
     Buffer& materials_buffer = inDevice.GetBuffer(m_MaterialsBuffer);
-    inDevice.UploadBufferData(inCmdList, materials_buffer, 0, rt_materials.data(), materials_buffer.GetSize());
+    inDevice.UploadBufferData(inCmdList, materials_buffer, 0, rt_materials.data(), rt_materials.size() * sizeof(RTMaterial));
 }
 
 
