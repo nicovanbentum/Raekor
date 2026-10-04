@@ -1240,7 +1240,13 @@ bool InspectorWidget::DrawComponent(Entity inEntity, NativeScript& inScript)
 	ImGui::SeparatorText("Variables");
 	ImGui::PopStyleVar();
 
-	if (const RTTI* rtti = g_RTTIFactory.GetRTTI(inScript.type.c_str()))
+	// the script instance can be null if the type failed to construct / bind, there's nothing to edit then
+	if (inScript.script == nullptr)
+	{
+		if (!inScript.type.empty())
+			ImGui::TextDisabled("Script \"%s\" is not bound.", inScript.type.c_str());
+	}
+	else if (const RTTI* rtti = g_RTTIFactory.GetRTTI(inScript.type.c_str()))
 	{
 		for (const auto& member : *rtti)
 		{

@@ -40,7 +40,7 @@ public:
 	void UpdateStreaming();
 	void UpdateTransforms();
 	void UpdateAnimations(float inDeltaTime);
-	void UpdateNativeScripts(float inDeltaTime);
+	void UpdateNativeScripts(float inDeltaTime, Application* inApp);
 
 	// debug stuff
 	void RenderDebugShapes(Entity inEntity, float inOpacity) const;

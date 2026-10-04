@@ -215,7 +215,7 @@ void Editor::OnUpdate(float inDeltaTime)
 
     // update NativeScript components
     if (GetGameState() == GAME_RUNNING)
-        m_Scene.UpdateNativeScripts(inDeltaTime);
+        m_Scene.UpdateNativeScripts(inDeltaTime, this);
 
 	// start ImGui
 	GUI::BeginFrame();

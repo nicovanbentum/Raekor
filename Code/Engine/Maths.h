@@ -115,6 +115,7 @@ template<glm::length_t L, typename T>
 inline std::string gToString(const glm::vec<L, T>& inValue)
 {
 	std::stringstream ss;
+	ss.precision(std::numeric_limits<T>::max_digits10); // default precision of 6 digits doesn't round-trip
 	ss << "(";
 	for (int i = 0; i < L; i++)
 	{
@@ -130,6 +131,7 @@ template<glm::length_t C, glm::length_t R, typename T>
 inline std::string gToString(const glm::mat<C, R, T>& inValue)
 {
 	std::stringstream ss;
+	ss.precision(std::numeric_limits<T>::max_digits10); // default precision of 6 digits doesn't round-trip
 	ss << "((";
 	for (int i = 0; i < C; ++i)
 	{
@@ -149,6 +151,7 @@ inline std::string gToString(const glm::mat<C, R, T>& inValue)
 inline std::string gToString(const glm::quat& inValue)
 {
 	std::stringstream ss;
+	ss.precision(std::numeric_limits<float>::max_digits10); // default precision of 6 digits doesn't round-trip
 	ss << "(";
 	for (int i = 0; i < glm::quat::length(); i++)
 	{

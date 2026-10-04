@@ -180,7 +180,7 @@ void GameApp::OnUpdate(float inDeltaTime)
 
     // update NativeScript components
     if (GetGameState() == GAME_RUNNING)
-        m_Scene.UpdateNativeScripts(inDeltaTime);
+        m_Scene.UpdateNativeScripts(inDeltaTime, this);
 
 
     if (m_GameState == GAME_RUNNING)

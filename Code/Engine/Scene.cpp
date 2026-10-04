@@ -252,7 +252,7 @@ void Scene::UpdateAnimations(float inDeltaTime)
 }
 
 
-void Scene::UpdateNativeScripts(float inDeltaTime)
+void Scene::UpdateNativeScripts(float inDeltaTime, Application* inApp)
 {
 	PROFILE_FUNCTION_CPU();
 
@@ -269,12 +269,11 @@ void Scene::UpdateNativeScripts(float inDeltaTime)
 				std::cerr << e.what() << '\n';
 			}
 		}
-        else if (!script.type.empty())
+        else if (!script.type.empty() && inApp)
         {
-            if (RTTI* rtti = g_RTTIFactory.GetRTTI(script.type.c_str()))
-            {
-                script.script = (INativeScript*)g_RTTIFactory.Construct(script.type.c_str());
-            }
+            // has a type but was never bound (e.g. loaded without an Application), bind it so the script gets its scene / app pointers
+            if (g_RTTIFactory.GetRTTI(script.type.c_str()))
+                BindScriptToEntity(entity, script, inApp);
         }
 	}
 }
@@ -614,8 +613,17 @@ void Scene::OpenFromFile(const String& inFilePath, Assets& ioAssets, Application
 	// read in components
 	for (const SceneTable& table : tables)
 	{
+		// component type no longer exists (renamed / removed), skip its table
+		const auto storage = m_Components.find(table.Hash);
+		if (storage == m_Components.end() || storage->second == nullptr)
+		{
+			if (inApp)
+				inApp->LogMessage(std::format("[Scene] Skipped unknown component table with hash {:#x}", table.Hash));
+			continue;
+		}
+
 		file.seekg(table.Start);
-		m_Components[table.Hash]->Read(archive);
+		storage->second->Read(archive);
 	}
 
 	std::cout << std::format("[Scene] Load ECStorage data took {:.3f} seconds.\n", timer.GetElapsedTime());
@@ -734,8 +742,17 @@ void Scene::OpenFromFileAsync(const String& inFilePath, Assets& ioAssets, Applic
 	// read in components
 	for (const SceneTable& table : tables)
 	{
+		// component type no longer exists (renamed / removed), skip its table
+		const auto storage = m_Components.find(table.Hash);
+		if (storage == m_Components.end() || storage->second == nullptr)
+		{
+			if (inApp)
+				inApp->LogMessage(std::format("[Scene] Skipped unknown component table with hash {:#x}", table.Hash));
+			continue;
+		}
+
 		file.seekg(table.Start);
-		m_Components[table.Hash]->Read(archive);
+		storage->second->Read(archive);
 	}
 
 	std::cout << std::format("[Scene] Load ECStorage data took {:.3f} seconds.\n", timer.GetElapsedTime());
@@ -955,7 +972,7 @@ void SceneImporter::ParseNode(Entity inEntity, Entity inParent)
 
 	// Copy over animations
 	if (m_ImportedScene.Has<Animation>(inEntity))
-		m_Scene.Add<Animation>(new_entity, m_Scene.Get<Animation>(inEntity));
+		m_Scene.Add<Animation>(new_entity, m_ImportedScene.Get<Animation>(inEntity));
 
 	// recurse into children
 	for (Entity child : m_ImportedScene.GetChildren(inEntity))

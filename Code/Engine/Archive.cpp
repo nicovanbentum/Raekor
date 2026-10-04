@@ -69,20 +69,23 @@ void JSON::WriteArchive::WriteNextObject(const RTTI& inRTTI, void* inObject)
     m_Writer.IndentAndWrite("{\n"); 
     m_Writer. PushIndent();
 
+    bool is_first_member = true;
+
     for (uint32_t i = 0; i < inRTTI.GetMemberCount(); i++)
     {
         // potentially skip
         if ((inRTTI.GetMember(i)->GetSerializeType() & SERIALIZE_JSON) == 0)
             continue;
+        // write delimiter, done before the key so skipped members can't leave a trailing comma
+        if (!is_first_member)
+            m_Writer.Write(",\n");
+        is_first_member = false;
         // write key
         m_Writer.IndentAndWrite("\"");
         m_Writer.Write(inRTTI.GetMember(i)->GetCustomName());
         m_Writer.Write("\": ");
         // write value
         inRTTI.GetMember(i)->ToJSON(m_Writer, inObject);
-        // write delimiter
-        if (i != inRTTI.GetMemberCount() - 1)
-            m_Writer.Write(",\n");
     }
     
     m_Writer.Write("\n"); 

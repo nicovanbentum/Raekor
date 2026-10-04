@@ -342,20 +342,23 @@ inline void JSONWriter::WriteValue(const T& inValue)
 	PushIndent();
 
 	RTTI& rtti = RTTI_OF<T>();
+	bool is_first_member = true;
+
 	for (uint32_t i = 0; i < rtti.GetMemberCount(); i++)
 	{
 		// potentially skip
 		if (( rtti.GetMember(i)->GetSerializeType() & SERIALIZE_JSON ) == 0)
 			continue;
+		// write delimiter, done before the key so skipped members can't leave a trailing comma
+		if (!is_first_member)
+			Write(",\n");
+		is_first_member = false;
 		// write key
-		IndentAndWrite("\""); 
-		Write(rtti.GetMember(i)->GetCustomName()); 
+		IndentAndWrite("\"");
+		Write(rtti.GetMember(i)->GetCustomName());
 		Write("\": ");
 		// write value
 		rtti.GetMember(i)->ToJSON(*this, &inValue);
-		// write delimiter
-		if (i != rtti.GetMemberCount() - 1)
-			Write(",\n");
 	}
 
 	Write("\n"); 
@@ -372,7 +375,17 @@ inline void JSONWriter::WriteValue(const T& inValue)
 template<typename T> requires std::is_arithmetic_v<T>
 inline void JSONWriter::WriteValue(const T& inValue)
 {
-	Write(std::to_string(inValue));
+	if constexpr (std::is_floating_point_v<T>)
+	{
+		// std::to_string uses %f which rounds to 6 decimals, to_chars writes the shortest string that round-trips exactly
+		char buffer[64];
+		const std::to_chars_result result = std::to_chars(buffer, buffer + sizeof(buffer), inValue);
+		Write(std::string_view(buffer, result.ptr));
+	}
+	else
+	{
+		Write(std::to_string(inValue));
+	}
 }
 
 inline void JSONWriter::WriteValue(const bool& inBool)
@@ -382,8 +395,23 @@ inline void JSONWriter::WriteValue(const bool& inBool)
 
 inline void JSONWriter::WriteValue(const std::string& inString)
 {
-	Write("\"" + inString + "\"");
+	// escape quotes and backslashes so the string can't break the JSON structure, JSONData undoes this when parsing
+	std::string escaped;
+	escaped.reserve(inString.size() + 2);
 
+	escaped += '"';
+
+	for (char c : inString)
+	{
+		if (c == '"' || c == '\\')
+			escaped += '\\';
+
+		escaped += c;
+	}
+
+	escaped += '"';
+
+	Write(escaped);
 }
 
 template<glm::length_t L, typename T>
