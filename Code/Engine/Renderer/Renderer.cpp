@@ -199,6 +199,19 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
 
     static bool do_stress_test = OS::sCheckCommandLineOption("-stress_test");
 
+    if (inScene->Any<DDGISceneSettings>() && inScene->Count<DDGISceneSettings>())
+    {
+        const Entity& ddgi_entity = inScene->GetEntities<DDGISceneSettings>()[0];
+        const Transform& ddgi_transform = inScene->Get<Transform>(ddgi_entity);
+        const DDGISceneSettings& ddgi_settings = inScene->Get<DDGISceneSettings>(ddgi_entity);
+
+        need_recompile |= RenderSettings::mDDGIProbeCount != ddgi_settings.mDDGIProbeCount;
+
+        RenderSettings::mDDGIProbeCount = ddgi_settings.mDDGIProbeCount;
+        RenderSettings::mDDGIProbeSpacing = ddgi_settings.mDDGIProbeSpacing;
+        RenderSettings::mDDGICornerPosition = ddgi_transform.position;
+    }
+
     bool recompiled = false;
 
     if (m_ShouldResize || m_ShouldRecompile || need_recompile || ( do_stress_test && m_FrameCounter > 60 ))
@@ -305,17 +318,6 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
 
     // update RenderSettings
     RenderSettings::mActiveEntity = inApp->GetActiveEntity();
-
-    if (inScene->Any<DDGISceneSettings>() && inScene->Count<DDGISceneSettings>())
-    {
-        const Entity& ddgi_entity = inScene->GetEntities<DDGISceneSettings>()[0];
-        const Transform& ddgi_transform = inScene->Get<Transform>(ddgi_entity);
-        const DDGISceneSettings& ddgi_settings = inScene->Get<DDGISceneSettings>(ddgi_entity);
-
-        RenderSettings::mDDGIProbeCount = ddgi_settings.mDDGIProbeCount;
-        RenderSettings::mDDGIProbeSpacing = ddgi_settings.mDDGIProbeSpacing;
-        RenderSettings::mDDGICornerPosition = ddgi_transform.position;
-    }
 
 
     // handle PIX capture requests
