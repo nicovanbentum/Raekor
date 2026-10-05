@@ -1624,11 +1624,13 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
         {
             ImGui::SeparatorText("Settings");
 
-            const float far_plane = inViewport.GetFar();
-            const float near_plane = inViewport.GetNear();
+            ImGui::Checkbox("Auto Focus", &RenderSettings::mDoFAutoFocus);
 
-            ImGui::DragFloat("Focus Scale", &RenderSettings::mDoFFocusScale, 0.01f, 0.0f, 4.0f, "%.2f");
-            ImGui::DragFloat("Focus Point", &RenderSettings::mDoFFocusPoint, 0.01f, near_plane, far_plane, "%.2f");
+            ImGui::BeginDisabled(RenderSettings::mDoFAutoFocus);
+            ImGui::DragFloat("Focus Distance", &RenderSettings::mDoFFocusDistance, 0.05f, inViewport.GetNear(), inViewport.GetFar(), "%.2f m");
+            ImGui::EndDisabled();
+
+            ImGui::DragFloat("Aperture", &RenderSettings::mDoFAperture, 0.05f, 0.7f, 22.0f, "f/%.1f");
             ImGui::EndMenu();
         }
 

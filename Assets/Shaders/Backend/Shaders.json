@@ -502,11 +502,35 @@
             }
         },
 
-        "Depth of Field Shader":
+        "DoF Setup Shader":
         {
             "Compute Shader": 
             {
-                "File Path": "Assets/Shaders/Backend/DepthOfFieldCS.hlsl"
+                "File Path": "Assets/Shaders/Backend/DoFSetupCS.hlsl"
+            }
+        },
+
+        "DoF Tile Max Shader":
+        {
+            "Compute Shader": 
+            {
+                "File Path": "Assets/Shaders/Backend/DoFTileMaxCS.hlsl"
+            }
+        },
+
+        "DoF Gather Shader":
+        {
+            "Compute Shader": 
+            {
+                "File Path": "Assets/Shaders/Backend/DoFGatherCS.hlsl"
+            }
+        },
+
+        "DoF Composite Shader":
+        {
+            "Compute Shader": 
+            {
+                "File Path": "Assets/Shaders/Backend/DoFCompositeCS.hlsl"
             }
         }
     }

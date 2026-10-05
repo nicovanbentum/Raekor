@@ -184,7 +184,10 @@ struct SystemShadersDX12 : public IResource
     GraphicsProgram mGBufferDebugMetallicShader;
     GraphicsProgram mGBufferDebugRoughnessShader;
 
-    ComputeProgram mDepthOfFieldShader;
+    ComputeProgram mDoFSetupShader;
+    ComputeProgram mDoFTileMaxShader;
+    ComputeProgram mDoFGatherShader;
+    ComputeProgram mDoFCompositeShader;
     ComputeProgram mBloomUpSampleShader;
     ComputeProgram mBloomDownsampleShader;
 

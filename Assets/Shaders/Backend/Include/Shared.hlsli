@@ -45,6 +45,7 @@
 #define DDGI_RAYS_PER_PROBE 192             // Basically wave size * rays per wave
 #define DDGI_RAYS_BACKFACE_THRESHOLD 128    // if exceeded the probe is probably inside of geometry
 #define DDGI_MAX_CASCADES 4
+#define DOF_TILE_SIZE 8
 
 #define RT_SHADOWS_GROUP_DIM 16     // RT shadows divides the screen up in 16x16 pixel tiles
 #define RT_SHADOWS_PACKED_DIM_X 8   // RT shadows stores every 8x4 pixels ray results as a 32bit mask
@@ -563,14 +564,20 @@ struct ComposeRootConstants
 
 struct DepthOfFieldRootConstants
 {
-    uint mDepthTexture;
-    uint mInputTexture;
-    uint mOutputTexture;
-    uint mPad1;
-    float mFarPlane;
+    uint  mInputTexture;
+    uint  mDepthTexture;
+    uint  mHalfResTexture;
+    uint  mTileTexture;
+    uint  mBlurTexture;
+    uint  mOutputTexture;
+    uint  mAutoFocus;
+    float mFocusDistance;
+    float mFocalLength;
+    float mLensCoefficient;
+    float mMaxCoC;
     float mNearPlane;
-    float mFocusPoint;
-    float mFocusScale;
+    float mFarPlane;
+    uint  mPad0;
     uint2 mDispatchSize;
 };
 

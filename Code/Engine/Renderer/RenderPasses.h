@@ -7,8 +7,9 @@ namespace RK::DX12 {
 
 struct RenderSettings
 {
-    static inline float mDoFFocusPoint = 1.0f;
-    static inline float mDoFFocusScale = 1.0f;
+    static inline bool mDoFAutoFocus = true;
+    static inline float mDoFAperture = 1.8f;
+    static inline float mDoFFocusDistance = 5.0f;
 
     static inline int mSSAOSamples = 16;
     static inline float mSSAOBias = 0.025f;
@@ -437,8 +438,9 @@ struct CopyTextureGraphicsData
 struct DepthOfFieldData
 {
     RenderGraphResourceID mOutputTexture;
-    RenderGraphResourceViewID mDepthTextureSRV;
     RenderGraphResourceViewID mInputTextureSRV;
+    RenderGraphResourceViewID mDepthTextureSRV;
+    RenderGraphResourceViewID mBlurTextureSRV;
 };
 
 const DepthOfFieldData& AddDepthOfFieldPass(RenderGraph& inRenderGraph, Device& inDevice,

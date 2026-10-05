@@ -1382,43 +1382,170 @@ const TAAResolveData& AddTAAResolvePass(RenderGraph& inRenderGraph, Device& inDe
 
 const DepthOfFieldData& AddDepthOfFieldPass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inInputTexture, RenderGraphResourceID inDepthTexture)
 {
-    return inRenderGraph.AddComputePass<DepthOfFieldData>("DepthOfField",
-
-    [&](RenderGraphBuilder& inBuilder, IRenderPass* inRenderPass, DepthOfFieldData& inData)
+    struct DoFSetupData
     {
-        inData.mOutputTexture = inBuilder.Create(Texture::Desc
+        UVec2 mFullSize;
+        UVec2 mHalfSize;
+        UVec2 mTileCount;
+        RenderGraphResourceID mHalfResTexture;
+        RenderGraphResourceViewID mInputTextureSRV;
+        RenderGraphResourceViewID mDepthTextureSRV;
+    };
+
+    struct DoFTileMaxData
+    {
+        RenderGraphResourceID mTileTexture;
+        RenderGraphResourceViewID mHalfResTextureSRV;
+    };
+
+    struct DoFGatherData
+    {
+        RenderGraphResourceID mBlurTexture;
+        RenderGraphResourceViewID mTileTextureSRV;
+        RenderGraphResourceViewID mHalfResTextureSRV;
+    };
+
+    auto GetRootConstants = [&inRenderGraph](UVec2 inDispatchSize, uint32_t inFullHeight)
+    {
+        constexpr float sensor_height = 0.024f;
+
+        const Viewport& viewport = inRenderGraph.GetViewport();
+        const float focal_length = 0.5f * sensor_height * viewport.GetProjection()[1][1];
+        const float aperture = glm::max(RenderSettings::mDoFAperture, 0.1f);
+
+        return DepthOfFieldRootConstants
         {
-            .format = DXGI_FORMAT_R32G32B32A32_FLOAT,
-            .width  = inRenderGraph.GetViewport().GetDisplaySize().x,
-            .height = inRenderGraph.GetViewport().GetDisplaySize().y,
+            .mAutoFocus = RenderSettings::mDoFAutoFocus,
+            .mFocusDistance = glm::max(RenderSettings::mDoFFocusDistance, viewport.GetNear()),
+            .mFocalLength = focal_length,
+            .mLensCoefficient = ( focal_length * focal_length / aperture ) * ( float(inFullHeight) / sensor_height ),
+            .mMaxCoC = 48.0f,
+            .mNearPlane = viewport.GetNear(),
+            .mFarPlane = viewport.GetFar(),
+            .mDispatchSize = inDispatchSize
+        };
+    };
+
+    const DoFSetupData& setup_data = inRenderGraph.AddComputePass<DoFSetupData>("DoF Setup",
+    [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, DoFSetupData& inData)
+    {
+        const Texture::Desc& input_desc = ioRGBuilder.GetResourceDesc(inInputTexture).mTextureDesc;
+
+        inData.mFullSize = UVec2(input_desc.width, input_desc.height);
+        inData.mHalfSize = ( inData.mFullSize + 1u ) / 2u;
+        inData.mTileCount = ( inData.mHalfSize + UVec2(DOF_TILE_SIZE - 1) ) / UVec2(DOF_TILE_SIZE);
+
+        inData.mHalfResTexture = ioRGBuilder.Create(Texture::Desc
+        {
+            .format = DXGI_FORMAT_R16G16B16A16_FLOAT,
+            .width  = inData.mHalfSize.x,
+            .height = inData.mHalfSize.y,
+            .usage  = Texture::SHADER_READ_WRITE,
+            .debugName = "RT_DoFHalfRes"
+        });
+
+        ioRGBuilder.Write(inData.mHalfResTexture);
+
+        inData.mInputTextureSRV = ioRGBuilder.Read(inInputTexture);
+        inData.mDepthTextureSRV = ioRGBuilder.Read(inDepthTexture);
+    },
+    [GetRootConstants](DoFSetupData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+    {
+        DepthOfFieldRootConstants root_constants = GetRootConstants(inData.mHalfSize, inData.mFullSize.y);
+        root_constants.mInputTexture = inResources.GetBindlessHeapIndex(inData.mInputTextureSRV);
+        root_constants.mDepthTexture = inResources.GetBindlessHeapIndex(inData.mDepthTextureSRV);
+        root_constants.mHalfResTexture = inResources.GetBindlessHeapIndex(inData.mHalfResTexture);
+
+        inCmdList.PushComputeConstants(root_constants);
+        inCmdList->SetPipelineState(g_SystemShaders.mDoFSetupShader.GetComputePSO());
+        inCmdList->Dispatch(( inData.mHalfSize.x + 7 ) / 8, ( inData.mHalfSize.y + 7 ) / 8, 1);
+    });
+
+    const DoFTileMaxData& tile_max_data = inRenderGraph.AddComputePass<DoFTileMaxData>("DoF Tile Max",
+    [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, DoFTileMaxData& inData)
+    {
+        inData.mTileTexture = ioRGBuilder.Create(Texture::Desc
+        {
+            .format = DXGI_FORMAT_R16_FLOAT,
+            .width  = setup_data.mTileCount.x,
+            .height = setup_data.mTileCount.y,
+            .usage  = Texture::SHADER_READ_WRITE,
+            .debugName = "RT_DoFTileMax"
+        });
+
+        ioRGBuilder.Write(inData.mTileTexture);
+
+        inData.mHalfResTextureSRV = ioRGBuilder.Read(setup_data.mHalfResTexture);
+    },
+    [GetRootConstants, &setup_data](DoFTileMaxData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+    {
+        DepthOfFieldRootConstants root_constants = GetRootConstants(setup_data.mTileCount, setup_data.mFullSize.y);
+        root_constants.mHalfResTexture = inResources.GetBindlessHeapIndex(inData.mHalfResTextureSRV);
+        root_constants.mTileTexture = inResources.GetBindlessHeapIndex(inData.mTileTexture);
+
+        inCmdList.PushComputeConstants(root_constants);
+        inCmdList->SetPipelineState(g_SystemShaders.mDoFTileMaxShader.GetComputePSO());
+        inCmdList->Dispatch(setup_data.mTileCount.x, setup_data.mTileCount.y, 1);
+    });
+
+    const DoFGatherData& gather_data = inRenderGraph.AddComputePass<DoFGatherData>("DoF Gather",
+    [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, DoFGatherData& inData)
+    {
+        inData.mBlurTexture = ioRGBuilder.Create(Texture::Desc
+        {
+            .format = DXGI_FORMAT_R16G16B16A16_FLOAT,
+            .width  = setup_data.mHalfSize.x,
+            .height = setup_data.mHalfSize.y,
+            .usage  = Texture::SHADER_READ_WRITE,
+            .debugName = "RT_DoFBlur"
+        });
+
+        ioRGBuilder.Write(inData.mBlurTexture);
+
+        inData.mTileTextureSRV = ioRGBuilder.Read(tile_max_data.mTileTexture);
+        inData.mHalfResTextureSRV = ioRGBuilder.Read(setup_data.mHalfResTexture);
+    },
+    [GetRootConstants, &setup_data](DoFGatherData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+    {
+        DepthOfFieldRootConstants root_constants = GetRootConstants(setup_data.mHalfSize, setup_data.mFullSize.y);
+        root_constants.mHalfResTexture = inResources.GetBindlessHeapIndex(inData.mHalfResTextureSRV);
+        root_constants.mTileTexture = inResources.GetBindlessHeapIndex(inData.mTileTextureSRV);
+        root_constants.mBlurTexture = inResources.GetBindlessHeapIndex(inData.mBlurTexture);
+
+        inCmdList.PushComputeConstants(root_constants);
+        inCmdList->SetPipelineState(g_SystemShaders.mDoFGatherShader.GetComputePSO());
+        inCmdList->Dispatch(( setup_data.mHalfSize.x + 7 ) / 8, ( setup_data.mHalfSize.y + 7 ) / 8, 1);
+    });
+
+    return inRenderGraph.AddComputePass<DepthOfFieldData>("DoF Composite",
+    [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, DepthOfFieldData& inData)
+    {
+        inData.mOutputTexture = ioRGBuilder.Create(Texture::Desc
+        {
+            .format = DXGI_FORMAT_R16G16B16A16_FLOAT,
+            .width  = setup_data.mFullSize.x,
+            .height = setup_data.mFullSize.y,
             .usage  = Texture::SHADER_READ_WRITE,
             .debugName = "RT_DoFOutput"
         });
 
-        inBuilder.Write(inData.mOutputTexture);
-        
-        inData.mDepthTextureSRV = inBuilder.Read(inDepthTexture);
-        inData.mInputTextureSRV = inBuilder.Read(inInputTexture);
+        ioRGBuilder.Write(inData.mOutputTexture);
+
+        inData.mInputTextureSRV = ioRGBuilder.Read(inInputTexture);
+        inData.mDepthTextureSRV = ioRGBuilder.Read(inDepthTexture);
+        inData.mBlurTextureSRV = ioRGBuilder.Read(gather_data.mBlurTexture);
     },
-
-    [&inRenderGraph, &inDevice](DepthOfFieldData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
+    [GetRootConstants, &setup_data](DepthOfFieldData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
-        const Viewport& viewport = inRenderGraph.GetViewport();
+        DepthOfFieldRootConstants root_constants = GetRootConstants(setup_data.mFullSize, setup_data.mFullSize.y);
+        root_constants.mInputTexture = inResources.GetBindlessHeapIndex(inData.mInputTextureSRV);
+        root_constants.mDepthTexture = inResources.GetBindlessHeapIndex(inData.mDepthTextureSRV);
+        root_constants.mBlurTexture = inResources.GetBindlessHeapIndex(inData.mBlurTextureSRV);
+        root_constants.mOutputTexture = inResources.GetBindlessHeapIndex(inData.mOutputTexture);
 
-        inCmdList.PushComputeConstants(DepthOfFieldRootConstants 
-        {
-            .mDepthTexture  = inRGResources.GetBindlessHeapIndex(inData.mDepthTextureSRV),
-            .mInputTexture  = inRGResources.GetBindlessHeapIndex(inData.mInputTextureSRV),
-            .mOutputTexture = inRGResources.GetBindlessHeapIndex(inData.mOutputTexture),
-            .mFarPlane      = viewport.GetFar(),
-            .mNearPlane     = viewport.GetNear(),
-            .mFocusPoint    = RenderSettings::mDoFFocusPoint,
-            .mFocusScale    = RenderSettings::mDoFFocusScale,
-            .mDispatchSize  = viewport.GetRenderSize()
-        });
-
-        inCmdList->SetPipelineState(g_SystemShaders.mDepthOfFieldShader.GetComputePSO());
-        inCmdList->Dispatch((viewport.GetDisplaySize().x + 7) / 8, (viewport.GetDisplaySize().y + 7) / 8, 1);
+        inCmdList.PushComputeConstants(root_constants);
+        inCmdList->SetPipelineState(g_SystemShaders.mDoFCompositeShader.GetComputePSO());
+        inCmdList->Dispatch(( setup_data.mFullSize.x + 7 ) / 8, ( setup_data.mFullSize.y + 7 ) / 8, 1);
     });
 }
 
