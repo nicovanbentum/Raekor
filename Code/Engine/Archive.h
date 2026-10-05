@@ -20,7 +20,7 @@ public:
 		if (RTTI* rtti = g_RTTIFactory.GetRTTI(type.c_str()))
 			for (const auto& member : *rtti)
 			{
-				if (member->GetSerializeType() & ( SERIALIZE_BINARY | SERIALIZE_LEGACY_BINARY ))
+				if (( member->GetSerializeType() & ( SERIALIZE_BINARY | SERIALIZE_LEGACY_BINARY ) ) && !( member->GetSerializeType() & SERIALIZE_NO_LEGACY_BINARY ))
 					member->FromBinary(m_File, &ioRHS);
 			}
 

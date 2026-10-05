@@ -358,12 +358,13 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     // Update all the frame constants and copy it in into the GPU ring buffer
     m_FrameConstants.mTime = m_ElapsedTime;
     m_FrameConstants.mDeltaTime = inDeltaTime;
-    m_FrameConstants.mExposure = RenderSettings::mExposure;
+    m_FrameConstants.mExposure = RenderSettings::GetExposure();
     m_FrameConstants.mSunConeAngle = m_Settings.mSunConeAngle;
     m_FrameConstants.mFrameCounter = m_FrameCounter;
     m_FrameConstants.mPrevJitter = m_FrameConstants.mJitter;
     m_FrameConstants.mJitter = enable_jitter ? Vec2(jitter_x, jitter_y) : Vec2(0.0f, 0.0f);
-    m_FrameConstants.mSunColor = inScene->GetSunLight() ? inScene->GetSunLight()->GetColor() : Vec4(1.0f);
+    m_FrameConstants.mSunColor = inScene->GetSunLight() ? inScene->GetSunLight()->GetColor() : Vec4(0.0f);
+    m_FrameConstants.mSunColor.a *= m_FrameConstants.mExposure;
     m_FrameConstants.mSunDirection = Vec4(inScene->GetSunLightDirection(), 0.0f);
     m_FrameConstants.mCameraPosition = Vec4(vp.GetPosition(), 1.0f);
     m_FrameConstants.mViewportSize = inViewport.GetRenderSize();
@@ -448,9 +449,9 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
             std::scoped_lock lock = std::scoped_lock(m_UploadMutex);
 
             inScene.UploadInstances(inApp, inDevice, copy_cmd_list);
-            inScene.UploadMaterials(inApp, inDevice, copy_cmd_list, m_Settings.mDisableAlbedo);
+            inScene.UploadMaterials(inApp, inDevice, copy_cmd_list, m_Settings.mDisableAlbedo, RenderSettings::GetExposure());
             inScene.UploadTLASInstances(inApp, inDevice, copy_cmd_list);
-            inScene.UploadLights(inApp, inDevice, copy_cmd_list);
+            inScene.UploadLights(inApp, inDevice, copy_cmd_list, RenderSettings::GetExposure());
         }
 
         m_FrameConstants.mTLAS = inScene.GetTLASDescriptorIndex();
@@ -1639,7 +1640,8 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("Currently not implemented.");
 
-        ImGui::DragFloat("Manual Exposure", &RenderSettings::mExposure, 0.01f, 0.0f, 100.0f, "%.2f");
+        if (ImGui::DragFloat("Exposure", &RenderSettings::mEV100, 0.05f, -6.0f, 20.0f, "EV100 %.2f"))
+            RenderSettings::mPathTraceReset = true;
         ImGui::DragFloat("Chromatic Aberration", &RenderSettings::mChromaticAberrationStrength, 0.01f, 0.0f, 10.0f, "%.2f");
 
         ImGui::EndMenu();

@@ -38,7 +38,7 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0
     if (depth == 1.0) 
     {    
         float3 sky_color = skycube_texture.SampleLevel(SamplerLinearClamp, ws_pos, 0) * fc.mSunColor.a;
-        return float4(max(sky_color, 0.0.xxx) * fc.mExposure, 1.0);
+        return float4(max(sky_color, 0.0.xxx), 1.0);
     }
 
     // indirect diffuse and specular are attenuated by ambient occlusion
@@ -108,5 +108,5 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0
     
     total_radiance += indirect_diffuse * surface.mAlbedo.rgb * (1.0 - surface.mMetallic) * (1.0 - specular_albedo) * ao;
     
-    return float4(total_radiance * fc.mExposure, 1.0);
+    return float4(total_radiance, 1.0);
 }

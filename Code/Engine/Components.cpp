@@ -31,6 +31,7 @@ RTTI_DEFINE_TYPE(DirectionalLight)
 	RTTI_DEFINE_MEMBER(DirectionalLight, SERIALIZE_ALL, "Direction", direction);
 	RTTI_DEFINE_MEMBER(DirectionalLight, SERIALIZE_ALL, "Color", color);
 	RTTI_DEFINE_MEMBER(DirectionalLight, SERIALIZE_ALL, "Skybox", cubeMapFile);
+	RTTI_DEFINE_MEMBER(DirectionalLight, ESerializeType(SERIALIZE_ALL | SERIALIZE_NO_LEGACY_BINARY), "Illuminance", illuminance);
 }
 
 
@@ -136,8 +137,8 @@ RTTI_DEFINE_TYPE(DDGISceneSettings)
 	RTTI_DEFINE_MEMBER(DDGISceneSettings, SERIALIZE_ALL, "Debug Probe", mDDGIDebugProbe);
 	RTTI_DEFINE_MEMBER(DDGISceneSettings, SERIALIZE_ALL, "Probe Count", mDDGIProbeCount);
 	RTTI_DEFINE_MEMBER(DDGISceneSettings, SERIALIZE_ALL, "Probe Spacing", mDDGIProbeSpacing);
-	RTTI_DEFINE_MEMBER(DDGISceneSettings, SERIALIZE_ALL, "Follow Camera", mFollowCamera);
-	RTTI_DEFINE_MEMBER(DDGISceneSettings, SERIALIZE_ALL, "Cascade Count", mCascadeCount);
+	RTTI_DEFINE_MEMBER(DDGISceneSettings, ESerializeType(SERIALIZE_ALL | SERIALIZE_NO_LEGACY_BINARY), "Follow Camera", mFollowCamera);
+	RTTI_DEFINE_MEMBER(DDGISceneSettings, ESerializeType(SERIALIZE_ALL | SERIALIZE_NO_LEGACY_BINARY), "Cascade Count", mCascadeCount);
 }
 
 

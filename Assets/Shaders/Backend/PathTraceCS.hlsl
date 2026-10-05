@@ -213,7 +213,6 @@ void main(uint3 threadID : SV_DispatchThreadID)
     gbuffer_texture[threadID.xy] = gbuffer;
     selection_texture[threadID.xy] = entity;
     
-    total_irradiance *= fc.mExposure;
     
     if (rc.mReset || fc.mFrameCounter < 2)
     {

@@ -68,7 +68,7 @@ struct DirectionalLight
 {
 	RTTI_DECLARE_TYPE(DirectionalLight);
 
-	const Vec4& GetColor() const { return color; }
+	Vec4 GetColor() const { return Vec4(Vec3(color), illuminance); }
 	const Vec4& GetDirection() const { return direction; }
 
 	String cubeMapFile;
@@ -76,6 +76,7 @@ struct DirectionalLight
 
 	Vec4 color = { 1.0f, 1.0f, 1.0f, 1.0f };
 	Vec4 direction = { 0.25f, -0.9f, 0.0f, 0.0f };
+	float illuminance = 110000.0f;
 
 };
 

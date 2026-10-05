@@ -324,7 +324,7 @@ void RayTracedScene::BuildTLAS(Device& inDevice, CommandList& inCmdList)
 }
 
 
-void RayTracedScene::UploadLights(Application* inApp, Device& inDevice, CommandList& inCmdList)
+void RayTracedScene::UploadLights(Application* inApp, Device& inDevice, CommandList& inCmdList, float inExposure)
 {
     static_assert( sizeof(RTLight) == sizeof(Light) );
 
@@ -344,8 +344,13 @@ void RayTracedScene::UploadLights(Application* inApp, Device& inDevice, CommandL
     m_LightsDescriptor = inDevice.GetBuffer(m_LightsBuffer).GetDescriptor();
 
     Buffer& lights_buffer = inDevice.GetBuffer(m_LightsBuffer);
+
+    Array<Light> exposed_lights(lights.begin(), lights.end());
+
+    for (Light& light : exposed_lights)
+        light.color.a *= inExposure;
     
-    inDevice.UploadBufferData(inCmdList, lights_buffer, 0, lights.data(), lights.size_bytes());
+    inDevice.UploadBufferData(inCmdList, lights_buffer, 0, exposed_lights.data(), lights.size_bytes());
 }
 
 
@@ -410,7 +415,7 @@ void RayTracedScene::UploadInstances(Application* inApp, Device& inDevice, Comma
 }
 
 
-void RayTracedScene::UploadMaterials(Application* inApp, Device& inDevice, CommandList& inCmdList, bool inDisableAlbedo)
+void RayTracedScene::UploadMaterials(Application* inApp, Device& inDevice, CommandList& inCmdList, bool inDisableAlbedo, float inExposure)
 {
     EVENT_SCOPE_GPU(inCmdList, "UPLOAD MATERIALS");
 
@@ -428,7 +433,7 @@ void RayTracedScene::UploadMaterials(Application* inApp, Device& inDevice, Comma
         rt_material.mAlbedo = material.albedo;
         rt_material.mMetallic = material.metallic;
         rt_material.mRoughness = material.roughness;
-        rt_material.mEmissive = Vec4(material.emissive, 1.0);
+        rt_material.mEmissive = Vec4(material.emissive * inExposure, 1.0);
 
         rt_material.mAlbedoTexture = inDevice.GetBindlessHeapIndex(TextureID(material.gpuAlbedoMap ? material.gpuAlbedoMap : Material::Default.gpuAlbedoMap));
         rt_material.mNormalsTexture = inDevice.GetBindlessHeapIndex(TextureID(material.gpuNormalMap ? material.gpuNormalMap : Material::Default.gpuNormalMap));

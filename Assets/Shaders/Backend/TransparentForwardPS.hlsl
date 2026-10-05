@@ -142,7 +142,7 @@ PS_OUTPUT main(in VS_OUTPUT inParams) {
     
     total_radiance += ComputeIBL(surface, Wo, dfg);
     
-    output.color = float4(total_radiance * fc.mExposure, 1.0);
+    output.color = float4(total_radiance, 1.0);
     
     return output;
 }

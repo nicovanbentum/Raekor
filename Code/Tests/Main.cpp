@@ -87,6 +87,51 @@ RTTI_DEFINE_TYPE(TestJSON)
 }
 
 
+struct TestLegacyComponent
+{
+	RTTI_DECLARE_TYPE(TestLegacyComponent);
+
+	int mFirst = 0;
+	String mName;
+	int mAdded = 9;
+	float mLast = 0.0f;
+};
+
+RTTI_DEFINE_TYPE(TestLegacyComponent)
+{
+	RTTI_DEFINE_MEMBER(TestLegacyComponent, SERIALIZE_ALL, "First", mFirst);
+	RTTI_DEFINE_MEMBER(TestLegacyComponent, SERIALIZE_ALL, "Name", mName);
+	RTTI_DEFINE_MEMBER(TestLegacyComponent, ESerializeType(SERIALIZE_ALL | SERIALIZE_NO_LEGACY_BINARY), "Added", mAdded);
+	RTTI_DEFINE_MEMBER(TestLegacyComponent, SERIALIZE_ALL, "Last", mLast);
+}
+
+
+static void sTestLegacyMemberSkipping(const Path& inDirectory)
+{
+	const Path legacy_path = inDirectory / "legacy_component.bin";
+
+	{
+		File file = File(legacy_path, std::ios::binary | std::ios::out | std::ios::trunc);
+		WriteFileBinary(file, String(RTTI_OF<TestLegacyComponent>().GetTypeName()));
+		WriteFileBinary(file, 17);
+		WriteFileBinary(file, String("legacy"));
+		WriteFileBinary(file, 2.5f);
+	}
+
+	TestLegacyComponent component;
+
+	{
+		BinaryReadArchive archive(legacy_path);
+		archive >> component;
+	}
+
+	CHECK(component.mFirst == 17);
+	CHECK(component.mName == "legacy");
+	CHECK(component.mAdded == 9);
+	CHECK(component.mLast == 2.5f);
+}
+
+
 static void sTestComponentTableVersioning(const Path& inDirectory)
 {
 	const Path table_path = inDirectory / "component_table.bin";
@@ -361,6 +406,7 @@ int main(int argc, char** argv)
 	g_RTTIFactory.Register<TestJSON>();
 	g_RTTIFactory.Register<TestComponentV1>();
 	g_RTTIFactory.Register<TestComponentV2>();
+	g_RTTIFactory.Register<TestLegacyComponent>();
 
 	const Path directory = fs::temp_directory_path() / "RaekorTests";
 	fs::create_directories(directory);
@@ -368,6 +414,7 @@ int main(int argc, char** argv)
 	sTestJobSystem();
 	sTestJSON(directory);
 	sTestComponentTableVersioning(directory);
+	sTestLegacyMemberSkipping(directory);
 	sTestSceneRoundTrip(directory);
 
 	String legacy_scene = OS::sGetCommandLineValue("-legacy_scene");

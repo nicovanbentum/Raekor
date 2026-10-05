@@ -23,7 +23,7 @@ struct RenderSettings
     static inline float mGrassTilt = 0.0f;
     static inline Vec2 mWindDirection = Vec2(0.0f, -1.0f);
 
-    static inline float mExposure = 1.0f;
+    static inline float mEV100 = 15.0f;
     static inline float mVignetteScale = 0.8f;
     static inline float mVignetteBias = 0.2f;
     static inline float mVignetteInner = 0.0f;
@@ -52,6 +52,8 @@ struct RenderSettings
     static inline StaticArray<DDGIVolume, DDGI_MAX_CASCADES> mDDGIVolumes = {};
 
     static inline Entity mActiveEntity = Entity::Null;
+
+    static float GetExposure() { return 1.0f / ( 1.2f * std::exp2(mEV100) ); }
 
     static int GetDDGIProbesPerCascade() { return mDDGIProbeCount.x * mDDGIProbeCount.y * mDDGIProbeCount.z; }
     static int GetDDGITotalProbeCount() { return GetDDGIProbesPerCascade() * mDDGICascadeCount; }

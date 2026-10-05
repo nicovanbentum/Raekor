@@ -1756,7 +1756,7 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, 
             .mInputTexture = inResources.GetBindlessHeapIndex(inData.mInputTextureSRV),
             .mSettings = 
             {
-                .mExposure                    = RenderSettings::mExposure,
+                .mExposure                    = RenderSettings::GetExposure(),
                 .mVignetteScale               = RenderSettings::mVignetteScale,
                 .mVignetteBias                = RenderSettings::mVignetteBias,
                 .mVignetteInner               = RenderSettings::mVignetteInner,

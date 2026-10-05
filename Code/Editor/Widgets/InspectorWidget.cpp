@@ -1171,7 +1171,7 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Light& inLight)
 	
 	CheckForUndo(inEntity, inLight, m_LightUndo);
 
-	scene_changed |= ImGui::DragFloat("Intensity", &inLight.color.a, 0.001f);
+	scene_changed |= ImGui::DragFloat("Intensity", &inLight.color.a, 1.0f, 0.0f, FLT_MAX, "%.1f cd");
 
 	CheckForUndo(inEntity, inLight, m_LightUndo);
 
@@ -1321,8 +1321,8 @@ bool InspectorWidget::DrawComponent(Entity inEntity, DirectionalLight& inDirecti
 	ImGui::SetNextItemRightAlign("Colour     ");
 	scene_changed |= ImGui::ColorEdit3("##Colour", glm::value_ptr(inDirectionalLight.color), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
 
-	ImGui::SetNextItemRightAlign("Intensity  ");
-	scene_changed |= ImGui::DragFloat("##Intensity", &inDirectionalLight.color.a, 0.001f, 0.0f, FLT_MAX);
+	ImGui::SetNextItemRightAlign("Illuminance");
+	scene_changed |= ImGui::DragFloat("##Illuminance", &inDirectionalLight.illuminance, 100.0f, 0.0f, FLT_MAX, "%.0f lux");
 
 	if (!inDirectionalLight.cubeMapFile.empty())
 	{
