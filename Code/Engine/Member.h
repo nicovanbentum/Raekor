@@ -35,6 +35,11 @@ public:
 		ReadFileBinary(inFile, GetRef<T>(inClass));
 	}
 
+	void CopyValue(const void* inSource, void* ioDestination) override
+	{
+		GetRef<T>(ioDestination) = GetRef<T>(inSource);
+	}
+
 	RTTI* GetRTTI() override { return m_RTTI; }
 
 	void* GetPtr(void* inClass) override { return &( static_cast<Class*>( inClass )->*m_Member ); }

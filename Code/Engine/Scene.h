@@ -78,6 +78,10 @@ public:
 	void BindScriptToEntity(Entity inEntity, NativeScript& inScript, Application* inApp);
 	void Optimize();
 
+private:
+	bool ReadSceneFile(const String& inFilePath);
+	void BindScripts(Assets& ioAssets, Application* inApp);
+
 protected:
 	Path m_ActiveSceneFilePath;
 	IRenderInterface* m_Renderer;

@@ -59,7 +59,7 @@ RTTI_DEFINE_TYPE(Mesh)
 	RTTI_DEFINE_MEMBER(Mesh, SERIALIZE_ALL, "Texcoords", uvs);
 	RTTI_DEFINE_MEMBER(Mesh, SERIALIZE_ALL, "Normals", normals);
 	RTTI_DEFINE_MEMBER(Mesh, SERIALIZE_ALL, "Tangents", tangents);
-	RTTI_DEFINE_MEMBER(Mesh, SERIALIZE_ALL, "Vertices", vertices);
+	RTTI_DEFINE_MEMBER(Mesh, ESerializeType(SERIALIZE_JSON | SERIALIZE_LEGACY_BINARY), "Vertices", vertices);
 	RTTI_DEFINE_MEMBER(Mesh, SERIALIZE_ALL, "Indices", indices);
 	RTTI_DEFINE_MEMBER(Mesh, SERIALIZE_ALL, "Material", material);
 }
@@ -142,20 +142,12 @@ RTTI_DEFINE_TYPE(DDGISceneSettings)
 void gRegisterComponentTypes()
 {
 	g_RTTIFactory.Register(RTTI_OF<Entity>());
-	g_RTTIFactory.Register(RTTI_OF<Name>());
-	g_RTTIFactory.Register(RTTI_OF<Transform>());
-    g_RTTIFactory.Register(RTTI_OF<Mesh>());
-    g_RTTIFactory.Register(RTTI_OF<Camera>());
-	g_RTTIFactory.Register(RTTI_OF<Material>());
-	g_RTTIFactory.Register(RTTI_OF<Animation>());
-	g_RTTIFactory.Register(RTTI_OF<RigidBody>());
-	g_RTTIFactory.Register(RTTI_OF<DirectionalLight>());
-	g_RTTIFactory.Register(RTTI_OF<Light>());
-	g_RTTIFactory.Register(RTTI_OF<SoftBody>());
-	g_RTTIFactory.Register(RTTI_OF<Skeleton>());
 	g_RTTIFactory.Register(RTTI_OF<Skeleton::Bone>());
-	g_RTTIFactory.Register(RTTI_OF<NativeScript>());
-	g_RTTIFactory.Register(RTTI_OF<DDGISceneSettings>());
+
+	std::apply([](const auto& ... inComponents)
+	{
+		( g_ComponentRegistry.Register<typename std::decay_t<decltype( inComponents )>::type>(), ... );
+	}, Components);
 }
 
 

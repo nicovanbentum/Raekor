@@ -97,6 +97,8 @@ public:
 	virtual void ToBinary(File& inFile, const void* inClass) {}
 	virtual void FromBinary(File& inFile, void* inClass) {}
 
+	virtual void CopyValue(const void* inSource, void* ioDestination) {}
+
 	virtual void     ToJSON(JSON::JSONWriter& inJSON, const void* inClass) {}
 	virtual uint32_t FromJSON(JSON::JSONData& inJSON, uint32_t inTokenIdx, void* inClass) { return 0; }
 

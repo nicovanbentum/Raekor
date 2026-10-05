@@ -17,19 +17,6 @@ namespace RK {
 
 Scene::Scene(IRenderInterface* inRenderer) : m_Renderer(inRenderer), m_RootEntity(Create())
 {
-	EnsureExists<Name>();
-	EnsureExists<Mesh>();
-	EnsureExists<Light>();
-	EnsureExists<Camera>();
-	EnsureExists<Material>();
-	EnsureExists<Skeleton>();
-	EnsureExists<SoftBody>();
-	EnsureExists<RigidBody>();
-	EnsureExists<Transform>();
-	EnsureExists<Animation>();
-	EnsureExists<NativeScript>();
-	EnsureExists<DirectionalLight>();
-	EnsureExists<DDGISceneSettings>();
 }
 
 
@@ -328,7 +315,7 @@ Entity Scene::Clone(Entity inEntity, Entity inParent)
 {
 	Entity copy = Create();
 
-	for (IComponentStorage* components : std::views::values(m_Components))
+	for (const auto& [hash, components] : m_Components)
 	{
 		if (components->Contains(inEntity))
 			components->Copy(inEntity, copy);
@@ -471,20 +458,22 @@ void Scene::LoadMaterialTextures(Assets& inAssets)
 
 void Scene::SaveToFile(const String& inFile, Assets& ioAssets, Application* inApp)
 {
-	BinaryWriteArchive archive(inFile);
-	File& file = archive.GetFile();
-	
-	SceneHeader header;
+	File file = File(inFile, std::ios::binary | std::ios::out | std::ios::trunc);
+
+	if (!file.is_open())
+	{
+		gLogError("Scene", "Failed to open {} for writing", inFile);
+		return;
+	}
+
+	SceneHeader header = {};
 	header.Version = SceneHeader::sVersion;
 	header.MagicNumber = SceneHeader::sMagicNumber;
 
-	// jump over the header
-	file.seekg(sizeof(SceneHeader));
+	WriteFileBinary(file, header);
 
-	// write Entity's
 	WriteFileBinary(file, m_Entities);
 
-	// write hierarchy
 	Array<EntityHierarchy::Pair> pairs;
 	pairs.reserve(m_Hierarchy.count());
 
@@ -492,33 +481,157 @@ void Scene::SaveToFile(const String& inFile, Assets& ioAssets, Application* inAp
 		pairs.push_back(pair);
 
 	WriteFileBinary(file, pairs);
-	
-	// write and track tables
-	Array<SceneTable> tables;
+
+	Array<SceneComponentTable> tables;
 	tables.reserve(m_Components.size());
 
-	for (const auto& [hash, components] : m_Components)
+	for (const auto& [hash, storage] : m_Components)
 	{
-		SceneTable table;
-		table.Hash = hash;
-		table.Start = file.tellg();
+		if (storage->IsEmpty())
+			continue;
 
-		components->Write(archive);
+		SceneComponentTable table = {};
+		table.mHash = hash;
+		table.mStart = uint64_t(file.tellp());
 
-		table.Size = uint64_t(file.tellg()) - table.Start;
+		storage->WriteTable(file);
+
+		table.mSize = uint64_t(file.tellp()) - table.mStart;
 		tables.push_back(table);
 	}
 
-	// update header
-	header.IndexTableStart = file.tellg();
+	header.IndexTableStart = uint64_t(file.tellp());
 	header.IndexTableCount = tables.size();
 
-	// write tables
 	WriteFileBinary(file, tables);
 
-	// write header (start of the file)
-	file.seekg(0);
+	file.seekp(0);
 	WriteFileBinary(file, header);
+
+	if (!file)
+		gLogError("Scene", "Failed to write {}", inFile);
+}
+
+
+bool Scene::ReadSceneFile(const String& inFilePath)
+{
+	File file = File(inFilePath, std::ios::binary | std::ios::in);
+
+	if (!file.is_open())
+	{
+		gLogError("Scene", "Failed to open {}", inFilePath);
+		return false;
+	}
+
+	SceneHeader header = {};
+	ReadFileBinary(file, header);
+
+	if (header.MagicNumber != SceneHeader::sMagicNumber)
+	{
+		gLogError("Scene", "Magic number mismatch in {}", inFilePath);
+		return false;
+	}
+
+	if (header.Version != SceneHeader::sVersion && header.Version != SceneHeader::sLegacyVersion)
+	{
+		gLogError("Scene", "Unsupported scene format version {} in {}", header.Version, inFilePath);
+		return false;
+	}
+
+	Clear();
+	m_Hierarchy.clear();
+
+	ReadFileBinary(file, m_Entities);
+
+	Array<EntityHierarchy::Pair> pairs;
+	ReadFileBinary(file, pairs);
+	m_Hierarchy.insert(pairs);
+
+	file.seekg(header.IndexTableStart);
+
+	if (header.Version == SceneHeader::sLegacyVersion)
+	{
+		Array<SceneTable> tables;
+		ReadFileBinary(file, tables);
+
+		BinaryReadArchive archive(inFilePath);
+
+		for (const SceneTable& table : tables)
+		{
+			IComponentStorage* storage = GetComponentStorage(table.Hash);
+
+			if (storage == nullptr)
+			{
+				gLogWarning("Scene", "Skipped unknown component table with hash {:#x}", table.Hash);
+				continue;
+			}
+
+			archive.GetFile().seekg(table.Start);
+			storage->Read(archive);
+		}
+
+		gLogInfo("Scene", "Loaded {} from scene format version {}, it will be saved as version {}", inFilePath, header.Version, SceneHeader::sVersion);
+	}
+	else
+	{
+		Array<SceneComponentTable> tables;
+		ReadFileBinary(file, tables);
+
+		Array<Pair<IComponentStorage*, SceneComponentTable>> table_reads;
+		table_reads.reserve(tables.size());
+
+		for (const SceneComponentTable& table : tables)
+		{
+			if (IComponentStorage* storage = GetComponentStorage(table.mHash))
+				table_reads.emplace_back(storage, table);
+			else
+				gLogWarning("Scene", "Skipped unknown component table with hash {:#x}", table.mHash);
+		}
+
+		g_JobSystem.ParallelFor(uint32_t(table_reads.size()), 1, [&](uint32_t inIndex)
+		{
+			const auto& [storage, table] = table_reads[inIndex];
+
+			File table_file = File(inFilePath, std::ios::binary | std::ios::in);
+			table_file.seekg(table.mStart);
+
+			storage->ReadTable(table_file);
+		});
+	}
+
+	ComponentStorage<Mesh>* meshes = GetComponentStorage<Mesh>();
+
+	g_JobSystem.ParallelFor(uint32_t(meshes->Length()), 1, [&](uint32_t inIndex)
+	{
+		Mesh& mesh = meshes->m_Components[inIndex];
+
+		if (mesh.vertices.empty())
+			mesh.CalculateVertices();
+	});
+
+	return true;
+}
+
+
+void Scene::BindScripts(Assets& ioAssets, Application* inApp)
+{
+	if (inApp == nullptr)
+		return;
+
+	for (const auto& [entity, script] : Each<NativeScript>())
+	{
+		if (ScriptAsset::Ptr asset = ioAssets.GetAsset<ScriptAsset>(script.file))
+		{
+			for (const String& type_str : asset->GetRegisteredTypes())
+				script.types.push_back(type_str);
+
+			BindScriptToEntity(entity, script, inApp);
+		}
+		else if (!script.type.empty())
+		{
+			BindScriptToEntity(entity, script, inApp);
+		}
+	}
 }
 
 
@@ -526,102 +639,45 @@ void Scene::OpenFromFile(const String& inFilePath, Assets& ioAssets, Application
 {
 	PROFILE_FUNCTION_CPU();
 
-	// set file path properties
 	m_ActiveSceneFilePath = inFilePath;
-	assert(fs::is_regular_file(inFilePath));
 
 	if (inApp)
 	{
-		// update Discord status
 		String filename = m_ActiveSceneFilePath.filename().string();
 		inApp->GetDiscordRPC().SetActivityDetails(filename.c_str());
 
-		// clear undo system
-        if (inApp->GetUndo())
-		    inApp->GetUndo()->Clear();
+		if (inApp->GetUndo())
+			inApp->GetUndo()->Clear();
 	}
-
-	// open archive
-	BinaryReadArchive archive(inFilePath);
-	File& file = archive.GetFile();
-
-	// read header
-	SceneHeader header;
-	ReadFileBinary(file, header);
-
-	// check for errors
-	if (header.MagicNumber != SceneHeader::sMagicNumber)
-	{
-		if (inApp) 
-			gLogError("Scene", "Magic number mismatch in {}", inFilePath);
-		return;
-	}
-	
-	if (header.Version != SceneHeader::sVersion)
-	{
-		if (inApp)
-			gLogError("Scene", "Format version mismatch in {}", inFilePath);
-		return;
-	}
-
-	// clear the current scene
-	Clear();
-	m_Hierarchy.clear();
-
-	// read in Entity's
-	ReadFileBinary(file, m_Entities);
 
 	Timer timer;
-	
-	// read in hierarchy
-	Array<EntityHierarchy::Pair> pairs;
-	ReadFileBinary(file, pairs);
-	m_Hierarchy.insert(pairs);
 
-	gLogInfo("Scene", "Load Hierarchy data took {:.3f} seconds.", timer.GetElapsedTime());
+	if (!ReadSceneFile(inFilePath))
+		return;
 
-	timer.Restart();
+	gLogInfo("Scene", "Load ECStorage data took {:.3f} seconds.", timer.Restart());
 
-	// read in tables
-	Array<SceneTable> tables;
-	file.seekg(header.IndexTableStart);
-	ReadFileBinary(file, tables);
-
-	// read in components
-	for (const SceneTable& table : tables)
-	{
-		const auto storage = m_Components.find(table.Hash);
-		if (storage == m_Components.end() || storage->second == nullptr)
-		{
-			if (inApp)
-				gLogWarning("Scene", "Skipped unknown component table with hash {:#x}", table.Hash);
-			continue;
-		}
-
-		file.seekg(table.Start);
-		storage->second->Read(archive);
-	}
-
-	gLogInfo("Scene", "Load ECStorage data took {:.3f} seconds.", timer.GetElapsedTime());
-
-	// load material texture data to vram
 	LoadMaterialTextures(ioAssets);
 
-	for (const auto& [entity, light] : Each<DirectionalLight>())
+	if (m_Renderer)
 	{
-		if (light.cubeMapFile.empty())
-			continue;
-
-		if (TextureAsset::Ptr asset = ioAssets.GetAsset<TextureAsset>(light.cubeMapFile))
+		for (const auto& [entity, light] : Each<DirectionalLight>())
 		{
-			light.cubeMap = m_Renderer->UploadTextureFromAsset(asset);
-			m_Renderer->OnResize(inApp->GetViewport());
+			if (light.cubeMapFile.empty())
+				continue;
+
+			if (TextureAsset::Ptr asset = ioAssets.GetAsset<TextureAsset>(light.cubeMapFile))
+			{
+				light.cubeMap = m_Renderer->UploadTextureFromAsset(asset);
+
+				if (inApp)
+					m_Renderer->OnResize(inApp->GetViewport());
+			}
 		}
 	}
 
 	timer.Restart();
-	
-	// load mesh data to vram
+
 	if (m_Renderer)
 	{
 		ComponentStorage<Mesh>* meshes = GetComponentStorage<Mesh>();
@@ -638,28 +694,7 @@ void Scene::OpenFromFile(const String& inFilePath, Assets& ioAssets, Application
 		});
 	}
 
-	for (const auto& [entity, script] : Each<NativeScript>())
-	{
-		if (ScriptAsset::Ptr asset = ioAssets.GetAsset<ScriptAsset>(script.file))
-		{
-			for (const String& type_str : asset->GetRegisteredTypes())
-			{
-				script.types.push_back(type_str);
-			}
-
-            if (inApp) 
-            {
-				BindScriptToEntity(entity, script, inApp);
-                continue;
-            }
-		}
-        
-        if (!script.type.empty())
-        {
-            if (inApp)
-                BindScriptToEntity(entity, script, inApp);
-        }
-	}
+	BindScripts(ioAssets, inApp);
 
 	gLogInfo("Scene", "Upload mesh data to GPU took {:.3f} seconds.", timer.GetElapsedTime());
 }
@@ -669,97 +704,17 @@ void Scene::OpenFromFileAsync(const String& inFilePath, Assets& ioAssets, Applic
 {
 	PROFILE_FUNCTION_CPU();
 
-	// set file path properties
 	m_ActiveSceneFilePath = inFilePath;
-	assert(fs::is_regular_file(inFilePath));
-
-	// open archive
-	BinaryReadArchive archive(inFilePath);
-	File& file = archive.GetFile();
-
-	// read header
-	SceneHeader header;
-	ReadFileBinary(file, header);
-
-	// check for errors
-	if (header.MagicNumber != SceneHeader::sMagicNumber)
-	{
-		if (inApp)
-			gLogError("Scene", "Magic number mismatch in {}", inFilePath);
-		return;
-	}
-
-	if (header.Version != SceneHeader::sVersion)
-	{
-		if (inApp)
-			gLogError("Scene", "Format version mismatch in {}", inFilePath);
-		return;
-	}
-
-	// clear the current scene
-	Clear();
-	m_Hierarchy.clear();
-
-	// read in Entity's
-	ReadFileBinary(file, m_Entities);
 
 	Timer timer;
 
-	// read in hierarchy
-	Array<EntityHierarchy::Pair> pairs;
-	ReadFileBinary(file, pairs);
-	m_Hierarchy.insert(pairs);
-
-	gLogInfo("Scene", "Load Hierarchy data took {:.3f} seconds.", timer.GetElapsedTime());
-
-	// read in tables
-	Array<SceneTable> tables;
-	file.seekg(header.IndexTableStart);
-	ReadFileBinary(file, tables);
-
-	// read in components
-	for (const SceneTable& table : tables)
-	{
-		const auto storage = m_Components.find(table.Hash);
-		if (storage == m_Components.end() || storage->second == nullptr)
-		{
-			if (inApp)
-				gLogWarning("Scene", "Skipped unknown component table with hash {:#x}", table.Hash);
-			continue;
-		}
-
-		file.seekg(table.Start);
-		storage->second->Read(archive);
-	}
+	if (!ReadSceneFile(inFilePath))
+		return;
 
 	gLogInfo("Scene", "Load ECStorage data took {:.3f} seconds.", timer.GetElapsedTime());
 
-    for (const auto& [entity, script] : Each<NativeScript>())
-    {
-        if (ScriptAsset::Ptr asset = ioAssets.GetAsset<ScriptAsset>(script.file))
-        {
-            for (const String& type_str : asset->GetRegisteredTypes())
-            {
-                script.types.push_back(type_str);
-            }
+	BindScripts(ioAssets, inApp);
 
-            if (inApp)
-            {
-                BindScriptToEntity(entity, script, inApp);
-                continue;
-            }
-        }
-
-        if (!script.type.empty())
-        {
-            if (inApp)
-                BindScriptToEntity(entity, script, inApp);
-        }
-    }
-
-	timer.Restart();
-
-	// load mesh data to RAM and schedule VRAM uploads
 	g_JobSystem.Schedule([this]()
 	{
 		for (const auto& [entity, mesh] : Each<Mesh>())
@@ -775,7 +730,6 @@ void Scene::OpenFromFileAsync(const String& inFilePath, Assets& ioAssets, Applic
 	Array<Job::Ptr> texture_jobs;
 	texture_jobs.reserve(Count<Material>());
 
-	// load textures data to RAM
 	for (const auto& [entity, material] : Each<Material>())
 	{
 		texture_jobs.push_back(g_JobSystem.Schedule([&ioAssets, &material]()

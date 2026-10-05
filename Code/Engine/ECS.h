@@ -1,6 +1,7 @@
 #pragma once
 
 #include "RTTI.h"
+#include "Iter.h"
 #include "Archive.h"
 
 namespace RK {
@@ -21,6 +22,11 @@ class IComponentStorage
 {
 public:
 	virtual ~IComponentStorage() = default;
+
+	virtual RTTI&   GetRTTI() const = 0;
+
+	virtual void    WriteTable(File& ioFile) const = 0;
+	virtual bool    ReadTable(File& ioFile) = 0;
 
 	virtual void    Clear() = 0;
 	virtual size_t  Length() const = 0;
@@ -158,6 +164,117 @@ class ComponentStorage : public IComponentStorage
 
 public:
 	virtual ~ComponentStorage() { Clear(); }
+
+	RTTI& GetRTTI() const override final { return RTTI_OF<T>(); }
+
+	void WriteTable(File& ioFile) const override final
+	{
+		WriteFileBinary(ioFile, m_Entities);
+
+		const RTTI& rtti = RTTI_OF<T>();
+
+		uint32_t member_count = 0;
+		for (const auto& member : rtti)
+			member_count += ( member->GetSerializeType() & SERIALIZE_BINARY ) != 0;
+
+		WriteFileBinary(ioFile, member_count);
+
+		for (const auto& member : rtti)
+		{
+			if (( member->GetSerializeType() & SERIALIZE_BINARY ) == 0)
+				continue;
+
+			WriteFileBinary(ioFile, member->GetCustomNameHash());
+
+			const uint64_t size_position = uint64_t(ioFile.tellp());
+			WriteFileBinary(ioFile, uint64_t(0));
+
+			for (const T& component : m_Components)
+				member->ToBinary(ioFile, &component);
+
+			const uint64_t end_position = uint64_t(ioFile.tellp());
+			const uint64_t column_size = end_position - size_position - sizeof(uint64_t);
+
+			ioFile.seekp(size_position);
+			WriteFileBinary(ioFile, column_size);
+			ioFile.seekp(end_position);
+		}
+	}
+
+	bool ReadTable(File& ioFile) override final
+	{
+		Clear();
+
+		ReadFileBinary(ioFile, m_Entities);
+		m_Components.resize(m_Entities.size());
+
+		for (const auto& [index, entity] : gEnumerate(m_Entities))
+		{
+			if (m_Sparse.size() <= entity)
+				m_Sparse.resize(entity + 1);
+
+			m_Sparse[entity] = uint32_t(index);
+		}
+
+		const RTTI& rtti = RTTI_OF<T>();
+		bool all_members_read = true;
+
+		uint32_t member_count = 0;
+		ReadFileBinary(ioFile, member_count);
+
+		for (uint32_t member_index = 0; member_index < member_count; member_index++)
+		{
+			uint32_t name_hash = 0;
+			uint64_t column_size = 0;
+			ReadFileBinary(ioFile, name_hash);
+			ReadFileBinary(ioFile, column_size);
+
+			const uint64_t column_start = uint64_t(ioFile.tellg());
+
+			Member* member = nullptr;
+
+			for (const auto& rtti_member : rtti)
+			{
+				if (rtti_member->GetCustomNameHash() == name_hash && ( rtti_member->GetSerializeType() & SERIALIZE_BINARY ))
+				{
+					member = rtti_member.get();
+					break;
+				}
+			}
+
+			if (member)
+			{
+				try
+				{
+					for (T& component : m_Components)
+						member->FromBinary(ioFile, &component);
+				}
+				catch (const std::exception&)
+				{
+					ioFile.setstate(std::ios::failbit);
+				}
+			}
+
+			if (!ioFile || uint64_t(ioFile.tellg()) != column_start + column_size)
+			{
+				if (member)
+				{
+					all_members_read = false;
+					gLogWarning("ECS", "Member \"{}\" of component {} changed its layout, it was not loaded", member->GetCustomName(), rtti.GetTypeName());
+
+					const T default_component = T();
+					for (T& component : m_Components)
+						member->CopyValue(&default_component, &component);
+				}
+
+				ioFile.clear();
+			}
+
+			ioFile.seekg(column_start + column_size);
+		}
+
+		return all_members_read;
+	}
 
 	T& Insert(Entity entity, const T& t)
 	{
@@ -321,9 +438,55 @@ public:
 
 
 
+class ComponentRegistry
+{
+public:
+	using CreateStorageFunction = UniquePtr<IComponentStorage>(*)();
+
+	struct Entry
+	{
+		RTTI* mRTTI = nullptr;
+		CreateStorageFunction mCreateStorage = nullptr;
+	};
+
+	template<typename Component>
+	void Register()
+	{
+		RTTI& rtti = RTTI_OF<Component>();
+		g_RTTIFactory.Register(rtti);
+
+		m_Entries[rtti.GetHash()] = Entry
+		{
+			.mRTTI = &rtti,
+			.mCreateStorage = []() -> UniquePtr<IComponentStorage> { return std::make_unique<ComponentStorage<Component>>(); }
+		};
+	}
+
+	const Entry* Find(uint32_t inHash) const
+	{
+		const auto entry = m_Entries.find(inHash);
+		return entry != m_Entries.end() ? &entry->second : nullptr;
+	}
+
+	auto begin() const { return m_Entries.begin(); }
+	auto end() const { return m_Entries.end(); }
+
+private:
+	HashMap<uint32_t, Entry> m_Entries;
+};
+
+inline ComponentRegistry g_ComponentRegistry;
+
+
 class ECStorage
 {
 public:
+	ECStorage()
+	{
+		for (const auto& [hash, entry] : g_ComponentRegistry)
+			m_Components[hash] = entry.mCreateStorage();
+	}
+
 	template<typename Component>
 	ComponentStorage<Component>* GetComponentStorage()
 	{
@@ -380,8 +543,7 @@ public:
 	template<typename Component>
 	void Register()
 	{
-		if (!m_Components.contains(gGetTypeHash<Component>()))
-			m_Components[RTTI_HASH<Component>()] = new ComponentStorage<Component>();
+		EnsureExists<Component>();
 	}
 
 	template<typename Component>
@@ -682,7 +844,13 @@ public:
 	void EnsureExists()
 	{
 		if (!m_Components.contains(RTTI_HASH<Component>()))
-			m_Components[RTTI_HASH<Component>()] = new ComponentStorage<Component>();
+			m_Components[RTTI_HASH<Component>()] = std::make_unique<ComponentStorage<Component>>();
+	}
+
+	IComponentStorage* GetComponentStorage(uint32_t inHash)
+	{
+		const auto storage = m_Components.find(inHash);
+		return storage != m_Components.end() ? storage->second.get() : nullptr;
 	}
 
 	template<typename Component>
@@ -700,7 +868,7 @@ public:
 
 protected:
 	Array<Entity> m_Entities;
-	mutable HashMap<size_t, IComponentStorage*> m_Components;
+	mutable HashMap<uint32_t, UniquePtr<IComponentStorage>> m_Components;
 };
 
 void RunECStorageTests();

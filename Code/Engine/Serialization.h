@@ -7,7 +7,8 @@ enum ESerializeType
 	SERIALIZE_NONE = 0 << 0,
 	SERIALIZE_JSON = 1 << 0,
 	SERIALIZE_BINARY = 1 << 1,
-	SERIALIZE_ALL = SERIALIZE_JSON | SERIALIZE_BINARY
+	SERIALIZE_ALL = SERIALIZE_JSON | SERIALIZE_BINARY,
+	SERIALIZE_LEGACY_BINARY = 1 << 2
 };
 
 enum ECompressionType
@@ -19,7 +20,8 @@ enum ECompressionType
 
 struct SceneHeader
 {
-	static constexpr uint32_t sVersion = 2;
+	static constexpr uint32_t sVersion = 3;
+	static constexpr uint32_t sLegacyVersion = 2;
 	static constexpr uint64_t sMagicNumber = 'RKSC';
 
 	uint32_t Version;
@@ -33,6 +35,14 @@ struct SceneTable
 	uint32_t Hash;
 	uint32_t Size;
 	uint32_t Start;
+};
+
+struct SceneComponentTable
+{
+	uint32_t mHash = 0;
+	uint32_t mPadding = 0;
+	uint64_t mStart = 0;
+	uint64_t mSize = 0;
 };
 
 
