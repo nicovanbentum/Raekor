@@ -348,9 +348,12 @@ struct ReflectionsRootConstants
 {
     uint  mResultTexture;
     uint  mSkyCubeTexture;
+    uint  mDiffuseSkyCubeTexture;
+    uint  mUseDDGI;
     uint  mGbufferDepthTexture;
     uint  mGbufferRenderTexture;
     uint2 mDispatchSize;
+    DDGIData mDDGIData;
 };
 
 

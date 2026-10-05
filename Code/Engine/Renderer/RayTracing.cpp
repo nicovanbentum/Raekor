@@ -238,46 +238,101 @@ const RenderGraphResourceID AddDenoisePasses(RenderGraph& inRenderGraph, Device&
 
 
 
-const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferOutput& inGBuffer, const SkyCubeData& inSkyCubeData)
+const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferOutput& inGBuffer, const SkyCubeData& inSkyCubeData, const ConvolveCubeData& inConvolvedCubeData, const DDGIOutput* inDDGI)
 {
-    return inRenderGraph.AddComputePass<ReflectionsData>("RT Specular",
-        [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, ReflectionsData& inData)
+    const UVec2 render_size = inRenderGraph.GetViewport().GetRenderSize();
+    const uint32_t mip_count = glm::min(uint32_t(glm::floor(glm::log2(float(glm::max(render_size.x, render_size.y))))) + 1u, 7u);
+
+    const ReflectionsData& reflections_data = inRenderGraph.AddComputePass<ReflectionsData>("RT Reflections",
+    [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, ReflectionsData& inData)
     {
         inData.mOutputTexture = inRGBuilder.Create(Texture::Desc
-            {
-                .format    = DXGI_FORMAT_R16G16B16A16_FLOAT,
-                .width     = inRenderGraph.GetViewport().GetRenderSize().x,
-                .height    = inRenderGraph.GetViewport().GetRenderSize().y,
-                .mipLevels = 0, // let it calculate the nr of mips
-                .usage     = Texture::Usage::SHADER_READ_WRITE,
-                .debugName = "RT_Reflections"
-            });
+        {
+            .format    = DXGI_FORMAT_R16G16B16A16_FLOAT,
+            .width     = render_size.x,
+            .height    = render_size.y,
+            .mipLevels = mip_count,
+            .usage     = Texture::Usage::SHADER_READ_WRITE,
+            .debugName = "RT_Reflections"
+        });
 
-        inRGBuilder.Write(inData.mOutputTexture);
+        inRGBuilder.WriteTexture(inData.mOutputTexture, 0);
 
         inData.mSkyCubeTextureSRV = inRGBuilder.Read(inSkyCubeData.mSkyCubeTexture);
+        inData.mDiffuseSkyCubeTextureSRV = inRGBuilder.Read(inConvolvedCubeData.mConvolvedCubeTexture);
         inData.mGBufferDepthTextureSRV = inRGBuilder.Read(inGBuffer.mDepthTexture);
         inData.mGbufferRenderTextureSRV = inRGBuilder.Read(inGBuffer.mRenderTexture);
+
+        if (inDDGI)
+        {
+            inData.mUseDDGI = true;
+            inData.mDDGIVolumesBufferSRV = inRGBuilder.Read(inDDGI->mVolumes);
+            inData.mDDGIProbeDataBufferSRV = inRGBuilder.Read(inDDGI->mProbeData);
+            inData.mDDGIDepthProbesSRV = inRGBuilder.Read(inDDGI->mDepthProbes);
+            inData.mDDGIIrradianceProbesSRV = inRGBuilder.Read(inDDGI->mIrradianceProbes);
+        }
     },
 
     [&inRenderGraph, &inDevice, &inScene](ReflectionsData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
     {
-        if (!inScene.HasTLAS())
-            return;
-
         const Viewport& viewport = inRenderGraph.GetViewport();
 
-        inCmdList.PushComputeConstants(ReflectionsRootConstants {
+        ReflectionsRootConstants root_constants =
+        {
             .mResultTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTexture(inData.mOutputTexture)),
-            .mSkyCubeTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mSkyCubeTextureSRV)),
-            .mGbufferDepthTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mGBufferDepthTextureSRV)),
-            .mGbufferRenderTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mGbufferRenderTextureSRV)),
-            .mDispatchSize = viewport.GetRenderSize()
-            });
+            .mSkyCubeTexture = inRGResources.GetBindlessHeapIndex(inData.mSkyCubeTextureSRV),
+            .mDiffuseSkyCubeTexture = inRGResources.GetBindlessHeapIndex(inData.mDiffuseSkyCubeTextureSRV),
+            .mUseDDGI = inData.mUseDDGI,
+            .mGbufferDepthTexture = inRGResources.GetBindlessHeapIndex(inData.mGBufferDepthTextureSRV),
+            .mGbufferRenderTexture = inRGResources.GetBindlessHeapIndex(inData.mGbufferRenderTextureSRV),
+            .mDispatchSize = viewport.GetRenderSize(),
+            .mDDGIData = RenderSettings::GetDDGIData()
+        };
 
+        if (inData.mUseDDGI)
+        {
+            root_constants.mDDGIData.mVolumesBuffer = inRGResources.GetBindlessHeapIndex(inData.mDDGIVolumesBufferSRV);
+            root_constants.mDDGIData.mProbesDataBuffer = inRGResources.GetBindlessHeapIndex(inData.mDDGIProbeDataBufferSRV);
+            root_constants.mDDGIData.mProbesDepthTexture = inRGResources.GetBindlessHeapIndex(inData.mDDGIDepthProbesSRV);
+            root_constants.mDDGIData.mProbesIrradianceTexture = inRGResources.GetBindlessHeapIndex(inData.mDDGIIrradianceProbesSRV);
+        }
+
+        inCmdList.PushComputeConstants(root_constants);
         inCmdList->SetPipelineState(g_SystemShaders.mRTReflectionsShader.GetComputePSO());
         inCmdList->Dispatch(( viewport.GetRenderSize().x + 7 ) / 8, ( viewport.GetRenderSize().y + 7 ) / 8, 1);
     });
+
+    for (uint32_t mip = 1; mip < mip_count; mip++)
+    {
+        inRenderGraph.AddComputePass<BloomBlurData>(std::format("RT Reflections mip {} -> mip {}", mip - 1, mip),
+        [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, BloomBlurData& inData)
+        {
+            inData.mToTextureMip   = mip;
+            inData.mFromTextureMip = mip - 1;
+            inData.mToTextureUAV   = inRGBuilder.WriteTexture(reflections_data.mOutputTexture, mip);
+            inData.mFromTextureSRV = inRGBuilder.ReadTexture(reflections_data.mOutputTexture, mip - 1);
+        },
+        [&inDevice](BloomBlurData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+        {
+            const CD3DX12_VIEWPORT to_viewport = CD3DX12_VIEWPORT(inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mToTextureUAV)), inData.mToTextureMip);
+            const CD3DX12_VIEWPORT from_viewport = CD3DX12_VIEWPORT(inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mFromTextureSRV)), inData.mFromTextureMip);
+
+            inCmdList.PushComputeConstants(BloomRootConstants
+            {
+                .mSrcTexture   = inResources.GetBindlessHeapIndex(inData.mFromTextureSRV),
+                .mSrcMipLevel  = inData.mFromTextureMip,
+                .mDstTexture   = inResources.GetBindlessHeapIndex(inData.mToTextureUAV),
+                .mDstMipLevel  = inData.mToTextureMip,
+                .mDispatchSize = UVec2(to_viewport.Width, to_viewport.Height),
+                .mSrcSizeRcp   = Vec2(1.0f / from_viewport.Width, 1.0f / from_viewport.Height)
+            });
+
+            inCmdList->SetPipelineState(g_SystemShaders.mBloomDownsampleShader.GetComputePSO());
+            inCmdList->Dispatch(( UINT(to_viewport.Width) + 7 ) / 8, ( UINT(to_viewport.Height) + 7 ) / 8, 1);
+        });
+    }
+
+    return reflections_data;
 }
 
 

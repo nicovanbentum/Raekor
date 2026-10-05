@@ -593,13 +593,13 @@ void Renderer::Recompile(Device& inDevice, RayTracedScene& inScene, IRenderInter
         if (m_Settings.mEnableRTAO && inDevice.IsRayTracingSupported())
             ao_texture = AddAmbientOcclusionPass(m_RenderGraph, inDevice, inScene, gbuffer_output);
 
-        if (m_Settings.mEnableReflections && inDevice.IsRayTracingSupported())
-            reflections_texture = AddReflectionsPass(m_RenderGraph, inDevice, inScene, gbuffer_output, sky_cube_data).mOutputTexture;
+        const bool enable_ddgi = m_Settings.mEnableDDGI && inDevice.IsRayTracingSupported();
 
-        // const auto& downsample_data = AddDownsamplePass(m_RenderGraph, inDevice, reflection_data.mOutputTexture);
-
-        if (m_Settings.mEnableDDGI && inDevice.IsRayTracingSupported())
+        if (enable_ddgi)
             ddgi_output = AddDDGIPass(m_RenderGraph, inDevice, inScene, gbuffer_output, sky_cube_data);
+
+        if (m_Settings.mEnableReflections && inDevice.IsRayTracingSupported())
+            reflections_texture = AddReflectionsPass(m_RenderGraph, inDevice, inScene, gbuffer_output, sky_cube_data, convolved_cube_data, enable_ddgi ? &ddgi_output : nullptr).mOutputTexture;
 
         const TiledLightCullingData& light_cull_data = AddTiledLightCullingPass(m_RenderGraph, inDevice, inScene);
 

@@ -27,6 +27,21 @@ float3 SampleEnvironmentSpecular(float3 inDirection, float inRoughness)
 }
 
 
+float3 SampleReflections(float2 inScreenUV, uint2 inPixel, float inRoughness, float inViewDistance)
+{
+    uint width, height, levels;
+    reflections_texture.GetDimensions(0, width, height, levels);
+    
+    const float hit_distance = reflections_texture.Load(int3(inPixel, 0)).a;
+    const float pixel_world_size = 2.0 * inViewDistance / (fc.mProjectionMatrix[1][1] * height);
+    const float footprint = hit_distance * inRoughness * inRoughness / max(pixel_world_size, 1e-5);
+    
+    const float lod = clamp(log2(max(footprint, 1.0)), 0.0, levels - 1.0);
+    
+    return reflections_texture.SampleLevel(SamplerLinearClamp, inScreenUV, lod).rgb;
+}
+
+
 float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 
 {
     Surface surface;
@@ -96,7 +111,7 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0
 
     // evaluate indirect specular
     float3 indirect_specular = rc.mUseReflectionsTexture ? 
-        reflections_texture.SampleLevel(SamplerLinearClamp, inParams.mScreenUV, 0).rgb : 
+        SampleReflections(inParams.mScreenUV, uint2(inParams.mPixelCoords.xy), surface.mRoughness, length(fc.mCameraPosition.xyz - ws_pos)) : 
         SampleEnvironmentSpecular(reflect(-Wo, surface.mNormal), surface.mRoughness);
     
     total_radiance += indirect_specular * specular_albedo * surface.mEnergyCompensation * ao;

@@ -82,18 +82,28 @@ const RenderGraphResourceID AddDenoisePasses(RenderGraph& inRenderGraph, Device&
 //////////////////////////////////////////
 ///// Ray-traced Reflections Compute Pass
 //////////////////////////////////////////
+struct DDGIOutput;
+
 struct ReflectionsData
 {
     RenderGraphResourceID mOutputTexture;
     RenderGraphResourceViewID mSkyCubeTextureSRV;
+    RenderGraphResourceViewID mDiffuseSkyCubeTextureSRV;
     RenderGraphResourceViewID mGBufferDepthTextureSRV;
     RenderGraphResourceViewID mGbufferRenderTextureSRV;
+    RenderGraphResourceViewID mDDGIVolumesBufferSRV;
+    RenderGraphResourceViewID mDDGIProbeDataBufferSRV;
+    RenderGraphResourceViewID mDDGIDepthProbesSRV;
+    RenderGraphResourceViewID mDDGIIrradianceProbesSRV;
+    bool mUseDDGI = false;
 };
 
 const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& inDevice,
     const RayTracedScene& inScene,
     const GBufferOutput& inGBuffer,
-    const SkyCubeData& inSkyCubeData
+    const SkyCubeData& inSkyCubeData,
+    const ConvolveCubeData& inConvolvedCubeData,
+    const DDGIOutput* inDDGI
 );
 
 
