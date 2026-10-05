@@ -21,45 +21,11 @@ const BuildAccelerationStructuresData& AddBuildAccelerationStructuresPass(Render
 ////////////////////////////////////////
 /// Ray-traced Shadows Compute Passes
 ////////////////////////////////////////
-struct TraceShadowTilesData
+struct TraceShadowsData
 {
     RenderGraphResourceID mOutputTexture;
     RenderGraphResourceViewID mGBufferDepthTextureSRV;
     RenderGraphResourceViewID mGBufferRenderTextureSRV;
-};
-
-struct ClearShadowTilesData
-{
-    RenderGraphResourceID mTilesBuffer;
-    RenderGraphResourceID mIndirectDispatchBuffer;
-};
-
-struct ClassifyShadowTilesData
-{
-    RenderGraphResourceViewID mTilesBufferUAV;
-    RenderGraphResourceViewID mIndirectDispatchBufferUAV;
-    RenderGraphResourceViewID mTracedShadowRaysTextureSRV;
-};
-
-struct ClearShadowsData
-{
-    RenderGraphResourceID mShadowsTexture;
-    RenderGraphResourceID mShadowsTextureHistory;
-};
-
-struct DenoiseShadowsData
-{
-    RenderGraphResourceViewID mOutputTextureUAV;
-    RenderGraphResourceViewID mHistoryTextureUAV;
-    RenderGraphResourceViewID mDepthTextureSRV;
-    RenderGraphResourceViewID mGBufferTextureSRV;
-    RenderGraphResourceViewID mVelocityTextureSRV;
-    RenderGraphResourceViewID mSelectionTextureSRV;
-    RenderGraphResourceViewID mTracedShadowRaysTextureSRV;
-    RenderGraphResourceViewID mTilesBufferSRV;
-    RenderGraphResourceViewID mDenoisedTilesBufferSRV;
-    RenderGraphResourceViewID mIndirectDispatchBufferSRV;
-    RenderGraphResourceViewID mDenoisedIndirectDispatchBufferSRV;
 };
 
 
@@ -76,16 +42,39 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
 struct RTAOData
 {
     RenderGraphResourceID mOutputTexture;
-    RenderGraphResourceID mHistoryTexture;
-    RenderGraphResourceViewID mHistoryTextureSRV;
     RenderGraphResourceViewID mGbufferDepthTextureSRV;
     RenderGraphResourceViewID mGBufferRenderTextureSRV;
-    RenderGraphResourceViewID mGBufferVelocityTextureSRV;
 };
 
-const RTAOData& AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDevice,
+const RenderGraphResourceID AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDevice,
     const RayTracedScene& inScene,
     const GBufferOutput& inGBuffer
+);
+
+
+
+struct DenoiseTemporalData
+{
+    RenderGraphResourceID mAccumulatedTexture;
+    RenderGraphResourceID mHistoryTexture;
+    RenderGraphResourceViewID mInputTextureSRV;
+    RenderGraphResourceViewID mHistoryTextureSRV;
+    RenderGraphResourceViewID mDepthTextureSRV;
+    RenderGraphResourceViewID mVelocityTextureSRV;
+};
+
+struct DenoiseSpatialData
+{
+    uint32_t mStepSize = 1;
+    RenderGraphResourceViewID mInputTextureSRV;
+    RenderGraphResourceViewID mOutputTextureUAV;
+    RenderGraphResourceViewID mGBufferTextureSRV;
+};
+
+const RenderGraphResourceID AddDenoisePasses(RenderGraph& inRenderGraph, Device& inDevice,
+    const GBufferOutput& inGBuffer,
+    RenderGraphResourceID inSignalTexture,
+    const String& inName
 );
 
 

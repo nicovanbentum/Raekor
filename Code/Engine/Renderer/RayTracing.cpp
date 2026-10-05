@@ -44,288 +44,73 @@ const BuildAccelerationStructuresData& AddBuildAccelerationStructuresPass(Render
 
 const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferOutput& inGBuffer)
 {
-    static constexpr int cTileSize = RT_SHADOWS_GROUP_DIM;
-    static constexpr int cPackedRaysWidth = RT_SHADOWS_PACKED_DIM_X;
-    static constexpr int cPackedRaysHeight = RT_SHADOWS_PACKED_DIM_Y;
-
-    auto TraceShadowRaysPass = [](RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferOutput& inGBuffer)
+    const TraceShadowsData& trace_data = inRenderGraph.AddComputePass<TraceShadowsData>("RT Shadows Trace",
+    [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, TraceShadowsData& inData)
     {
-        return inRenderGraph.AddComputePass<TraceShadowTilesData>("RT Shadows Trace",
-        [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, TraceShadowTilesData& inData)
+        inData.mOutputTexture = inRGBuilder.Create(Texture::Desc
         {
-            inData.mOutputTexture = inRGBuilder.Create(Texture::Desc
-            {
-                .format = DXGI_FORMAT_R32_UINT,
-                .width  = (inRenderGraph.GetViewport().GetRenderSize().x + cPackedRaysWidth - 1 ) / cPackedRaysWidth,
-                .height = (inRenderGraph.GetViewport().GetRenderSize().y + cPackedRaysHeight - 1) / cPackedRaysHeight,
-                .usage  = Texture::Usage::SHADER_READ_WRITE,
-                .debugName = "RT_PackedShadowRayHits"
-            });
-
-            inRGBuilder.Write(inData.mOutputTexture);
-            inData.mGBufferDepthTextureSRV = inRGBuilder.Read(inGBuffer.mDepthTexture);
-            inData.mGBufferRenderTextureSRV = inRGBuilder.Read(inGBuffer.mRenderTexture);
-        },
-
-        [&inRenderGraph, &inDevice, &inScene](TraceShadowTilesData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
-        {
-            if (!inScene.HasTLAS())
-                return;
-
-            if (!inScene->GetSunLight())
-                return;
-
-            const Viewport& viewport = inRenderGraph.GetViewport();
-            const Texture& texture  = inDevice.GetTexture(inResources.GetTexture(inData.mOutputTexture));
-
-            inCmdList.PushComputeConstants(ShadowMaskRootConstants
-            {
-                .mShadowMaskTexture = inResources.GetBindlessHeapIndex(inData.mOutputTexture),
-                .mGbufferDepthTexture = inResources.GetBindlessHeapIndex(inData.mGBufferDepthTextureSRV),
-                .mGbufferRenderTexture = inResources.GetBindlessHeapIndex(inData.mGBufferRenderTextureSRV),
-                .mDispatchSize = viewport.GetRenderSize()
-            });
-
-            inCmdList->SetPipelineState(g_SystemShaders.mTraceShadowRaysShader.GetComputePSO());
-            inCmdList->Dispatch(texture.GetWidth(), texture.GetHeight(), 1);
+            .format = DXGI_FORMAT_R8_UNORM,
+            .width  = inRenderGraph.GetViewport().GetRenderSize().x,
+            .height = inRenderGraph.GetViewport().GetRenderSize().y,
+            .usage  = Texture::Usage::SHADER_READ_WRITE,
+            .debugName = "RT_ShadowRays"
         });
-    };
 
-    auto ClearShadowTilesPass = [](RenderGraph& inRenderGraph, Device& inDevice)
+        inRGBuilder.Write(inData.mOutputTexture);
+        inData.mGBufferDepthTextureSRV = inRGBuilder.Read(inGBuffer.mDepthTexture);
+        inData.mGBufferRenderTextureSRV = inRGBuilder.Read(inGBuffer.mRenderTexture);
+    },
+
+    [&inRenderGraph, &inDevice, &inScene](TraceShadowsData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
-        return inRenderGraph.AddComputePass<ClearShadowTilesData>("RT Shadows Clear Tiles",
-        [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, ClearShadowTilesData& inData)
+        const Viewport& viewport = inRenderGraph.GetViewport();
+
+        inCmdList.PushComputeConstants(ShadowMaskRootConstants
         {
-            const UVec2& render_size = inRenderGraph.GetViewport().GetRenderSize();
-            const uint32_t tile_width = ( render_size.x + cTileSize - 1 ) / cTileSize;
-            const uint32_t tile_height = ( render_size.y + cTileSize - 1 ) / cTileSize;
-            const uint32_t tile_buffer_size = tile_width * tile_height * sizeof(uint32_t);
-
-            inData.mTilesBuffer = inRGBuilder.Create(Buffer::RWStructuredBuffer(tile_buffer_size, sizeof(uint32_t), "ShadowTilesBuffer"));
-            inData.mIndirectDispatchBuffer = inRGBuilder.Create(Buffer::RWByteAddressBuffer(sizeof(D3D12_DISPATCH_ARGUMENTS), "ShadowsDispatchBuffer"));
-
-            inRGBuilder.Write(inData.mTilesBuffer);
-            inRGBuilder.Write(inData.mIndirectDispatchBuffer);
-        },
-
-        [&inRenderGraph, &inDevice](ClearShadowTilesData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
-        {
-            inCmdList.PushComputeConstants(ShadowsClearRootConstants
-            {
-                .mTilesBuffer = inResources.GetBindlessHeapIndex(inData.mTilesBuffer),
-                .mDispatchBuffer = inResources.GetBindlessHeapIndex(inData.mIndirectDispatchBuffer)
-            });
-
-            const Buffer& tiles_buffer = inDevice.GetBuffer(inResources.GetBuffer(inData.mTilesBuffer));
-            
-            inCmdList->SetPipelineState(g_SystemShaders.mClearShadowTilesShader.GetComputePSO());
-            inCmdList->Dispatch(( (tiles_buffer.GetSize() / sizeof(uint32_t)) + 63 ) / 64, 1, 1);
+            .mShadowMaskTexture = inResources.GetBindlessHeapIndex(inData.mOutputTexture),
+            .mGbufferDepthTexture = inResources.GetBindlessHeapIndex(inData.mGBufferDepthTextureSRV),
+            .mGbufferRenderTexture = inResources.GetBindlessHeapIndex(inData.mGBufferRenderTextureSRV),
+            .mDispatchSize = viewport.GetRenderSize()
         });
-    };
 
-    auto ClassifyShadowTilesPass = [](RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const TraceShadowTilesData& inTraceData, const ClearShadowTilesData& inClearData)
-    {
-        return inRenderGraph.AddComputePass<ClassifyShadowTilesData>("RT Shadows Classify",
-        [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, ClassifyShadowTilesData& inData)
-        {
-            const UVec2& render_size = inRenderGraph.GetViewport().GetRenderSize();
-            const uint32_t tile_width   = ( render_size.x + cTileSize - 1 ) / cTileSize;
-            const uint32_t tile_height  = ( render_size.y + cTileSize - 1 ) / cTileSize;
+        inCmdList->SetPipelineState(g_SystemShaders.mTraceShadowRaysShader.GetComputePSO());
+        inCmdList->Dispatch(( viewport.GetRenderSize().x + 7 ) / 8, ( viewport.GetRenderSize().y + 7 ) / 8, 1);
+    });
 
-            inData.mTilesBufferUAV              = inRGBuilder.Write(inClearData.mTilesBuffer);
-            inData.mIndirectDispatchBufferUAV   = inRGBuilder.Write(inClearData.mIndirectDispatchBuffer);
-            inData.mTracedShadowRaysTextureSRV  = inRGBuilder.Read(inTraceData.mOutputTexture);
-        },
-
-        [&inRenderGraph, &inDevice, &inScene](ClassifyShadowTilesData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
-        {
-            const Viewport& viewport = inRenderGraph.GetViewport();
-            const UVec2 dispatch_size = UVec2((viewport.GetRenderSize().x + cTileSize - 1) / cTileSize, (viewport.GetRenderSize().y + cTileSize - 1) / cTileSize);
-
-            inCmdList.PushComputeConstants(ShadowsClassifyRootConstants 
-            { 
-                .mShadowMaskTexture = inResources.GetBindlessHeapIndex(inData.mTracedShadowRaysTextureSRV),
-                .mTilesBuffer       = inResources.GetBindlessHeapIndex(inData.mTilesBufferUAV),
-                .mDispatchBuffer    = inResources.GetBindlessHeapIndex(inData.mIndirectDispatchBufferUAV),
-                .mDispatchSize      = viewport.GetRenderSize()
-            });
-
-            inCmdList->SetPipelineState(g_SystemShaders.mClassifyShadowTilesShader.GetComputePSO());
-            inCmdList->Dispatch(dispatch_size.x, dispatch_size.y, 1);
-        });
-    };
-
-    auto ClearShadowsPass = [](RenderGraph& inRenderGraph, Device& inDevice)
-    {
-        return inRenderGraph.AddComputePass<ClearShadowsData>("RT Shadows Clear",
-        [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, ClearShadowsData& inData)
-        {
-            inData.mShadowsTexture = inRGBuilder.Create(Texture::Desc
-            {
-                .format = DXGI_FORMAT_R32G32_FLOAT,
-                .width  = inRenderGraph.GetViewport().GetRenderSize().x,
-                .height = inRenderGraph.GetViewport().GetRenderSize().y,
-                .usage  = Texture::Usage::SHADER_READ_WRITE,
-                .debugName = "RT_ShadowMask"
-            });
-
-            inData.mShadowsTextureHistory = inRGBuilder.Create(Texture::Desc
-            {
-                .format = DXGI_FORMAT_R32G32_FLOAT,
-                .width  = inRenderGraph.GetViewport().GetRenderSize().x,
-                .height = inRenderGraph.GetViewport().GetRenderSize().y,
-                .usage  = Texture::Usage::SHADER_READ_WRITE,
-                .debugName = "RT_ShadowMaskHistory"
-            });
-
-            inRGBuilder.Write(inData.mShadowsTexture);
-            inRGBuilder.Write(inData.mShadowsTextureHistory);
-        },
-
-        [&inRenderGraph, &inDevice](ClearShadowsData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
-        {
-            ClearTextureUAV(inDevice, inResources.GetTexture(inData.mShadowsTexture), Vec4(1.0f), inCmdList);
-        });
-    };
-
-    auto DenoiseShadowsPass = [](RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferOutput& inGBuffer, const TraceShadowTilesData& inTraceData, const ClearShadowTilesData& inTilesData, const ClearShadowsData& inShadowsData)
-    {
-        return inRenderGraph.AddComputePass<DenoiseShadowsData>("RT Shadows Denoise",
-        [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, DenoiseShadowsData& inData)
-        {
-            inData.mOutputTextureUAV = inRGBuilder.Write(inShadowsData.mShadowsTexture);
-            inData.mHistoryTextureUAV = inRGBuilder.Write(inShadowsData.mShadowsTextureHistory);
-
-            inData.mDepthTextureSRV = inRGBuilder.Read(inGBuffer.mDepthTexture);
-            inData.mGBufferTextureSRV = inRGBuilder.Read(inGBuffer.mRenderTexture);
-            inData.mVelocityTextureSRV = inRGBuilder.Read(inGBuffer.mVelocityTexture);
-            inData.mSelectionTextureSRV = inRGBuilder.Read(inGBuffer.mSelectionTexture);
-
-            inData.mTracedShadowRaysTextureSRV = inRGBuilder.Read(inTraceData.mOutputTexture);
-
-            inData.mTilesBufferSRV = inRGBuilder.Read(inTilesData.mTilesBuffer);
-            inData.mDenoisedTilesBufferSRV = inRGBuilder.Read(inTilesData.mTilesBuffer);
-
-            // don't actually need the views, just barriers and render graph resource IDs
-            inData.mIndirectDispatchBufferSRV = inRGBuilder.ReadIndirectArgs(inTilesData.mIndirectDispatchBuffer);
-            inData.mDenoisedIndirectDispatchBufferSRV = inRGBuilder.ReadIndirectArgs(inTilesData.mIndirectDispatchBuffer);
-        },
-
-        [&inRenderGraph, &inDevice, &inScene](DenoiseShadowsData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
-        {
-            if (!inScene.HasTLAS())
-                return;
-
-            if (!inScene->GetSunLight())
-                return;
-
-            ShadowsDenoiseRootConstants root_constants =
-            {
-                .mResultTexture     = inResources.GetBindlessHeapIndex(inData.mOutputTextureUAV),
-                .mHistoryTexture    = inResources.GetBindlessHeapIndex(inData.mHistoryTextureUAV),
-                .mDepthTexture      = inResources.GetBindlessHeapIndex(inData.mDepthTextureSRV),
-                .mVelocityTexture   = inResources.GetBindlessHeapIndex(inData.mVelocityTextureSRV),
-                .mShadowMaskTexture = inResources.GetBindlessHeapIndex(inData.mTracedShadowRaysTextureSRV),
-                .mSelectionTexture  = inResources.GetBindlessHeapIndex(inData.mSelectionTextureSRV),
-                .mDispatchSize      = inRenderGraph.GetViewport().GetRenderSize()
-            };
-
-            //{
-            //    // write black to the final shadow texture for all the tiles that didn't need denoising
-            //    Buffer& dispatch_buffer = inResources.GetBuffer(inData.mIndirectDispatchBufferSRV);
-            //    inCmdList->ExecuteIndirect(inDevice.GetCommandSignature(COMMAND_SIGNATURE_DISPATCH), 1, inDevice.GetD3D12Resource(dispatch_buffer), 0, nullptr, 0);
-            //}
-
-            {
-                // write all the denoised tiles to the final shadow texture
-                root_constants.mTilesBuffer = inResources.GetBindlessHeapIndex(inData.mDenoisedTilesBufferSRV);
-                inCmdList.PushComputeConstants(root_constants);
-
-                inCmdList->SetPipelineState(g_SystemShaders.mDenoiseShadowTilesShader.GetComputePSO());
-
-                BufferID dispatch_buffer = inResources.GetBufferView(inData.mDenoisedIndirectDispatchBufferSRV);
-                inCmdList->ExecuteIndirect(inDevice.GetCommandSignature(COMMAND_SIGNATURE_DISPATCH), 1, inDevice.GetD3D12Resource(dispatch_buffer), 0, nullptr, 0);
-            }
-
-            ID3D12Resource* result_texture_resource = inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mOutputTextureUAV));
-            ID3D12Resource* history_texture_resource = inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mHistoryTextureUAV));
-
-            std::array barriers =
-            {
-                D3D12_RESOURCE_BARRIER(CD3DX12_RESOURCE_BARRIER::Transition(result_texture_resource, GetD3D12ResourceStates(Texture::SHADER_READ_WRITE), D3D12_RESOURCE_STATE_COPY_SOURCE)),
-                D3D12_RESOURCE_BARRIER(CD3DX12_RESOURCE_BARRIER::Transition(history_texture_resource, GetD3D12ResourceStates(Texture::SHADER_READ_WRITE), D3D12_RESOURCE_STATE_COPY_DEST))
-            };
-            inCmdList->ResourceBarrier(barriers.size(), barriers.data());
-
-            const CD3DX12_TEXTURE_COPY_LOCATION dest = CD3DX12_TEXTURE_COPY_LOCATION(history_texture_resource, 0);
-            const CD3DX12_TEXTURE_COPY_LOCATION source = CD3DX12_TEXTURE_COPY_LOCATION(result_texture_resource, 0);
-            inCmdList->CopyTextureRegion(&dest, 0, 0, 0, &source, nullptr);
-
-            for (D3D12_RESOURCE_BARRIER& barrier : barriers)
-                std::swap(barrier.Transition.StateBefore, barrier.Transition.StateAfter);
-
-            inCmdList->ResourceBarrier(barriers.size(), barriers.data());
-        });
-    };
-
-    const TraceShadowTilesData& traced_rays_data = TraceShadowRaysPass(inRenderGraph, inDevice, inScene, inGBuffer);
-
-    const ClearShadowTilesData& clear_tiles_data = ClearShadowTilesPass(inRenderGraph, inDevice);
-
-    const ClassifyShadowTilesData& classify_data = ClassifyShadowTilesPass(inRenderGraph, inDevice, inScene, traced_rays_data, clear_tiles_data);
-
-    const ClearShadowsData& clear_shadows_data   = ClearShadowsPass(inRenderGraph, inDevice);
-
-    const DenoiseShadowsData& denoise_tiles_data = DenoiseShadowsPass(inRenderGraph, inDevice, inScene, inGBuffer, traced_rays_data, clear_tiles_data, clear_shadows_data);
-
-    return clear_shadows_data.mShadowsTexture;
+    return AddDenoisePasses(inRenderGraph, inDevice, inGBuffer, trace_data.mOutputTexture, "RT Shadows");
 }
 
 
 
-const RTAOData& AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferOutput& inGBuffer)
+const RenderGraphResourceID AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferOutput& inGBuffer)
 {
-    return inRenderGraph.AddComputePass<RTAOData>("RTAO",
+    const RTAOData& rtao_data = inRenderGraph.AddComputePass<RTAOData>("RTAO",
     [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, RTAOData& inData)
     {
-        inData.mOutputTexture = inRGBuilder.Create(Texture::Desc{
-            .format = DXGI_FORMAT_R32_FLOAT,
+        inData.mOutputTexture = inRGBuilder.Create(Texture::Desc
+        {
+            .format = DXGI_FORMAT_R16_FLOAT,
             .width  = inRenderGraph.GetViewport().GetRenderSize().x,
             .height = inRenderGraph.GetViewport().GetRenderSize().y,
             .usage  = Texture::Usage::SHADER_READ_WRITE,
-            .debugName = "RT_AOMask"
-        });
-
-        inData.mHistoryTexture = inRGBuilder.Create(Texture::Desc{
-            .format = DXGI_FORMAT_R32_FLOAT,
-            .width  = inRenderGraph.GetViewport().GetRenderSize().x,
-            .height = inRenderGraph.GetViewport().GetRenderSize().y,
-            .usage  = Texture::Usage::SHADER_READ_ONLY,
-            .debugName = "RT_AOMaskHistory"
+            .debugName = "RT_AORays"
         });
 
         inRGBuilder.Write(inData.mOutputTexture);
 
-        inData.mHistoryTextureSRV = inRGBuilder.Read(inData.mHistoryTexture);
         inData.mGbufferDepthTextureSRV = inRGBuilder.Read(inGBuffer.mDepthTexture);
         inData.mGBufferRenderTextureSRV = inRGBuilder.Read(inGBuffer.mRenderTexture);
-        inData.mGBufferVelocityTextureSRV = inRGBuilder.Read(inGBuffer.mVelocityTexture);
     },
 
     [&inRenderGraph, &inDevice, &inScene](RTAOData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
-        if (!inScene.HasTLAS())
-            return;
-
         const Viewport& viewport = inRenderGraph.GetViewport();
 
         inCmdList.PushComputeConstants(AmbientOcclusionRootConstants
         {
             .mAOmaskTexture           = inResources.GetBindlessHeapIndex(inData.mOutputTexture),
-            .mAOmaskHistoryTexture    = inResources.GetBindlessHeapIndex(inData.mHistoryTexture),
             .mGbufferDepthTexture     = inResources.GetBindlessHeapIndex(inData.mGbufferDepthTextureSRV),
             .mGbufferRenderTexture    = inResources.GetBindlessHeapIndex(inData.mGBufferRenderTextureSRV),
-            .mGbufferVelocityTexture  = inResources.GetBindlessHeapIndex(inData.mGBufferVelocityTextureSRV),
             .mDispatchSize            = viewport.GetRenderSize(),
             .mParams = AmbientOcclusionParams {
                 .mRadius = RenderSettings::mRTAORadius,
@@ -337,19 +122,71 @@ const RTAOData& AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDe
 
         inCmdList->SetPipelineState(g_SystemShaders.mRTAmbientOcclusionShader.GetComputePSO());
         inCmdList->Dispatch((viewport.GetRenderSize().x + 7) / 8, (viewport.GetRenderSize().y + 7) / 8, 1);
+    });
 
-        ID3D12Resource* result_texture_resource = inDevice.GetD3D12Resource(inResources.GetTexture(inData.mOutputTexture));
+    return AddDenoisePasses(inRenderGraph, inDevice, inGBuffer, rtao_data.mOutputTexture, "RTAO");
+}
+
+
+
+const RenderGraphResourceID AddDenoisePasses(RenderGraph& inRenderGraph, Device& inDevice, const GBufferOutput& inGBuffer, RenderGraphResourceID inSignalTexture, const String& inName)
+{
+    auto CreateDenoiseTexture = [&inRenderGraph](RenderGraphBuilder& inRGBuilder, const char* inDebugName, Texture::Usage inUsage = Texture::Usage::SHADER_READ_WRITE, DXGI_FORMAT inFormat = DXGI_FORMAT_R16G16B16A16_FLOAT)
+    {
+        return inRGBuilder.Create(Texture::Desc
+        {
+            .format = inFormat,
+            .width  = inRenderGraph.GetViewport().GetRenderSize().x,
+            .height = inRenderGraph.GetViewport().GetRenderSize().y,
+            .usage  = inUsage,
+            .debugName = inDebugName
+        });
+    };
+
+    const DenoiseTemporalData& temporal_data = inRenderGraph.AddComputePass<DenoiseTemporalData>(inName + " Temporal",
+    [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, DenoiseTemporalData& inData)
+    {
+        inData.mAccumulatedTexture = CreateDenoiseTexture(inRGBuilder, "RT_DenoiseAccumulated");
+        inData.mHistoryTexture = CreateDenoiseTexture(inRGBuilder, "RT_DenoiseHistory", Texture::Usage::SHADER_READ_ONLY);
+
+        inRGBuilder.Write(inData.mAccumulatedTexture);
+
+        inData.mInputTextureSRV = inRGBuilder.Read(inSignalTexture);
+        inData.mHistoryTextureSRV = inRGBuilder.Read(inData.mHistoryTexture);
+        inData.mDepthTextureSRV = inRGBuilder.Read(inGBuffer.mDepthTexture);
+        inData.mVelocityTextureSRV = inRGBuilder.Read(inGBuffer.mVelocityTexture);
+    },
+
+    [&inRenderGraph, &inDevice](DenoiseTemporalData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+    {
+        const Viewport& viewport = inRenderGraph.GetViewport();
+
+        inCmdList.PushComputeConstants(DenoiseRootConstants
+        {
+            .mInputTexture    = inResources.GetBindlessHeapIndex(inData.mInputTextureSRV),
+            .mHistoryTexture  = inResources.GetBindlessHeapIndex(inData.mHistoryTextureSRV),
+            .mOutputTexture   = inResources.GetBindlessHeapIndex(inData.mAccumulatedTexture),
+            .mDepthTexture    = inResources.GetBindlessHeapIndex(inData.mDepthTextureSRV),
+            .mVelocityTexture = inResources.GetBindlessHeapIndex(inData.mVelocityTextureSRV),
+            .mDispatchSize    = viewport.GetRenderSize()
+        });
+
+        inCmdList->SetPipelineState(g_SystemShaders.mDenoiseTemporalShader.GetComputePSO());
+        inCmdList->Dispatch(( viewport.GetRenderSize().x + 7 ) / 8, ( viewport.GetRenderSize().y + 7 ) / 8, 1);
+
+        ID3D12Resource* accumulated_texture_resource = inDevice.GetD3D12Resource(inResources.GetTexture(inData.mAccumulatedTexture));
         ID3D12Resource* history_texture_resource = inDevice.GetD3D12Resource(inResources.GetTexture(inData.mHistoryTexture));
 
         std::array barriers =
         {
-            D3D12_RESOURCE_BARRIER(CD3DX12_RESOURCE_BARRIER::Transition(result_texture_resource, GetD3D12ResourceStates(Texture::SHADER_READ_WRITE), D3D12_RESOURCE_STATE_COPY_SOURCE)),
+            D3D12_RESOURCE_BARRIER(CD3DX12_RESOURCE_BARRIER::Transition(accumulated_texture_resource, GetD3D12ResourceStates(Texture::SHADER_READ_WRITE), D3D12_RESOURCE_STATE_COPY_SOURCE)),
             D3D12_RESOURCE_BARRIER(CD3DX12_RESOURCE_BARRIER::Transition(history_texture_resource, GetD3D12ResourceStates(Texture::SHADER_READ_ONLY), D3D12_RESOURCE_STATE_COPY_DEST))
         };
+
         inCmdList->ResourceBarrier(barriers.size(), barriers.data());
 
         const CD3DX12_TEXTURE_COPY_LOCATION dest = CD3DX12_TEXTURE_COPY_LOCATION(history_texture_resource, 0);
-        const CD3DX12_TEXTURE_COPY_LOCATION source = CD3DX12_TEXTURE_COPY_LOCATION(result_texture_resource, 0);
+        const CD3DX12_TEXTURE_COPY_LOCATION source = CD3DX12_TEXTURE_COPY_LOCATION(accumulated_texture_resource, 0);
         inCmdList->CopyTextureRegion(&dest, 0, 0, 0, &source, nullptr);
 
         for (D3D12_RESOURCE_BARRIER& barrier : barriers)
@@ -357,6 +194,46 @@ const RTAOData& AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDe
 
         inCmdList->ResourceBarrier(barriers.size(), barriers.data());
     });
+
+    RenderGraphResourceID input_texture = temporal_data.mAccumulatedTexture;
+
+    for (uint32_t iteration = 0; iteration < DENOISE_SPATIAL_ITERATIONS; iteration++)
+    {
+        RenderGraphResourceID output_texture;
+
+        inRenderGraph.AddComputePass<DenoiseSpatialData>(std::format("{} Spatial {}", inName, iteration),
+        [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, DenoiseSpatialData& inData)
+        {
+            const bool is_last_iteration = iteration + 1 == DENOISE_SPATIAL_ITERATIONS;
+            output_texture = CreateDenoiseTexture(inRGBuilder, is_last_iteration ? "RT_Denoised" : "RT_DenoiseSpatial", Texture::Usage::SHADER_READ_WRITE, is_last_iteration ? DXGI_FORMAT_R16_FLOAT : DXGI_FORMAT_R16G16B16A16_FLOAT);
+
+            inData.mStepSize = 1u << iteration;
+            inData.mOutputTextureUAV = inRGBuilder.Write(output_texture);
+            inData.mInputTextureSRV = inRGBuilder.Read(input_texture);
+            inData.mGBufferTextureSRV = inRGBuilder.Read(inGBuffer.mRenderTexture);
+        },
+
+        [&inRenderGraph](DenoiseSpatialData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+        {
+            const Viewport& viewport = inRenderGraph.GetViewport();
+
+            inCmdList.PushComputeConstants(DenoiseRootConstants
+            {
+                .mInputTexture   = inResources.GetBindlessHeapIndex(inData.mInputTextureSRV),
+                .mOutputTexture  = inResources.GetBindlessHeapIndex(inData.mOutputTextureUAV),
+                .mGBufferTexture = inResources.GetBindlessHeapIndex(inData.mGBufferTextureSRV),
+                .mStepSize       = inData.mStepSize,
+                .mDispatchSize   = viewport.GetRenderSize()
+            });
+
+            inCmdList->SetPipelineState(g_SystemShaders.mDenoiseSpatialShader.GetComputePSO());
+            inCmdList->Dispatch(( viewport.GetRenderSize().x + 7 ) / 8, ( viewport.GetRenderSize().y + 7 ) / 8, 1);
+        });
+
+        input_texture = output_texture;
+    }
+
+    return input_texture;
 }
 
 

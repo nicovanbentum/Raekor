@@ -7,22 +7,15 @@
 FRAME_CONSTANTS(fc)
 ROOT_CONSTANTS(ShadowMaskRootConstants, rc)
 
-groupshared uint g_RayHitsMask;
-
-[numthreads(8, 4, 1)]
-void main(uint3 dispatchThreadID : SV_DispatchThreadID, uint3 groupID : SV_GroupID, uint3 groupThreadID : SV_GroupThreadID, uint groupLocalIndex : SV_GroupIndex)
+[numthreads(8, 8, 1)]
+void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
-    if (groupLocalIndex == 0)
-        g_RayHitsMask = 0;
-    
-    GroupMemoryBarrierWithGroupSync();
-    
     if (any(dispatchThreadID.xy >= rc.mDispatchSize))
         return;
     
     Texture2D<float4> gbuffer_texture = ResourceDescriptorHeap[rc.mGbufferRenderTexture];
     Texture2D<float> gbuffer_depth_texture = ResourceDescriptorHeap[rc.mGbufferDepthTexture];
-    RWTexture2D<uint> result_texture = ResourceDescriptorHeap[rc.mShadowMaskTexture];
+    RWTexture2D<float> result_texture = ResourceDescriptorHeap[rc.mShadowMaskTexture];
     RaytracingAccelerationStructure TLAS = ResourceDescriptorHeap[fc.mShadowTLAS];
 
     const float2 pixel_center = float2(dispatchThreadID.xy) + float2(0.5f, 0.5f);
@@ -66,10 +59,5 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID, uint3 groupID : SV_Group
         }
     }
     
-    InterlockedOr(g_RayHitsMask, hit << groupLocalIndex);
-    
-    GroupMemoryBarrierWithGroupSync();
-
-    if (groupLocalIndex == 0)
-        result_texture[groupID.xy] = g_RayHitsMask;
+    result_texture[dispatchThreadID.xy] = hit ? 0.0f : 1.0f;
 }

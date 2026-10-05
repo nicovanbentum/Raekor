@@ -172,9 +172,8 @@ struct SystemShadersDX12 : public IResource
     ComputeProgram mRTAmbientOcclusionShader;
 
     ComputeProgram mTraceShadowRaysShader;
-    ComputeProgram mClearShadowTilesShader;
-    ComputeProgram mClassifyShadowTilesShader;
-    ComputeProgram mDenoiseShadowTilesShader;
+    ComputeProgram mDenoiseTemporalShader;
+    ComputeProgram mDenoiseSpatialShader;
 
     GraphicsProgram mGBufferDebugDepthShader;
     GraphicsProgram mGBufferDebugAlbedoShader;

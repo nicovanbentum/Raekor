@@ -29,7 +29,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
     float occlusion = 1.0;
     float depth = depth_texture[threadID.xy];
     
-    if (depth)
+    if (depth < 1.0)
     {
         float3 normal = UnpackNormal(asuint(gbuffer_texture[threadID.xy]));
         float3 ws_position = ReconstructWorldPosition(screen_uv, depth, fc.mInvViewProjectionMatrix);

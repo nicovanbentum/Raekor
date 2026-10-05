@@ -454,8 +454,8 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
             inScene.UploadLights(inApp, inDevice, copy_cmd_list, RenderSettings::GetExposure());
         }
 
-        m_FrameConstants.mTLAS = inScene.GetTLASDescriptorIndex();
-        m_FrameConstants.mShadowTLAS = inScene->GetSunLight() ? inScene.GetTLASDescriptorIndex() : inScene.GetEmptyTLASDescriptorIndex();
+        m_FrameConstants.mTLAS = inScene.HasTLAS() ? inScene.GetTLASDescriptorIndex() : inScene.GetEmptyTLASDescriptorIndex();
+        m_FrameConstants.mShadowTLAS = inScene->GetSunLight() ? m_FrameConstants.mTLAS : inScene.GetEmptyTLASDescriptorIndex();
         m_FrameConstants.mLightsBuffer = inScene.GetLightsDescriptorIndex();
         m_FrameConstants.mMaterialsBuffer = inScene.GetMaterialsDescriptorIndex();
         m_FrameConstants.mInstancesBuffer = inScene.GetInstancesDescriptorIndex();
@@ -595,7 +595,7 @@ void Renderer::Recompile(Device& inDevice, RayTracedScene& inScene, IRenderInter
             ao_texture = AddSSAOTracePass(m_RenderGraph, inDevice, gbuffer_output).mOutputTexture;
 
         if (m_Settings.mEnableRTAO && inDevice.IsRayTracingSupported())
-            ao_texture = AddAmbientOcclusionPass(m_RenderGraph, inDevice, inScene, gbuffer_output).mOutputTexture;
+            ao_texture = AddAmbientOcclusionPass(m_RenderGraph, inDevice, inScene, gbuffer_output);
 
         if (m_Settings.mEnableReflections && inDevice.IsRayTracingSupported())
             reflections_texture = AddReflectionsPass(m_RenderGraph, inDevice, inScene, gbuffer_output, sky_cube_data).mOutputTexture;

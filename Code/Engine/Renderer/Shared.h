@@ -47,9 +47,7 @@
 #define DDGI_MAX_CASCADES 4
 #define DOF_TILE_SIZE 8
 
-#define RT_SHADOWS_GROUP_DIM 16     // RT shadows divides the screen up in 16x16 pixel tiles
-#define RT_SHADOWS_PACKED_DIM_X 8   // RT shadows stores every 8x4 pixels ray results as a 32bit mask
-#define RT_SHADOWS_PACKED_DIM_Y 4   // RT shadows stores every 8x4 pixels ray results as a 32bit mask
+#define DENOISE_SPATIAL_ITERATIONS 3
 
 #define LIGHT_CULL_TILE_SIZE 16 // Light culling uses 16x16 pixel screen tiles
 #define LIGHT_CULL_MAX_LIGHTS 1024 // Max lights per tile for light culling
@@ -337,12 +335,11 @@ struct AmbientOcclusionParams
 struct AmbientOcclusionRootConstants
 {
     uint  mAOmaskTexture;
-    uint  mAOmaskHistoryTexture;
     uint  mGbufferDepthTexture;
     uint  mGbufferRenderTexture;
-    uint  mGbufferVelocityTexture;
     uint  mPad0;
     uint2 mDispatchSize;
+    uint2 mPad1;
     AmbientOcclusionParams mParams;
 };
 
@@ -376,32 +373,16 @@ struct PathTraceRootConstants
 
 
 
-struct ShadowsClearRootConstants
+struct DenoiseRootConstants
 {
-    uint mTilesBuffer;
-    uint mDispatchBuffer;
-};
-
-
-struct ShadowsClassifyRootConstants
-{
-    uint mShadowMaskTexture;
-    uint mTilesBuffer;
-    uint mDispatchBuffer;
-    uint2 mDispatchSize;
-};
-
-
-struct ShadowsDenoiseRootConstants
-{
-    uint mResultTexture;
-    uint mHistoryTexture;
-    uint mDepthTexture;
-    uint mGBufferTexture;
-    uint mVelocityTexture;
-    uint mShadowMaskTexture;
-    uint mSelectionTexture;
-    uint mTilesBuffer;
+    uint  mInputTexture;
+    uint  mHistoryTexture;
+    uint  mOutputTexture;
+    uint  mDepthTexture;
+    uint  mGBufferTexture;
+    uint  mVelocityTexture;
+    uint  mStepSize;
+    uint  mPad0;
     uint2 mDispatchSize;
 };
 

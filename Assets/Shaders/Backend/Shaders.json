@@ -354,27 +354,19 @@
             }
         },
 
-        "Clear Shadow Tiles Shader":
+        "Denoise Temporal Shader":
         {
             "Compute Shader": 
             {
-                "File Path": "Assets/Shaders/Backend/RTShadowsClearTilesCS.hlsl"
-            }
-        },
-        
-        "Classify Shadow Tiles Shader":
-        {
-            "Compute Shader": 
-            {
-                "File Path": "Assets/Shaders/Backend/RTShadowsClassifyCS.hlsl"
+                "File Path": "Assets/Shaders/Backend/DenoiseTemporalCS.hlsl"
             }
         },
 
-        "Denoise Shadow Tiles Shader":
+        "Denoise Spatial Shader":
         {
             "Compute Shader": 
             {
-                "File Path": "Assets/Shaders/Backend/RTShadowsDenoiseCS.hlsl"
+                "File Path": "Assets/Shaders/Backend/DenoiseSpatialCS.hlsl"
             }
         },
 
