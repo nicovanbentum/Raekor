@@ -60,7 +60,6 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	{
 		viewport.SetRenderSize({ size.x, size.y });
 		viewport.SetDisplaySize({ size.x, size.y });
-		m_Editor->GetRenderInterface()->OnResize(viewport);
 		resized = true;
 	}
 
@@ -381,10 +380,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			for (int texture_idx = 0; texture_idx < debug_texture_count; texture_idx++)
 			{
 				if (ImGui::RadioButton(m_Editor->GetRenderInterface()->GetDebugTextureName(texture_idx), current_debug_texture == texture_idx))
-				{
 					m_Editor->GetRenderInterface()->SetDebugTextureIndex(texture_idx);
-					m_Editor->GetRenderInterface()->OnResize(viewport); // not an actual resize, just to recreate render targets
-				}
 			}
 
 			ImGui::EndMenu();

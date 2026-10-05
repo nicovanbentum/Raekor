@@ -22,11 +22,11 @@ inline constexpr uint64_t gHash64Bit(const char* const str, const uint64_t value
 }
 
 
-inline uint64_t gHashFNV1a(const char* const inData, uint64_t inLength)
+inline uint64_t gHashFNV1a(const char* const inData, uint64_t inLength, uint64_t inSeed = val_64_const)
 {
-    uint64_t hash = val_64_const;
+    uint64_t hash = inSeed;
 
-    for (uint32_t i = 0; i < inLength; i++)
+    for (uint64_t i = 0; i < inLength; i++)
         hash = ( hash ^ inData[i] ) * prime_64_const;
 
     return hash;

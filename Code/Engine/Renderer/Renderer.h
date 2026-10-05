@@ -68,6 +68,7 @@ public:
     Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inWindow);
 
     void OnResize(Device& inDevice, Viewport& inViewport, bool inExclusiveFullscreen = false);
+    void OnResizeViewport(Device& inDevice, Viewport& inViewport);
     void OnRender(Application* inApp, Device& inDevice, Viewport& inViewport, RayTracedScene& inScene, IRenderInterface* inRenderInterfacee, float inDeltaTime);
 
     void Recompile(Device& inDevice, RayTracedScene& inScene, IRenderInterface* inRenderInterface);
@@ -100,6 +101,12 @@ public:
     static constexpr DXGI_FORMAT sSwapchainFormat = DXGI_FORMAT_B8G8R8A8_UNORM;
 
 private:
+    void CreateProbeDebugMesh(Device& inDevice);
+
+    uint64_t GetViewportKey(const Viewport& inViewport) const;
+    uint64_t GetRenderGraphKey(const RayTracedScene& inScene, IRenderInterface* inRenderInterface) const;
+
+private:
     SDL_Window*                 m_Window;
     Mutex                       m_UploadMutex;
     Array<Entity>               m_PendingMeshUploads;
@@ -118,8 +125,11 @@ private:
     bool                        m_ShouldResize = false;
     bool                        m_ShouldRecompile = false;
     bool                        m_ShouldCaptureNextFrame = false;
+    uint64_t                    m_ViewportKey = 0;
+    uint64_t                    m_RenderGraphKey = 0;
     BufferID                    m_DebugLinesVertexBuffer;
     BufferID                    m_DebugLinesIndirectArgsBuffer;
+    Mesh                        m_ProbeDebugMesh;
     BackBufferData              m_BackBufferData[sFrameCount];
     FrameConstants              m_FrameConstants = {};
     GlobalConstants             m_GlobalConstants = {};
@@ -166,7 +176,6 @@ public:
 
     uint32_t GetSelectedEntity(const Scene& inScene, uint32_t inScreenPosX, uint32_t inScreenPosY) override;
 
-    void OnResize(const Viewport& inViewport) override;
     void DrawDebugSettings(Application* inApp, Scene& inScene, const Viewport& inViewport) override;
 
 private:

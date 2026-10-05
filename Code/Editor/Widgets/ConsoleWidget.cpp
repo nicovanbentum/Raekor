@@ -182,11 +182,9 @@ void ConsoleWidget::ExecuteCommand(const String& inCommand)
 	stream >> name >> value;
 
 	if (g_CVariables->SetValue(name, value))
-	{
-		if (name.starts_with('r'))
-			m_Editor->GetRenderInterface()->OnResize(m_Editor->GetViewport());
-	}
-	else if (!g_CVariables->Exists(name))
+		return;
+
+	if (!g_CVariables->Exists(name))
 		gLogWarning("Console", "cvar \"{}\" does not exist.", name);
 
 	else if (value.empty())

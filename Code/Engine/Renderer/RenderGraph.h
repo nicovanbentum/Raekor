@@ -110,7 +110,8 @@ public:
     ~RenderGraphResourceAllocator() { Clear(); }
 
     void Reserve(Device& inDevice, uint64_t inSize, uint64_t inAlignment);
-    void Release();
+    void Release(Device& inDevice);
+    void RetireHeaps(Device& inDevice);
 
     void Clear() { if (m_VirtualBlock) m_VirtualBlock->Clear(); }
 
@@ -123,10 +124,21 @@ public:
 private:
     uint64_t Allocate(Device& inDevice, const D3D12_RESOURCE_DESC& inDesc);
 
+    static constexpr uint64_t sHeapIdleFrames = 120;
+
+    struct Heap
+    {
+        ComPtr<D3D12MA::Allocation> mAllocation;
+        uint64_t mAlignment = 0;
+        uint64_t mFrameCounter = 0;
+    };
+
 private:
     uint64_t m_Size = 0;
     uint64_t m_Offset = 0;
+    uint64_t m_Alignment = 0;
 
+    Array<Heap> m_RetiredHeaps;
     ComPtr<D3D12MA::Allocation> m_Allocation = nullptr;
     ComPtr<D3D12MA::VirtualBlock> m_VirtualBlock = nullptr;
 };

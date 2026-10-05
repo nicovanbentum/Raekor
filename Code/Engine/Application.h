@@ -223,7 +223,6 @@ public:
 
 	virtual uint32_t UploadTextureFromAsset(TextureAsset::Ptr inAsset, bool inIsSRGB = false, uint8_t inSwizzle = TEXTURE_SWIZZLE_RGBA) = 0;
 
-	virtual void OnResize(const Viewport& inViewport) = 0;
 	virtual void DrawDebugSettings(Application* inApp, Scene& inScene, const Viewport& inViewport) = 0;
 
 protected:

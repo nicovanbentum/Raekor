@@ -92,6 +92,9 @@ public:
     [[nodiscard]] D3D12_GPU_DESCRIPTOR_HANDLE GetGPUDescriptorHandle(BufferID inID);
     [[nodiscard]] D3D12_GPU_DESCRIPTOR_HANDLE GetGPUDescriptorHandle(TextureID inID);
 
+    [[nodiscard]] ID3D12PipelineState* CreateGraphicsPipeline(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& inDesc);
+    void ClearPipelineCache();
+
     [[nodiscard]] DescriptorID CreateDepthStencilView(ID3D12Resource* inD3D12Resource, const D3D12_DEPTH_STENCIL_VIEW_DESC* inDesc = nullptr);
     [[nodiscard]] DescriptorID CreateRenderTargetView(ID3D12Resource* inD3D12Resource, const D3D12_RENDER_TARGET_VIEW_DESC* inDesc = nullptr);
     [[nodiscard]] DescriptorID CreateShaderResourceView(ID3D12Resource* inD3D12Resource, const D3D12_SHADER_RESOURCE_VIEW_DESC* inDesc = nullptr);
@@ -160,6 +163,8 @@ private:
     Array<TextureUpload> m_TextureUploads;
     Mutex m_ReleaseMutex;
     Array<DeferredRelease> m_DeferredReleaseQueue;
+    Mutex m_PipelineCacheMutex;
+    HashMap<uint64_t, ComPtr<ID3D12PipelineState>> m_GraphicsPipelineCache;
     StaticArray<DescriptorHeap, D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES> m_Heaps;
     StaticArray<ComPtr<ID3D12CommandSignature>, COMMAND_SIGNATURE_COUNT> m_CommandSignatures;
 

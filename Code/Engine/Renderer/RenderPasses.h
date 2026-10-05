@@ -519,6 +519,8 @@ struct SDFUIData
 {
     RenderGraphResourceID mDrawCommandBuffer;
     RenderGraphResourceID mDrawCommandHeaderBuffer;
+    RenderGraphResourceViewID mDrawCommandBufferSRV;
+    RenderGraphResourceViewID mDrawCommandHeaderBufferSRV;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
 

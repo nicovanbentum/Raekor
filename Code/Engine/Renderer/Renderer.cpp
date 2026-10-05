@@ -11,6 +11,7 @@
 #include "RenderPasses.h"
 
 #include "OS.h"
+#include "Hash.h"
 #include "Iter.h"
 #include "Timer.h"
 #include "Profiler.h"
@@ -91,11 +92,58 @@ Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inW
         WaitForIdle(inDevice);
 
         if (g_SystemShaders.OnHotLoad(inDevice))
-            SetShouldResize(true);
+        {
+            inDevice.ClearPipelineCache();
+            SetShouldRecompile(true);
+        }
     });
 
     m_DebugLinesVertexBuffer = inDevice.CreateBuffer(Buffer::RWStructuredBuffer(sizeof(Vec4) * UINT16_MAX, sizeof(Vec4), "DebugLinesVertexBuffer"));
     m_DebugLinesIndirectArgsBuffer = inDevice.CreateBuffer(Buffer::RWByteAddressBuffer(sizeof(D3D12_DRAW_ARGUMENTS), "DebugLinesIndirectArgsBuffer"));
+}
+
+
+
+void Renderer::CreateProbeDebugMesh(Device& inDevice)
+{
+    Mesh::CreateSphere(m_ProbeDebugMesh, 0.5f, 32u, 32u);
+
+    const uint64_t indices_size = m_ProbeDebugMesh.indices.size() * sizeof(m_ProbeDebugMesh.indices[0]);
+    const uint64_t vertices_size = m_ProbeDebugMesh.vertices.size() * sizeof(m_ProbeDebugMesh.vertices[0]);
+
+    m_ProbeDebugMesh.indexBuffer = inDevice.CreateBuffer(Buffer::Desc
+    {
+        .size   = uint32_t(indices_size),
+        .stride = sizeof(uint32_t) * 3,
+        .usage  = Buffer::Usage::INDEX_BUFFER,
+        .mappable = true,
+        .debugName = "DebugProbeIndices"
+    }).GetValue();
+
+    m_ProbeDebugMesh.vertexBuffer = inDevice.CreateBuffer(Buffer::Desc
+    {
+        .size   = uint32_t(vertices_size),
+        .stride = sizeof(Vertex),
+        .usage  = Buffer::Usage::VERTEX_BUFFER,
+        .mappable = true,
+        .debugName = "DebugProbeVertices"
+    }).GetValue();
+
+    {
+        Buffer& index_buffer = inDevice.GetBuffer(BufferID(m_ProbeDebugMesh.indexBuffer));
+        void* mapped_ptr = nullptr;
+        index_buffer->Map(0, nullptr, &mapped_ptr);
+        memcpy(mapped_ptr, m_ProbeDebugMesh.indices.data(), indices_size);
+        index_buffer->Unmap(0, nullptr);
+    }
+
+    {
+        Buffer& vertex_buffer = inDevice.GetBuffer(BufferID(m_ProbeDebugMesh.vertexBuffer));
+        void* mapped_ptr = nullptr;
+        vertex_buffer->Map(0, nullptr, &mapped_ptr);
+        memcpy(mapped_ptr, m_ProbeDebugMesh.vertices.data(), vertices_size);
+        vertex_buffer->Unmap(0, nullptr);
+    }
 }
 
 
@@ -140,6 +188,18 @@ void Renderer::OnResize(Device& inDevice, Viewport& inViewport, bool inFullScree
 
     m_FrameIndex = m_Swapchain->GetCurrentBackBufferIndex();
 
+    m_Settings.mFullscreen = inFullScreen;
+}
+
+
+
+void Renderer::OnResizeViewport(Device& inDevice, Viewport& inViewport)
+{
+    PROFILE_FUNCTION_CPU();
+
+    if (m_Upscaler.GetActiveUpscaler() != UPSCALER_NONE)
+        WaitForIdle(inDevice);
+
     if (!m_Settings.mEnableTAA && m_Upscaler.GetActiveUpscaler() != UPSCALER_NONE && m_Upscaler.GetActiveUpscalerQuality() < UPSCALER_QUALITY_COUNT)
     {
         inViewport.SetRenderSize(Upscaler::sGetRenderResolution(inViewport.GetDisplaySize(), m_Upscaler.GetActiveUpscalerQuality()));
@@ -179,7 +239,7 @@ void Renderer::OnResize(Device& inDevice, Viewport& inViewport, bool inFullScree
         inViewport.SetRenderSize(inViewport.GetDisplaySize());
     }
 
-    m_Settings.mFullscreen = inFullScreen;
+    m_ViewportKey = GetViewportKey(inViewport);
 }
 
 
@@ -191,8 +251,8 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     // Check if any of the shader sources were updated and recompile them if necessary.
     // the OS file stamp checks are expensive so we only turn this on in debug builds.
     static bool force_hotload = OS::sCheckCommandLineOption("-force_enable_hotload");
-    bool need_recompile = IF_DEBUG_ELSE(g_SystemShaders.OnHotLoad(inDevice), force_hotload ? g_SystemShaders.OnHotLoad(inDevice) : false);
-    if (need_recompile)
+    const bool shaders_hotloaded = IF_DEBUG_ELSE(g_SystemShaders.OnHotLoad(inDevice), force_hotload ? g_SystemShaders.OnHotLoad(inDevice) : false);
+    if (shaders_hotloaded)
         gLogInfo("DX12", "Hotloaded system shaders");
 
     static bool do_stress_test = OS::sCheckCommandLineOption("-stress_test");
@@ -203,31 +263,39 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
         const Transform& ddgi_transform = inScene->Get<Transform>(ddgi_entity);
         const DDGISceneSettings& ddgi_settings = inScene->Get<DDGISceneSettings>(ddgi_entity);
 
-        need_recompile |= RenderSettings::mDDGIProbeCount != ddgi_settings.mDDGIProbeCount;
-
         RenderSettings::mDDGIProbeCount = ddgi_settings.mDDGIProbeCount;
         RenderSettings::mDDGIProbeSpacing = ddgi_settings.mDDGIProbeSpacing;
         RenderSettings::mDDGICornerPosition = ddgi_transform.position;
     }
 
-    bool recompiled = false;
+    const bool resize_viewport = m_ShouldResize || GetViewportKey(inViewport) != m_ViewportKey;
+    const bool need_recompile = resize_viewport || shaders_hotloaded || m_ShouldRecompile || GetRenderGraphKey(inScene, inRenderInterface) != m_RenderGraphKey || ( do_stress_test && m_FrameCounter > 60 );
 
-    if (m_ShouldResize || m_ShouldRecompile || need_recompile || ( do_stress_test && m_FrameCounter > 60 ))
+    if (need_recompile)
     {
-        // Make sure nothing is using render targets anymore
-        WaitForIdle(inDevice);
+        Timer timer;
 
-        // Resize the renderer, which recreates the swapchain backbuffers and re-inits upscalers
-        if (m_ShouldResize)
-            OnResize(inDevice, inViewport, inApp->IsWindowExclusiveFullscreen());
+        if (m_ShouldResize || shaders_hotloaded)
+        {
+            WaitForIdle(inDevice);
 
-        // Recompile the renderer, super overkill. TODO: pls fix
+            if (shaders_hotloaded)
+                inDevice.ClearPipelineCache();
+
+            if (m_ShouldResize)
+                OnResize(inDevice, inViewport, inApp->IsWindowExclusiveFullscreen());
+        }
+
+        if (resize_viewport)
+            OnResizeViewport(inDevice, inViewport);
+
         Recompile(inDevice, inScene, inRenderInterface);
 
-        // Flag / Unflag
-        recompiled = true;
+        m_FrameCounter = 0;
         m_ShouldResize = false;
         m_ShouldRecompile = false;
+
+        gLogDebug("Renderer", "Recompiled the render graph in {:.3f} ms", Timer::sToMilliseconds(timer.GetElapsedTime()));
     }
 
     // At this point in the frame we really need the previous frame's present job to have finished
@@ -245,7 +313,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     }
 
     // at this point we know the GPU is no longer working on this frame, so free/release stuff here
-    if (m_FrameCounter > 0)
+    if (backbuffer_data.mFenceValue > 0)
     {
         g_GPUProfiler->Readback(inDevice, m_FrameIndex);
 
@@ -260,7 +328,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
 
 
     // clear the clear heap every 2 frames, TODO: bad design pls fix
-    if (m_FrameCounter % sFrameCount == 0)
+    if (inDevice.GetFrameCounter() % sFrameCount == 0)
         inDevice.GetClearHeap().Clear();
 
     // Update the total running time of the application / renderer
@@ -398,8 +466,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
         m_RenderGraph.Execute(inDevice, m_FrameConstants, direct_cmd_list);
 
         // Record commands to render ImGui to the backbuffer
-        // skip if we recompiled, ImGui's descriptor tables will be invalid for 1 frame
-        if (inApp->GetConfigSettings().mShowUI && !recompiled)
+        if (inApp->GetConfigSettings().mShowUI)
         {
             PROFILE_SCOPE_GPU(direct_cmd_list, "ImGui");
             RenderImGui(m_RenderGraph, inDevice, direct_cmd_list, GetBackBufferData().mBackBuffer);
@@ -542,7 +609,12 @@ void Renderer::Recompile(Device& inDevice, RayTracedScene& inScene, IRenderInter
         compose_input = light_data.mOutputTexture;
 
         if (m_Settings.mEnableDDGI && m_Settings.mDebugProbes && inDevice.IsRayTracingSupported())
-            AddProbeDebugPass(m_RenderGraph, inDevice, ddgi_output, light_data.mOutputTexture, gbuffer_output.mDepthTexture);
+        {
+            if (m_ProbeDebugMesh.indices.empty())
+                CreateProbeDebugMesh(inDevice);
+
+            AddProbeDebugPass(m_RenderGraph, inDevice, m_ProbeDebugMesh, ddgi_output, light_data.mOutputTexture, gbuffer_output.mDepthTexture);
+        }
 
         if (m_Settings.mEnableDDGI && m_Settings.mDebugProbeRays && inDevice.IsRayTracingSupported())
             AddProbeDebugRaysPass(m_RenderGraph, inDevice, light_data.mOutputTexture, gbuffer_output.mDepthTexture, m_DebugLinesVertexBuffer, m_DebugLinesIndirectArgsBuffer);
@@ -645,6 +717,8 @@ void Renderer::Recompile(Device& inDevice, RayTracedScene& inScene, IRenderInter
     // const auto& imgui_data = AddImGuiPass(m_RenderGraph, inDevice, inStagingHeap, compose_data.mOutputTexture);
 
     m_RenderGraph.Compile(inDevice, m_GlobalConstants);
+
+    m_RenderGraphKey = GetRenderGraphKey(inScene, inRenderInterface);
 }
 
 
@@ -669,6 +743,55 @@ void Renderer::WaitForIdle(Device& inDevice)
 
     gThrowIfFailed(m_Fence->Signal(0));
     m_FrameCounter = 0;
+}
+
+
+
+uint64_t Renderer::GetViewportKey(const Viewport& inViewport) const
+{
+    const std::array key_data =
+    {
+        uint64_t(inViewport.GetDisplaySize().x),
+        uint64_t(inViewport.GetDisplaySize().y),
+        uint64_t(m_Settings.mEnableTAA),
+        uint64_t(m_Upscaler.GetActiveUpscaler()),
+        uint64_t(m_Upscaler.GetActiveUpscalerQuality())
+    };
+
+    return gHashFNV1a((const char*)key_data.data(), sizeof(key_data[0]) * key_data.size());
+}
+
+
+
+uint64_t Renderer::GetRenderGraphKey(const RayTracedScene& inScene, IRenderInterface* inRenderInterface) const
+{
+    const DirectionalLight* sun_light = inScene->GetSunLight();
+
+    const std::array key_data =
+    {
+        uint64_t(m_Settings.mEnableDDGI),
+        uint64_t(m_Settings.mDebugProbeRays),
+        uint64_t(m_Settings.mDebugProbes),
+        uint64_t(m_Settings.mEnableDebugOverlay),
+        uint64_t(m_Settings.mEnableRTAO),
+        uint64_t(m_Settings.mEnableSSAO),
+        uint64_t(m_Settings.mEnableSSR),
+        uint64_t(m_Settings.mEnableShadows),
+        uint64_t(m_Settings.mEnableReflections),
+        uint64_t(m_Settings.mEnableTAA),
+        uint64_t(m_Settings.mEnableDoF),
+        uint64_t(m_Settings.mEnableBloom),
+        uint64_t(m_Settings.mDoPathTrace),
+        uint64_t(m_Upscaler.GetActiveUpscaler()),
+        uint64_t(inRenderInterface->GetSettings().mDebugTexture),
+        uint64_t(RenderSettings::mDDGIProbeCount.x),
+        uint64_t(RenderSettings::mDDGIProbeCount.y),
+        uint64_t(RenderSettings::mDDGIProbeCount.z),
+        uint64_t(sun_light != nullptr),
+        uint64_t(sun_light ? sun_light->cubeMap : 0)
+    };
+
+    return gHashFNV1a((const char*)key_data.data(), sizeof(key_data[0]) * key_data.size());
 }
 
 
@@ -959,13 +1082,6 @@ uint32_t RenderInterface::UploadTextureFromAsset(TextureAsset::Ptr inAsset, bool
 
 
 
-void RenderInterface::OnResize(const Viewport& inViewport)
-{
-    m_Renderer.SetShouldResize(true);
-}
-
-
-
 CommandList& Renderer::StartSingleSubmit()
 {
     CommandList& cmd_list = GetBackBufferData().mDirectCmdList;
@@ -993,11 +1109,9 @@ void Renderer::FlushSingleSubmit(Device& inDevice, CommandList& inCmdList)
 
 void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, const Viewport& inViewport)
 {
-    bool need_recompile = false;
-
     ImGui::SeparatorText("Renderer Settings");
 
-    need_recompile |= ImGui::Checkbox("##pathtracingtoggle", (bool*)&m_Renderer.GetSettings().mDoPathTrace);
+    ImGui::Checkbox("##pathtracingtoggle", (bool*)&m_Renderer.GetSettings().mDoPathTrace);
 
     ImGui::SameLine();
 
@@ -1016,7 +1130,7 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
         ImGui::EndMenu();
     }
 
-    need_recompile |= ImGui::Checkbox("##TAAtoggle", (bool*)&m_Renderer.GetSettings().mEnableTAA);
+    ImGui::Checkbox("##TAAtoggle", (bool*)&m_Renderer.GetSettings().mEnableTAA);
 
     ImGui::SameLine();
 
@@ -1046,7 +1160,6 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
                     if (ImGui::Selectable(upscaler_items[upscaler_idx], upscaler.GetActiveUpscaler() == upscaler_idx))
                     {
                         upscaler.SetActiveUpscaler(EUpscaler(upscaler_idx));
-                        need_recompile = true;
                     }
                 }
 
@@ -1062,8 +1175,6 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
                         if (ImGui::Selectable(upscaler_quality_items[quality_idx], upscaler.GetActiveUpscalerQuality() == EUpscalerQuality(quality_idx)))
                         {
                             upscaler.SetActiveUpscalerQuality(EUpscalerQuality(quality_idx));
-                            need_recompile = true;
-                            
                         }
                     }
 
@@ -1077,7 +1188,7 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
         ImGui::EndMenu();
     }
 
-    need_recompile |= ImGui::Checkbox("Enable Debug Overlay", (bool*)&m_Renderer.GetSettings().mEnableDebugOverlay);
+    ImGui::Checkbox("Enable Debug Overlay", (bool*)&m_Renderer.GetSettings().mEnableDebugOverlay);
 
     ImGui::AlignTextToFramePadding();
 
@@ -1361,7 +1472,7 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
         //ImGui::SeparatorText("Settings");
         ImGui::SeparatorText("Ray Tracing");
 
-        need_recompile |= ImGui::Checkbox("##Shadowstoggle", (bool*)&m_Renderer.GetSettings().mEnableShadows);
+        ImGui::Checkbox("##Shadowstoggle", (bool*)&m_Renderer.GetSettings().mEnableShadows);
 
         ImGui::SameLine();
 
@@ -1374,9 +1485,9 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
             ImGui::EndMenu();
         }
 
-        need_recompile |= ImGui::Checkbox("Enable Reflections", (bool*)&m_Renderer.GetSettings().mEnableReflections);
+        ImGui::Checkbox("Enable Reflections", (bool*)&m_Renderer.GetSettings().mEnableReflections);
 
-        need_recompile |= ImGui::Checkbox("##GItoggle", (bool*)&m_Renderer.GetSettings().mEnableDDGI);
+        ImGui::Checkbox("##GItoggle", (bool*)&m_Renderer.GetSettings().mEnableDDGI);
 
         ImGui::SameLine();
 
@@ -1388,7 +1499,7 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
 
             ImGui::Checkbox("Visualize Pure White Mode", (bool*)&m_Renderer.GetSettings().mDisableAlbedo);
 
-            need_recompile |= ImGui::Checkbox("##ddgiproberaydebug", (bool*)&m_Renderer.GetSettings().mDebugProbeRays);
+            ImGui::Checkbox("##ddgiproberaydebug", (bool*)&m_Renderer.GetSettings().mDebugProbeRays);
 
             ImGui::SameLine();
 
@@ -1403,7 +1514,7 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
                 ImGui::EndMenu();
             }
 
-            need_recompile |= ImGui::Checkbox("##ddgiprobedebug", (bool*)&m_Renderer.GetSettings().mDebugProbes);
+            ImGui::Checkbox("##ddgiprobedebug", (bool*)&m_Renderer.GetSettings().mDebugProbes);
 
             ImGui::SameLine();
 
@@ -1421,7 +1532,6 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
 
         if (ImGui::Checkbox("##AOtoggle", (bool*)&m_Renderer.GetSettings().mEnableRTAO))
         {
-            need_recompile = true;
             if (m_Renderer.GetSettings().mEnableRTAO)
                 m_Renderer.GetSettings().mEnableSSAO = false;
         }
@@ -1450,14 +1560,13 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
     {
         ImGui::SeparatorText("Post Processing");
 
-        need_recompile |= ImGui::Checkbox("##SSRToggle", (bool*)&m_Renderer.GetSettings().mEnableSSR);
+        ImGui::Checkbox("##SSRToggle", (bool*)&m_Renderer.GetSettings().mEnableSSR);
         ImGui::SameLine();
 
         ImGui::Text("SSR");
 
         if (ImGui::Checkbox("##SSAOtoggle", (bool*)&m_Renderer.GetSettings().mEnableSSAO))
         {
-            need_recompile = true;
             if (m_Renderer.GetSettings().mEnableSSAO)
                 m_Renderer.GetSettings().mEnableRTAO = false;
         }
@@ -1475,7 +1584,7 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
             ImGui::EndMenu();
         }
 
-        need_recompile |= ImGui::Checkbox("##Bloomtoggle", (bool*)&m_Renderer.GetSettings().mEnableBloom);
+        ImGui::Checkbox("##Bloomtoggle", (bool*)&m_Renderer.GetSettings().mEnableBloom);
         ImGui::SameLine();
 
         if (ImGui::BeginMenu("Bloom"))
@@ -1487,7 +1596,7 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
             ImGui::EndMenu();
         }
 
-        need_recompile |= ImGui::Checkbox("##Vignettetoggle", (bool*)&m_Renderer.GetSettings().mEnableVignette);
+        ImGui::Checkbox("##Vignettetoggle", (bool*)&m_Renderer.GetSettings().mEnableVignette);
         ImGui::SameLine();
 
         if (ImGui::BeginMenu("Vignette"))
@@ -1502,7 +1611,7 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
             ImGui::EndMenu();
         }
 
-        need_recompile |= ImGui::Checkbox("##DOFtoggle", (bool*)&m_Renderer.GetSettings().mEnableDoF);
+        ImGui::Checkbox("##DOFtoggle", (bool*)&m_Renderer.GetSettings().mEnableDoF);
         ImGui::SameLine();
 
 
@@ -1518,7 +1627,7 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
             ImGui::EndMenu();
         }
 
-        need_recompile |= ImGui::Checkbox("Auto Exposure", (bool*)&m_Renderer.GetSettings().mEnableAutoExposure);
+        ImGui::Checkbox("Auto Exposure", (bool*)&m_Renderer.GetSettings().mEnableAutoExposure);
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("Currently not implemented.");
 
@@ -1529,12 +1638,6 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
     }
 
     ImGui::PopItemFlag();
-
-    if (need_recompile)
-    {
-        m_Renderer.SetShouldResize(true);
-        m_Renderer.SetShouldRecompile(true); // call for a resize so the rendergraph gets recompiled (hacky, TODO: FIXME: pls fix)
-    }
 }
 
 

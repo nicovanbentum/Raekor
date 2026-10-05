@@ -667,12 +667,7 @@ void Scene::OpenFromFile(const String& inFilePath, Assets& ioAssets, Application
 				continue;
 
 			if (TextureAsset::Ptr asset = ioAssets.GetAsset<TextureAsset>(light.cubeMapFile))
-			{
 				light.cubeMap = m_Renderer->UploadTextureFromAsset(asset);
-
-				if (inApp)
-					m_Renderer->OnResize(inApp->GetViewport());
-			}
 		}
 	}
 

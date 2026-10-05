@@ -151,7 +151,7 @@ DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTr
 struct ProbeDebugData
 {
     UVec2 mViewport;
-    RK::Mesh mProbeMesh;
+    const RK::Mesh* mProbeMesh = nullptr;
     RenderGraphResourceViewID mRenderTargetRTV;
     RenderGraphResourceViewID mDepthTargetDSV;
     RenderGraphResourceViewID mProbesDepthTextureSRV;
@@ -160,6 +160,7 @@ struct ProbeDebugData
 };
 
 const ProbeDebugData& AddProbeDebugPass(RenderGraph& inRenderGraph, Device& inDevice,
+    const RK::Mesh& inProbeMesh,
     const DDGIOutput& inDDGI,
     RenderGraphResourceID inRenderTarget,
     RenderGraphResourceID inDepthTarget

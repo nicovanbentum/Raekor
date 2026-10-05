@@ -1319,7 +1319,6 @@ bool InspectorWidget::DrawComponent(Entity inEntity, DirectionalLight& inDirecti
 		{
 			inDirectionalLight.cubeMap = 0;
 			inDirectionalLight.cubeMapFile = "";
-			m_Editor->GetRenderInterface()->OnResize(m_Editor->GetViewport()); // trigger a rendergraph recompile.. TODO FIXME
 		}
 
 		ImGui::SameLine();
@@ -1344,7 +1343,6 @@ bool InspectorWidget::DrawComponent(Entity inEntity, DirectionalLight& inDirecti
 				inDirectionalLight.cubeMapFile = asset_path;
 				TextureAsset::Ptr asset = GetAssets().GetAsset<TextureAsset>(asset_path);
 				inDirectionalLight.cubeMap = m_Editor->GetRenderInterface()->UploadTextureFromAsset(asset);
-				m_Editor->GetRenderInterface()->OnResize(m_Editor->GetViewport()); // trigger a rendergraph recompile.. TODO FIXME
 			}
 			else
 				ImGui::OpenPopup("Error");

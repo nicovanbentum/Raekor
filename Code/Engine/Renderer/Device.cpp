@@ -8,6 +8,7 @@
 #include "Application.h"
 
 #include "OS.h"
+#include "Hash.h"
 #include "Maths.h"
 #include "Timer.h"
 #include "Threading.h"
@@ -471,6 +472,147 @@ void Device::ReleaseTextureImmediate(TextureID inTextureID)
 
     if (texture.HasDescriptor())
         ReleaseDescriptorImmediate(texture.GetUsage(), texture.GetDescriptor());
+}
+
+
+
+template<typename T>
+static void sHashValue(uint64_t& ioHash, const T& inValue)
+{
+    ioHash = gHashFNV1a((const char*)&inValue, sizeof(T), ioHash);
+}
+
+
+
+static void sHashShaderByteCode(uint64_t& ioHash, const D3D12_SHADER_BYTECODE& inByteCode)
+{
+    sHashValue(ioHash, inByteCode.BytecodeLength);
+
+    if (inByteCode.pShaderBytecode != nullptr)
+        ioHash = gHashFNV1a((const char*)inByteCode.pShaderBytecode, inByteCode.BytecodeLength, ioHash);
+}
+
+
+
+static uint64_t sHashGraphicsPipelineDesc(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& inDesc)
+{
+    uint64_t hash = val_64_const;
+
+    sHashValue(hash, inDesc.pRootSignature);
+
+    sHashShaderByteCode(hash, inDesc.VS);
+    sHashShaderByteCode(hash, inDesc.PS);
+    sHashShaderByteCode(hash, inDesc.DS);
+    sHashShaderByteCode(hash, inDesc.HS);
+    sHashShaderByteCode(hash, inDesc.GS);
+
+    sHashValue(hash, inDesc.StreamOutput.NumEntries);
+    sHashValue(hash, inDesc.StreamOutput.NumStrides);
+    sHashValue(hash, inDesc.StreamOutput.RasterizedStream);
+
+    sHashValue(hash, inDesc.BlendState.AlphaToCoverageEnable);
+    sHashValue(hash, inDesc.BlendState.IndependentBlendEnable);
+
+    for (const D3D12_RENDER_TARGET_BLEND_DESC& blend : inDesc.BlendState.RenderTarget)
+    {
+        sHashValue(hash, blend.BlendEnable);
+        sHashValue(hash, blend.LogicOpEnable);
+        sHashValue(hash, blend.SrcBlend);
+        sHashValue(hash, blend.DestBlend);
+        sHashValue(hash, blend.BlendOp);
+        sHashValue(hash, blend.SrcBlendAlpha);
+        sHashValue(hash, blend.DestBlendAlpha);
+        sHashValue(hash, blend.BlendOpAlpha);
+        sHashValue(hash, blend.LogicOp);
+        sHashValue(hash, blend.RenderTargetWriteMask);
+    }
+
+    sHashValue(hash, inDesc.SampleMask);
+
+    sHashValue(hash, inDesc.RasterizerState.FillMode);
+    sHashValue(hash, inDesc.RasterizerState.CullMode);
+    sHashValue(hash, inDesc.RasterizerState.FrontCounterClockwise);
+    sHashValue(hash, inDesc.RasterizerState.DepthBias);
+    sHashValue(hash, inDesc.RasterizerState.DepthBiasClamp);
+    sHashValue(hash, inDesc.RasterizerState.SlopeScaledDepthBias);
+    sHashValue(hash, inDesc.RasterizerState.DepthClipEnable);
+    sHashValue(hash, inDesc.RasterizerState.MultisampleEnable);
+    sHashValue(hash, inDesc.RasterizerState.AntialiasedLineEnable);
+    sHashValue(hash, inDesc.RasterizerState.ForcedSampleCount);
+    sHashValue(hash, inDesc.RasterizerState.ConservativeRaster);
+
+    sHashValue(hash, inDesc.DepthStencilState.DepthEnable);
+    sHashValue(hash, inDesc.DepthStencilState.DepthWriteMask);
+    sHashValue(hash, inDesc.DepthStencilState.DepthFunc);
+    sHashValue(hash, inDesc.DepthStencilState.StencilEnable);
+    sHashValue(hash, inDesc.DepthStencilState.StencilReadMask);
+    sHashValue(hash, inDesc.DepthStencilState.StencilWriteMask);
+
+    for (const D3D12_DEPTH_STENCILOP_DESC& stencil_op : { inDesc.DepthStencilState.FrontFace, inDesc.DepthStencilState.BackFace })
+    {
+        sHashValue(hash, stencil_op.StencilFailOp);
+        sHashValue(hash, stencil_op.StencilDepthFailOp);
+        sHashValue(hash, stencil_op.StencilPassOp);
+        sHashValue(hash, stencil_op.StencilFunc);
+    }
+
+    sHashValue(hash, inDesc.InputLayout.NumElements);
+
+    for (uint32_t index = 0; index < inDesc.InputLayout.NumElements; index++)
+    {
+        const D3D12_INPUT_ELEMENT_DESC& element = inDesc.InputLayout.pInputElementDescs[index];
+
+        hash = gHashFNV1a(element.SemanticName, strlen(element.SemanticName), hash);
+        sHashValue(hash, element.SemanticIndex);
+        sHashValue(hash, element.Format);
+        sHashValue(hash, element.InputSlot);
+        sHashValue(hash, element.AlignedByteOffset);
+        sHashValue(hash, element.InputSlotClass);
+        sHashValue(hash, element.InstanceDataStepRate);
+    }
+
+    sHashValue(hash, inDesc.IBStripCutValue);
+    sHashValue(hash, inDesc.PrimitiveTopologyType);
+    sHashValue(hash, inDesc.NumRenderTargets);
+
+    for (DXGI_FORMAT format : inDesc.RTVFormats)
+        sHashValue(hash, format);
+
+    sHashValue(hash, inDesc.DSVFormat);
+    sHashValue(hash, inDesc.SampleDesc.Count);
+    sHashValue(hash, inDesc.SampleDesc.Quality);
+    sHashValue(hash, inDesc.NodeMask);
+    sHashValue(hash, inDesc.Flags);
+
+    return hash;
+}
+
+
+
+ID3D12PipelineState* Device::CreateGraphicsPipeline(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& inDesc)
+{
+    assert(inDesc.StreamOutput.NumEntries == 0 && inDesc.CachedPSO.pCachedBlob == nullptr);
+
+    const uint64_t pipeline_hash = sHashGraphicsPipelineDesc(inDesc);
+
+    std::scoped_lock lock(m_PipelineCacheMutex);
+
+    if (const auto pipeline = m_GraphicsPipelineCache.find(pipeline_hash); pipeline != m_GraphicsPipelineCache.end())
+        return pipeline->second.Get();
+
+    ComPtr<ID3D12PipelineState> pipeline_state = nullptr;
+    gThrowIfFailed(m_Device->CreateGraphicsPipelineState(&inDesc, IID_PPV_ARGS(pipeline_state.GetAddressOf())));
+
+    m_GraphicsPipelineCache[pipeline_hash] = pipeline_state;
+    return pipeline_state.Get();
+}
+
+
+
+void Device::ClearPipelineCache()
+{
+    std::scoped_lock lock(m_PipelineCacheMutex);
+    m_GraphicsPipelineCache.clear();
 }
 
 

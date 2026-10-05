@@ -362,7 +362,7 @@ const GBufferData& AddMeshletsRasterPass(RenderGraph& inRenderGraph, Device& inD
         ioRGBuilder.DepthStencilTarget(inData.mOutput.mDepthTexture);
 
         D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inRenderPass->CreatePipelineStateDesc(inDevice, g_SystemShaders.mGBufferShader);
-        inDevice->CreateGraphicsPipelineState(&pso_state, IID_PPV_ARGS(inData.mOpaquePipeline.GetAddressOf()));
+        inData.mOpaquePipeline = inDevice.CreateGraphicsPipeline(pso_state);
         inData.mOpaquePipeline->SetName(L"PSO_MESHLETS_RASTER");
     },
 
@@ -486,7 +486,7 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
         {   // GBuffer PSO
             D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inRenderPass->CreatePipelineStateDesc(inDevice, g_SystemShaders.mGBufferShader);
 
-            inDevice->CreateGraphicsPipelineState(&pso_state, IID_PPV_ARGS(inData.mOpaquePipeline.GetAddressOf()));
+            inData.mOpaquePipeline = inDevice.CreateGraphicsPipeline(pso_state);
             inData.mOpaquePipeline->SetName(L"PSO_OPAQUE_GBUFFER");
         }
 
@@ -494,7 +494,7 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
             D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inRenderPass->CreatePipelineStateDesc(inDevice, g_SystemShaders.mGBufferAlphaClipShader);
             pso_state.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 
-            inDevice->CreateGraphicsPipelineState(&pso_state, IID_PPV_ARGS(inData.mTransparentPipeline.GetAddressOf()));
+            inData.mTransparentPipeline = inDevice.CreateGraphicsPipeline(pso_state);
             inData.mTransparentPipeline->SetName(L"PSO_TRANSPARENT_GBUFFER");
         }
 
@@ -695,7 +695,7 @@ const GBufferDebugData& AddGBufferDebugPass(RenderGraph& inRenderGraph, Device& 
         pso_desc.DepthStencilState.DepthEnable = FALSE;
         pso_desc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 
-        inDevice->CreateGraphicsPipelineState(&pso_desc, IID_PPV_ARGS(&inData.mPipeline));
+        inData.mPipeline = inDevice.CreateGraphicsPipeline(pso_desc);
         inData.mPipeline->SetName(L"PSO_GBUFFER_DEBUG");
     },
 
@@ -728,7 +728,7 @@ const TransparentForwardData& AddTransparentForwardPass(RenderGraph& inRenderGra
             pso_state.BlendState.IndependentBlendEnable = true;
             pso_state.BlendState.RenderTarget[0].BlendEnable = true;
 
-            inDevice->CreateGraphicsPipelineState(&pso_state, IID_PPV_ARGS(inData.mPipeline.GetAddressOf()));
+            inData.mPipeline = inDevice.CreateGraphicsPipeline(pso_state);
             inData.mPipeline->SetName(L"PSO_TRANSPARENT_FORWARD");
         },
 
@@ -800,7 +800,7 @@ const ShadowMapData& AddShadowMapPass(RenderGraph& inRenderGraph, Device& inDevi
 
         D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_desc = inRenderPass->CreatePipelineStateDesc(inDevice, g_SystemShaders.mShadowMapShader);
 
-        inDevice->CreateGraphicsPipelineState(&pso_desc, IID_PPV_ARGS(inData.mPipeline.GetAddressOf()));
+        inData.mPipeline = inDevice.CreateGraphicsPipeline(pso_desc);
     },
 
     [&inDevice, &inRenderGraph, &inScene](ShadowMapData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
@@ -985,7 +985,7 @@ const GrassData& AddGrassRenderPass(RenderGraph& inGraph, Device& inDevice, cons
         D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_desc = inRenderPass->CreatePipelineStateDesc(inDevice, g_SystemShaders.mGrassShader);
         pso_desc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 
-        inDevice->CreateGraphicsPipelineState(&pso_desc, IID_PPV_ARGS(&inData.mPipeline));
+        inData.mPipeline = inDevice.CreateGraphicsPipeline(pso_desc);
         inData.mPipeline->SetName(L"PSO_GRASS_DRAW");
     },
 
@@ -1168,7 +1168,7 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
         pso_state.DepthStencilState.DepthEnable = FALSE;
         pso_state.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 
-        inDevice->CreateGraphicsPipelineState(&pso_state, IID_PPV_ARGS(&inData.mPipeline));
+        inData.mPipeline = inDevice.CreateGraphicsPipeline(pso_state);
         inData.mPipeline->SetName(L"PSO_DEFERRED_LIGHTING");
     },
 
@@ -1238,7 +1238,7 @@ const TAAResolveData& AddTAAResolvePass(RenderGraph& inRenderGraph, Device& inDe
         pso_state.DepthStencilState.DepthEnable = FALSE;
         pso_state.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 
-        inDevice->CreateGraphicsPipelineState(&pso_state, IID_PPV_ARGS(&inData.mPipeline));
+        inData.mPipeline = inDevice.CreateGraphicsPipeline(pso_state);
         inData.mPipeline->SetName(L"PSO_TAA_RESOLVE");
     },
 
@@ -1296,7 +1296,7 @@ const TAAResolveData& AddTAAResolvePass(RenderGraph& inRenderGraph, Device& inDe
         pso_state.DepthStencilState.DepthEnable = FALSE;
         pso_state.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 
-        inDevice->CreateGraphicsPipelineState(&pso_state, IID_PPV_ARGS(&inData.mPipeline));
+        inData.mPipeline = inDevice.CreateGraphicsPipeline(pso_state);
         inData.mPipeline->SetName(L"PSO_COPY_TEXTURE");
     },
 
@@ -1480,7 +1480,7 @@ const DebugPrimitivesData& AddDebugOverlayPass(RenderGraph& inRenderGraph, Devic
         pso_state.RasterizerState.AntialiasedLineEnable = true;
         //pso_state.InputLayout = {};
 
-        inDevice->CreateGraphicsPipelineState(&pso_state, IID_PPV_ARGS(inData.mPipeline.GetAddressOf()));
+        inData.mPipeline = inDevice.CreateGraphicsPipeline(pso_state);
         inData.mPipeline->SetName(L"PSO_DEBUG_PRIM_LINES");
 
         inRenderPass->ReserveMemory(cPrimitiveBufferSize);
@@ -1538,7 +1538,7 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, 
         pso_state.DepthStencilState.DepthEnable = FALSE;
         pso_state.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 
-        inDevice->CreateGraphicsPipelineState(&pso_state, IID_PPV_ARGS(&inData.mPipeline));
+        inData.mPipeline = inDevice.CreateGraphicsPipeline(pso_state);
         inData.mPipeline->SetName(L"PSO_COMPOSE");
     },
 
@@ -1603,6 +1603,9 @@ const SDFUIData& AddSDFUIPass(RenderGraph& inRenderGraph, Device& inDevice, Rend
             .debugName = "DrawCommandHeaderBuffer"
         });
 
+        inData.mDrawCommandBufferSRV = inBuilder.Read(inData.mDrawCommandBuffer);
+        inData.mDrawCommandHeaderBufferSRV = inBuilder.Read(inData.mDrawCommandHeaderBuffer);
+
         inBuilder.RenderTarget(inRenderTarget);
 
         D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inRenderPass->CreatePipelineStateDesc(inDevice, g_SystemShaders.mSDFUIShader);
@@ -1616,7 +1619,7 @@ const SDFUIData& AddSDFUIPass(RenderGraph& inRenderGraph, Device& inDevice, Rend
         pso_state.DepthStencilState.DepthEnable = FALSE;
         pso_state.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 
-        inDevice->CreateGraphicsPipelineState(&pso_state, IID_PPV_ARGS(&inData.mPipeline));
+        inData.mPipeline = inDevice.CreateGraphicsPipeline(pso_state);
         inData.mPipeline->SetName(L"PSO_SDFUI");
     },
 
@@ -1634,13 +1637,21 @@ const SDFUIData& AddSDFUIPass(RenderGraph& inRenderGraph, Device& inDevice, Rend
         inDevice.UploadBufferData(inCmdList, draw_command_gpu_buffer, 0, draw_commands.data(), draw_commands.size_bytes());
         inDevice.UploadBufferData(inCmdList, draw_command_header_gpu_buffer, 0, draw_command_headers.data(), draw_command_headers.size_bytes());
 
+        const std::array barriers =
+        {
+            CD3DX12_RESOURCE_BARRIER::Transition(draw_command_gpu_buffer.GetD3D12Resource(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE),
+            CD3DX12_RESOURCE_BARRIER::Transition(draw_command_header_gpu_buffer.GetD3D12Resource(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE)
+        };
+
+        inCmdList->ResourceBarrier(barriers.size(), barriers.data());
+
         inCmdList->SetPipelineState(inData.mPipeline.Get());
         inCmdList.SetViewportAndScissor(inRenderGraph.GetViewport());
 
         inCmdList.PushGraphicsConstants(SDFUIRootConstants
         {
-            .mDrawCommandBuffer = inResources.GetBindlessHeapIndex(inData.mDrawCommandBuffer),
-            .mDrawCommandHeaderBuffer = inResources.GetBindlessHeapIndex(inData.mDrawCommandHeaderBuffer),
+            .mDrawCommandBuffer = inResources.GetBindlessHeapIndex(inData.mDrawCommandBufferSRV),
+            .mDrawCommandHeaderBuffer = inResources.GetBindlessHeapIndex(inData.mDrawCommandHeaderBufferSRV),
             .mCommandCount = uint32_t(draw_command_headers.size()),
             .mRenderSize = inRenderGraph.GetViewport().GetDisplaySize(),
             .mRenderSizeRcp = 1.0f / Vec2(inRenderGraph.GetViewport().GetDisplaySize()),
@@ -1753,7 +1764,7 @@ const ImGuiData& AddImGuiPass(RenderGraph& inRenderGraph, Device& inDevice, Rend
         pso_state.DepthStencilState.DepthEnable = FALSE;
         pso_state.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 
-        inDevice->CreateGraphicsPipelineState(&pso_state, IID_PPV_ARGS(&inData.mPipeline));
+        inData.mPipeline = inDevice.CreateGraphicsPipeline(pso_state);
         inData.mPipeline->SetName(L"PSO_IMGUI");
     },
 

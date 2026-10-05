@@ -241,33 +241,82 @@ void RenderGraphBuilder::Clear()
 
 void RenderGraphResourceAllocator::Reserve(Device& inDevice, uint64_t inSize, uint64_t inAlignment)
 {
-    m_Size = inSize;
+    assert(m_Allocation == nullptr);
+
     m_Offset = 0;
 
-    D3D12_RESOURCE_ALLOCATION_INFO allocation_info = {};
-    allocation_info.SizeInBytes = inSize;
-    allocation_info.Alignment = inAlignment;
+    for (const auto& [index, heap] : gEnumerate(m_RetiredHeaps))
+    {
+        const bool is_idle = inDevice.GetFrameCounter() >= heap.mFrameCounter + sFrameCount + 1;
 
-    D3D12MA::ALLOCATION_DESC allocation_desc = {};
-    allocation_desc.HeapType = D3D12_HEAP_TYPE_DEFAULT;
+        if (is_idle && heap.mAllocation->GetSize() >= inSize && heap.mAlignment >= inAlignment)
+        {
+            m_Allocation = heap.mAllocation;
+            m_Alignment = heap.mAlignment;
+            m_RetiredHeaps.erase(m_RetiredHeaps.begin() + index);
+            break;
+        }
+    }
 
-    inDevice.GetAllocator()->AllocateMemory(&allocation_desc, &allocation_info, m_Allocation.GetAddressOf());
+    if (m_Allocation == nullptr)
+    {
+        D3D12_RESOURCE_ALLOCATION_INFO allocation_info = {};
+        allocation_info.SizeInBytes = inSize;
+        allocation_info.Alignment = inAlignment;
+
+        D3D12MA::ALLOCATION_DESC allocation_desc = {};
+        allocation_desc.HeapType = D3D12_HEAP_TYPE_DEFAULT;
+
+        gThrowIfFailed(inDevice.GetAllocator()->AllocateMemory(&allocation_desc, &allocation_info, m_Allocation.GetAddressOf()));
+
+        m_Alignment = inAlignment;
+
+        gLogInfo("Render Graph", "Allocated {} MB for transient resources", inSize / 1024 / 1024);
+    }
+
+    m_Size = m_Allocation->GetSize();
 
     D3D12MA::VIRTUAL_BLOCK_DESC virtual_block_desc = {};
     virtual_block_desc.Size = m_Size;
     virtual_block_desc.Flags = D3D12MA::VIRTUAL_BLOCK_FLAG_ALGORITHM_LINEAR;
 
-    D3D12MA::CreateVirtualBlock(&virtual_block_desc, m_VirtualBlock.GetAddressOf());
+    gThrowIfFailed(D3D12MA::CreateVirtualBlock(&virtual_block_desc, m_VirtualBlock.GetAddressOf()));
 }
 
 
 
-void RenderGraphResourceAllocator::Release()
+void RenderGraphResourceAllocator::Release(Device& inDevice)
 {
+    Clear();
+
+    if (m_Allocation != nullptr)
+    {
+        m_RetiredHeaps.push_back(Heap
+        {
+            .mAllocation = std::move(m_Allocation),
+            .mAlignment = m_Alignment,
+            .mFrameCounter = inDevice.GetFrameCounter()
+        });
+    }
+
     m_Size = 0;
+    m_Offset = 0;
+    m_Alignment = 0;
     m_Allocation = nullptr;
     m_VirtualBlock = nullptr;
+}
 
+
+
+void RenderGraphResourceAllocator::RetireHeaps(Device& inDevice)
+{
+    for (uint64_t index = 0; index < m_RetiredHeaps.size();)
+    {
+        if (inDevice.GetFrameCounter() >= m_RetiredHeaps[index].mFrameCounter + sHeapIdleFrames)
+            m_RetiredHeaps.erase(m_RetiredHeaps.begin() + index);
+        else
+            index++;
+    }
 }
 
 
@@ -358,10 +407,10 @@ void RenderGraphResources::Clear(Device& inDevice)
         seen.insert(resource.mResourceID);
 
         if (resource.mResourceType == RESOURCE_TYPE_BUFFER)
-            inDevice.ReleaseBufferImmediate(BufferID(resource.mResourceID));
+            inDevice.ReleaseBuffer(BufferID(resource.mResourceID));
 
         if (resource.mResourceType == RESOURCE_TYPE_TEXTURE)
-            inDevice.ReleaseTextureImmediate(TextureID(resource.mResourceID));
+            inDevice.ReleaseTexture(TextureID(resource.mResourceID));
     }
 
     for (const RenderGraphResource& resource : m_ResourceViews)
@@ -375,14 +424,16 @@ void RenderGraphResources::Clear(Device& inDevice)
         seen.insert(resource.mResourceID);
 
         if (resource.mResourceType == RESOURCE_TYPE_BUFFER)
-            inDevice.ReleaseBufferImmediate(BufferID(resource.mResourceID));
+            inDevice.ReleaseBuffer(BufferID(resource.mResourceID));
 
         if (resource.mResourceType == RESOURCE_TYPE_TEXTURE)
-            inDevice.ReleaseTextureImmediate(TextureID(resource.mResourceID));
+            inDevice.ReleaseTexture(TextureID(resource.mResourceID));
     }
 
     m_Resources.clear();
     m_ResourceViews.clear();
+
+    m_Allocator.Release(inDevice);
 }
 
 
@@ -415,18 +466,7 @@ void RenderGraphResources::Compile(Device& inDevice, const RenderGraphBuilder& i
 
     D3D12_RESOURCE_ALLOCATION_INFO allocation_info = inDevice->GetResourceAllocationInfo(0, resource_descriptions.size(), resource_descriptions.data());
 
-    static bool do_resize_test = OS::sCheckCommandLineOption("-resize_test");
-
-    if (allocation_info.SizeInBytes > m_Allocator.GetSize() IF_DEBUG(|| do_resize_test))
-    {
-        gLogInfo("Render Graph", "Allocating {} MB for transient resources", allocation_info.SizeInBytes / 1024 / 1024);
-        
-        m_Allocator.Clear();
-        m_Allocator.Release();
-        m_Allocator.Reserve(inDevice, allocation_info.SizeInBytes, allocation_info.Alignment);
-    }
-
-    m_Allocator.Clear();
+    m_Allocator.Reserve(inDevice, std::max(allocation_info.SizeInBytes, uint64_t(D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT)), std::max(allocation_info.Alignment, uint64_t(D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT)));
 
     // Allocate actual device buffers/textures
     // TODO: aliasing
@@ -782,6 +822,7 @@ void RenderGraph::Clear(Device& inDevice)
     m_RenderGraphResources.Clear(inDevice);
 
     m_PerPassAllocator.DestroyBuffer(inDevice);
+    m_PerFrameAllocator.DestroyBuffer(inDevice);
     m_ConstantsAllocator.DestroyBuffer(inDevice);
 }
 
@@ -1080,6 +1121,7 @@ void RenderGraph::Execute(Device& inDevice, const FrameConstants& inFrameConstan
 
     m_PerPassAllocator.OnUpdate(inDevice);
     m_PerFrameAllocator.OnUpdate(inDevice);
+    m_RenderGraphResources.m_Allocator.RetireHeaps(inDevice);
 
     inCmdList.BindDefaults(inDevice);
     inCmdList.BindToSlot(inDevice.GetBuffer(m_ConstantsAllocator.GetBuffer()), EBindSlot::CBV0);
