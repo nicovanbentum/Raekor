@@ -892,39 +892,44 @@ const ShadowMapData& AddShadowMapPass(RenderGraph& inRenderGraph, Device& inDevi
 
 
 
-const SSAOTraceData& AddSSAOTracePass(RenderGraph& inRenderGraph, Device& inDevice, const GBufferOutput& inGBuffer)
+const GTAOData& AddGTAOPass(RenderGraph& inRenderGraph, Device& inDevice, const GBufferOutput& inGBuffer)
 {
-    return inRenderGraph.AddComputePass<SSAOTraceData>("SSAO Trace",
-    [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, SSAOTraceData& inData)
+    return inRenderGraph.AddComputePass<GTAOData>("GTAO",
+    [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, GTAOData& inData)
     {
-        inData.mOutputTexture = ioRGBuilder.Create(Texture::Desc 
+        inData.mOutputTexture = ioRGBuilder.Create(Texture::Desc
         {
-            .format = DXGI_FORMAT_R32G32B32A32_FLOAT,
+            .format = DXGI_FORMAT_R16_FLOAT,
             .width  = inRenderGraph.GetViewport().GetRenderSize().x,
             .height = inRenderGraph.GetViewport().GetRenderSize().y,
-            .usage  = Texture::Usage::SHADER_READ_WRITE
+            .usage  = Texture::Usage::SHADER_READ_WRITE,
+            .debugName = "GTAO"
         });
+
+        ioRGBuilder.Write(inData.mOutputTexture);
 
         inData.mDepthTexture   = ioRGBuilder.Read(inGBuffer.mDepthTexture);
         inData.mGBufferTexture = ioRGBuilder.Read(inGBuffer.mRenderTexture);
     },
 
-    [&inRenderGraph, &inDevice](SSAOTraceData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
+    [&inRenderGraph, &inDevice](GTAOData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
     {
         const Viewport& viewport = inRenderGraph.GetViewport();
 
-        inCmdList.PushComputeConstants(SSAOTraceRootConstants 
+        inCmdList.PushComputeConstants(GTAORootConstants
         {
             .mOutputTexture  = inRGResources.GetBindlessHeapIndex(inData.mOutputTexture),
             .mDepthTexture   = inRGResources.GetBindlessHeapIndex(inData.mDepthTexture),
             .mGBufferTexture = inRGResources.GetBindlessHeapIndex(inData.mGBufferTexture),
-            .mRadius         = RenderSettings::mSSAORadius,
-            .mBias           = RenderSettings::mSSAOBias,
-            .mSamples        = uint32_t(RenderSettings::mSSAOSamples),
+            .mSliceCount     = uint32_t(RenderSettings::mGTAOSliceCount),
+            .mStepCount      = uint32_t(RenderSettings::mGTAOStepCount),
+            .mRadius         = RenderSettings::mGTAORadius,
+            .mThickness      = RenderSettings::mGTAOThickness,
+            .mPower          = RenderSettings::mGTAOPower,
             .mDispatchSize   = viewport.GetRenderSize()
         });
 
-        inCmdList->SetPipelineState(g_SystemShaders.mSSAOTraceShader.GetComputePSO());
+        inCmdList->SetPipelineState(g_SystemShaders.mGTAOShader.GetComputePSO());
         inCmdList.Dispatch(( viewport.GetRenderSize().x + 7 ) / 8, ( viewport.GetRenderSize().y + 7 ) / 8, 1);
     });
 }

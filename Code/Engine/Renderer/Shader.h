@@ -152,7 +152,7 @@ struct SystemShadersDX12 : public IResource
     GraphicsProgram mTransparentForwardShader;
 
     ComputeProgram mSSRTraceShader;
-    ComputeProgram mSSAOTraceShader;
+    ComputeProgram mGTAOShader;
 
     ComputeProgram mSkyCubeShader;
     ComputeProgram mConvolveCubeShader;

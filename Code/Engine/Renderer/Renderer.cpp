@@ -587,8 +587,8 @@ void Renderer::Recompile(Device& inDevice, RayTracedScene& inScene, IRenderInter
         if (m_Settings.mEnableShadows && inDevice.IsRayTracingSupported())
             rt_shadows_texture = AddRayTracedShadowsPass(m_RenderGraph, inDevice, inScene, gbuffer_output);
 
-        if (m_Settings.mEnableSSAO)
-            ao_texture = AddSSAOTracePass(m_RenderGraph, inDevice, gbuffer_output).mOutputTexture;
+        if (m_Settings.mEnableGTAO)
+            ao_texture = AddDenoisePasses(m_RenderGraph, inDevice, gbuffer_output, AddGTAOPass(m_RenderGraph, inDevice, gbuffer_output).mOutputTexture, "GTAO");
 
         if (m_Settings.mEnableRTAO && inDevice.IsRayTracingSupported())
             ao_texture = AddAmbientOcclusionPass(m_RenderGraph, inDevice, inScene, gbuffer_output);
@@ -690,7 +690,7 @@ void Renderer::Recompile(Device& inDevice, RayTracedScene& inScene, IRenderInter
         case DEBUG_TEXTURE_SSR:
             final_output = ssr_texture;
             break;
-        case DEBUG_TEXTURE_SSAO:
+        case DEBUG_TEXTURE_GTAO:
             final_output = ao_texture;
             break;
         case DEBUG_TEXTURE_LIGHTING:
@@ -776,7 +776,7 @@ uint64_t Renderer::GetRenderGraphKey(const RayTracedScene& inScene, IRenderInter
         uint64_t(m_Settings.mDebugProbes),
         uint64_t(m_Settings.mEnableDebugOverlay),
         uint64_t(m_Settings.mEnableRTAO),
-        uint64_t(m_Settings.mEnableSSAO),
+        uint64_t(m_Settings.mEnableGTAO),
         uint64_t(m_Settings.mEnableSSR),
         uint64_t(m_Settings.mEnableShadows),
         uint64_t(m_Settings.mEnableReflections),
@@ -905,7 +905,7 @@ const char* RenderInterface::GetDebugTextureName(uint32_t inIndex) const
         "Roughness",
         "Lighting",
         "SSR",
-        "SSAO",
+        "GTAO",
         "RT Shadows",
         "RT Reflections",
         "RT Indirect Diffuse",
@@ -1536,7 +1536,7 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
         if (ImGui::Checkbox("##AOtoggle", (bool*)&m_Renderer.GetSettings().mEnableRTAO))
         {
             if (m_Renderer.GetSettings().mEnableRTAO)
-                m_Renderer.GetSettings().mEnableSSAO = false;
+                m_Renderer.GetSettings().mEnableGTAO = false;
         }
 
         ImGui::SameLine();
@@ -1568,21 +1568,23 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
 
         ImGui::Text("SSR");
 
-        if (ImGui::Checkbox("##SSAOtoggle", (bool*)&m_Renderer.GetSettings().mEnableSSAO))
+        if (ImGui::Checkbox("##GTAOtoggle", (bool*)&m_Renderer.GetSettings().mEnableGTAO))
         {
-            if (m_Renderer.GetSettings().mEnableSSAO)
+            if (m_Renderer.GetSettings().mEnableGTAO)
                 m_Renderer.GetSettings().mEnableRTAO = false;
         }
 
         ImGui::SameLine();
 
-        if (ImGui::BeginMenu("SSAO"))
+        if (ImGui::BeginMenu("GTAO"))
         {
             ImGui::SeparatorText("Settings");
 
-            ImGui::DragFloat("Bias", &RenderSettings::mSSAOBias, 0.001f, 0.0f, 0.5f, "%.3f");
-            ImGui::DragFloat("Radius", &RenderSettings::mSSAORadius, 0.01f, 0.0f, 0.5f, "%.2f");
-            ImGui::DragInt("Samples", &RenderSettings::mSSAOSamples, 1, 1, 64);
+            ImGui::DragFloat("Radius", &RenderSettings::mGTAORadius, 0.01f, 0.01f, 10.0f, "%.2f");
+            ImGui::DragFloat("Thickness", &RenderSettings::mGTAOThickness, 0.01f, 0.01f, 5.0f, "%.2f");
+            ImGui::DragFloat("Intensity", &RenderSettings::mGTAOPower, 0.01f, 0.0f, 10.0f, "%.2f");
+            ImGui::SliderInt("Slices", &RenderSettings::mGTAOSliceCount, 1, 8);
+            ImGui::SliderInt("Steps", &RenderSettings::mGTAOStepCount, 1, 32);
 
             ImGui::EndMenu();
         }

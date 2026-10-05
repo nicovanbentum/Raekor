@@ -231,16 +231,16 @@ struct ClearBufferRootConstants
 };
 
 
-struct SSAOTraceRootConstants
+struct GTAORootConstants
 {
     uint  mOutputTexture;
     uint  mDepthTexture;
     uint  mGBufferTexture;
+    uint  mSliceCount;
+    uint  mStepCount;
     float mRadius;
-    float mBias;
-    uint  mSamples;
-    uint  mPad0;
-    uint  mPad1;
+    float mThickness;
+    float mPower;
     uint2 mDispatchSize;
 };
 

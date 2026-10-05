@@ -11,9 +11,11 @@ struct RenderSettings
     static inline float mDoFAperture = 1.8f;
     static inline float mDoFFocusDistance = 5.0f;
 
-    static inline int mSSAOSamples = 16;
-    static inline float mSSAOBias = 0.025f;
-    static inline float mSSAORadius = 0.2f;
+    static inline int mGTAOSliceCount = 2;
+    static inline int mGTAOStepCount = 8;
+    static inline float mGTAORadius = 1.0f;
+    static inline float mGTAOThickness = 0.25f;
+    static inline float mGTAOPower = 1.0f;
 
     static inline int mSSRSamples = 16;
     static inline float mSSRBias = 0.025f;
@@ -76,7 +78,7 @@ enum EDebugTexture
     DEBUG_TEXTURE_GBUFFER_ROUGHNESS,
     DEBUG_TEXTURE_LIGHTING,
     DEBUG_TEXTURE_SSR,
-    DEBUG_TEXTURE_SSAO,
+    DEBUG_TEXTURE_GTAO,
     DEBUG_TEXTURE_RT_SHADOWS,
     DEBUG_TEXTURE_RT_REFLECTIONS,
     DEBUG_TEXTURE_RT_INDIRECT_DIFFUSE,
@@ -275,9 +277,9 @@ const ShadowMapData& AddShadowMapPass(RenderGraph& inRenderGraph, Device& inDevi
 
 
 ////////////////////////////////////////
-/// SSAO Render Pass
+/// GTAO Render Pass
 ////////////////////////////////////////
-struct SSAOTraceData
+struct GTAOData
 {
     RenderGraphResourceID mOutputTexture;
     RenderGraphResourceViewID mDepthTexture;
@@ -285,7 +287,7 @@ struct SSAOTraceData
 };
 
 
-const SSAOTraceData& AddSSAOTracePass(RenderGraph& inRenderGraph, Device& inDevice,
+const GTAOData& AddGTAOPass(RenderGraph& inRenderGraph, Device& inDevice,
     const GBufferOutput& inGBuffer
 );
 

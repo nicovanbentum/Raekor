@@ -157,11 +157,11 @@
             }
         },
 
-        "SSAO Trace Shader":
+        "GTAO Shader":
         {
-            "Compute Shader": 
+            "Compute Shader":
             {
-                "File Path": "Assets/Shaders/Backend/SSAOTraceCS.hlsl"
+                "File Path": "Assets/Shaders/Backend/GTAOCS.hlsl"
             }
         },
 
