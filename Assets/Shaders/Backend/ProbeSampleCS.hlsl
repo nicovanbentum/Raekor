@@ -42,9 +42,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID) {
     float3 position_ws = ReconstructWorldPosition(screen_uv, depth, fc.mInvViewProjectionMatrix);
     float3 normal = UnpackNormal(asuint(gbuffer_texture[dispatchThreadID.xy]));
     
-    float3 offset = min3(rc.mDDGIData.mProbeSpacing) * 0.1f;
-    float3 offset_ws_pos = position_ws + normal * offset;
-    float3 irradiance = DDGISampleIrradiance(offset_ws_pos, normal, rc.mDDGIData);
+    float3 view_dir = normalize(fc.mCameraPosition.xyz - position_ws);
+    float3 irradiance = DDGISampleIrradiance(position_ws, normal, view_dir, rc.mDDGIData);
     
     output_texture[dispatchThreadID.xy] = float4(irradiance, 1.0);
 }

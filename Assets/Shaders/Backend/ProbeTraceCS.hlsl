@@ -49,13 +49,12 @@ void main(uint3 threadID : SV_DispatchThreadID)
     uint2 ray_texture_index = uint2(ray_index, probe_index);
     
     
-    float3 ray_dir = SphericalFibonnaci(ray_index, DDGI_RAYS_PER_PROBE);
-    ray_dir = normalize(mul((float3x3)rc.mRandomRotationMatrix, ray_dir));
-    
-    float3 probe_ws_pos = DDGIGetProbeWorldPos(Index1DTo3D(probe_index, rc.mDDGIData.mProbeCount), rc.mDDGIData);
-    
+    float3 ray_dir = DDGIGetProbeRayDirection(ray_index, rc.mRandomRotationMatrix);
+
+    float3 probe_ws_pos = fc.mFrameCounter > 0 ? DDGIGetRelocatedProbeWorldPos(probe_index, rc.mDDGIData) : DDGIGetProbeWorldPos(Index1DTo3D(probe_index, rc.mDDGIData.mProbeCount), rc.mDDGIData);
+
     RayDesc ray;
-    ray.TMin = 0.01;
+    ray.TMin = 0.0;
     ray.TMax = 10000.0;
     ray.Origin = probe_ws_pos;
     ray.Direction = ray_dir;
@@ -71,11 +70,11 @@ void main(uint3 threadID : SV_DispatchThreadID)
     bool ray_hit = query.CommittedStatus() == COMMITTED_TRIANGLE_HIT;
     if (ray_hit)
     {
-        hitT = ray.TMin + query.CommittedRayT();
+        hitT = query.CommittedRayT();
 
         if (!query.CommittedTriangleFrontFace())
         {
-            depth_texture[ray_texture_index] = -hitT;
+            depth_texture[ray_texture_index] = -hitT * 0.2f;
             irradiance_texture[ray_texture_index] = float3(0, 0, 0);
             return;
         }
@@ -106,12 +105,10 @@ void main(uint3 threadID : SV_DispatchThreadID)
         }
         
         debug_irradiance = irradiance;
-        
+
         // Infinite bounces!
-        if (fc.mFrameCounter > 2)
-        {
-            //irradiance += surface.mAlbedo.rgb * DDGISampleIrradiance(vertex.mPos, vertex.mNormal, rc.mDDGIData);
-        }
+        if (fc.mFrameCounter >= 2)
+            irradiance += surface.mAlbedo.rgb * DDGISampleIrradiance(vertex.mPos, vertex.mNormal, Wo, rc.mDDGIData);
     }
     else
     {

@@ -79,6 +79,19 @@ float3 DDGIGetProbeWorldPos(uint3 inProbeCoord, DDGIData inData)
 }
 
 
+float3 DDGIGetRelocatedProbeWorldPos(uint inProbeIndex, DDGIData inData)
+{
+    StructuredBuffer<ProbeData> probe_buffer = ResourceDescriptorHeap[inData.mProbesDataBuffer];
+    return DDGIGetProbeWorldPos(Index1DTo3D(inProbeIndex, inData.mProbeCount), inData) + probe_buffer[inProbeIndex].offset;
+}
+
+
+float3 DDGIGetProbeRayDirection(uint inRayIndex, float4x4 inRandomRotationMatrix)
+{
+    return normalize(mul((float3x3)inRandomRotationMatrix, SphericalFibonnaci(inRayIndex, DDGI_RAYS_PER_PROBE)));
+}
+
+
 template<typename T>
 T DDGISampleProbe(uint inProbeIndex, float3 inDir, uint inProbeTexels, uint inTotalTexels, Texture2D<T> inTexture) 
 {
@@ -117,87 +130,82 @@ float2 DDGISampleDepthProbe(uint inProbeIndex, float3 inDir, Texture2D<float2> i
 }
 
 
-float3 DDGISampleIrradiance(float3 inWsPos, float3 inNormal, DDGIData inData) 
+float DDGIGetMinProbeSpacing(DDGIData inData)
 {
-    // Calculate normalized position within the 8 surrounding probes, used for trilinear interpolation
-    uint3 start_probe_coord = floor((inWsPos - inData.mCornerPosition) / inData.mProbeSpacing);
-    float3 start_probe_ws_pos = DDGIGetProbeWorldPos(start_probe_coord, inData);
-    float3 ws_pos_01 = saturate((inWsPos - start_probe_ws_pos) / inData.mProbeSpacing);
-    
+    return min(min(inData.mProbeSpacing.x, inData.mProbeSpacing.y), inData.mProbeSpacing.z);
+}
+
+
+float3 DDGIGetSurfaceBias(float3 inNormal, float3 inViewDir, DDGIData inData)
+{
+    return (inNormal * 0.2f + inViewDir * 0.8f) * (0.75f * DDGIGetMinProbeSpacing(inData)) * 0.3f;
+}
+
+
+float3 DDGISampleIrradiance(float3 inWsPos, float3 inNormal, float3 inViewDir, DDGIData inData)
+{
+    float3 biased_ws_pos = inWsPos + DDGIGetSurfaceBias(inNormal, inViewDir, inData);
+
+    int3 base_probe_coord = clamp(int3(floor((biased_ws_pos - inData.mCornerPosition) / inData.mProbeSpacing)), 0, inData.mProbeCount - 1);
+    float3 base_probe_ws_pos = DDGIGetProbeWorldPos(base_probe_coord, inData);
+    float3 alpha = saturate((biased_ws_pos - base_probe_ws_pos) / inData.mProbeSpacing);
+
     Texture2D<float2> depth_texture = ResourceDescriptorHeap[inData.mProbesDepthTexture];
     Texture2D<float4> irradiance_texture = ResourceDescriptorHeap[inData.mProbesIrradianceTexture];
     StructuredBuffer<ProbeData> probe_buffer = ResourceDescriptorHeap[inData.mProbesDataBuffer];
-    
+
     float4 irradiance = 0.0.xxxx;
-    
-    for (int i = 0; i < 8; i++) 
+
+    for (int i = 0; i < 8; i++)
     {
-        // Calculate probe indices [0, 0, 0] to [1, 1, 1] , add that to the starting probe coord, retrieve the world position
-        uint3 cube_indices = uint3(i & 1, (i >> 1) & 1, (i >> 2) & 1);
-        uint3 current_probe_coord = start_probe_coord + cube_indices;
-        
-        uint probe_index = Index3Dto1D(current_probe_coord, inData.mProbeCount);
+        int3 cube_indices = int3(i & 1, (i >> 1) & 1, (i >> 2) & 1);
+        int3 probe_coord = clamp(base_probe_coord + cube_indices, 0, inData.mProbeCount - 1);
+
+        uint probe_index = Index3Dto1D(probe_coord, inData.mProbeCount);
         ProbeData probe_data = probe_buffer[probe_index];
-        
-        float3 probe_ws_pos = DDGIGetProbeWorldPos(current_probe_coord, inData);
-        float3 pos_to_probe_dir = normalize(probe_ws_pos - inWsPos);
-        
-        float final_weight = 1.0f;
-        
-        // wrap shading weight
-        float wrap_shading_weight = (dot(inNormal, pos_to_probe_dir) + 1.0f) * 0.5f;
-        wrap_shading_weight = saturate((wrap_shading_weight * wrap_shading_weight) + 0.2f);
-        
-        final_weight *= wrap_shading_weight;
-        
+
         if (probe_data.inactive)
-            final_weight = final_weight * 0.001f; // don't knock the probe out entirely
-        
-        float visibility_weight = 1.0f;
-        
+            continue;
+
+        float3 probe_ws_pos = DDGIGetProbeWorldPos(probe_coord, inData) + probe_data.offset;
+        float3 pos_to_probe_dir = normalize(probe_ws_pos - inWsPos);
+
+        float weight = square((dot(pos_to_probe_dir, inNormal) + 1.0f) * 0.5f) + 0.2f;
+
         if (inData.mUseChebyshev)
         {
-            // Chebyshev visibility test
-            float2 depth = DDGISampleDepthProbe(probe_index, -pos_to_probe_dir, depth_texture);
-            
-            float dist = length(probe_ws_pos - inWsPos);
-            float mean = depth.r, mean2 = depth.g;
-            float variance = max(mean2 - mean * mean, 1e-5);
-            
-            if (dist > mean)
+            float3 probe_to_biased_pos = biased_ws_pos - probe_ws_pos;
+            float probe_to_biased_dist = length(probe_to_biased_pos);
+
+            float2 moments = DDGISampleDepthProbe(probe_index, probe_to_biased_pos / max(probe_to_biased_dist, 1e-5f), depth_texture);
+            float variance = abs(square(moments.x) - moments.y);
+
+            float chebyshev_weight = 1.0f;
+
+            if (probe_to_biased_dist > moments.x)
             {
-                float d = dist - mean;
-                visibility_weight = variance / (variance + d * d);
+                float v = probe_to_biased_dist - moments.x;
+                chebyshev_weight = variance / (variance + square(v));
+                chebyshev_weight = max(chebyshev_weight * chebyshev_weight * chebyshev_weight, 0.0f);
             }
-            
-            final_weight *= max(0.05f, visibility_weight);
+
+            weight *= max(0.05f, chebyshev_weight);
         }
-        
-        // avoid zero weight
-        final_weight = max(0.000001, final_weight);
-        
-        // correct for log perception
-        const float crushThreshold = 0.2;
-        if (final_weight < crushThreshold)
-        {
-            final_weight *= final_weight * final_weight * (1.0 / square(crushThreshold));
-        }
-        
-        // Calculate trilinear interpolation weight
-        float3 tri = lerp(1.0f - ws_pos_01, ws_pos_01, cube_indices);
-        float tri_weight = tri.x * tri.y * tri.z;
-        
-        final_weight *= tri_weight;
-        
-        // Sample the probe's irradiance texels
+
+        weight = max(0.000001f, weight);
+
+        const float crush_threshold = 0.2f;
+        if (weight < crush_threshold)
+            weight *= weight * weight * (1.0f / square(crush_threshold));
+
+        float3 trilinear = lerp(1.0f - alpha, alpha, float3(cube_indices));
+        weight *= trilinear.x * trilinear.y * trilinear.z;
+
         float3 sampled_irradiance = DDGISampleIrradianceProbe(probe_index, inNormal, irradiance_texture);
-        
-        // float4 debug_color = DDGIGetProbeDebugColor(probe_index, inData.mProbeCount);
-        
-        // Accumulate weighted irradiance
-        irradiance += float4(sampled_irradiance * final_weight, final_weight);
+
+        irradiance += float4(sampled_irradiance * weight, weight);
     }
-    
+
     if (irradiance.w > 0.0001f)
         irradiance.rgb /= irradiance.w;
 

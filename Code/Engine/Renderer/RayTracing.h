@@ -139,6 +139,7 @@ struct DDGIOutput
     RenderGraphResourceID mOutput;
     RenderGraphResourceID mDepthProbes;
     RenderGraphResourceID mIrradianceProbes;
+    RenderGraphResourceID mProbeData;
 };
 
 DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferOutput& inGBuffer, const SkyCubeData& inSkyCubeData);
@@ -154,6 +155,7 @@ struct ProbeDebugData
     const RK::Mesh* mProbeMesh = nullptr;
     RenderGraphResourceViewID mRenderTargetRTV;
     RenderGraphResourceViewID mDepthTargetDSV;
+    RenderGraphResourceViewID mProbeDataBufferSRV;
     RenderGraphResourceViewID mProbesDepthTextureSRV;
     RenderGraphResourceViewID mProbesIrradianceTextureSRV;
     ComPtr<ID3D12PipelineState> mPipeline;

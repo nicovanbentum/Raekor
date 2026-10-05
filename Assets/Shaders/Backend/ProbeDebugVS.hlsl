@@ -26,8 +26,7 @@ VS_OUTPUT main (in VS_INPUT input, uint instance_id : SV_InstanceID)
     VS_OUTPUT output;
     output.index = instance_id;
     
-    uint3 probe_coord = Index1DTo3D(instance_id, rc.mProbeCount);
-    float3 probe_ws_pos = rc.mCornerPosition + rc.mProbeSpacing * probe_coord;
+    float3 probe_ws_pos = DDGIGetRelocatedProbeWorldPos(instance_id, rc);
     
     float min_scale = min(min(rc.mProbeSpacing.x, rc.mProbeSpacing.y), rc.mProbeSpacing.z);
     float3 scaled_pos = input.pos * min_scale * rc.mProbeRadius;

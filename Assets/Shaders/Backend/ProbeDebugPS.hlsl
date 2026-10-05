@@ -31,8 +31,7 @@ PS_OUTPUT main(in VS_OUTPUT input) {
     float2 depth = normalize(DDGISampleDepthProbe(input.index, input.normal, probes_depth_texture));
     
     DDGIData data = rc;
-    uint3 probe_coord = Index1DTo3D(input.index, rc.mProbeCount);
-    float3 probe_ws_pos = DDGIGetProbeWorldPos(probe_coord, data);
+    float3 probe_ws_pos = DDGIGetRelocatedProbeWorldPos(input.index, data);
     
     float d = length(probe_ws_pos - input.ws_position.xyz);
     
