@@ -46,7 +46,6 @@
 #endif
 
 #define ATMOSPHERE_DENSITY  1
-#define EXPOSURE            20
 
 // -------------------------------------
 // Math
@@ -240,7 +239,7 @@ float3 IntegrateScattering (float3 rayStart, float3 rayDir, float rayLength, flo
 
 	transmittance = Absorb(opticalDepth);
 
-	return (rayleigh * C_RAYLEIGH + mie * C_MIE) * lightColor * EXPOSURE;
+	return (rayleigh * C_RAYLEIGH + mie * C_MIE) * lightColor;
 }
 
 #endif // ATMOSPHERE_INCLUDED

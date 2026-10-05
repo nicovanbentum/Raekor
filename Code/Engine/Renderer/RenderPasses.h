@@ -385,6 +385,8 @@ struct LightingData
     RenderGraphResourceViewID mGBufferRenderTextureSRV;
     RenderGraphResourceViewID mIndirectDiffuseTextureSRV;
     RenderGraphResourceViewID mAmbientOcclusionTextureSRV;
+    bool mUseReflectionsTexture = false;
+    bool mUseIndirectDiffuseTexture = false;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
 
@@ -398,7 +400,9 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
     RenderGraphResourceID inShadowTexture, 
     RenderGraphResourceID inReflectionsTexture, 
     RenderGraphResourceID inAOTexture, 
-    RenderGraphResourceID inIndirectDiffuseTexture
+    RenderGraphResourceID inIndirectDiffuseTexture,
+    bool inUseReflectionsTexture,
+    bool inUseIndirectDiffuseTexture
 );
 
 

@@ -32,30 +32,18 @@ static TextureCube<float3> diffuse_cube_texture = ResourceDescriptorHeap[rc.diff
 static StructuredBuffer<RTLight> lights = ResourceDescriptorHeap[fc.mLightsBuffer];
 static Texture2D<float2> brdf_lut_texture = ResourceDescriptorHeap[rc.brdfLutTexture];
 
-float3 fresnelSchlickRoughness(float cosTheta, float3 F0, float roughness)
+float3 ComputeIBL(Surface inSurface, float3 Wo, float2 inDFG)
 {
-    return F0 + (max(float3(1.0.xxx - roughness), F0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
-}
-
-float3 ComputeIBL(Surface surface, float3 Wo)
-{
-    float3 r = reflect(-Wo, surface.mNormal.rgb);
-    float3 diffuse_color = (1.0f - surface.mMetallic) * surface.mAlbedo.rgb;
-    float3 Ld = diffuse_cube_texture.Sample(SamplerLinearClamp, r) * diffuse_color;
-  
-    // TODO: generate a pre-filtered HDR cubemap for roughness LOD
-    float lod = 5.0 * surface.mRoughness;
-    float3 env_map_sample = skycube_texture.SampleLevel(SamplerLinearWrap, r, lod);
+    uint width, height, levels;
+    skycube_texture.GetDimensions(0, width, height, levels);
     
-    float cos_theta = max(dot(surface.mNormal, Wo), 0.0);
-    float3 F0 = lerp(0.04, surface.mAlbedo.rgb, surface.mMetallic);
-    float3 F = fresnelSchlickRoughness(cos_theta, F0, surface.mRoughness);
+    const float3 specular_albedo = inSurface.GetF0() * inDFG.x + inDFG.y;
     
-    float a = surface.mRoughness * surface.mRoughness;
-    float2 brdf = brdf_lut_texture.SampleLevel(SamplerLinearClamp, float2(cos_theta, a), 0.0).rg;
+    float3 specular = skycube_texture.SampleLevel(SamplerLinearClamp, reflect(-Wo, inSurface.mNormal), inSurface.mRoughness * (levels - 1)) * fc.mSunColor.a;
+    float3 diffuse = diffuse_cube_texture.SampleLevel(SamplerLinearClamp, inSurface.mNormal, 0) * fc.mSunColor.a;
     
-    float3 Lr = (F * brdf.x + brdf.y) * env_map_sample;
-    return Ld + Lr;
+    return specular * specular_albedo * inSurface.mEnergyCompensation + 
+           diffuse * inSurface.mAlbedo.rgb * (1.0 - inSurface.mMetallic) * (1.0 - specular_albedo);
 }
 
 PS_OUTPUT main(in VS_OUTPUT inParams) {
@@ -95,6 +83,7 @@ PS_OUTPUT main(in VS_OUTPUT inParams) {
     surface.mMetallic = material.mMetallic * sampled_metallic;
     surface.mRoughness = material.mRoughness * sampled_roughness;
     surface.mEmissive = material.mEmissive.rgb * sampled_emissive;
+    surface.mEnergyCompensation = 1.0.xxx;
     
     float2 curr_pos = (inParams.curr_position.xyz / inParams.curr_position.w).xy - fc.mJitter;
     float2 prev_pos = (inParams.prev_position.xyz / inParams.prev_position.w).xy - fc.mPrevJitter;
@@ -103,6 +92,9 @@ PS_OUTPUT main(in VS_OUTPUT inParams) {
     motionvectors.xy *= float2(0.5, -0.5);
     
     const float3 Wo = normalize(fc.mCameraPosition.xyz - inParams.ws_position.xyz);
+    
+    const float2 dfg = brdf_lut_texture.SampleLevel(SamplerLinearClamp, float2(saturate(dot(surface.mNormal, Wo)), surface.mRoughness), 0.0).rg;
+    surface.mEnergyCompensation = GetEnergyCompensation(surface.GetF0(), dfg);
     
     // output.selection = rc.mEntity;
     
@@ -148,9 +140,9 @@ PS_OUTPUT main(in VS_OUTPUT inParams) {
         }
     }
     
-    total_radiance += ComputeIBL(surface, Wo);
+    total_radiance += ComputeIBL(surface, Wo, dfg);
     
-    output.color = float4(total_radiance, 1.0);
+    output.color = float4(total_radiance * fc.mExposure, 1.0);
     
     return output;
 }

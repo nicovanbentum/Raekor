@@ -460,9 +460,9 @@ struct TransparentForwardConstants
 struct LightingRootConstants
 {
     uint  mBrdfLutTexture;
+    uint  mUseReflectionsTexture;
+    uint  mUseIndirectDiffuseTexture;
     uint  mPad0;
-    uint  mPad1;
-    uint  mPad2;
     uint  mSkyCubeTexture;
     uint  mDiffuseSkyCubeTexture;
     uint  mShadowMaskTexture;

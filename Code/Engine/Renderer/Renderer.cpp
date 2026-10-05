@@ -608,7 +608,8 @@ void Renderer::Recompile(Device& inDevice, RayTracedScene& inScene, IRenderInter
 
         const LightingData& light_data = AddLightingPass(m_RenderGraph, inDevice, inScene, 
                                                          gbuffer_output, light_cull_data, integrate_brdf_data.outputTexture, sky_cube_data.mSkyCubeTexture, convolved_cube_data.mConvolvedCubeTexture, 
-                                                         rt_shadows_texture, reflections_texture, ao_texture, ddgi_output.mOutput);
+                                                         rt_shadows_texture, reflections_texture, ao_texture, ddgi_output.mOutput,
+                                                         reflections_texture != default_textures.mBlackTexture, ddgi_output.mOutput != default_textures.mBlackTexture);
 
         compose_input = light_data.mOutputTexture;
 

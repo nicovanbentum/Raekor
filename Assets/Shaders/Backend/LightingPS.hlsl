@@ -18,40 +18,14 @@ static TextureCube<float3> diffuse_cube_texture     = ResourceDescriptorHeap[rc.
 static StructuredBuffer<RTLight> lights             = ResourceDescriptorHeap[fc.mLightsBuffer];
 static Texture2D<float2> brdf_lut_texture           = ResourceDescriptorHeap[rc.mBrdfLutTexture];
 
-float3 fresnelSchlickRoughness(float cosTheta, float3 F0, float roughness)
+float3 SampleEnvironmentSpecular(float3 inDirection, float inRoughness)
 {
-    return F0 + (max(float3(1.0.xxx - roughness), F0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
-}
-
-float3 ComputeIBL(Surface inSurface, float3 Wo)
-{
-    // TODO: improve prefiltering, currently just box filtering using SPD
-    
     uint width, height, levels;
     skycube_texture.GetDimensions(0, width, height, levels);
     
-    float lod = inSurface.mRoughness * (levels - 1);
-    float3 dir = reflect(-Wo, inSurface.mNormal.rgb);
-    float3 specular = skycube_texture.SampleLevel(SamplerLinearClamp, dir, lod);
-    
-    float cos_theta = saturate(dot(inSurface.mNormal, Wo));
-    float3 F0 = lerp(0.04.xxx, inSurface.mAlbedo.rgb, inSurface.mMetallic);
-    float3 F = fresnelSchlickRoughness(cos_theta, F0, inSurface.mRoughness);
-    
-    float3 kS = F;
-    float3 kD = (1.0 - kS) * (1.0 - inSurface.mMetallic);
-    
-    float2 uv = float2(cos_theta, inSurface.mRoughness);
-    float2 brdf = brdf_lut_texture.SampleLevel(SamplerLinearClamp, uv, 0.0).rg;
-    
-    float3 diffuse = diffuse_cube_texture.Sample(SamplerLinearClamp, inSurface.mNormal).rgb;
-    float3 Ld = kD * diffuse * inSurface.mAlbedo.rgb;
-    float3 Lr = (F * brdf.x + brdf.y) * specular;
-    
-    //return specular;
-    
-    return (kD * Ld) + Lr;
+    return skycube_texture.SampleLevel(SamplerLinearClamp, inDirection, inRoughness * (levels - 1)) * fc.mSunColor.a;
 }
+
 
 float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 
 {
@@ -63,14 +37,21 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0
     
     if (depth == 1.0) 
     {    
-        float3 sky_color = skycube_texture.SampleLevel(SamplerLinearClamp, ws_pos, 0);
-        return float4(max(sky_color, 0.0.xxx), 1.0);
+        float3 sky_color = skycube_texture.SampleLevel(SamplerLinearClamp, ws_pos, 0) * fc.mSunColor.a;
+        return float4(max(sky_color, 0.0.xxx) * fc.mExposure, 1.0);
     }
 
     // indirect diffuse and specular are attenuated by ambient occlusion
     float ao = ao_texture.SampleLevel(SamplerLinearClamp, inParams.mScreenUV, 0);
     
     const float3 Wo = normalize(fc.mCameraPosition.xyz - ws_pos.xyz);
+    
+    const float NdotV = saturate(dot(surface.mNormal, Wo));
+    const float2 dfg = brdf_lut_texture.SampleLevel(SamplerLinearClamp, float2(NdotV, surface.mRoughness), 0.0).rg;
+    const float3 F0 = surface.GetF0();
+    const float3 specular_albedo = F0 * dfg.x + dfg.y;
+    
+    surface.mEnergyCompensation = GetEnergyCompensation(F0, dfg);
 
     float3 total_radiance = surface.mEmissive;
 
@@ -79,7 +60,7 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0
     {
         float3 Wi = normalize(-fc.mSunDirection.xyz);
         float sun_shadow = shadow_texture.SampleLevel(SamplerLinearClamp, inParams.mScreenUV, 0).r;
-        total_radiance += EvaluateDirectionalLight(surface, fc.mSunColor, Wi, Wo) * sun_shadow * ao;
+        total_radiance += EvaluateDirectionalLight(surface, fc.mSunColor, Wi, Wo) * sun_shadow;
     }
 
     uint2 group_index = uint2(inParams.mPixelCoords.xy) / LIGHT_CULL_TILE_SIZE;
@@ -102,32 +83,30 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0
             case RT_LIGHT_TYPE_POINT:
             {
                 float3 Wi = SamplePointLight(light, ws_pos);
-                total_radiance += EvaluatePointLight(surface, light, Wi, Wo, dist_to_light) * ao;
+                total_radiance += EvaluatePointLight(surface, light, Wi, Wo, dist_to_light);
             } break;
 
             case RT_LIGHT_TYPE_SPOT:
             {
                 float3 Wi = SampleSpotLight(light, ws_pos);
-                total_radiance += EvaluateSpotLight(surface, light, Wi, Wo, dist_to_light) * ao;
+                total_radiance += EvaluateSpotLight(surface, light, Wi, Wo, dist_to_light);
             } break;
         }
     }
 
-
-#if 0
-    total_radiance += ComputeIBL(surface, Wo) * ao;
-    
-    //float3 indirect_diffuse = diffuse_cube_texture.Sample(SamplerLinearClamp, surface.mNormal);
-    //total_radiance += indirect_diffuse.rgb * (1.0 - kS) * surface.mAlbedo.rgb * ao;
-#else
     // evaluate indirect specular
-    float4 specular = reflections_texture.SampleLevel(SamplerLinearClamp, inParams.mScreenUV, 0);
-    total_radiance += specular.rgb * surface.mAlbedo.rgb * ao;
+    float3 indirect_specular = rc.mUseReflectionsTexture ? 
+        reflections_texture.SampleLevel(SamplerLinearClamp, inParams.mScreenUV, 0).rgb : 
+        SampleEnvironmentSpecular(reflect(-Wo, surface.mNormal), surface.mRoughness);
+    
+    total_radiance += indirect_specular * specular_albedo * surface.mEnergyCompensation * ao;
     
     // evaluate indirect diffuse
-    float4 diffuse = indirect_diffuse_texture.SampleLevel(SamplerLinearClamp, inParams.mScreenUV, 0);
-    total_radiance += diffuse.rgb * surface.mAlbedo.rgb * ao;
-#endif
+    float3 indirect_diffuse = rc.mUseIndirectDiffuseTexture ? 
+        indirect_diffuse_texture.SampleLevel(SamplerLinearClamp, inParams.mScreenUV, 0).rgb :
+        diffuse_cube_texture.SampleLevel(SamplerLinearClamp, surface.mNormal, 0) * fc.mSunColor.a;
+    
+    total_radiance += indirect_diffuse * surface.mAlbedo.rgb * (1.0 - surface.mMetallic) * (1.0 - specular_albedo) * ao;
     
     return float4(total_radiance * fc.mExposure, 1.0);
 }

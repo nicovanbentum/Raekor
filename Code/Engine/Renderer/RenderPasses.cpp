@@ -1191,7 +1191,7 @@ const TiledLightCullingData& AddTiledLightCullingPass(RenderGraph& inRenderGraph
 
 
 
-const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferOutput& inGBuffer, const TiledLightCullingData& inLightCullData, RenderGraphResourceID inBrdfLutTexture, RenderGraphResourceID inSkyCubeTexture, RenderGraphResourceID inDiffuseCubeTexture, RenderGraphResourceID inShadowTexture, RenderGraphResourceID inReflectionsTexture, RenderGraphResourceID inAOTexture, RenderGraphResourceID inIndirectDiffuseTexture)
+const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferOutput& inGBuffer, const TiledLightCullingData& inLightCullData, RenderGraphResourceID inBrdfLutTexture, RenderGraphResourceID inSkyCubeTexture, RenderGraphResourceID inDiffuseCubeTexture, RenderGraphResourceID inShadowTexture, RenderGraphResourceID inReflectionsTexture, RenderGraphResourceID inAOTexture, RenderGraphResourceID inIndirectDiffuseTexture, bool inUseReflectionsTexture, bool inUseIndirectDiffuseTexture)
 {
     return inRenderGraph.AddGraphicsPass<LightingData>("Shading",
 
@@ -1222,6 +1222,9 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
         inData.mGBufferDepthTextureSRV      = ioRGBuilder.Read(inGBuffer.mDepthTexture);
         inData.mGBufferRenderTextureSRV     = ioRGBuilder.Read(inGBuffer.mRenderTexture);
 
+        inData.mUseReflectionsTexture       = inUseReflectionsTexture;
+        inData.mUseIndirectDiffuseTexture   = inUseIndirectDiffuseTexture;
+
         D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inRenderPass->CreatePipelineStateDesc(inDevice, g_SystemShaders.mLightingShader);
 
         pso_state.InputLayout = {}; // clear the input layout, we generate the fullscreen triangle inside the vertex shader
@@ -1241,6 +1244,8 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
         LightingRootConstants root_constants =
         {
             .mBrdfLutTexture          = inResources.GetBindlessHeapIndex(inData.mBrdfLutTextureSRV),
+            .mUseReflectionsTexture   = inData.mUseReflectionsTexture,
+            .mUseIndirectDiffuseTexture = inData.mUseIndirectDiffuseTexture,
             .mSkyCubeTexture          = inResources.GetBindlessHeapIndex(inData.mSkyCubeTextureSRV),
             .mDiffuseSkyCubeTexture   = inResources.GetBindlessHeapIndex(inData.mDiffuseSkyCubeTextureSRV),
             .mShadowMaskTexture       = inResources.GetBindlessHeapIndex(inData.mShadowMaskTextureSRV),

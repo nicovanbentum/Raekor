@@ -38,13 +38,24 @@ void main(uint3 gid : SV_DispatchThreadID)
     float3 dir = normalize(GetCubemapDirection(uv, gid.z));
     float3x3 basis = BuildOrthonormalBasis(dir);
     
+    uint cube_width, cube_height, cube_levels;
+    cube_texture.GetDimensions(0, cube_width, cube_height, cube_levels);
+    
+    const float texel_solid_angle = 4.0 * PI / (6.0 * cube_width * cube_width);
+    
     float3 irradiance = 0.xxx;
     
     for (int i = 0; i < NR_OF_SAMPLES; i++)
     {
         float2 rand = Hammersley2D(i, NR_OF_SAMPLES);
-        float3 sample_dir = normalize(mul(basis, uniformSampleCone(rand, 0.1)));
-        irradiance += cube_texture.SampleLevel(SamplerLinearWrap, sample_dir, 0);
+        float3 local_dir = SampleCosineWeightedHemisphere(rand);
+        float3 sample_dir = normalize(mul(basis, local_dir));
+        
+        float pdf = max(local_dir.z, 1e-4) / PI;
+        float sample_solid_angle = 1.0 / (NR_OF_SAMPLES * pdf);
+        float lod = clamp(0.5 * log2(sample_solid_angle / texel_solid_angle) + 1.0, 0.0, cube_levels - 1.0);
+        
+        irradiance += cube_texture.SampleLevel(SamplerLinearWrap, sample_dir, lod);
     }
     
     irradiance /= NR_OF_SAMPLES;

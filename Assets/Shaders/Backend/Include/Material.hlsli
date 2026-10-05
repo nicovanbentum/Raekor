@@ -46,6 +46,22 @@ float GeometrySmith(float3 N, float3 V, float3 L, float roughness)
 }
 
 
+float VisibilitySmithGGXCorrelated(float NdotV, float NdotL, float alpha)
+{
+    float a2 = alpha * alpha;
+    float GGXV = NdotL * sqrt(NdotV * NdotV * (1.0 - a2) + a2);
+    float GGXL = NdotV * sqrt(NdotL * NdotL * (1.0 - a2) + a2);
+    
+    return 0.5 / max(GGXV + GGXL, 1e-5);
+}
+
+
+float3 GetEnergyCompensation(float3 inF0, float2 inDFG)
+{
+    return 1.0 + inF0 * (1.0 / max(inDFG.x + inDFG.y, 1e-4) - 1.0);
+}
+
+
 // Revisit for better material control, e.g. dieletric vs conductor behavior
 // 'f90' should be 1.0, TODO: specular workflow support?
 float3 FresnelSchlick(float NdotV, float3 F0, float F90) 
@@ -124,6 +140,7 @@ struct Surface
     float3 mEmissive;
     float  mMetallic;
     float  mRoughness;
+    float3 mEnergyCompensation;
     
     /* Fills in the BRDF fields from a sample of the (packed) GBuffer. */
     void Unpack(uint4 inPacked) 
@@ -132,6 +149,12 @@ struct Surface
         mNormal = UnpackNormal(inPacked);
         mEmissive = UnpackEmissive(inPacked);
         UnpackMetallicRoughness(inPacked, mMetallic, mRoughness);
+        mEnergyCompensation = 1.0.xxx;
+    }
+    
+    float3 GetF0()
+    {
+        return lerp(0.04.xxx, mAlbedo.rgb, mMetallic);
     }
     
     
@@ -162,27 +185,25 @@ struct Surface
         mEmissive = inMaterial.mEmissive.rgb * sampled_emissive;
         mMetallic = inMaterial.mMetallic * sampled_metallic;
         mRoughness = inMaterial.mRoughness * sampled_roughness;
+        mEnergyCompensation = 1.0.xxx;
     }
     
     
     float3 EvaluateBRDF(float3 Wo, float3 Wi, float3 Wh) 
     {
         float NdotL = max(dot(mNormal, Wi), 0.0);
-        float NdotV = max(dot(mNormal, Wo), 0.0);
-        float NdotH = max(dot(mNormal, Wh), 0.0);
+        float NdotV = max(dot(mNormal, Wo), 1e-4);
         float VdotH = max(dot(Wo, Wh), 0.0);
-
-        float3 F0 = lerp(0.04, mAlbedo.rgb, mMetallic);
-        float3 F = FresnelSchlick(VdotH, F0, 1.0);
         
-        float G = GeometrySmith(mNormal, Wo, Wi, mRoughness);
-        float D = DistributionGGX(mNormal, Wh, mRoughness);
+        float roughness = max(mRoughness, 0.045);
+        float alpha = roughness * roughness;
 
-        float3 nominator = F * G * D;
-        float denominator = 4 * NdotL * NdotV + 0.001;
-        float3 specularBrdf = nominator / denominator;
-      
-        float3 diffuseBrdf = ((1.0 - mMetallic) * mAlbedo.rgb) * (1.0 - F);
+        float3 F = FresnelSchlick(VdotH, GetF0(), 1.0);
+        float D = DistributionGGX(mNormal, Wh, roughness);
+        float V = VisibilitySmithGGXCorrelated(NdotV, NdotL, alpha);
+
+        float3 specularBrdf = D * V * F * mEnergyCompensation;
+        float3 diffuseBrdf = (1.0 - mMetallic) * mAlbedo.rgb * (1.0 - F) / M_PI;
         
         return diffuseBrdf + specularBrdf;
     }
@@ -205,8 +226,8 @@ struct Surface
     
     void SampleDiffuse(float2 rand, float3 Wo, out float3 direction, out float3 weight)
     {
-        weight = SampleDiffuseWeight(Wo, direction, mNormal);
         direction = mul(BuildOrthonormalBasis(mNormal), SampleCosineWeightedHemisphere(rand));
+        weight = SampleDiffuseWeight(Wo, direction, mNormal);
     }
     
     float sampleSpecularPDF(float3 Wo, float3 Wh)  // not actually used, useful for MIS
