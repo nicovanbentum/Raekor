@@ -2,76 +2,113 @@
 
 namespace RK {
 
+enum EJobPriority
+{
+	JOB_PRIORITY_HIGH,
+	JOB_PRIORITY_NORMAL,
+	JOB_PRIORITY_LOW,
+	JOB_PRIORITY_COUNT
+};
+
+
 class Job
 {
 public:
-	using Ptr = std::shared_ptr<Job>;
+	friend class JobSystem;
+
+	using Ptr = SharedPtr<Job>;
 	using Function = std::function<void()>;
 
-	Job(const Function& inFunction) : m_Function(inFunction) {}
-	void Run() { m_Function(); m_Finished = true; }
-	void WaitCPU() const { while (!m_Finished) {} }
+	Job(const Function& inFunction, EJobPriority inPriority) : m_Function(inFunction), m_Priority(inPriority) {}
 
-	class Barrier
-	{
-	public:
-		Barrier(uint32_t inJobCount) { m_Jobs.reserve(inJobCount); }
-		void AddJob(Job::Ptr inJob) { m_Jobs.push_back(inJob); }
-		void Wait() const;
+	bool IsFinished() const { return m_Finished.load(std::memory_order_acquire); }
 
-	private:
-		Array<Job::Ptr> m_Jobs;
-	};
+	void Wait() const;
 
 private:
 	Function m_Function;
+	EJobPriority m_Priority;
 	Atomic<bool> m_Finished = false;
+	Atomic<uint32_t> m_PendingDependencies = 0;
+
+	Mutex m_DependentsMutex;
+	Array<Ptr> m_Dependents;
 };
 
 
-class ThreadPool
+class JobGroup
 {
-private:
-
 public:
-	ThreadPool();
-	ThreadPool(uint32_t threadCount);
-	~ThreadPool();
+	JobGroup() = default;
+	~JobGroup() { Wait(); }
 
-	using JobPtr = Job::Ptr;
-	/* Queue up a job: lambda of signature void(void) */
-	JobPtr QueueJob(const Job::Function& inJobFunction);
+	JobGroup(const JobGroup&) = delete;
+	JobGroup& operator=(const JobGroup&) = delete;
 
-	/* Wait for all jobs to finish. */
-	void WaitForJobs();
+	Job::Ptr Schedule(const Job::Function& inFunction, EJobPriority inPriority = JOB_PRIORITY_NORMAL);
+	Job::Ptr Schedule(const Job::Function& inFunction, Slice<const Job::Ptr> inDependencies, EJobPriority inPriority = JOB_PRIORITY_NORMAL);
 
-	/* exits all the threads. */
+	void Add(const Job::Ptr& inJob);
+
+	bool IsFinished() const;
+	void Wait();
+
+	Array<Job::Ptr> GetJobs() const;
+
+private:
+	mutable Mutex m_Mutex;
+	Array<Job::Ptr> m_Jobs;
+};
+
+
+class JobSystem
+{
+public:
+	JobSystem();
+	explicit JobSystem(uint32_t inThreadCount);
+	~JobSystem();
+
+	JobSystem(const JobSystem&) = delete;
+	JobSystem& operator=(const JobSystem&) = delete;
+
+	Job::Ptr Schedule(const Job::Function& inFunction, EJobPriority inPriority = JOB_PRIORITY_NORMAL);
+	Job::Ptr Schedule(const Job::Function& inFunction, Slice<const Job::Ptr> inDependencies, EJobPriority inPriority = JOB_PRIORITY_NORMAL);
+
+	void ParallelFor(uint32_t inCount, uint32_t inBatchSize, const std::function<void(uint32_t inIndex)>& inFunction);
+
+	bool TryExecuteOne();
+
+	void WaitForAll();
+
 	void Shutdown();
 
-	/* Scoped lock on the global mutex,
-		useful for ensuring thread safety inside a job function. */
-	Mutex& GetMutex() { return m_Mutex; }
+	void SetActiveThreadCount(uint32_t inValue);
 
-	void SetActiveThreadCount(uint32_t inValue) { m_ActiveThreadCount = std::min(inValue, GetThreadCount()); }
+	uint32_t GetThreadCount() const { return uint32_t(m_Threads.size()); }
+	int32_t GetActiveJobCount() const { return m_ActiveJobCount.load(); }
 
-	uint32_t GetThreadCount() { return uint32_t(m_Threads.size()); }
-	int32_t  GetActiveJobCount() { return m_ActiveJobCount.load(); }
+	static bool sIsWorkerThread();
 
 private:
-	// per-thread function that waits on and executes tasks
-	void ThreadLoop(uint32_t inThreadIndex);
+	void Enqueue(const Job::Ptr& inJob);
+	void Execute(const Job::Ptr& inJob);
+	Job::Ptr PopJob();
+	bool HasQueuedJobs() const;
+	void WorkerLoop(uint32_t inThreadIndex);
 
 	bool m_Quit = false;
-	Mutex m_Mutex;
-	Queue<JobPtr> m_JobQueue;
+	Atomic<int32_t> m_ActiveJobCount = 0;
+	Atomic<uint32_t> m_ActiveThreadCount = 0;
+
+	Mutex m_QueueMutex;
+	std::condition_variable m_QueueCondition;
+	std::condition_variable m_IdleCondition;
+	StaticArray<std::deque<Job::Ptr>, JOB_PRIORITY_COUNT> m_Queues;
+
 	Array<std::thread> m_Threads;
-	Atomic<int32_t> m_ActiveJobCount;
-	Atomic<uint8_t> m_ActiveThreadCount;
-	std::condition_variable m_ConditionVariable;
 };
 
 
-extern ThreadPool g_ThreadPool;
-
+extern JobSystem g_JobSystem;
 
 }

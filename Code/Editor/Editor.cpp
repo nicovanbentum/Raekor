@@ -313,7 +313,7 @@ void Editor::OnEvent(const SDL_Event& event)
 
 					if (!filepath.empty())
 					{
-						g_ThreadPool.QueueJob([this, filepath]()
+						g_JobSystem.Schedule([this, filepath]()
 						{
 							gLogInfo("Editor", "Saving scene...");
 							m_Scene.SaveToFile(filepath, m_Assets);

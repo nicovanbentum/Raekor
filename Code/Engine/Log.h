@@ -104,4 +104,4 @@ inline void gLogError(StringView inCategory, std::format_string<Args...> inForma
     gLog(LOG_LEVEL_ERROR, inCategory, inFormat, std::forward<Args>(inArgs)...);
 }
 
-} // namespace RK
+}

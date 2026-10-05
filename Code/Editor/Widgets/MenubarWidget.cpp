@@ -80,7 +80,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 				if (!filepath.empty())
 				{
-					g_ThreadPool.QueueJob([this, filepath]()
+					g_JobSystem.Schedule([this, filepath]()
 					{
 						gLogInfo("Editor", "Saving scene...");
 						GetScene().SaveToFile(filepath, IWidget::GetAssets());

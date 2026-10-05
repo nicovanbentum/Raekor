@@ -466,18 +466,17 @@ bool SystemShadersDX12::OnHotLoad(Device& inDevice)
 
 bool SystemShadersDX12::OnCompile(Device& inDevice)
 {
-    for (const auto& member : GetRTTI())
+    const RTTI& rtti = GetRTTI();
+
+    g_JobSystem.ParallelFor(rtti.GetMemberCount(), 1, [&](uint32_t inIndex)
     {
-        g_ThreadPool.QueueJob([&]()
-        {
-            IResource* shader_program = member->Get<IResource>(this);
+        IResource* shader_program = rtti.GetMember(inIndex)->Get<IResource>(this);
 
-            if (!shader_program->IsCompiled())
-                shader_program->OnCompile(inDevice);
-        });
-    }
+        if (!shader_program->IsCompiled())
+            shader_program->OnCompile(inDevice);
+    });
 
-    return true;
+    return IsCompiled();
 }
 
 

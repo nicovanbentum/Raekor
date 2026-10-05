@@ -45,7 +45,6 @@ GameApp::GameApp() :
 
     // compile shaders
     DX12::g_SystemShaders.OnCompile(m_Device);
-    g_ThreadPool.WaitForJobs();
 
     if (!DX12::g_SystemShaders.IsCompiled())
     {

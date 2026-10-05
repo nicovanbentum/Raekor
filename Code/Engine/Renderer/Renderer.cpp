@@ -92,8 +92,6 @@ Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inW
 
         if (g_SystemShaders.OnHotLoad(inDevice))
             SetShouldResize(true);
-
-        g_ThreadPool.WaitForJobs();
     });
 
     m_DebugLinesVertexBuffer = inDevice.CreateBuffer(Buffer::RWStructuredBuffer(sizeof(Vec4) * UINT16_MAX, sizeof(Vec4), "DebugLinesVertexBuffer"));
@@ -234,7 +232,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
 
     // At this point in the frame we really need the previous frame's present job to have finished
     if (m_PresentJobPtr)
-        m_PresentJobPtr->WaitCPU();
+        m_PresentJobPtr->Wait();
 
     BackBufferData& backbuffer_data = GetBackBufferData();
     uint64_t completed_value = m_Fence->GetCompletedValue();
@@ -447,7 +445,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     {
         // Wait for the present job here to make sure we capture everything
         if (m_PresentJobPtr)
-            m_PresentJobPtr->WaitCPU();
+            m_PresentJobPtr->Wait();
 
         gThrowIfFailed(PIXEndCapture(FALSE));
         m_ShouldCaptureNextFrame = false;
@@ -654,7 +652,7 @@ void Renderer::Recompile(Device& inDevice, RayTracedScene& inScene, IRenderInter
 void Renderer::WaitForIdle(Device& inDevice)
 {
     if (m_PresentJobPtr)
-        m_PresentJobPtr->WaitCPU();
+        m_PresentJobPtr->Wait();
 
     for (BackBufferData& backbuffer_data : m_BackBufferData)
     {

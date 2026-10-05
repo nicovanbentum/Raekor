@@ -5,8 +5,73 @@
 #include "Components.h"
 #include "Profiler.h"
 #include "Scene.h"
+#include "Threading.h"
+
+#include "Jolt/Core/FixedSizeFreeList.h"
+#include "Jolt/Core/JobSystemWithBarrier.h"
 
 namespace RK {
+
+class PhysicsJobSystem final : public JPH::JobSystemWithBarrier
+{
+public:
+	PhysicsJobSystem(JPH::uint inMaxJobs, JPH::uint inMaxBarriers) : JPH::JobSystemWithBarrier(inMaxBarriers)
+	{
+		m_Jobs.Init(inMaxJobs, inMaxJobs);
+	}
+
+	int GetMaxConcurrency() const override
+	{
+		return int(g_JobSystem.GetThreadCount()) + 1;
+	}
+
+	JobHandle CreateJob(const char* inName, JPH::ColorArg inColor, const JobFunction& inJobFunction, JPH::uint32 inNumDependencies = 0) override
+	{
+		JPH::uint32 index = m_Jobs.ConstructObject(inName, inColor, this, inJobFunction, inNumDependencies);
+
+		while (index == AvailableJobs::cInvalidObjectIndex)
+		{
+			std::this_thread::yield();
+			index = m_Jobs.ConstructObject(inName, inColor, this, inJobFunction, inNumDependencies);
+		}
+
+		Job* job = &m_Jobs.Get(index);
+		JobHandle handle = JobHandle(job);
+
+		if (inNumDependencies == 0)
+			QueueJob(job);
+
+		return handle;
+	}
+
+protected:
+	void QueueJob(Job* inJob) override
+	{
+		inJob->AddRef();
+
+		g_JobSystem.Schedule([inJob]()
+		{
+			inJob->Execute();
+			inJob->Release();
+		}, JOB_PRIORITY_HIGH);
+	}
+
+	void QueueJobs(Job** inJobs, JPH::uint inNumJobs) override
+	{
+		for (JPH::uint index = 0; index < inNumJobs; index++)
+			QueueJob(inJobs[index]);
+	}
+
+	void FreeJob(Job* inJob) override
+	{
+		m_Jobs.DestructObject(inJob);
+	}
+
+private:
+	using AvailableJobs = JPH::FixedSizeFreeList<Job>;
+	AvailableJobs m_Jobs;
+};
+
 
 static void TraceImpl(const char* inFMT, ...)
 {
@@ -53,7 +118,7 @@ Physics::Physics(IRenderInterface* inRenderer)
 	m_Physics->Init(65536, 0, 65536, 10240, m_BroadPhaseLayers, m_ObjectBroadPhaseFilter, m_ObjectPairFilter);
 
 	m_TempAllocator = new JPH::TempAllocatorImpl(100 * 1024 * 1024);
-	m_JobSystem = new JPH::JobSystemThreadPool(JPH::cMaxPhysicsJobs, JPH::cMaxPhysicsBarriers, std::thread::hardware_concurrency() - 1);
+	m_JobSystem = new PhysicsJobSystem(JPH::cMaxPhysicsJobs, JPH::cMaxPhysicsBarriers);
 	m_StateRecorder = new JPH::StateRecorderImpl();
 
 	gLogInfo("Physics", "JoltPhysics initialized");
@@ -115,7 +180,7 @@ void Physics::OnUpdate(Scene& inScene)
             {
                 case RigidBody::CUBE:
                 {
-                    g_ThreadPool.QueueJob([&]() 
+                    g_JobSystem.Schedule([&]() 
                     {
                         rigid_body.CreateCubeCollider(*this, rigid_body.cubeBounds);
                         rigid_body.CreateBody(*this, transform);
@@ -125,7 +190,7 @@ void Physics::OnUpdate(Scene& inScene)
 
                 case RigidBody::SPHERE:
                 {
-                    g_ThreadPool.QueueJob([&]()
+                    g_JobSystem.Schedule([&]()
                     {
                         rigid_body.CreateSphereCollider(*this, rigid_body.sphereRadius);
                         rigid_body.CreateBody(*this, transform);
@@ -136,11 +201,13 @@ void Physics::OnUpdate(Scene& inScene)
         }
     }
     */
+    JobGroup collider_jobs;
+
     for (const auto& [entity, transform, mesh, rigid_body] : inScene.Each<Transform, Mesh, RigidBody>())
     {
         if (rigid_body.bodyID.IsInvalid() && rigid_body.shape == RigidBody::MESH)
         {
-            g_ThreadPool.QueueJob([&]()
+            collider_jobs.Schedule([&]()
             {
                 rigid_body.CreateMeshCollider(*this, mesh, transform);
                 rigid_body.CreateBody(*this, transform);
@@ -203,17 +270,19 @@ void Physics::OnUpdate(Scene& inScene)
 		m_Physics->DrawBodies(draw_settings, JPH::DebugRenderer::sInstance);
 	}
 
-    g_ThreadPool.WaitForJobs();
+    collider_jobs.Wait();
 }
 
 
 void Physics::GenerateRigidBodiesEntireScene(Scene& inScene)
 {
+    JobGroup collider_jobs;
+
 	for (const auto& [entity, transform, mesh, rigid_body] : inScene.Each<Transform, Mesh, RigidBody>())
 	{
         if (rigid_body.bodyID.IsInvalid())
         {
-		    g_ThreadPool.QueueJob([&]()
+		    collider_jobs.Schedule([&]()
 		    {
                 rigid_body.CreateMeshCollider(*this, mesh, transform);
                 rigid_body.CreateBody(*this, transform);
@@ -222,7 +291,7 @@ void Physics::GenerateRigidBodiesEntireScene(Scene& inScene)
         }
 	}
 
-    g_ThreadPool.WaitForJobs();
+    collider_jobs.Wait();
 }
 
 

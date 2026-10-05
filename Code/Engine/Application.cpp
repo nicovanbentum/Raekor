@@ -137,7 +137,7 @@ Application::Application(WindowFlags inFlags)
 	auto quit_function = [&]()
 	{
 		m_Running = false;
-		g_ThreadPool.WaitForJobs();
+		g_JobSystem.WaitForAll();
 	};
 
 	g_CVariables->CreateFn("quit", quit_function);

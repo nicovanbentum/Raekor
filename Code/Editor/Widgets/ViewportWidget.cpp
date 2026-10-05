@@ -410,7 +410,6 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 			GetPhysics().GenerateRigidBodiesEntireScene(GetScene());
 
-			g_ThreadPool.WaitForJobs();
 			gLogInfo("Physics", "Rigid body generation took {} seconds", timer.GetElapsedFormatted());
 		}
 

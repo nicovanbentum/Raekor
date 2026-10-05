@@ -112,13 +112,13 @@ CompilerApp::CompilerApp(WindowFlags inFlags) : Application(inFlags | WindowFlag
 		file_entry.ReadMetadata();
 	}
 
-	g_ThreadPool.SetActiveThreadCount(std::max(2u, g_ThreadPool.GetThreadCount() - 1));
+	g_JobSystem.SetActiveThreadCount(std::max(2u, g_JobSystem.GetThreadCount() - 1));
 
-	g_ThreadPool.QueueJob([this]() 
+	g_JobSystem.Schedule([this]() 
 	{
 		for (FileEntry& file : m_Files)
 			file.UpdateFileHash();
-	});
+	}, JOB_PRIORITY_LOW);
 
 	stbi_set_flip_vertically_on_load(true);
 
@@ -418,7 +418,7 @@ void CompilerApp::OnUpdate(float inDeltaTime)
 		{
 			m_FilesInFlight.insert(index);
 
-			g_ThreadPool.QueueJob([this, index, &file]()
+			g_JobSystem.Schedule([this, index, &file]()
 			{
 				if (Path(file.mAssetPath).extension() != ".dds")
 				{
@@ -447,7 +447,7 @@ void CompilerApp::OnUpdate(float inDeltaTime)
 		{
 			m_FilesInFlight.insert(index);
 
-			g_ThreadPool.QueueJob([this, index, &file]()
+			g_JobSystem.Schedule([this, index, &file]()
 			{
 				fs::create_directories(Path(file.mCachePath).parent_path());
 
@@ -468,7 +468,7 @@ void CompilerApp::OnUpdate(float inDeltaTime)
 		{
 			m_FilesInFlight.insert(index);
 
-			g_ThreadPool.QueueJob([this, index, &file]()
+			g_JobSystem.Schedule([this, index, &file]()
 			{
 				Assets assets;
 				Scene scene(nullptr); // nullptr, dont need a renderer

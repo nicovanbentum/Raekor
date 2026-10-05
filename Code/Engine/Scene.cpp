@@ -222,33 +222,22 @@ void Scene::UpdateAnimations(float inDeltaTime)
 	for (auto [entity, animation] : Each<Animation>())
 		animation.OnUpdate(inDeltaTime);
 
-	uint32_t skeleton_count = Count<Skeleton>();
-	if (!skeleton_count)
-		return;
+	ComponentStorage<Skeleton>* skeletons = GetComponentStorage<Skeleton>();
 
-	Array<Job::Ptr> skeleton_job_ptrs;
-	skeleton_job_ptrs.reserve(skeleton_count);
-
-	for (auto [entity, skeleton] : Each<Skeleton>())
+	g_JobSystem.ParallelFor(uint32_t(skeletons->Length()), 1, [&](uint32_t inIndex)
 	{
-		Job::Ptr job_ptr = g_ThreadPool.QueueJob([&]()
+		Skeleton& skeleton = skeletons->m_Components[inIndex];
+
+		if (Exists(skeleton.animation) && Has<Animation>(skeleton.animation))
 		{
-			if (Exists(skeleton.animation) && Has<Animation>(skeleton.animation))
-			{
-				skeleton.UpdateFromAnimation(Get<Animation>(skeleton.animation));
-			}
-			else
-			{
-				Animation animation;
-				skeleton.UpdateFromAnimation(animation);
-			}
-		});
-
-		skeleton_job_ptrs.push_back(job_ptr);
-	}
-
-	for (const Job::Ptr& job_ptr : skeleton_job_ptrs)
-		job_ptr->WaitCPU();
+			skeleton.UpdateFromAnimation(Get<Animation>(skeleton.animation));
+		}
+		else
+		{
+			Animation animation;
+			skeleton.UpdateFromAnimation(animation);
+		}
+	});
 }
 
 
@@ -456,36 +445,25 @@ void Scene::LoadMaterialTextures(Assets& inAssets)
 {
 	Timer timer;
 
-    for (const auto& [entity, material] : Each<Material>())
+	ComponentStorage<Material>* materials = GetComponentStorage<Material>();
+
+	g_JobSystem.ParallelFor(uint32_t(materials->Length()), 1, [&](uint32_t inIndex)
 	{
-		g_ThreadPool.QueueJob([&, entity]()
-		{
-			Material& material = Get<Material>(entity);
-			inAssets.GetAsset<TextureAsset>(material.albedoFile);
-			inAssets.GetAsset<TextureAsset>(material.normalFile);
-			inAssets.GetAsset<TextureAsset>(material.emissiveFile);
-			inAssets.GetAsset<TextureAsset>(material.metallicFile);
-			inAssets.GetAsset<TextureAsset>(material.roughnessFile);
-
-            //if (m_Renderer)
-              //  m_Renderer->UploadMaterialTextures(entity, material, inAssets);
-		}
-        );
-	}
-
-    g_ThreadPool.WaitForJobs();
+		const Material& material = materials->m_Components[inIndex];
+		inAssets.GetAsset<TextureAsset>(material.albedoFile);
+		inAssets.GetAsset<TextureAsset>(material.normalFile);
+		inAssets.GetAsset<TextureAsset>(material.emissiveFile);
+		inAssets.GetAsset<TextureAsset>(material.metallicFile);
+		inAssets.GetAsset<TextureAsset>(material.roughnessFile);
+	});
 
 	gLogInfo("Scene", "Load textures to RAM took {:.3f} seconds.", timer.Restart());
 
     for (const auto& [entity, material] : Each<Material>())
 	{
-            Material& material = Get<Material>(entity);
-
-		    if (m_Renderer)
-			    m_Renderer->UploadMaterialTextures(entity, material, inAssets);
+		if (m_Renderer)
+			m_Renderer->UploadMaterialTextures(entity, material, inAssets);
 	}
-
-    g_ThreadPool.WaitForJobs();
 
 	gLogInfo("Scene", "Upload textures to GPU took {:.3f} seconds.", timer.GetElapsedTime());
 }
@@ -644,19 +622,21 @@ void Scene::OpenFromFile(const String& inFilePath, Assets& ioAssets, Application
 	timer.Restart();
 	
 	// load mesh data to vram
-	for (const auto& [entity, mesh] : Each<Mesh>())
+	if (m_Renderer)
 	{
-        g_ThreadPool.QueueJob([this, entity, &mesh]() 
-        {
-		    if (m_Renderer)
-			    m_Renderer->UploadMeshBuffers(entity, mesh);
+		ComponentStorage<Mesh>* meshes = GetComponentStorage<Mesh>();
 
-		    if (Skeleton* skeleton = GetPtr<Skeleton>(entity))
-			    m_Renderer->UploadSkeletonBuffers(entity, *skeleton, mesh);
-        });
+		g_JobSystem.ParallelFor(uint32_t(meshes->Length()), 1, [&](uint32_t inIndex)
+		{
+			const Entity entity = meshes->m_Entities[inIndex];
+			Mesh& mesh = meshes->m_Components[inIndex];
+
+			m_Renderer->UploadMeshBuffers(entity, mesh);
+
+			if (Skeleton* skeleton = GetPtr<Skeleton>(entity))
+				m_Renderer->UploadSkeletonBuffers(entity, *skeleton, mesh);
+		});
 	}
-
-    g_ThreadPool.WaitForJobs();
 
 	for (const auto& [entity, script] : Each<NativeScript>())
 	{
@@ -780,7 +760,7 @@ void Scene::OpenFromFileAsync(const String& inFilePath, Assets& ioAssets, Applic
 	timer.Restart();
 
 	// load mesh data to RAM and schedule VRAM uploads
-	g_ThreadPool.QueueJob([this]() 
+	g_JobSystem.Schedule([this]()
 	{
 		for (const auto& [entity, mesh] : Each<Mesh>())
 		{
@@ -792,12 +772,13 @@ void Scene::OpenFromFileAsync(const String& inFilePath, Assets& ioAssets, Applic
 		}
 	});
 
-	Job::Barrier barrier = Job::Barrier(Count<Material>());
+	Array<Job::Ptr> texture_jobs;
+	texture_jobs.reserve(Count<Material>());
 
 	// load textures data to RAM
 	for (const auto& [entity, material] : Each<Material>())
 	{
-		barrier.AddJob(g_ThreadPool.QueueJob([&]()
+		texture_jobs.push_back(g_JobSystem.Schedule([&ioAssets, &material]()
 		{
 			ioAssets.GetAsset<TextureAsset>(material.albedoFile);
 			ioAssets.GetAsset<TextureAsset>(material.normalFile);
@@ -809,15 +790,13 @@ void Scene::OpenFromFileAsync(const String& inFilePath, Assets& ioAssets, Applic
 
 	if (m_Renderer)
 	{
-		g_ThreadPool.QueueJob([this, &ioAssets, barrier]() 
+		g_JobSystem.Schedule([this, &ioAssets]()
 		{
-			barrier.Wait();
-
 			for (const auto& [entity, material] : Each<Material>())
 			{
 				m_Renderer->UploadMaterialTextures(entity, material, ioAssets);
 			}
-		});
+		}, texture_jobs);
 	}
 }
 

@@ -47,7 +47,6 @@ DXApp::DXApp() :
 
     // compile shaders
     g_SystemShaders.OnCompile(m_Device);
-    g_ThreadPool.WaitForJobs();
 
     if (!g_SystemShaders.IsCompiled())
     {

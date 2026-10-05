@@ -213,4 +213,4 @@ void Logger::WriteToFile(const LogMessage& inMessage)
         m_File.flush();
 }
 
-} // namespace RK
+}
