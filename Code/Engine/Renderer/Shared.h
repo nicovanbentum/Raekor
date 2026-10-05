@@ -44,6 +44,7 @@
 #define DDGI_PROBES_PER_ROW 40              // Number of probes per row for the final probe texture
 #define DDGI_RAYS_PER_PROBE 192             // Basically wave size * rays per wave
 #define DDGI_RAYS_BACKFACE_THRESHOLD 128    // if exceeded the probe is probably inside of geometry
+#define DDGI_MAX_CASCADES 4
 
 #define RT_SHADOWS_GROUP_DIM 16     // RT shadows divides the screen up in 16x16 pixel tiles
 #define RT_SHADOWS_PACKED_DIM_X 8   // RT shadows stores every 8x4 pixels ray results as a 32bit mask
@@ -174,13 +175,26 @@ struct GPULinesRootConstants
 };
 
 
+struct DDGIVolume
+{
+    float3 mCornerPosition;
+    uint   mProbeOffset;
+    float3 mProbeSpacing;
+    uint   mPad0;
+    int3   mOriginCell;
+    uint   mPad1;
+    int3   mScrollOffset;
+    uint   mPad2;
+};
+
+
 struct DDGIData
 {
     int3   mProbeCount;
     float  mProbeRadius;
-    float3 mProbeSpacing;
     uint   mUseChebyshev;
-    float3 mCornerPosition;
+    uint   mCascadeCount;
+    uint   mVolumesBuffer;
     uint   mProbesDataBuffer;
     uint   mRaysDepthTexture;
     uint   mProbesDepthTexture;
@@ -193,6 +207,8 @@ struct ProbeData
 {
     uint inactive;
     float3 offset;
+    int3 cell;
+    uint reset;
 };
 
 

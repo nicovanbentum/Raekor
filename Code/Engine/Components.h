@@ -338,6 +338,8 @@ struct DDGISceneSettings
 	IVec3 mDDGIDebugProbe = UVec3(10, 10, 5);
 	IVec3 mDDGIProbeCount = UVec3(22, 22, 22);
 	Vec3 mDDGIProbeSpacing = Vec3(0.1f, 0.1f, 0.1f);
+	bool mFollowCamera = false;
+	int mCascadeCount = 1;
 };
 
 

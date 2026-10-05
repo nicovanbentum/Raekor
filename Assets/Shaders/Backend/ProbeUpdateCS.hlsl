@@ -15,17 +15,21 @@ void main(uint3 threadID : SV_DispatchThreadID)
 
     // 1D index of the probe we are on, used to read the 192 ray hits from the ray tracing results
     uint probe_index = threadID.x;
-    uint3 probe_count = rc.mDDGIData.mProbeCount;
 
-    if (probe_index >= probe_count.x * probe_count.y * probe_count.z)
+    if (probe_index >= DDGIGetProbesPerCascade(rc.mDDGIData) * rc.mDDGIData.mCascadeCount)
         return;
 
-    ProbeData probe_data = probe_buffer[probe_index];
+    DDGIVolume volume = DDGIGetVolume(DDGIGetProbeCascade(probe_index, rc.mDDGIData), rc.mDDGIData);
+    int3 probe_cell = DDGIGetProbeCell(DDGIGetProbeGridCoord(probe_index, volume, rc.mDDGIData), volume);
 
-    if (fc.mFrameCounter == 0)
+    ProbeData probe_data = probe_buffer[probe_index];
+    probe_data.reset = fc.mFrameCounter == 0 || any(probe_data.cell != probe_cell);
+
+    if (probe_data.reset)
     {
         probe_data.offset = 0.xxx;
         probe_data.inactive = false;
+        probe_data.cell = probe_cell;
     }
 
     uint backface_count = 0;
@@ -70,7 +74,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
         }
     }
 
-    const float min_spacing = DDGIGetMinProbeSpacing(rc.mDDGIData);
+    const float min_spacing = DDGIGetMinProbeSpacing(volume);
     const float min_frontface_distance = 0.25f * min_spacing;
 
     float3 full_offset = 1e27f.xxx;
@@ -95,7 +99,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
         full_offset = probe_data.offset - (probe_data.offset / offset_length) * move_back_distance;
     }
 
-    float3 normalized_offset = full_offset / rc.mDDGIData.mProbeSpacing;
+    float3 normalized_offset = full_offset / volume.mProbeSpacing;
 
     if (all(abs(normalized_offset) <= 0.45f))
         probe_data.offset = full_offset;

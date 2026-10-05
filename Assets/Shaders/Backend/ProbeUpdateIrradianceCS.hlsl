@@ -19,12 +19,10 @@ void main(uint3 threadID : SV_DispatchThreadID,  uint3 groupThreadID : SV_GroupT
     RWTexture2D<float4> probes_irradiance_texture = ResourceDescriptorHeap[rc.mDDGIData.mProbesIrradianceTexture];
     RWStructuredBuffer<ProbeData> probe_buffer = ResourceDescriptorHeap[rc.mDDGIData.mProbesDataBuffer];
 
-    uint3 probe_count = rc.mDDGIData.mProbeCount;
-
     // 1D index of the probe we are on, used to read the 192 ray hits from the ray tracing results
     uint probe_index = Index2DTo1D(groupID.xy, DDGI_PROBES_PER_ROW);
 
-    if (probe_index >= probe_count.x * probe_count.y * probe_count.z)
+    if (probe_index >= DDGIGetProbesPerCascade(rc.mDDGIData) * rc.mDDGIData.mCascadeCount)
         return;
 
     ProbeData probe_data = probe_buffer[probe_index];
@@ -73,7 +71,7 @@ void main(uint3 threadID : SV_DispatchThreadID,  uint3 groupThreadID : SV_GroupT
         float3 prev_irradiance = probes_irradiance_texture[threadID.xy].rgb;
         float3 final_irradiance = irradiance.rgb;
 
-        if (fc.mFrameCounter >= 2)
+        if (fc.mFrameCounter >= 2 && !probe_data.reset)
         {
             float hysteresis = 0.97f;
 

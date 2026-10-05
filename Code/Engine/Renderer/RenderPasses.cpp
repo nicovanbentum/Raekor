@@ -27,6 +27,66 @@ const T& AddPass(RenderGraph& inRenderGraph, Device& inDevice)
 
 */
 
+static IVec3 sWrapProbeCoord(const IVec3& inCoord, const IVec3& inProbeCount)
+{
+    return ( ( inCoord % inProbeCount ) + inProbeCount ) % inProbeCount;
+}
+
+
+
+void RenderSettings::UpdateDDGIVolumes(const Vec3& inCameraPosition)
+{
+    const Vec3 static_center = mDDGICornerPosition + mDDGIProbeSpacing * Vec3(mDDGIProbeCount - 1) * 0.5f;
+
+    for (uint32_t cascade = 0; cascade < mDDGIVolumes.size(); cascade++)
+    {
+        DDGIVolume& volume = mDDGIVolumes[cascade];
+        volume = {};
+
+        if (cascade >= mDDGICascadeCount)
+            continue;
+
+        volume.mProbeOffset = cascade * GetDDGIProbesPerCascade();
+        volume.mProbeSpacing = mDDGIProbeSpacing * float(1u << cascade);
+
+        if (mDDGIFollowCamera)
+        {
+            volume.mOriginCell = IVec3(glm::floor(inCameraPosition / volume.mProbeSpacing)) - mDDGIProbeCount / 2;
+            volume.mScrollOffset = sWrapProbeCoord(volume.mOriginCell, mDDGIProbeCount);
+            volume.mCornerPosition = Vec3(volume.mOriginCell) * volume.mProbeSpacing;
+        }
+        else
+        {
+            volume.mCornerPosition = static_center - volume.mProbeSpacing * Vec3(mDDGIProbeCount - 1) * 0.5f;
+        }
+    }
+}
+
+
+
+uint32_t RenderSettings::GetDDGIDebugProbeIndex()
+{
+    const IVec3 debug_probe = glm::clamp(mDDGIDebugProbe, IVec3(0), mDDGIProbeCount - 1);
+    const IVec3 storage_coord = sWrapProbeCoord(debug_probe + mDDGIVolumes[0].mScrollOffset, mDDGIProbeCount);
+
+    return storage_coord.x + storage_coord.y * mDDGIProbeCount.x + storage_coord.z * mDDGIProbeCount.x * mDDGIProbeCount.y;
+}
+
+
+
+DDGIData RenderSettings::GetDDGIData()
+{
+    return DDGIData
+    {
+        .mProbeCount = mDDGIProbeCount,
+        .mProbeRadius = mDDGIDebugRadius,
+        .mUseChebyshev = mDDGIUseChebyshev,
+        .mCascadeCount = mDDGICascadeCount
+    };
+}
+
+
+
 void ClearTextureUAV(Device& inDevice, TextureID inTexture, Vec4 inValue, CommandList& inCmdList)
 {
     ClearTextureRootConstants root_constants = 

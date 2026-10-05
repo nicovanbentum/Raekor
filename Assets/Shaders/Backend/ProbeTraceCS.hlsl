@@ -51,7 +51,12 @@ void main(uint3 threadID : SV_DispatchThreadID)
     
     float3 ray_dir = DDGIGetProbeRayDirection(ray_index, rc.mRandomRotationMatrix);
 
-    float3 probe_ws_pos = fc.mFrameCounter > 0 ? DDGIGetRelocatedProbeWorldPos(probe_index, rc.mDDGIData) : DDGIGetProbeWorldPos(Index1DTo3D(probe_index, rc.mDDGIData.mProbeCount), rc.mDDGIData);
+    if (probe_index >= DDGIGetProbesPerCascade(rc.mDDGIData) * rc.mDDGIData.mCascadeCount)
+        return;
+    
+    DDGIVolume volume = DDGIGetVolume(DDGIGetProbeCascade(probe_index, rc.mDDGIData), rc.mDDGIData);
+    
+    float3 probe_ws_pos = fc.mFrameCounter > 0 ? DDGIGetRelocatedProbeWorldPos(probe_index, rc.mDDGIData) : DDGIGetProbeWorldPos(DDGIGetProbeGridCoord(probe_index, volume, rc.mDDGIData), volume);
 
     RayDesc ray;
     ray.TMin = 0.0;
@@ -63,7 +68,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
     query.TraceRayInline(TLAS, RAY_FLAG_FORCE_OPAQUE, 0xFF, ray);
     while (query.Proceed()) {}
 
-    float hitT = length(rc.mDDGIData.mProbeSpacing);
+    float hitT = length(volume.mProbeSpacing);
     float3 irradiance = 0.xxx;
     float3 debug_irradiance = 0.xxx;
 
@@ -125,7 +130,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
        if (ray_index == 0)
            ResetDebugLineCount();
         
-       float min_scale = min(min(rc.mDDGIData.mProbeSpacing.x, rc.mDDGIData.mProbeSpacing.y), rc.mDDGIData.mProbeSpacing.z);
+       float min_scale = DDGIGetMinProbeSpacing(volume);
        float probe_scale = min_scale * rc.mDDGIData.mProbeRadius;
         
        float4 debug_ray_color = float4(debug_irradiance, 1.0);

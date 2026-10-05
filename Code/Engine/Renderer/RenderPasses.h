@@ -46,8 +46,18 @@ struct RenderSettings
     static inline IVec3 mDDGIProbeCount = IVec3(16, 16, 16);
     static inline Vec3 mDDGIProbeSpacing = Vec3(6.4, 3.0, 2.8);
     static inline Vec3 mDDGICornerPosition = Vec3(-65, -1.4, -28.5);
+    static inline bool mDDGIFollowCamera = false;
+    static inline uint32_t mDDGICascadeCount = 1;
+    static inline StaticArray<DDGIVolume, DDGI_MAX_CASCADES> mDDGIVolumes = {};
 
     static inline Entity mActiveEntity = Entity::Null;
+
+    static int GetDDGIProbesPerCascade() { return mDDGIProbeCount.x * mDDGIProbeCount.y * mDDGIProbeCount.z; }
+    static int GetDDGITotalProbeCount() { return GetDDGIProbesPerCascade() * mDDGICascadeCount; }
+
+    static void UpdateDDGIVolumes(const Vec3& inCameraPosition);
+    static uint32_t GetDDGIDebugProbeIndex();
+    static DDGIData GetDDGIData();
 };
 
 

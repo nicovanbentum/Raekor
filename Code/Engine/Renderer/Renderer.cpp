@@ -263,10 +263,14 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
         const Transform& ddgi_transform = inScene->Get<Transform>(ddgi_entity);
         const DDGISceneSettings& ddgi_settings = inScene->Get<DDGISceneSettings>(ddgi_entity);
 
-        RenderSettings::mDDGIProbeCount = ddgi_settings.mDDGIProbeCount;
+        RenderSettings::mDDGIProbeCount = glm::max(ddgi_settings.mDDGIProbeCount, IVec3(1));
         RenderSettings::mDDGIProbeSpacing = ddgi_settings.mDDGIProbeSpacing;
         RenderSettings::mDDGICornerPosition = ddgi_transform.position;
+        RenderSettings::mDDGIFollowCamera = ddgi_settings.mFollowCamera;
+        RenderSettings::mDDGICascadeCount = glm::clamp(ddgi_settings.mCascadeCount, 1, DDGI_MAX_CASCADES);
     }
+
+    RenderSettings::UpdateDDGIVolumes(inViewport.GetPosition());
 
     const bool resize_viewport = m_ShouldResize || GetViewportKey(inViewport) != m_ViewportKey;
     const bool need_recompile = resize_viewport || shaders_hotloaded || m_ShouldRecompile || GetRenderGraphKey(inScene, inRenderInterface) != m_RenderGraphKey || ( do_stress_test && m_FrameCounter > 60 );
@@ -787,6 +791,7 @@ uint64_t Renderer::GetRenderGraphKey(const RayTracedScene& inScene, IRenderInter
         uint64_t(RenderSettings::mDDGIProbeCount.x),
         uint64_t(RenderSettings::mDDGIProbeCount.y),
         uint64_t(RenderSettings::mDDGIProbeCount.z),
+        uint64_t(RenderSettings::mDDGICascadeCount),
         uint64_t(sun_light != nullptr),
         uint64_t(sun_light ? sun_light->cubeMap : 0)
     };

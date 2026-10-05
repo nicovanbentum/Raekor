@@ -17,17 +17,15 @@ void main(uint3 threadID : SV_DispatchThreadID,  uint3 groupThreadID : SV_GroupT
     RWTexture2D<float2> probes_depth_texture = ResourceDescriptorHeap[rc.mDDGIData.mProbesDepthTexture];
     RWStructuredBuffer<ProbeData> probe_buffer = ResourceDescriptorHeap[rc.mDDGIData.mProbesDataBuffer];
 
-    uint3 probe_count = rc.mDDGIData.mProbeCount;
-
     // 1D index of the probe we are on, used to read the 192 ray hits from the ray tracing results
     uint probe_index = Index2DTo1D(groupID.xy, DDGI_PROBES_PER_ROW);
 
-    if (probe_index >= probe_count.x * probe_count.y * probe_count.z)
+    if (probe_index >= DDGIGetProbesPerCascade(rc.mDDGIData) * rc.mDDGIData.mCascadeCount)
         return;
 
     ProbeData probe_data = probe_buffer[probe_index];
 
-    const float max_depth = length(rc.mDDGIData.mProbeSpacing) * 1.5f;
+    const float max_depth = length(DDGIGetVolume(DDGIGetProbeCascade(probe_index, rc.mDDGIData), rc.mDDGIData).mProbeSpacing) * 1.5f;
 
     // calculate how many rays the current thread should write to lds
     const uint rays_per_lane = max(1u, DDGI_RAYS_PER_PROBE / (DDGI_DEPTH_TEXELS * DDGI_DEPTH_TEXELS));
@@ -76,7 +74,7 @@ void main(uint3 threadID : SV_DispatchThreadID,  uint3 groupThreadID : SV_GroupT
         float2 prev_depth = probes_depth_texture[threadID.xy].rg;
         float2 final_depth = depth.rg;
 
-        if (fc.mFrameCounter >= 2)
+        if (fc.mFrameCounter >= 2 && !probe_data.reset)
             final_depth = lerp(depth.rg, prev_depth, probe_data.inactive ? 1.0f : 0.97f);
 
         probes_depth_texture[threadID.xy] = final_depth;

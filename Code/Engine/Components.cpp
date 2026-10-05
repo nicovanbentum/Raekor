@@ -136,6 +136,8 @@ RTTI_DEFINE_TYPE(DDGISceneSettings)
 	RTTI_DEFINE_MEMBER(DDGISceneSettings, SERIALIZE_ALL, "Debug Probe", mDDGIDebugProbe);
 	RTTI_DEFINE_MEMBER(DDGISceneSettings, SERIALIZE_ALL, "Probe Count", mDDGIProbeCount);
 	RTTI_DEFINE_MEMBER(DDGISceneSettings, SERIALIZE_ALL, "Probe Spacing", mDDGIProbeSpacing);
+	RTTI_DEFINE_MEMBER(DDGISceneSettings, SERIALIZE_ALL, "Follow Camera", mFollowCamera);
+	RTTI_DEFINE_MEMBER(DDGISceneSettings, SERIALIZE_ALL, "Cascade Count", mCascadeCount);
 }
 
 

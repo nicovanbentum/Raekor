@@ -1275,17 +1275,28 @@ bool InspectorWidget::DrawComponent(Entity inEntity, DDGISceneSettings& ioSettin
 {
 	const Transform& transform = GetScene().Get<Transform>(GetActiveEntity());
 
-	const Vec3 min_bounds = transform.GetPositionWorldSpace();
-	const Vec3 max_bounds = min_bounds + ioSettings.mDDGIProbeSpacing * Vec3(ioSettings.mDDGIProbeCount);
+	if (!ioSettings.mFollowCamera)
+	{
+		const Vec3 min_bounds = transform.GetPositionWorldSpace();
+		const Vec3 max_bounds = min_bounds + ioSettings.mDDGIProbeSpacing * Vec3(ioSettings.mDDGIProbeCount);
 
-	g_DebugRenderer.AddLineCube(min_bounds, max_bounds);
+		g_DebugRenderer.AddLineCube(min_bounds, max_bounds);
 
-	if (ImGui::Button("Fit to Scene", ImVec2(ImGui::GetWindowWidth(), 0)))
-		ioSettings.FitToScene(GetScene(), GetScene().Get<Transform>(GetActiveEntity()));
+		if (ImGui::Button("Fit to Scene", ImVec2(ImGui::GetWindowWidth(), 0)))
+			ioSettings.FitToScene(GetScene(), GetScene().Get<Transform>(GetActiveEntity()));
+
+		CheckForUndo(inEntity, ioSettings, m_DDGISceneSettingsUndo);
+	}
+
+    ImGui::Text("Total Ray Count: %i", ioSettings.mDDGIProbeCount.x * ioSettings.mDDGIProbeCount.y * ioSettings.mDDGIProbeCount.z * ioSettings.mCascadeCount * DDGI_RAYS_PER_PROBE);
+
+    ImGui::Checkbox("Follow Camera", &ioSettings.mFollowCamera);
 
     CheckForUndo(inEntity, ioSettings, m_DDGISceneSettingsUndo);
 
-    ImGui::Text("Total Ray Count: %i", ioSettings.mDDGIProbeCount.x * ioSettings.mDDGIProbeCount.y * ioSettings.mDDGIProbeCount.z * DDGI_RAYS_PER_PROBE);
+    ImGui::SliderInt("Cascades", &ioSettings.mCascadeCount, 1, DDGI_MAX_CASCADES);
+
+    CheckForUndo(inEntity, ioSettings, m_DDGISceneSettingsUndo);
 
     ImGui::Checkbox("Use Depth", &ioSettings.mUseChebyshev);
 
