@@ -115,7 +115,6 @@ Device::Device(Application* inApp)
     m_Buffers.Reserve(sMaxResourceHeapSize);
     m_Textures.Reserve(sMaxResourceHeapSize);
 
-    m_ClearHeap.Allocate(*this, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, sMaxClearHeapSize, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
 
     m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_RTV].Allocate(*this, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, sMaxRTVHeapSize, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
     m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_DSV].Allocate(*this, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, sMaxDSVHeapSize, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);

@@ -37,8 +37,6 @@ public:
     void SetViewportAndScissor(Texture& inTexture, uint32_t inSubResource = 0);
     void SetViewportAndScissor(const Viewport& inViewport);
 
-    void ClearBuffer(Device& inDevice, BufferID inBuffer, Vec4 inValue);
-    void ClearTexture(Device& inDevice, TextureID inTexture, Vec4 inValue);
 
     void DiscardTexture(Device& inDevice, TextureID inTexture);
 

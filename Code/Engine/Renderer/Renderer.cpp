@@ -331,10 +331,6 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     }
 
 
-    // clear the clear heap every 2 frames, TODO: bad design pls fix
-    if (inDevice.GetFrameCounter() % sFrameCount == 0)
-        inDevice.GetClearHeap().Clear();
-
     // Update the total running time of the application / renderer
     m_ElapsedTime += inDeltaTime;
 

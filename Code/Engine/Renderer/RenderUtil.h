@@ -23,11 +23,10 @@ static constexpr uint32_t sConstantAddressBufferAlignment = 256;
 static constexpr uint32_t sMaxRTVHeapSize = 0xFF;
 static constexpr uint32_t sMaxDSVHeapSize = 0xFF;
 // Hardcoded limit for the number of UAV clear descriptors, surely 255 should be enough..
-static constexpr uint32_t sMaxClearHeapSize = 0xFF;
 // Hardcoded limit for static samplers as per DX12 spec, also used for regular sampler heap here.
 static constexpr uint32_t sMaxSamplerHeapSize = 2043;
 // Hardcoded limit for resource heap size as per DX12 hardware Tier 2, should be more than enough..
-static constexpr uint32_t sMaxResourceHeapSize = 1'000'000 - sMaxClearHeapSize;
+static constexpr uint32_t sMaxResourceHeapSize = 1'000'000;
 // Hardcoded limit for root signature size as per DX12 spec
 static constexpr uint32_t sMaxRootSignatureSize = 64 * sizeof(uint32_t);
 // Hardcoded limit for root constants, subtract root descriptors as they take 2 DWORDs each. Should match shared.h

@@ -87,41 +87,6 @@ DDGIData RenderSettings::GetDDGIData()
 
 
 
-void ClearTextureUAV(Device& inDevice, TextureID inTexture, Vec4 inValue, CommandList& inCmdList)
-{
-    ClearTextureRootConstants root_constants = 
-    {
-        .mClearValue = inValue,
-        .mTexture = inDevice.GetBindlessHeapIndex(inTexture)
-    };
-
-    inCmdList.PushComputeConstants(root_constants);
-
-    const Texture& texture = inDevice.GetTexture(inTexture);
-
-    switch (texture.GetDesc().dimension)
-    {
-        case Texture::TEX_DIM_2D:
-        {
-            inCmdList.BindComputeProgram(g_SystemShaders.mClearTexture2DShader);
-            inCmdList.Dispatch(( texture.GetWidth() + 7 ) / 8, ( texture.GetHeight() + 7 ) / 8, 1);
-            break;
-        };
-        case Texture::TEX_DIM_3D:
-        {
-            inCmdList.BindComputeProgram(g_SystemShaders.mClearTexture3DShader);
-            inCmdList.Dispatch(( texture.GetWidth() + 3 ) / 4, ( texture.GetHeight() + 3 ) / 4, ( texture.GetDepth() + 3 ) / 4);
-            break;
-        };
-        case Texture::TEX_DIM_CUBE:
-        {
-            inCmdList.BindComputeProgram(g_SystemShaders.mClearTextureCubeShader);
-            inCmdList.Dispatch(( texture.GetWidth() + 7 ) / 8, ( texture.GetHeight() + 7 ) / 8, texture.GetDepth());
-            break;
-        };
-    }
-}
-
 const DefaultTexturesData& AddDefaultTexturesPass(RenderGraph& inRenderGraph, Device& inDevice, TextureID inBlackTexture, TextureID inWhiteTexture)
 {
     return inRenderGraph.AddGraphicsPass<DefaultTexturesData>("DefaultTextures",
@@ -154,21 +119,6 @@ const ClearBufferData& AddClearBufferPass(RenderGraph& inRenderGraph, Device& in
 
         inCmdList->SetPipelineState(g_SystemShaders.mClearBufferShader.GetComputePSO());
         inCmdList->Dispatch(( buffer.GetSize() + 63 ) / 64, 1, 1);
-    });
-}
-
-
-
-const ClearTextureFloatData& AddClearTextureFloatPass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inTexture, const Vec4& inClearValue)
-{
-    return inRenderGraph.AddComputePass<ClearTextureFloatData>(std::format("ClearTexture"),
-    [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ClearTextureFloatData& inData)
-    {
-        inData.mTextureUAV = ioRGBuilder.Write(inTexture);
-    },
-    [&inDevice, inClearValue](ClearTextureFloatData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
-    {
-        ClearTextureUAV(inDevice, inResources.GetTextureView(inData.mTextureUAV), inClearValue, inCmdList);
     });
 }
 
@@ -212,29 +162,24 @@ const SkyCubeData& AddSkyCubePass(RenderGraph& inRenderGraph, Device& inDevice, 
         ioRGBuilder.Write(inData.mSkyCubeTexture);
     },
     [&inDevice, &inScene](SkyCubeData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
-    {   
-        if (const DirectionalLight* sun_light = inScene.GetSunLight())
+    {
+        const DirectionalLight* sun_light = inScene.GetSunLight();
+
+        if (sun_light && sun_light->cubeMap)
+            return;
+
+        inCmdList.PushComputeConstants(SkyCubeRootConstants
         {
-            if (!sun_light->cubeMap)
-            {
-                inCmdList.PushComputeConstants(SkyCubeRootConstants
-                {
-                    .mSkyCubeTexture    = inResources.GetBindlessHeapIndex(inData.mSkyCubeTexture),
-                    .mSunLightDirection = sun_light->GetDirection(),
-                    .mSunLightColor     = sun_light->GetColor()
-                });
+            .mSkyCubeTexture    = inResources.GetBindlessHeapIndex(inData.mSkyCubeTexture),
+            .mSunLightDirection = sun_light ? sun_light->GetDirection() : DirectionalLight().GetDirection(),
+            .mSunLightColor     = sun_light ? sun_light->GetColor() : Vec4(0.0f)
+        });
 
-                inCmdList->SetPipelineState(g_SystemShaders.mSkyCubeShader.GetComputePSO());
+        inCmdList->SetPipelineState(g_SystemShaders.mSkyCubeShader.GetComputePSO());
 
-                const Texture::Desc& texture_desc = inDevice.GetTexture(inResources.GetTexture(inData.mSkyCubeTexture)).GetDesc();
+        const Texture::Desc& texture_desc = inDevice.GetTexture(inResources.GetTexture(inData.mSkyCubeTexture)).GetDesc();
 
-                inCmdList->Dispatch(texture_desc.width / 8, texture_desc.height / 8, texture_desc.depthOrArrayLayers);
-            }
-        }
-        else
-        {
-            ClearTextureUAV(inDevice, inResources.GetTexture(inData.mSkyCubeTexture), Vec4(0.0f), inCmdList);
-        }
+        inCmdList->Dispatch(texture_desc.width / 8, texture_desc.height / 8, texture_desc.depthOrArrayLayers);
     });
 }
 
@@ -273,23 +218,16 @@ const ConvolveCubeData& AddConvolveSkyCubePass(RenderGraph& inRenderGraph, Devic
 
     [&inDevice, &inScene](ConvolveCubeData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
-        if (const DirectionalLight* sun_light = inScene.GetSunLight())
-        {
-            inCmdList->SetPipelineState(g_SystemShaders.mConvolveCubeShader.GetComputePSO());
+        inCmdList->SetPipelineState(g_SystemShaders.mConvolveCubeShader.GetComputePSO());
 
-            inCmdList.PushComputeConstants(ConvolveCubeRootConstants
-            {
-                .mCubeTexture = inResources.GetBindlessHeapIndex(inData.mCubeTextureSRV),
-                .mConvolvedCubeTexture = inResources.GetBindlessHeapIndex(inData.mConvolvedCubeTexture)
-            });
-
-            const Texture& texture = inDevice.GetTexture(inResources.GetTexture(inData.mConvolvedCubeTexture));
-            inCmdList->Dispatch(texture.GetWidth() / 8, texture.GetHeight() / 8, texture.GetLayers());
-        }
-        else
+        inCmdList.PushComputeConstants(ConvolveCubeRootConstants
         {
-            ClearTextureUAV(inDevice, inResources.GetTexture(inData.mConvolvedCubeTexture), Vec4(0.0f), inCmdList);
-        }
+            .mCubeTexture = inResources.GetBindlessHeapIndex(inData.mCubeTextureSRV),
+            .mConvolvedCubeTexture = inResources.GetBindlessHeapIndex(inData.mConvolvedCubeTexture)
+        });
+
+        const Texture& texture = inDevice.GetTexture(inResources.GetTexture(inData.mConvolvedCubeTexture));
+        inCmdList->Dispatch(texture.GetWidth() / 8, texture.GetHeight() / 8, texture.GetLayers());
     });
 }
 

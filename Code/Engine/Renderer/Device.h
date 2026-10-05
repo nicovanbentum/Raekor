@@ -39,7 +39,6 @@ public:
     [[nodiscard]] ID3D12CommandQueue* GetComputeQueue() { return m_ComputeQueue.Get(); }
     [[nodiscard]] ID3D12CommandQueue* GetGraphicsQueue() { return m_GraphicsQueue.Get(); }
 
-    [[nodiscard]] DescriptorHeap& GetClearHeap() { return m_ClearHeap; }
     [[nodiscard]] DescriptorHeap& GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE inType) { return m_Heaps[inType]; }
 
     [[nodiscard]] ID3D12RootSignature* GetGlobalRootSignature() { return m_GlobalRootSignature.Get(); }
@@ -155,7 +154,6 @@ private:
     ComPtr<ID3D12RootSignature> m_GlobalRootSignature;
 
     Mutex m_UploadMutex;
-    DescriptorHeap m_ClearHeap;
     uint64_t m_UploadBuffersSize = 0;
     ComPtr<ID3D12Fence1> m_UploadFence;
     Array<UploadBuffer> m_UploadBuffers;

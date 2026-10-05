@@ -85,9 +85,6 @@ enum EDebugTexture
 };
 
 
-void ClearTextureUAV(Device& inDevice, TextureID inTexture, Vec4 inValue, CommandList& inCmdList);
-
-
 ////////////////////////////////////////
 /// Defaults Pass
 ////////////////////////////////////////
@@ -120,19 +117,6 @@ const ClearBufferData& AddClearBufferPass(RenderGraph& inRenderGraph, Device& in
 
 
 
-////////////////////////////////////////
-/// Clear Texture Float Pass
-////////////////////////////////////////
-struct ClearTextureFloatData
-{
-    RenderGraphResourceViewID mTextureUAV;
-    ComPtr<ID3D12PipelineState> mPipeline;
-};
-
-const ClearTextureFloatData& AddClearTextureFloatPass(RenderGraph& inRenderGraph, Device& inDevice,
-    TextureID inTexture,
-    const Vec4& inClearValue
-);
 
 
 ////////////////////////////////////////

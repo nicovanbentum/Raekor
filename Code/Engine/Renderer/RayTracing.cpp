@@ -492,12 +492,6 @@ DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTr
         if (!inScene.HasTLAS())
             return;
 
-        //if (ProbeUpdateData::mClear)
-        //{
-        //    ClearTextureUAV(inDevice, inRGResources.GetTexture(inData.mProbesIrradianceTexture), Vec4(0.0), inCmdList);
-        //    ProbeUpdateData::mClear = false;
-        //}
-
         inData.mRandomRotationMatrix = gRandomOrientation();
 
         ProbeTraceRootConstants root_constants =
