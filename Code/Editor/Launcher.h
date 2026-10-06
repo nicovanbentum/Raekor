@@ -4,27 +4,6 @@
 
 namespace RK {
 
-
-class SDL_Image
-{
-public:
-	~SDL_Image();
-
-	bool Load(SDL_Renderer* inRenderer, const Path& inPath);
-	bool IsLoaded() const { return m_PixelData != nullptr; }
-
-	uint8_t* GetPixels()  const { return m_PixelData; }
-	SDL_Surface* GetSurface() const { return m_Surface; }
-	SDL_Texture* GetTexture() const { return m_Texture; }
-
-private:
-	uint8_t* m_PixelData = nullptr;
-	SDL_Surface* m_Surface = nullptr;
-	SDL_Texture* m_Texture = nullptr;
-};
-
-
-
 class Launcher : public Application
 {
 public:
@@ -37,12 +16,18 @@ public:
 	bool ShouldLaunch() const { return m_Launch; }
 
 private:
+	void DrawHeader();
+	void DrawStartupSettings();
+	void DrawConsoleVariables();
+	void DrawFooter();
+
+	void SetDisplay(SDL_DisplayID inDisplay);
+	void Launch();
+
 	bool m_Launch = false;
-	int m_NrOfRows = 0;
-	int m_ResizeCounter = 0;
-	SDL_Image m_BgImage;
+	String m_Filter;
 	SDL_Renderer* m_Renderer;
-	HashSet<String> m_SortedCvarNames;
+	Array<String> m_SortedCvarNames;
 };
 
 }
