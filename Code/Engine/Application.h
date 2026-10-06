@@ -79,6 +79,7 @@ public:
 	virtual void OnUpdate(float dt) = 0;
 	virtual void OnEvent(const SDL_Event& event) = 0;
 	virtual bool OnCloseRequested() { return true; }
+	virtual bool IsPausedWhenMinimized() const { return true; }
 
 	bool IsWindowBorderless() const;
 	bool IsWindowExclusiveFullscreen() const;

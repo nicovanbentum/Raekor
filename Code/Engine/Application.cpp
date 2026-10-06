@@ -194,7 +194,9 @@ void Application::Run()
 		if (do_resize_test && (m_FrameCounter % 100) == 0)
 			RandomlyResizeWindow(m_Window);
 
-		if (SDL_GetWindowFlags(m_Window) & SDL_WINDOW_MINIMIZED)
+		const bool is_paused = IsPausedWhenMinimized() && ( SDL_GetWindowFlags(m_Window) & SDL_WINDOW_MINIMIZED );
+
+		if (is_paused)
 			SDL_WaitEventTimeout(nullptr, 100);
 
 		SDL_Event event;
@@ -214,7 +216,7 @@ void Application::Run()
 		if (!m_Running)
 			break;
 
-		if (SDL_GetWindowFlags(m_Window) & SDL_WINDOW_MINIMIZED)
+		if (is_paused)
 		{
 			timer.Restart();
 			continue;

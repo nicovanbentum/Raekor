@@ -111,24 +111,39 @@ public:
 
 	virtual void OnUpdate(float inDeltaTime) override;
 	virtual void OnEvent(const SDL_Event& inEvent) override;
+	virtual bool OnCloseRequested() override;
+	virtual bool IsPausedWhenMinimized() const override { return false; }
 
 	void OpenFromTray();
+	void ShowTrayMenu();
 	HWND GetWindowHandle();
 
 private:
+	void ScheduleCompilation();
+	bool IsConversionEnabled(AssetType inType) const;
+	void SortFiles(int inColumn, bool inAscending);
+
+	void DrawHeader();
+	void DrawToolbar();
+	void DrawFileTable();
+	void DrawClearCachePopup();
+
+	void OpenFile(const FileEntry& inFile);
+	void ShowInExplorer(const FileEntry& inFile);
+	void Recompile(uint32_t inIndex);
+
 	uint32_t m_IPCLogSink = 0;
 	uint64_t m_StartTicks = 0;
 	uint64_t m_FinishedTicks = 0;
-	Path m_CurrentPath;
-	bool m_WasClosed = false;
-	int m_ResizeCounter = 0;
 	int m_SelectedIndex = -1;
 	SDL_Renderer* m_Renderer;
-	uint32_t m_NrOfFilesInFlight = 0;
 	std::mutex m_FilesInFlightMutex;
 	HashSet<uint32_t> m_FilesInFlight;
 	Array<FileEntry> m_Files;
-	HashSet<Path> m_CachedFiles;
+	Array<uint32_t> m_SortedFiles;
+	String m_Filter;
+	int m_TypeFilter = -1;
+	bool m_OpenClearCachePopup = false;
 	std::atomic<bool> m_CompileScenes = true;
 	std::atomic<bool> m_CompileScripts = false;
 	std::atomic<bool> m_CompileTextures = true;
