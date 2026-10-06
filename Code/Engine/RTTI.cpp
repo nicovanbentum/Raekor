@@ -67,6 +67,15 @@ void RTTIFactory::Register(RTTI& inRTTI)
 }
 
 
+void RTTIFactory::Unregister(RTTI& inRTTI)
+{
+	const auto registered = m_RegisteredTypes.find(inRTTI.mHash);
+
+	if (registered != m_RegisteredTypes.end() && registered->second == &inRTTI)
+		m_RegisteredTypes.erase(registered);
+}
+
+
 void RTTI::AddBaseClass(RTTI& inRTTI)
 {
 	m_BaseClasses.push_back(&inRTTI);

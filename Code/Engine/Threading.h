@@ -109,6 +109,6 @@ private:
 };
 
 
-extern JobSystem g_JobSystem;
+extern RK_API JobSystem g_JobSystem;
 
 }

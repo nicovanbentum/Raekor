@@ -15,14 +15,10 @@
 #endif
 
 
-#ifdef RAEKOR_SCRIPT
-#ifndef SCRIPT_INTERFACE
-    #define SCRIPT_INTERFACE __declspec(dllimport)
-#endif
+#ifdef RK_ENGINE_EXPORTS
+    #define RK_API __declspec(dllexport)
 #else
-#ifndef SCRIPT_INTERFACE
-    #define SCRIPT_INTERFACE __declspec(dllexport)
-#endif
+    #define RK_API __declspec(dllimport)
 #endif
 
 

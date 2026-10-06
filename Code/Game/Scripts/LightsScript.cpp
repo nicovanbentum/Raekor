@@ -72,4 +72,6 @@ RTTI_DEFINE_TYPE(LightsScript)
     RTTI_DEFINE_TYPE_INHERITANCE(LightsScript, INativeScript);
 }
 
+RK_REGISTER_SCRIPT(LightsScript)
+
 } // RK

@@ -36,6 +36,6 @@ private:
     Array<Vec4> m_RenderTriangles; // xyz = pos, w = packed color or texture index
 };
 
-extern DebugRenderer g_DebugRenderer;
+extern RK_API DebugRenderer g_DebugRenderer;
 
 }

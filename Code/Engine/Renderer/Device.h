@@ -4,6 +4,10 @@
 #include "Resource.h"
 #include "Application.h"
 
+#define RK_EXPORT_AGILITY_SDK()                                                                 \
+    extern "C" { __declspec( dllexport ) extern const UINT D3D12SDKVersion = 615; }             \
+    extern "C" { __declspec( dllexport ) extern const char* D3D12SDKPath = ".\\"; }
+
 namespace RK::DX12 {
 
 class CommandList;

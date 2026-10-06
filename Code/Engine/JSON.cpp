@@ -11,6 +11,21 @@ JSONData::JSONData(const Path& inPath, bool inTokenizeOnly)
 	buffer << ifs.rdbuf();
 	m_StrBuffer = buffer.str();
 
+	Parse(inPath.string(), inTokenizeOnly);
+}
+
+
+JSONData JSONData::sFromText(String inText)
+{
+	JSONData data;
+	data.m_StrBuffer = std::move(inText);
+	data.Parse("text", false);
+	return data;
+}
+
+
+void JSONData::Parse(StringView inSourceName, bool inTokenizeOnly)
+{
 	jsmn_parser parser;
 	jsmn_init(&parser);
 
@@ -18,7 +33,7 @@ JSONData::JSONData(const Path& inPath, bool inTokenizeOnly)
 	if (nr_of_tokens <= 0)
 	{
 		if (nr_of_tokens < 0)
-			gLogError("JSON", "Failed to parse {}, error code {}", inPath.string(), nr_of_tokens);
+			gLogError("JSON", "Failed to parse {}, error code {}", inSourceName, nr_of_tokens);
 
 		return;
 	}

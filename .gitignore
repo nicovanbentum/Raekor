@@ -12,6 +12,7 @@
 *.log
 *.user
 *.cmake
+!CMake/Triplets/*.cmake
 *.vcxproj
 *.vcxproj.filters
 test.*

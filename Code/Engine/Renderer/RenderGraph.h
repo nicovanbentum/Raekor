@@ -113,7 +113,7 @@ public:
     void Release(Device& inDevice);
     void RetireHeaps(Device& inDevice);
 
-    void Clear() { if (m_VirtualBlock) m_VirtualBlock->Clear(); }
+    void Clear();
 
     BufferID CreateBuffer(Device& inDevice, const Buffer::Desc& inDesc);
     TextureID CreateTexture(Device& inDevice, const Texture::Desc& inDesc);

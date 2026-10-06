@@ -2,14 +2,23 @@
 
 #include "ECS.h"
 #include "Scene.h"
+#include "Defines.h"
 #include "Assets.h"
 
-#define DECLARE_SCRIPT_CLASS(T) class T : public INativeScript { public: RTTI_DECLARE_VIRTUAL_TYPE(T); };
+#define RK_SCRIPT_TYPES_FUNCTION_STR "gGetScriptTypes"
 
-#define SCRIPT_EXPORTED_FUNCTION_STR "gGetTypes"
-#define SCRIPT_EXPORTED_FUNCTION_NAME gGetTypes
+#define RK_REGISTER_SCRIPT(Type) \
+	static const bool s##Type##Registered = ( ::RK::gGetModuleScriptTypes().push_back(&RTTI_OF<Type>()), true );
+
+#define RK_SCRIPT_MODULE()                                                                                          \
+	::RK::Array<::RK::RTTI*>& ::RK::gGetModuleScriptTypes() { static ::RK::Array<::RK::RTTI*> types; return types; } \
+	extern "C" __declspec( dllexport ) const ::RK::Array<::RK::RTTI*>* gGetScriptTypes() { return &::RK::gGetModuleScriptTypes(); }
 
 namespace RK {
+
+class RTTI;
+
+Array<RTTI*>& gGetModuleScriptTypes();
 
 class Input;
 class Scene;
@@ -103,6 +112,38 @@ T* INativeScript::GetAsset(const Path& inPath)
 {
 	return GetAssets()->GetAsset<T>(inPath);
 }
+
+
+class ScriptModule
+{
+public:
+	using GetTypesFunction = const Array<RTTI*>* (*)();
+
+	ScriptModule() = default;
+	~ScriptModule() { Unload(); }
+
+	NO_COPY_NO_MOVE(ScriptModule);
+
+	bool Load(const Path& inModulePath);
+	void Unload();
+
+	bool IsLoaded() const { return m_Module != nullptr; }
+	bool HasChangedOnDisk() const;
+
+	const Path& GetModulePath() const { return m_ModulePath; }
+	Slice<RTTI* const> GetTypes() const { return m_Types; }
+	uint32_t GetLoadCount() const { return m_LoadCount; }
+
+	static Path sGetDefaultModulePath();
+
+private:
+	Path m_ModulePath;
+	Path m_LoadedDirectory;
+	void* m_Module = nullptr;
+	uint32_t m_LoadCount = 0;
+	Array<RTTI*> m_Types;
+	fs::file_time_type m_LoadedWriteTime;
+};
 
 
 } // Raekor

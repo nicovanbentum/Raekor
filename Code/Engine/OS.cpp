@@ -53,6 +53,89 @@ bool OS::sCreateProcess(const char* inCmd)
 }
 
 
+bool OS::sRunProcess(const String& inCmd, const std::function<void(StringView)>& inOnOutputLine)
+{
+	SECURITY_ATTRIBUTES security_attributes = { .nLength = sizeof(SECURITY_ATTRIBUTES), .bInheritHandle = TRUE };
+
+	HANDLE read_pipe = nullptr;
+	HANDLE write_pipe = nullptr;
+
+	if (!CreatePipe(&read_pipe, &write_pipe, &security_attributes, 0))
+		return false;
+
+	SetHandleInformation(read_pipe, HANDLE_FLAG_INHERIT, 0);
+
+	STARTUPINFOA startup_info = { .cb = sizeof(STARTUPINFOA) };
+	startup_info.dwFlags = STARTF_USESTDHANDLES;
+	startup_info.hStdOutput = write_pipe;
+	startup_info.hStdError = write_pipe;
+	startup_info.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+
+	PROCESS_INFORMATION process_info = {};
+	String command_line = inCmd;
+
+	const bool created = CreateProcessA(nullptr, command_line.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW, nullptr, nullptr, &startup_info, &process_info);
+
+	CloseHandle(write_pipe);
+
+	if (!created)
+	{
+		CloseHandle(read_pipe);
+		return false;
+	}
+
+	String pending;
+	char buffer[4096];
+	DWORD bytes_read = 0;
+
+	auto FlushLines = [&](bool inFlushRemainder)
+	{
+		size_t line_start = 0;
+		size_t line_end = pending.find('\n');
+
+		while (line_end != String::npos)
+		{
+			StringView line = StringView(pending).substr(line_start, line_end - line_start);
+
+			if (!line.empty() && line.back() == '\r')
+				line.remove_suffix(1);
+
+			inOnOutputLine(line);
+
+			line_start = line_end + 1;
+			line_end = pending.find('\n', line_start);
+		}
+
+		pending.erase(0, line_start);
+
+		if (inFlushRemainder && !pending.empty())
+		{
+			inOnOutputLine(pending);
+			pending.clear();
+		}
+	};
+
+	while (ReadFile(read_pipe, buffer, sizeof(buffer), &bytes_read, nullptr) && bytes_read > 0)
+	{
+		pending.append(buffer, bytes_read);
+		FlushLines(false);
+	}
+
+	FlushLines(true);
+
+	WaitForSingleObject(process_info.hProcess, INFINITE);
+
+	DWORD exit_code = 1;
+	GetExitCodeProcess(process_info.hProcess, &exit_code);
+
+	CloseHandle(read_pipe);
+	CloseHandle(process_info.hProcess);
+	CloseHandle(process_info.hThread);
+
+	return exit_code == 0;
+}
+
+
 void OS::sCopyToClipboard(const char* inText)
 {
 	const size_t len = strlen(inText) + 1;

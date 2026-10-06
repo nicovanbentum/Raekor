@@ -4,6 +4,7 @@
 #include "JSON.h"
 #include "GLTF.h"
 #include "Scene.h"
+#include "Script.h"
 #include "Assets.h"
 #include "Timer.h"
 #include "Member.h"
@@ -249,6 +250,92 @@ static void sTestSceneRoundTrip(const Path& inDirectory)
 		if (scene.Has<Light>(entity))
 			CHECK(loaded.Get<Light>(entity).color == scene.Get<Light>(entity).color);
 	}
+}
+
+
+class TestScript : public INativeScript
+{
+public:
+	RTTI_DECLARE_VIRTUAL_TYPE(TestScript);
+
+	void OnUpdate(float inDeltaTime) override {}
+	void OnEvent(const SDL_Event& inEvent) override {}
+
+	int mCount = 1;
+	float mSpeed = 2.0f;
+	bool mEnabled = false;
+	Entity mTarget = Entity::Null;
+};
+
+RTTI_DEFINE_TYPE(TestScript)
+{
+	RTTI_DEFINE_TYPE_INHERITANCE(TestScript, INativeScript);
+
+	RTTI_DEFINE_SCRIPT_MEMBER(TestScript, SERIALIZE_ALL, "Count", mCount);
+	RTTI_DEFINE_SCRIPT_MEMBER(TestScript, SERIALIZE_ALL, "Speed", mSpeed);
+	RTTI_DEFINE_SCRIPT_MEMBER(TestScript, SERIALIZE_ALL, "Enabled", mEnabled);
+	RTTI_DEFINE_SCRIPT_MEMBER(TestScript, SERIALIZE_ALL, "Target", mTarget);
+}
+
+
+static void sTestScriptVariables(const Path& inDirectory)
+{
+	const String scene_path = ( inDirectory / "scripts.scene" ).string();
+
+	Assets assets;
+	Scene scene = Scene(nullptr);
+
+	const Entity target = scene.CreateSpatialEntity("Target");
+	const Entity entity = scene.CreateSpatialEntity("Scripted");
+
+	NativeScript& script = scene.Add<NativeScript>(entity);
+	script.type = RTTI_OF<TestScript>().GetTypeName();
+
+	scene.BindScriptToEntity(entity, script, nullptr);
+	CHECK(script.script != nullptr);
+
+	if (script.script == nullptr)
+		return;
+
+	TestScript* instance = static_cast<TestScript*>( script.script );
+	instance->mCount = 42;
+	instance->mSpeed = 0.125f;
+	instance->mEnabled = true;
+	instance->mTarget = target;
+
+	scene.UnbindScripts();
+	CHECK(script.script == nullptr);
+	CHECK(!script.variables.empty());
+
+	scene.BindScriptToEntity(entity, script, nullptr);
+	instance = static_cast<TestScript*>( script.script );
+
+	CHECK(instance && instance->mCount == 42 && instance->mSpeed == 0.125f && instance->mEnabled && instance->mTarget == target);
+
+	scene.StoreScriptVariables();
+	scene.SaveToFile(scene_path, assets);
+	scene.UnbindScripts();
+
+	Scene loaded = Scene(nullptr);
+	loaded.OpenFromFile(scene_path, assets);
+
+	NativeScript& loaded_script = loaded.Get<NativeScript>(entity);
+	CHECK(loaded_script.type == script.type);
+
+	loaded.BindScriptToEntity(entity, loaded_script, nullptr);
+	const TestScript* loaded_instance = static_cast<const TestScript*>( loaded_script.script );
+
+	CHECK(loaded_instance && loaded_instance->mCount == 42 && loaded_instance->mSpeed == 0.125f && loaded_instance->mEnabled && loaded_instance->mTarget == target);
+
+	loaded.UnbindScripts();
+
+	loaded_script.variables = "{\"Removed\": [1, 2, 3], \"Count\": 7}";
+	loaded.BindScriptToEntity(entity, loaded_script, nullptr);
+
+	const TestScript* migrated_instance = static_cast<const TestScript*>( loaded_script.script );
+	CHECK(migrated_instance && migrated_instance->mCount == 7 && migrated_instance->mSpeed == 2.0f);
+
+	loaded.UnbindScripts();
 }
 
 
@@ -505,6 +592,7 @@ int main(int argc, char** argv)
 	g_RTTIFactory.Register<TestComponentV1>();
 	g_RTTIFactory.Register<TestComponentV2>();
 	g_RTTIFactory.Register<TestLegacyComponent>();
+	g_RTTIFactory.Register<TestScript>();
 
 	const Path directory = fs::temp_directory_path() / "RaekorTests";
 	fs::create_directories(directory);
@@ -515,6 +603,7 @@ int main(int argc, char** argv)
 	sTestLegacyMemberSkipping(directory);
 	sTestSceneRoundTrip(directory);
 	sTestSceneMergeAndSwap();
+	sTestScriptVariables(directory);
 	sTestGltfBlendModes("Assets/Models/glTF-Sample-Models-main/2.0/AlphaBlendModeTest/glTF/AlphaBlendModeTest.gltf");
 
 	String legacy_scene = OS::sGetCommandLineValue("-legacy_scene");

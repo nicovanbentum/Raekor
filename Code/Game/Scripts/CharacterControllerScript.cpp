@@ -191,4 +191,6 @@ RTTI_DEFINE_TYPE(CharacterControllerScript)
     RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, "Camera Distance", m_CameraDistance);
 }
 
+RK_REGISTER_SCRIPT(CharacterControllerScript)
+
 } // RK

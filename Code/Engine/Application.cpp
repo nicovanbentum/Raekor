@@ -289,23 +289,7 @@ void Game::Start()
         physics->SetState(Physics::Stepping);
     }
 
-    if (Scene* scene = GetScene())
-    {
-        for (auto [entity, script] : scene->Each<NativeScript>())
-        {
-            if (script.script)
-            {
-                try
-                {
-                    script.script->OnStart();
-                }
-                catch (std::exception& e)
-                {
-                    gLogError("Script", "{}", e.what());
-                }
-            }
-        }
-    }
+    CallScripts(&INativeScript::OnStart, "OnStart");
 
     g_Input->SetRelativeMouseMode(true);
 
@@ -358,29 +342,98 @@ void Game::Stop()
         }
     }
 
-    if (Scene* scene = GetScene())
-    {
-        for (auto [entity, script] : scene->Each<NativeScript>())
-        {
-            if (script.script)
-            {
-                try
-                {
-                    script.script->OnStop();
-                }
-                catch (std::exception& e)
-                {
-                    gLogError("Script", "{}", e.what());
-                }
-            }
-        }
-    }
+    CallScripts(&INativeScript::OnStop, "OnStop");
 
     SetCameraEntity(Entity::Null);
 
     g_Input->SetRelativeMouseMode(false);
 
     SetGameState(GAME_STOPPED);
+}
+
+
+void Game::CallScripts(void ( INativeScript::* inFunction )( ), const char* inFunctionName)
+{
+    Scene* scene = GetScene();
+
+    if (scene == nullptr)
+        return;
+
+    for (auto [entity, script] : scene->Each<NativeScript>())
+    {
+        if (script.script == nullptr)
+            continue;
+
+        try
+        {
+            ( script.script->*inFunction )( );
+        }
+        catch (std::exception& e)
+        {
+            gLogError("Script", "{} {} failed: {}", script.type, inFunctionName, e.what());
+        }
+    }
+}
+
+
+bool Game::LoadScripts(const Path& inModulePath)
+{
+    const bool loaded = m_ScriptModule.Load(inModulePath);
+
+    if (Scene* scene = GetScene())
+        scene->BindScripts(this);
+
+    return loaded;
+}
+
+
+void Game::UnloadScripts()
+{
+    if (Scene* scene = GetScene())
+    {
+        if (GetGameState() == GAME_RUNNING)
+            CallScripts(&INativeScript::OnStop, "OnStop");
+
+        scene->UnbindScripts();
+    }
+
+    m_ScriptModule.Unload();
+}
+
+
+void Game::ReloadScripts()
+{
+    const bool was_running = GetGameState() == GAME_RUNNING;
+    const Path module_path = m_ScriptModule.GetModulePath().empty() ? ScriptModule::sGetDefaultModulePath() : m_ScriptModule.GetModulePath();
+
+    Timer timer;
+
+    UnloadScripts();
+    LoadScripts(module_path);
+
+    if (was_running)
+        CallScripts(&INativeScript::OnStart, "OnStart");
+
+    gLogInfo("Scripts", "Reloaded scripts in {:.2f} ms", Timer::sToMilliseconds(timer.GetElapsedTime()));
+}
+
+
+bool Game::ReloadScriptsIfChanged(float inDeltaTime)
+{
+    static constexpr float cPollInterval = 0.5f;
+
+    m_ScriptPollTime += inDeltaTime;
+
+    if (m_ScriptPollTime < cPollInterval)
+        return false;
+
+    m_ScriptPollTime = 0.0f;
+
+    if (!m_ScriptModule.HasChangedOnDisk())
+        return false;
+
+    ReloadScripts();
+    return true;
 }
 
 

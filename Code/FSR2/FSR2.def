@@ -1,0 +1,17 @@
+LIBRARY FSR2
+EXPORTS
+    ffxFsr2ContextCreate
+    ffxFsr2ContextDispatch
+    ffxFsr2ContextGenerateReactiveMask
+    ffxFsr2ContextDestroy
+    ffxFsr2GetUpscaleRatioFromQualityMode
+    ffxFsr2GetRenderResolutionFromQualityMode
+    ffxFsr2GetJitterPhaseCount
+    ffxFsr2GetJitterOffset
+    ffxFsr2ResourceIsNull
+    ffxFsr2GetScratchMemorySizeDX12
+    ffxFsr2GetInterfaceDX12
+    ffxGetDeviceDX12
+    ffxGetCommandListDX12
+    ffxGetResourceDX12
+    ffxGetDX12ResourcePtr

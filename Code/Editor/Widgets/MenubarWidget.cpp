@@ -375,6 +375,20 @@ void MenubarWidget::DrawToolsMenu()
 	if (ImGui::IsItemHovered())
 		ImGui::SetTooltip("Starts the asset compiler, it keeps converting assets in the background from the system tray.");
 
+	ImGui::Separator();
+
+	if (ImGui::MenuItem((const char*)ICON_FA_HAMMER "  Build Scripts", "Ctrl+B", false, !m_Editor->IsBuildingScripts()))
+		m_Editor->BuildScripts();
+
+	if (ImGui::IsItemHovered())
+		ImGui::SetTooltip("Compiles Code/Game/Scripts, the editor reloads them as soon as the build finishes.");
+
+	if (ImGui::MenuItem((const char*)ICON_FA_SYNC "  Reload Scripts", nullptr, false, !m_Editor->IsBuildingScripts()))
+		m_Editor->ReloadScripts();
+
+	if (ImGui::IsItemHovered())
+		ImGui::SetTooltip("Reloads Scripts.dll, script variables are kept.");
+
 	ImGui::EndMenu();
 }
 
@@ -423,6 +437,8 @@ void MenubarWidget::DrawShortcutsWindow()
 		std::pair { "Alt", "Toggle mouse capture" },
 		std::pair { "F1", "Maximize the viewport" },
 		std::pair { "F5", "Play or resume the game" },
+		std::pair { "Scripts", "" },
+		std::pair { "Ctrl+B", "Build and hot reload scripts" },
 	};
 
 	ImGui::SetNextWindowSize(ImVec2(ImGui::GetFontSize() * 28.0f, 0.0f), ImGuiCond_Appearing);

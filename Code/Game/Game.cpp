@@ -4,7 +4,6 @@
 #include "Script.h"
 #include "UIRenderer.h"
 #include "DebugRenderer.h"
-#include "Scripts/Scripts.h"
 #include "Renderer/Shader.h"
 #include "Renderer/Renderer.h"
 #include "Renderer/GPUProfiler.h"
@@ -24,7 +23,7 @@ GameApp::GameApp() :
     m_RayTracedScene(m_Scene),
     m_RenderInterface(this, m_Device, m_Renderer)
 {
-    gRegisterScriptTypes();
+    LoadScripts();
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -130,6 +129,7 @@ GameApp::GameApp() :
 GameApp::~GameApp()
 {
     Game::Stop();
+    UnloadScripts();
 }
 
 void GameApp::OnUpdate(float inDeltaTime)
@@ -176,6 +176,8 @@ void GameApp::OnUpdate(float inDeltaTime)
 
     // update Skeleton and Animation components
     m_Scene.UpdateAnimations(inDeltaTime);
+
+    ReloadScriptsIfChanged(inDeltaTime);
 
     // update NativeScript components
     if (GetGameState() == GAME_RUNNING)

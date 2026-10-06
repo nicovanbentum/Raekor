@@ -18,6 +18,7 @@ bool sWatchDirectory(const Path& inDirPath, EDirectoryChange& outChange, Path& o
 void  sOpenFile(const char* inFile);
 bool  sRunMsBuild(const char* args);
 bool  sCreateProcess(const char* inCmd);
+bool  sRunProcess(const String& inCmd, const std::function<void(StringView)>& inOnOutputLine);
 void  sCopyToClipboard(const char* inText);
 bool  sSetDarkTitleBar(SDL_Window* inWindow);
 void* sGetFunctionPointer(const char* inName);

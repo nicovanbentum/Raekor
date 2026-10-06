@@ -2,7 +2,9 @@
 #include "Scene.h"
 #include "Math.h"
 #include "Iter.h"
+#include "JSON.h"
 #include "Undo.h"
+#include "Member.h"
 #include "Input.h"
 #include "Timer.h"
 #include "Script.h"
@@ -617,24 +619,57 @@ bool Scene::ReadSceneFile(const String& inFilePath)
 }
 
 
-void Scene::BindScripts(Assets& ioAssets, Application* inApp)
+void Scene::BindScripts(Application* inApp)
 {
 	if (inApp == nullptr)
 		return;
 
 	for (const auto& [entity, script] : Each<NativeScript>())
 	{
-		if (ScriptAsset::Ptr asset = ioAssets.GetAsset<ScriptAsset>(script.file))
-		{
-			for (const String& type_str : asset->GetRegisteredTypes())
-				script.types.push_back(type_str);
+		if (script.script == nullptr && g_RTTIFactory.GetRTTI(script.type.c_str()))
+			BindScriptToEntity(entity, script, inApp);
+	}
+}
 
-			BindScriptToEntity(entity, script, inApp);
-		}
-		else if (!script.type.empty())
+
+void Scene::UnbindScripts()
+{
+	StoreScriptVariables();
+
+	for (const auto& [entity, script] : Each<NativeScript>())
+	{
+		delete script.script;
+		script.script = nullptr;
+	}
+}
+
+
+void Scene::StoreScriptVariables()
+{
+	for (const auto& [entity, script] : Each<NativeScript>())
+	{
+		if (script.script == nullptr)
+			continue;
+
+		JSON::JSONWriter writer;
+		writer.Write("{");
+
+		bool is_first_member = true;
+
+		for (const auto& member : script.script->GetRTTI())
 		{
-			BindScriptToEntity(entity, script, inApp);
+			if (!is_first_member)
+				writer.Write(", ");
+
+			writer.Write(std::format("\"{}\": ", member->GetCustomName()));
+			member->ToJSON(writer, script.script);
+
+			is_first_member = false;
 		}
+
+		writer.Write("}");
+
+		script.variables = writer.GetString();
 	}
 }
 
@@ -661,7 +696,7 @@ void Scene::OpenFromFile(const String& inFilePath, Assets& ioAssets, Application
 
 	UploadMeshes();
 
-	BindScripts(ioAssets, inApp);
+	BindScripts(inApp);
 
 	gLogInfo("Scene", "Upload mesh data to GPU took {:.3f} seconds.", timer.GetElapsedTime());
 }
@@ -867,6 +902,27 @@ void Scene::BindScriptToEntity(Entity inEntity, NativeScript& inScript, Applicat
 		inScript.script->m_Input = g_Input;
 		inScript.script->m_Entity = inEntity;
 		inScript.script->m_DebugRenderer = &g_DebugRenderer;
+
+		if (!inScript.variables.empty())
+		{
+			const RTTI& rtti = inScript.script->GetRTTI();
+			JSON::JSONData json = JSON::JSONData::sFromText(inScript.variables);
+
+			if (json.HasRootObject())
+			{
+				uint32_t token_index = 1;
+
+				while (token_index < json.GetTokenCount())
+				{
+					const String& member_name = json.GetString(token_index++);
+
+					if (Member* member = rtti.GetMember(member_name.c_str()))
+						token_index = member->FromJSON(json, token_index, inScript.script);
+					else
+						token_index = json.SkipToken(token_index);
+				}
+			}
+		}
 
 		inScript.script->OnBind();
 

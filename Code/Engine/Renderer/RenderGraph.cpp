@@ -285,6 +285,14 @@ void RenderGraphResourceAllocator::Reserve(Device& inDevice, uint64_t inSize, ui
 
 
 
+void RenderGraphResourceAllocator::Clear()
+{
+    if (m_VirtualBlock)
+        m_VirtualBlock->Clear();
+}
+
+
+
 void RenderGraphResourceAllocator::Release(Device& inDevice)
 {
     Clear();

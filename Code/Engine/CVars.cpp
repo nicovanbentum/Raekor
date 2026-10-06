@@ -5,6 +5,8 @@
 
 namespace RK {
 
+CVariables* g_CVariables = nullptr;
+
 RTTI_DEFINE_TYPE(CVar)
 {
 	RTTI_DEFINE_MEMBER(CVar, SERIALIZE_ALL, "Type", mType);

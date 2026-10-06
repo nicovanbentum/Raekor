@@ -86,6 +86,9 @@ public:
 	void DeleteSelection();
 	void DuplicateSelection();
 
+	void BuildScripts();
+	bool IsBuildingScripts() const { return m_ScriptBuildJob && !m_ScriptBuildJob->IsFinished(); }
+
 	void MarkSceneChanged() { m_ChangeCount++; }
 	bool IsSceneDirty() const { return m_ChangeCount != m_SavedChangeCount; }
 	void RunAfterUnsavedChangesCheck(const std::function<void()>& inAction);
@@ -128,6 +131,7 @@ protected:
 	ImGuiSelectionBasicStorage m_Selection;
 
 	Job::Ptr m_SaveJob;
+	Job::Ptr m_ScriptBuildJob;
 	UniquePtr<SceneTask> m_SceneTask;
 
 	uint64_t m_ChangeCount = 0;

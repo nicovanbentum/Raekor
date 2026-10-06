@@ -103,6 +103,6 @@ inline T* CVariables::TryGetValue(const std::string& inName)
 	return &m_ConVars[inName].GetValue<T>();
 }
 
-inline CVariables* g_CVariables = nullptr;
+extern RK_API CVariables* g_CVariables;
 
 } // raekor

@@ -1385,6 +1385,7 @@ bool InspectorWidget::DrawComponent(Entity inEntity, NativeScript& inScript)
 					if (ImGui::Selectable(rtti->GetTypeName(), false))
 					{
 						inScript.type = rtti->GetTypeName();
+						inScript.variables.clear();
 						scene.BindScriptToEntity(GetActiveEntity(), inScript, m_Editor);
 					}
 				}

@@ -7,53 +7,53 @@ namespace RK::DX12 {
 
 struct RenderSettings
 {
-    static inline bool mDoFAutoFocus = true;
-    static inline float mDoFAperture = 1.8f;
-    static inline float mDoFFocusDistance = 5.0f;
+    static RK_API bool mDoFAutoFocus;
+    static RK_API float mDoFAperture;
+    static RK_API float mDoFFocusDistance;
 
-    static inline int mGTAOSliceCount = 2;
-    static inline int mGTAOStepCount = 8;
-    static inline float mGTAORadius = 1.0f;
-    static inline float mGTAOThickness = 0.25f;
-    static inline float mGTAOPower = 1.0f;
+    static RK_API int mGTAOSliceCount;
+    static RK_API int mGTAOStepCount;
+    static RK_API float mGTAORadius;
+    static RK_API float mGTAOThickness;
+    static RK_API float mGTAOPower;
 
-    static inline int mSSRSamples = 16;
-    static inline float mSSRBias = 0.025f;
-    static inline float mSSRRadius = 0.05f;
+    static RK_API int mSSRSamples;
+    static RK_API float mSSRBias;
+    static RK_API float mSSRRadius;
 
-    static inline float mGrassBend = 0.0f;
-    static inline float mGrassTilt = 0.0f;
-    static inline Vec2 mWindDirection = Vec2(0.0f, -1.0f);
+    static RK_API float mGrassBend;
+    static RK_API float mGrassTilt;
+    static RK_API Vec2 mWindDirection;
 
-    static inline float mEV100 = 15.0f;
-    static inline float mVignetteScale = 0.8f;
-    static inline float mVignetteBias = 0.2f;
-    static inline float mVignetteInner = 0.0f;
-    static inline float mVignetteOuter = 2.0f;
-    static inline float mBloomBlendFactor = 0.06f;
-    static inline float mChromaticAberrationStrength = 0.0;
+    static RK_API float mEV100;
+    static RK_API float mVignetteScale;
+    static RK_API float mVignetteBias;
+    static RK_API float mVignetteInner;
+    static RK_API float mVignetteOuter;
+    static RK_API float mBloomBlendFactor;
+    static RK_API float mChromaticAberrationStrength;
 
-    static inline float mRTAORadius = 1.0;
-    static inline float mRTAOPower = 1.0;
-    static inline float mRTAONormalBias = 0.01;
-    static inline uint32_t mRTAOSampleCount = 1;
+    static RK_API float mRTAORadius;
+    static RK_API float mRTAOPower;
+    static RK_API float mRTAONormalBias;
+    static RK_API uint32_t mRTAOSampleCount;
 
-    static inline bool mPathTraceReset = false;
-    static inline uint32_t mPathTraceBounces = 2u;
-    static inline uint32_t mPathTraceAlphaBounces = 4u;
+    static RK_API bool mPathTraceReset;
+    static RK_API uint32_t mPathTraceBounces;
+    static RK_API uint32_t mPathTraceAlphaBounces;
 
-    static inline bool mDDGIUseChebyshev = true;
-    static inline bool mDDGIUseMultibounce = true;
-    static inline float mDDGIDebugRadius = 0.25f;
-    static inline IVec3 mDDGIDebugProbe = IVec3(0, 0, 0);
-    static inline IVec3 mDDGIProbeCount = IVec3(16, 16, 16);
-    static inline Vec3 mDDGIProbeSpacing = Vec3(6.4, 3.0, 2.8);
-    static inline Vec3 mDDGICornerPosition = Vec3(-65, -1.4, -28.5);
-    static inline bool mDDGIFollowCamera = false;
-    static inline uint32_t mDDGICascadeCount = 1;
-    static inline StaticArray<DDGIVolume, DDGI_MAX_CASCADES> mDDGIVolumes = {};
+    static RK_API bool mDDGIUseChebyshev;
+    static RK_API bool mDDGIUseMultibounce;
+    static RK_API float mDDGIDebugRadius;
+    static RK_API IVec3 mDDGIDebugProbe;
+    static RK_API IVec3 mDDGIProbeCount;
+    static RK_API Vec3 mDDGIProbeSpacing;
+    static RK_API Vec3 mDDGICornerPosition;
+    static RK_API bool mDDGIFollowCamera;
+    static RK_API uint32_t mDDGICascadeCount;
+    static RK_API StaticArray<DDGIVolume, DDGI_MAX_CASCADES> mDDGIVolumes;
 
-    static inline Entity mActiveEntity = Entity::Null;
+    static RK_API Entity mActiveEntity;
 
     static float GetExposure() { return 1.0f / ( 1.2f * std::exp2(mEV100) ); }
 

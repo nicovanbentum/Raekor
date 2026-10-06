@@ -199,4 +199,6 @@ RTTI_DEFINE_TYPE(GunScript)
     RTTI_DEFINE_SCRIPT_MEMBER(GunScript, SERIALIZE_ALL, "Sway Distance", m_SwayMaxStepDistance);
 }
 
+RK_REGISTER_SCRIPT(GunScript)
+
 } // RK

@@ -12,7 +12,6 @@ namespace RK {
 
 class Scene;
 class Physics;
-class ScriptAsset;
 class TextureAsset;
 class INativeScript;
 class IComponentStorage;
@@ -313,7 +312,7 @@ struct Material
 	bool IsLoaded() const { return gpuAlbedoMap != 0 && gpuNormalMap != 0 && gpuMetallicMap != 0 && gpuRoughnessMap != 0 && gpuEmissiveMap != 0; }
 
 	// default material for newly spawned meshes
-	static Material Default;
+	static RK_API Material Default;
 };
 
 
@@ -323,7 +322,7 @@ struct NativeScript
 
 	String file; // ptr
 	String type;
-	Array<String> types;
+	String variables;
 	INativeScript* script = nullptr;
 };
 

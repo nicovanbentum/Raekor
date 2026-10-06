@@ -12,6 +12,8 @@ public:
 	JSONData() = default;
 	JSONData(const Path& inPath, bool inTokenizeOnly = false);
 
+	static JSONData sFromText(String inText);
+
 	bool IsKeyObjectPair(uint32_t inTokenIdx) const;
 	uint32_t SkipToken(uint32_t inTokenIdx) const;
 
@@ -64,6 +66,8 @@ public:
 	uint32_t ReadValue(uint32_t inTokenIdx, std::variant<Types...>& inValue);
 
 private:
+	void Parse(StringView inSourceName, bool inTokenizeOnly);
+
 	String m_StrBuffer;
 	Array<jsmntok_t> m_Tokens;
 	Array<double> m_Primitives;

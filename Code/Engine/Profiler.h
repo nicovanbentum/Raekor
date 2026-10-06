@@ -52,7 +52,7 @@ protected:
 };
 
 
-extern Profiler* g_Profiler;
+extern RK_API Profiler* g_Profiler;
 
 
 class CPUProfileSectionScoped

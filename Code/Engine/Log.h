@@ -68,7 +68,7 @@ private:
 };
 
 
-extern Logger g_Logger;
+extern RK_API Logger g_Logger;
 
 
 template<typename ...Args>

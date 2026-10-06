@@ -4,6 +4,8 @@
 
 namespace RK {
 
+ComponentRegistry g_ComponentRegistry;
+
 RTTI_DEFINE_TYPE_PRIMITIVE(Entity);
 
 struct TestName

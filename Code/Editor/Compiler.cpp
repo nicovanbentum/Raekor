@@ -21,10 +21,11 @@
 
 #include <winioctl.h>
 #include <commctrl.h>
+#pragma comment(lib, "comctl32.lib")
 
 namespace RK {
 
-static constexpr std::array cAssetTypeNames = { "Model", "Texture", "Embedded", "Script" };
+static constexpr std::array cAssetTypeNames = { "Model", "Texture", "Embedded" };
 
 static constexpr ImVec4 cConvertedColor = ImVec4(0.36f, 0.80f, 0.45f, 1.0f);
 static constexpr ImVec4 cPendingColor   = ImVec4(0.95f, 0.72f, 0.30f, 1.0f);
@@ -304,7 +305,6 @@ void CompilerApp::DrawToolbar()
 
 	DrawToggle("Models", m_CompileScenes, "Convert .gltf, .fbx and .obj files to .scene files");
 	DrawToggle("Textures", m_CompileTextures, "Convert images to block compressed .dds files");
-	DrawToggle("Scripts", m_CompileScripts, "Compile C++ scripts to hot loadable .dll files");
 
 	ImGui::SameLine(0.0f, ImGui::GetStyle().ItemSpacing.x * 3.0f);
 
@@ -595,26 +595,6 @@ void CompilerApp::ScheduleCompilation()
 				gLogInfo("Assets", "Converted {}", file.mAssetPath);
 			});
 		}
-		else if (file.mAssetType == ASSET_TYPE_CPP_SCRIPT)
-		{
-			g_JobSystem.Schedule([this, index, &file]()
-			{
-				fs::create_directories(Path(file.mCachePath).parent_path());
-
-				const String clang_exe = "dependencies\\clang\\clang.exe";
-				const String includes = "-I source\\RK\\ -I dependencies\\BinaryRelations -I dependencies\\cgltf -I dependencies\\glm\\glm -I dependencies\\JoltPhysics -I build\\vcpkg_installed\\x64-windows-static\\include";
-				const String command = std::format("{} -gcodeview {} {} -shared -std=c++20 -o {}", clang_exe, includes, file.mAssetPath, file.mCachePath);
-
-				OS::sCreateProcess(command.c_str());
-
-				std::scoped_lock lock(m_FilesInFlightMutex);
-
-				file.ReadMetadata();
-				m_FilesInFlight.erase(index);
-
-				gLogInfo("Assets", "Converted {}", file.mAssetPath);
-			});
-		}
 		else if (file.mAssetType == ASSET_TYPE_SCENE)
 		{
 			g_JobSystem.Schedule([this, index, &file]()
@@ -672,7 +652,6 @@ bool CompilerApp::IsConversionEnabled(AssetType inType) const
 	{
 		case ASSET_TYPE_SCENE:      return m_CompileScenes;
 		case ASSET_TYPE_IMAGE:      return m_CompileTextures;
-		case ASSET_TYPE_CPP_SCRIPT: return m_CompileScripts;
 		default:                    return false;
 	}
 }

@@ -89,7 +89,9 @@ public:
 	void SetFilePath(const Path& inPath) { m_ActiveSceneFilePath = inPath; }
 
 	// script utilities
-	void BindScripts(Assets& ioAssets, Application* inApp);
+	void BindScripts(Application* inApp);
+	void UnbindScripts();
+	void StoreScriptVariables();
 	void BindScriptToEntity(Entity inEntity, NativeScript& inScript, Application* inApp);
 	void Optimize();
 

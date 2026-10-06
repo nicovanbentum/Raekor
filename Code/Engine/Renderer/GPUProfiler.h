@@ -64,7 +64,7 @@ protected:
     Array<GPUProfileSection> m_GPUReadbackSections[sFrameCount];
 };
 
-extern GPUProfiler* g_GPUProfiler;
+extern RK_API GPUProfiler* g_GPUProfiler;
 
 
 class GPUProfileSectionScoped

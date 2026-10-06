@@ -488,7 +488,7 @@ private:
 	HashMap<uint32_t, Entry> m_Entries;
 };
 
-inline ComponentRegistry g_ComponentRegistry;
+extern RK_API ComponentRegistry g_ComponentRegistry;
 
 
 class ECStorage

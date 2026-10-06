@@ -226,4 +226,6 @@ RTTI_DEFINE_TYPE(VehicleControllerScript)
 
 }
 
+RK_REGISTER_SCRIPT(VehicleControllerScript)
+
 } // RK

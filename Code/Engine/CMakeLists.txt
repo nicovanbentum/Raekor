@@ -19,9 +19,6 @@ list(APPEND CppFiles ${CMAKE_SOURCE_DIR}/ThirdParty/ufbx/ufbx.c)
 set_source_files_properties(${CMAKE_SOURCE_DIR}/ThirdParty/meshoptimizer/src/clusterizer.cpp PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
 list(APPEND CppFiles ${CMAKE_SOURCE_DIR}/ThirdParty/meshoptimizer/src/clusterizer.cpp)
 
-set_source_files_properties(${CMAKE_SOURCE_DIR}/ThirdParty/D3D12MemoryAllocator/src/D3D12MemAlloc.cpp PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
-list(APPEND CppFiles ${CMAKE_SOURCE_DIR}/ThirdParty/D3D12MemoryAllocator/src/D3D12MemAlloc.cpp)
-
 set_source_files_properties(${CMAKE_SOURCE_DIR}/ThirdParty/samplerCPP/samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d_1spp.cpp PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
 list(APPEND CppFiles ${CMAKE_SOURCE_DIR}/ThirdParty/samplerCPP/samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d_1spp.cpp)
 
@@ -52,8 +49,12 @@ set_source_files_properties(ImGuiFiles PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
 list(APPEND CppFiles ${ImGuiFiles})
 
 # Rule to build the actual exectuable and enable c++20
-add_library(${PROJECT_NAME} ${CppFiles} ${HppFiles} ../Core.natvis)
+add_library(${PROJECT_NAME} SHARED ${CppFiles} ${HppFiles} ../Core.natvis)
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_20)
+set_target_properties(${PROJECT_NAME} PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
+
+target_compile_definitions(${PROJECT_NAME} PRIVATE RK_ENGINE_EXPORTS "IMGUI_API=__declspec(dllexport)")
+target_compile_definitions(${PROJECT_NAME} INTERFACE "IMGUI_API=__declspec(dllimport)")
 
 # Natvis files
 target_sources(${PROJECT_NAME} PRIVATE ../Core.natvis)
@@ -62,20 +63,13 @@ target_sources(${PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/ThirdParty/ufbx/misc/
 # target_sources(${PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/ThirdParty/raw_pdb/raw_pdb.natvis)
 target_sources(${PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/ThirdParty/JoltPhysics/Jolt/Jolt.natvis)
 
-# MSVC stuff for root working directory, static runtime and enabling precompiled headers
+# MSVC stuff for root working directory and enabling precompiled headers
 set_property(TARGET ${PROJECT_NAME} PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
-set_property(TARGET ${PROJECT_NAME} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 target_precompile_headers(${PROJECT_NAME} PRIVATE pch.h)
 
-find_library(DLSS NAMES nvsdk_ngx_s PATHS ${CMAKE_SOURCE_DIR}/ThirdParty/DLSS/lib/Windows_x86_64/x86_64 NO_DEFAULT_PATH REQUIRED)
-find_library(DLSSd NAMES nvsdk_ngx_s_dbg PATHS ${CMAKE_SOURCE_DIR}/ThirdParty/DLSS/lib/Windows_x86_64/x86_64 NO_DEFAULT_PATH REQUIRED)
-
-find_library(FSR2 NAMES ffx_fsr2_api_x64 PATHS ${CMAKE_SOURCE_DIR}/ThirdParty/FSR2/lib NO_DEFAULT_PATH REQUIRED)
-find_library(FSR2d NAMES ffx_fsr2_api_x64d PATHS ${CMAKE_SOURCE_DIR}/ThirdParty/FSR2/lib NO_DEFAULT_PATH REQUIRED)
-
-find_library(FSR2DX12 NAMES ffx_fsr2_api_dx12_x64 PATHS ${CMAKE_SOURCE_DIR}/ThirdParty/FSR2/lib NO_DEFAULT_PATH REQUIRED)
-find_library(FSR2DX12d NAMES ffx_fsr2_api_dx12_x64d PATHS ${CMAKE_SOURCE_DIR}/ThirdParty/FSR2/lib NO_DEFAULT_PATH REQUIRED)
+find_library(DLSS_LIBRARY NAMES nvsdk_ngx_d PATHS ${CMAKE_SOURCE_DIR}/ThirdParty/DLSS/lib/Windows_x86_64/x86_64 NO_DEFAULT_PATH REQUIRED)
+find_library(DLSS_LIBRARY_DEBUG NAMES nvsdk_ngx_d_dbg PATHS ${CMAKE_SOURCE_DIR}/ThirdParty/DLSS/lib/Windows_x86_64/x86_64 NO_DEFAULT_PATH REQUIRED)
 
 find_library(XESS NAMES libxess PATHS ${CMAKE_SOURCE_DIR}/ThirdParty/xess/lib NO_DEFAULT_PATH REQUIRED)
 
@@ -88,26 +82,42 @@ find_library(DISCORD_LIB NAMES discord_game_sdk lib PATHS ${CMAKE_SOURCE_DIR}/Th
 
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PROJECT_SOURCE_DIR}/Renderer/Shared.h" "${CMAKE_SOURCE_DIR}/Assets/Shaders/Backend/Include/Shared.hlsli")
 
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:SDL3::SDL3> $<TARGET_FILE_DIR:${PROJECT_NAME}>)
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/ThirdParty/xess/bin/libxess.dll" $<TARGET_FILE_DIR:${PROJECT_NAME}>)
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/ThirdParty/DLSS/lib/Windows_x86_64/dev/nvngx_dlss.dll" $<TARGET_FILE_DIR:${PROJECT_NAME}>)
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/ThirdParty/dxc/dxil.dll" $<TARGET_FILE_DIR:${PROJECT_NAME}>)
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/ThirdParty/dxc/dxcompiler.dll" $<TARGET_FILE_DIR:${PROJECT_NAME}>)
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/ThirdParty/DirectStorage/dstorage.dll" $<TARGET_FILE_DIR:${PROJECT_NAME}>)
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/ThirdParty/DirectStorage/dstoragecore.dll" $<TARGET_FILE_DIR:${PROJECT_NAME}>)
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/ThirdParty/Agility-SDK/D3D12Core.dll" $<TARGET_FILE_DIR:${PROJECT_NAME}>)
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/ThirdParty/Agility-SDK/d3d12SDKLayers.dll" $<TARGET_FILE_DIR:${PROJECT_NAME}>)
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/ThirdParty/discord_game_sdk/lib/x86_64/discord_game_sdk.dll" $<TARGET_FILE_DIR:${PROJECT_NAME}>)
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/ThirdParty/PIX/bin/x64/WinPixEventRuntime.dll" $<TARGET_FILE_DIR:${PROJECT_NAME}>)
+
 # Add Jolt Physics library using their CMake file
 set(PHYSICS_REPO_ROOT ${CMAKE_SOURCE_DIR}/ThirdParty/JoltPhysics)
+set(BUILD_SHARED_LIBS ON)
 include(${PHYSICS_REPO_ROOT}/Jolt/Jolt.cmake)
+set(BUILD_SHARED_LIBS OFF)
 target_compile_features(Jolt PUBLIC cxx_std_17)
-set_property(TARGET Jolt PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 target_compile_definitions(Jolt PUBLIC "$<$<CONFIG:RelWithDebInfo>:JPH_DEBUG_RENDERER>")
 
 # Link all the things
-target_link_libraries(${PROJECT_NAME} PRIVATE Jolt)
+target_link_libraries(${PROJECT_NAME} PUBLIC Jolt)
+target_link_libraries(${PROJECT_NAME} PUBLIC SDL3::SDL3)
+add_library(D3D12MA STATIC ${CMAKE_SOURCE_DIR}/ThirdParty/D3D12MemoryAllocator/src/D3D12MemAlloc.cpp)
+target_include_directories(D3D12MA PUBLIC ${CMAKE_SOURCE_DIR}/ThirdParty/D3D12MemoryAllocator/include)
+
+target_link_libraries(${PROJECT_NAME} PRIVATE D3D12MA)
+target_link_libraries(${PROJECT_NAME} PRIVATE FSR2)
 target_link_libraries(${PROJECT_NAME} PRIVATE Dwmapi)
 target_link_libraries(${PROJECT_NAME} PRIVATE lz4::lz4)
-target_link_libraries(${PROJECT_NAME} PRIVATE SDL3::SDL3-static)
 target_link_libraries(${PROJECT_NAME} PRIVATE debug ${XESS} optimized ${XESS})
-target_link_libraries(${PROJECT_NAME} PRIVATE debug ${FSR2d} optimized ${FSR2})
-target_link_libraries(${PROJECT_NAME} PRIVATE debug ${DLSSd} optimized ${DLSS})
-target_link_libraries(${PROJECT_NAME} PRIVATE debug ${FSR2DX12d} optimized ${FSR2DX12})
+target_link_libraries(${PROJECT_NAME} PRIVATE debug ${DLSS_LIBRARY_DEBUG} optimized ${DLSS_LIBRARY})
 target_link_libraries(${PROJECT_NAME} PRIVATE debug ${DISCORD_LIB} optimized ${DISCORD_LIB})
-target_link_libraries(${PROJECT_NAME} PRIVATE ${DXC_LIBRARY} ${DIRECT_STORAGE_LIBRARY} ${PIX} d3d12.lib dxgi.lib d3dcompiler.lib dxguid.lib)
+target_link_libraries(${PROJECT_NAME} PUBLIC ${DXC_LIBRARY} ${DIRECT_STORAGE_LIBRARY} ${PIX} d3d12.lib dxgi.lib d3dcompiler.lib dxguid.lib)
 
-# include dependency directories 
+# include dependency directories
 target_include_directories(${PROJECT_NAME} PUBLIC
     ${PROJECT_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/ThirdParty
@@ -132,7 +142,3 @@ target_include_directories(${PROJECT_NAME} PUBLIC
     ${CMAKE_SOURCE_DIR}/ThirdParty/PIX/Include/WinPixEventRuntime
     ${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/include
 )
-
-
-
-

@@ -117,6 +117,7 @@ public:
 	template<typename T>
 	void Register() { Register(RTTI_OF<T>()); }
 	void Register(RTTI& inRTTI);
+	void Unregister(RTTI& inRTTI);
 
 	RTTI* GetRTTI(uint32_t inHash);
 	RTTI* GetRTTI(const char* inType);
@@ -131,7 +132,7 @@ private:
 	HashMap<uint32_t, RTTI*> m_RegisteredTypes;
 };
 
-extern RTTIFactory g_RTTIFactory;
+extern RK_API RTTIFactory g_RTTIFactory;
 
 } // namespace Raekor
 

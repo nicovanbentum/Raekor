@@ -254,4 +254,6 @@ RTTI_DEFINE_TYPE(TestScript)
     RTTI_DEFINE_SCRIPT_MEMBER(TestScript, SERIALIZE_ALL, "Bullet Material", m_BulletMaterial);
 }
 
+RK_REGISTER_SCRIPT(TestScript)
+
 } // RK

@@ -42,4 +42,6 @@ RTTI_DEFINE_TYPE(AnimateSunScript)
     RTTI_DEFINE_SCRIPT_MEMBER(AnimateSunScript, SERIALIZE_ALL, "Speed", m_Speed);
 }
 
+RK_REGISTER_SCRIPT(AnimateSunScript)
+
 } // RK

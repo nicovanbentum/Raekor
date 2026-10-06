@@ -111,6 +111,7 @@ RTTI_DEFINE_TYPE(NativeScript)
 {
 	RTTI_DEFINE_MEMBER(NativeScript, SERIALIZE_ALL, "File", file);
 	RTTI_DEFINE_MEMBER(NativeScript, SERIALIZE_ALL, "Type", type);
+	RTTI_DEFINE_MEMBER(NativeScript, ESerializeType(SERIALIZE_ALL | SERIALIZE_NO_LEGACY_BINARY), "Variables", variables);
 }
 
 

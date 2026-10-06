@@ -6,6 +6,8 @@
 #include "Engine/ecs.h"
 #include "Engine/timer.h"
 
+RK_EXPORT_AGILITY_SDK()
+
 using namespace RK;
 
 int main(int argc, char** argv)

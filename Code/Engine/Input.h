@@ -122,6 +122,6 @@ private:
     SDL_Gamepad* m_Controller = nullptr;
 };
 
-extern Input* g_Input;
+extern RK_API Input* g_Input;
 
 }

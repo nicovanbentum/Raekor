@@ -16,8 +16,6 @@
 #include "ShaderGraphNodes.h"
 #include "IconsFontAwesome5.h"
 
-#include "Game/Scripts/Scripts.h"
-
 #include "Widgets/AssetsWidget.h"
 #include "Widgets/MenubarWidget.h"
 #include "Widgets/ConsoleWidget.h"
@@ -42,7 +40,6 @@ Editor::Editor(WindowFlags inWindowFlags, IRenderInterface* inRenderInterface) :
 	m_UndoSystem(m_Scene),
 	m_RenderInterface(inRenderInterface)
 {
-	gRegisterScriptTypes();
 	gRegisterShaderNodeTypes();
 
 	IMGUI_CHECKVERSION();
@@ -116,6 +113,8 @@ Editor::Editor(WindowFlags inWindowFlags, IRenderInterface* inRenderInterface) :
 			gLogError("Editor", "Failed to start asset compiler process.");
 	}
 
+	LoadScripts();
+
 	m_Camera.SetPosition(Vec3(1.0f, 1.0f, -1.0f));
 	m_Camera.LookAt(Vec3(0.0f, 0.0f, 0.0f));
 
@@ -133,6 +132,12 @@ Editor::~Editor()
 
 	if (m_SaveJob)
 		m_SaveJob->Wait();
+
+	if (m_ScriptBuildJob)
+		m_ScriptBuildJob->Wait();
+
+	Game::Stop();
+	UnloadScripts();
 
 	if (m_CompilerProcess)
 	{
@@ -219,6 +224,8 @@ void Editor::OnUpdate(float inDeltaTime)
 
 	// update Skeleton and Animation components
 	m_Scene.UpdateAnimations(inDeltaTime);
+
+	ReloadScriptsIfChanged(inDeltaTime);
 
     // update NativeScript components
     if (GetGameState() == GAME_RUNNING)
@@ -341,6 +348,12 @@ void Editor::OnEvent(const SDL_Event& event)
 			{
 				if (ctrl && editing)
 					DuplicateSelection();
+			} break;
+
+			case SDLK_B:
+			{
+				if (ctrl && editing)
+					BuildScripts();
 			} break;
 
 			case SDLK_DELETE:
@@ -534,6 +547,8 @@ void Editor::SaveScene(const Path& inFile)
 
 	Timer timer;
 
+	m_Scene.StoreScriptVariables();
+
 	SharedPtr<Scene> snapshot = std::make_shared<Scene>(nullptr);
 	snapshot->CopyFrom(m_Scene);
 
@@ -549,6 +564,38 @@ void Editor::SaveScene(const Path& inFile)
 		Timer timer;
 		snapshot->SaveToFile(inFile.string(), m_Assets);
 		gLogInfo("Editor", "Saved scene to {} in {:.2f} seconds", inFile.string(), timer.GetElapsedTime());
+	}, JOB_PRIORITY_LOW);
+}
+
+
+void Editor::BuildScripts()
+{
+	if (IsBuildingScripts())
+	{
+		gLogWarning("Scripts", "Already building scripts, try again when it's done.");
+		return;
+	}
+
+	const String command = std::format("\"{}\" --build \"{}\" --config {} --target Scripts", RK_CMAKE_COMMAND, RK_BINARY_DIR, RK_BUILD_CONFIG);
+
+	gLogInfo("Scripts", "Building scripts..");
+
+	m_ScriptBuildJob = g_JobSystem.Schedule([command]()
+	{
+		Timer timer;
+
+		const bool succeeded = OS::sRunProcess(command, [](StringView inLine)
+		{
+			if (inLine.find(": error") != StringView::npos || inLine.find(": fatal error") != StringView::npos)
+				gLogError("Scripts", "{}", inLine);
+			else if (inLine.find(": warning") != StringView::npos)
+				gLogWarning("Scripts", "{}", inLine);
+		});
+
+		if (succeeded)
+			gLogInfo("Scripts", "Built scripts in {:.2f} seconds, reloading..", timer.GetElapsedTime());
+		else
+			gLogError("Scripts", "Failed to build scripts, see the errors above.");
 	}, JOB_PRIORITY_LOW);
 }
 
@@ -708,7 +755,7 @@ void Editor::UpdateSceneTask()
 		task->mScene->ReleaseResources();
 
 		m_Scene.UploadMeshes();
-		m_Scene.BindScripts(m_Assets, this);
+		m_Scene.BindScripts(this);
 
 		m_UndoSystem.Clear();
 		m_Selection.Clear();
@@ -728,6 +775,7 @@ void Editor::UpdateSceneTask()
 		const Array<Entity> new_entities = m_Scene.Merge(*task->mScene);
 
 		m_Scene.UploadMeshes(new_entities);
+		m_Scene.BindScripts(this);
 
 		for (Entity entity : new_entities)
 		{

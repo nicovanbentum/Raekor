@@ -1,7 +1,6 @@
 #include "pch.h"
 #include "Assets.h"
 #include "DDS.h"
-#include "Script.h"
 #include "Timer.h"
 #include "Maths.h"
 #include "DDS.h"
@@ -9,8 +8,6 @@
 namespace RK {
 
 RTTI_DEFINE_TYPE_NO_FACTORY(Asset) {}
-
-RTTI_DEFINE_TYPE(ScriptAsset) { RTTI_DEFINE_TYPE_INHERITANCE(ScriptAsset, Asset); }
 
 RTTI_DEFINE_TYPE(TextureAsset) { RTTI_DEFINE_TYPE_INHERITANCE(TextureAsset, Asset); }
 
@@ -217,132 +214,6 @@ bool Assets::ReleaseAsset(const String& inFilePath)
 
 	m_Assets.erase(inFilePath);
 	return true;
-}
-
-
-ScriptAsset::~ScriptAsset()
-{
-	if (m_HModule)
-		if (!FreeLibrary((HMODULE)m_HModule))
-			gLogError("Assets", "FreeLibrary(\"{}\") failed", m_Path.stem().string());
-
-	gLogInfo("Assets", "Unloaded {}", m_TempPath.string());
-
-	std::error_code error_code;
-	fs::remove(m_TempPath, error_code);
-}
-
-
-String ScriptAsset::Convert(const String& inPath)
-{
-	// TODO: The plan is to have a seperate VS project in the solution dedicated to cpp scripts.
-	//          That should compile them down to a single DLL that we can load in as asset, 
-	//          possibly parsing PDB's to figure out the list of classes we can attach to entities.
-	Path abs_path = inPath;
-	const Path dest = "assets" / abs_path.filename();
-	const Path pdb_path = abs_path.replace_extension(".pdb");
-
-	fs::copy(inPath, "assets" / abs_path.filename());
-	fs::copy(pdb_path, "assets" / pdb_path.filename());
-	return dest.string();
-}
-
-
-bool ScriptAsset::Load()
-{
-	std::error_code remove_error_code;
-	fs::remove(m_TempPath, remove_error_code);
-
-	if (remove_error_code)
-		gLogError("Assets", "Failed to remove {}", m_TempPath.string());
-
-	std::error_code copy_error_code;
-	fs::copy(m_Path, m_TempPath, copy_error_code);
-
-	if (copy_error_code)
-		gLogError("Assets", "Failed to copy {} to {}", m_Path.string(), m_TempPath.string());
-
-	String temp_path_str = m_TempPath.string();
-	m_HModule = LoadLibraryA(temp_path_str.c_str());
-
-	if (!m_HModule)
-		return false;
-
-	gLogInfo("Assets", "Loaded {}", temp_path_str);
-
-	if (FARPROC address = GetProcAddress((HMODULE)m_HModule, SCRIPT_EXPORTED_FUNCTION_STR))
-	{
-		INativeScript::RegisterFn GetTypes = (INativeScript::RegisterFn)(address);
-
-		Array<RTTI*> types;
-		types.resize(GetTypes(nullptr));
-		GetTypes(types.data());
-
-		for (RTTI* rtti : types)
-		{
-			g_RTTIFactory.Register(*rtti);
-			m_RegisteredTypes.push_back(rtti->GetTypeName());
-		}
-	}
-	else
-	{
-		FreeLibrary((HMODULE)m_HModule);
-		return false;
-	}
-
-	return true;
-}
-
-
-void ScriptAsset::EnumerateSymbols()
-{
-#if 0
-	HANDLE current_process = GetCurrentProcess();
-
-	MODULEINFO info;
-	GetModuleInformation(current_process, (HMODULE)m_HModule, &info, sizeof(MODULEINFO));
-
-	std::string pdbFile = m_Path.replace_extension(".pdb").string();
-
-	PSYM_ENUMERATESYMBOLS_CALLBACK processSymbol = [](PSYMBOL_INFO pSymInfo, ULONG SymbolSize, PVOID UserContext) -> BOOL
-	{
-        ScriptAsset* asset = (ScriptAsset*)UserContext;
-
-        if (strncmp(pSymInfo->Name, "Create", 6) == 0)
-        {
-            //std::cout << "Symbol: " << pSymInfo->Name << '\n';
-        }
-
-        return true;
-	};
-
-	PSYM_ENUMERATESYMBOLS_CALLBACK callback = [](PSYMBOL_INFO pSymInfo, ULONG SymbolSize, PVOID UserContext) -> BOOL
-	{
-        if (strncmp(pSymInfo->Name, "Create", 6) == 0)
-        {
-		    // std::cout << "User type: " << pSymInfo->Name << '\n';
-        }
-		
-        return true;
-	};
-
-	if (!SymInitialize(current_process, NULL, FALSE))
-		std::cerr << "Failed to initialize symbol handler \n";
-
-	DWORD64 result = SymLoadModuleEx(current_process, NULL, pdbFile.c_str(), NULL, (DWORD64)m_HModule, info.SizeOfImage, NULL, NULL);
-
-	if (result == 0 && GetLastError() != 0)
-		std::cout << "Failed \n";
-	else if (result == 0 && GetLastError() == 0)
-		std::cout << "Already loaded \n";
-
-	if (result)
-	{
-		// SymEnumTypes(current_process, (ULONG64)result, callback, NULL);
-		SymEnumSymbols(current_process, (DWORD64)result, NULL, processSymbol, this);
-		SymUnloadModule(current_process, (DWORD64)result);
-	}
-#endif
 }
 
 } // raekor

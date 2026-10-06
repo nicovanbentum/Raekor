@@ -4,16 +4,16 @@
     "dependencies": [
         {
             "name": "lz4",
-            "platform": "windows & static"
+            "platform": "windows"
         },
         {
             "name": "sdl3",
             "features": [],
-            "platform": "windows & static"
+            "platform": "windows"
         },
         {
             "name": "directx-headers",
-            "platform": "windows & static"
+            "platform": "windows"
         }
     ],
     "builtin-baseline": "4d224151a371ad6b9cbcff46ed3ea0065b128d1a",

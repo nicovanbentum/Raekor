@@ -82,31 +82,6 @@ private:
 
 
 
-class ScriptAsset : public Asset
-{
-public:
-	RTTI_DECLARE_VIRTUAL_TYPE(ScriptAsset);
-
-	using Ptr = SharedPtr<ScriptAsset>;
-
-	ScriptAsset() = default;
-	ScriptAsset(const String& inPath) : Asset(inPath), m_TempPath(inPath) { m_TempPath.replace_extension(".temp.dll"); }
-	virtual ~ScriptAsset();
-
-	virtual bool Load() override;
-	static String Convert(const String& inPath);
-	static String GetCachedPath(const String& inPath) { return Asset::GetCachedPath(inPath, ".dll"); }
-
-	void EnumerateSymbols();
-	const Array<String>& GetRegisteredTypes() const { return m_RegisteredTypes; }
-
-private:
-	Path m_TempPath;
-	void* m_HModule = nullptr;
-	Array<String> m_RegisteredTypes;
-};
-
-
 } // namespace raekor
 
 namespace RK {

@@ -10,8 +10,8 @@ class IRenderPass;
 class ShaderCompiler;
 class SystemShadersDX12;
 
-extern ShaderCompiler g_ShaderCompiler;
-extern SystemShadersDX12 g_SystemShaders;
+extern RK_API ShaderCompiler g_ShaderCompiler;
+extern RK_API SystemShadersDX12 g_SystemShaders;
 
 enum EShaderType
 {

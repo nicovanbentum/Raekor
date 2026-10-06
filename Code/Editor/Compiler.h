@@ -16,21 +16,16 @@ constexpr std::array sEmbededFileExtensions = {
 	".ttf"
 };
 
-constexpr std::array sCppFileExtensions = {
-	".cpp"
-};
-
 enum AssetType
 {
 	ASSET_TYPE_SCENE,
 	ASSET_TYPE_IMAGE,
 	ASSET_TYPE_EMBEDDED,
-	ASSET_TYPE_CPP_SCRIPT,
 	ASSET_TYPE_NONE
 };
 
 constexpr std::array sAssetTypeExtensions = {
-	".scene", ".dds", ".bin", ".dll"
+	".scene", ".dds", ".bin"
 };
 
 namespace RK {
@@ -49,10 +44,6 @@ inline AssetType GetCacheFileExtension(const Path& inPath)
 	for (const char* ext : sEmbededFileExtensions)
 		if (extension == ext)
 			return ASSET_TYPE_EMBEDDED;
-
-	for (const char* ext : sCppFileExtensions)
-		if (extension == ext)
-			return ASSET_TYPE_CPP_SCRIPT;
 
 	return ASSET_TYPE_NONE;
 }
@@ -145,7 +136,6 @@ private:
 	int m_TypeFilter = -1;
 	bool m_OpenClearCachePopup = false;
 	std::atomic<bool> m_CompileScenes = true;
-	std::atomic<bool> m_CompileScripts = false;
 	std::atomic<bool> m_CompileTextures = true;
 };
 

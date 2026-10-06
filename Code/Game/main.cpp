@@ -4,6 +4,8 @@
 #include "../Engine/CVars.h"
 #include "../Engine/Script.h"
 
+RK_EXPORT_AGILITY_SDK()
+
 using namespace RK;
 
 int main(int argc, char** argv)

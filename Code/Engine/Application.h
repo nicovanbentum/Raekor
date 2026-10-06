@@ -4,10 +4,9 @@
 #include "RTTI.h"
 #include "Assets.h"
 #include "Camera.h"
+#include "Script.h"
 #include "Defines.h"
 #include "DiscordRPC.h"
-
-extern std::atomic_uint64_t sAllocationsPerFrame;
 
 namespace RK {
 
@@ -136,6 +135,19 @@ public:
 
     virtual void Pause();
     virtual void Unpause();
+
+    bool LoadScripts(const Path& inModulePath = ScriptModule::sGetDefaultModulePath());
+    void UnloadScripts();
+    void ReloadScripts();
+    bool ReloadScriptsIfChanged(float inDeltaTime);
+
+    const ScriptModule& GetScriptModule() const { return m_ScriptModule; }
+
+protected:
+    void CallScripts(void ( INativeScript::* inFunction )( ), const char* inFunctionName);
+
+    ScriptModule m_ScriptModule;
+    float m_ScriptPollTime = 0.0f;
 };
 
 

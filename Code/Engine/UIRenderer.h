@@ -20,6 +20,6 @@ private:
     Array<DrawCommandHeader> m_DrawCommandHeaderBuffer;
 };
 
-extern UIRenderer g_UIRenderer;
+extern RK_API UIRenderer g_UIRenderer;
 
 }

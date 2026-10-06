@@ -28,6 +28,56 @@ const T& AddPass(RenderGraph& inRenderGraph, Device& inDevice)
 
 */
 
+bool RenderSettings::mDoFAutoFocus = true;
+float RenderSettings::mDoFAperture = 1.8f;
+float RenderSettings::mDoFFocusDistance = 5.0f;
+
+int RenderSettings::mGTAOSliceCount = 2;
+int RenderSettings::mGTAOStepCount = 8;
+float RenderSettings::mGTAORadius = 1.0f;
+float RenderSettings::mGTAOThickness = 0.25f;
+float RenderSettings::mGTAOPower = 1.0f;
+
+int RenderSettings::mSSRSamples = 16;
+float RenderSettings::mSSRBias = 0.025f;
+float RenderSettings::mSSRRadius = 0.05f;
+
+float RenderSettings::mGrassBend = 0.0f;
+float RenderSettings::mGrassTilt = 0.0f;
+Vec2 RenderSettings::mWindDirection = Vec2(0.0f, -1.0f);
+
+float RenderSettings::mEV100 = 15.0f;
+float RenderSettings::mVignetteScale = 0.8f;
+float RenderSettings::mVignetteBias = 0.2f;
+float RenderSettings::mVignetteInner = 0.0f;
+float RenderSettings::mVignetteOuter = 2.0f;
+float RenderSettings::mBloomBlendFactor = 0.06f;
+float RenderSettings::mChromaticAberrationStrength = 0.0;
+
+float RenderSettings::mRTAORadius = 1.0;
+float RenderSettings::mRTAOPower = 1.0;
+float RenderSettings::mRTAONormalBias = 0.01;
+uint32_t RenderSettings::mRTAOSampleCount = 1;
+
+bool RenderSettings::mPathTraceReset = false;
+uint32_t RenderSettings::mPathTraceBounces = 2u;
+uint32_t RenderSettings::mPathTraceAlphaBounces = 4u;
+
+bool RenderSettings::mDDGIUseChebyshev = true;
+bool RenderSettings::mDDGIUseMultibounce = true;
+float RenderSettings::mDDGIDebugRadius = 0.25f;
+IVec3 RenderSettings::mDDGIDebugProbe = IVec3(0, 0, 0);
+IVec3 RenderSettings::mDDGIProbeCount = IVec3(16, 16, 16);
+Vec3 RenderSettings::mDDGIProbeSpacing = Vec3(6.4, 3.0, 2.8);
+Vec3 RenderSettings::mDDGICornerPosition = Vec3(-65, -1.4, -28.5);
+bool RenderSettings::mDDGIFollowCamera = false;
+uint32_t RenderSettings::mDDGICascadeCount = 1;
+StaticArray<DDGIVolume, DDGI_MAX_CASCADES> RenderSettings::mDDGIVolumes = {};
+
+Entity RenderSettings::mActiveEntity = Entity::Null;
+
+
+
 static IVec3 sWrapProbeCoord(const IVec3& inCoord, const IVec3& inProbeCount)
 {
     return ( ( inCoord % inProbeCount ) + inProbeCount ) % inProbeCount;
