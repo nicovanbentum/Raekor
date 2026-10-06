@@ -329,21 +329,15 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 				triangle_count += mesh.indices.size();
 			triangle_count /= 3;
 
-			uint32_t opaque_material_count = 0;
-			uint32_t transparent_material_count = 0;
+			std::array<uint32_t, MATERIAL_BLEND_MODE_COUNT> material_counts = {};
 
 			for (const auto& [entity, material] : GetScene().Each<Material>())
-			{
-				if (material.isTransparent)
-					transparent_material_count++;
-				else
-					opaque_material_count++;
-			}
+				material_counts[material.blendMode]++;
 
 			ImGui::Separator();
 			ImGui::Text("Draw calls: %u", GetScene().Count<Mesh>());
 			ImGui::Text("Triangles: %llu", triangle_count);
-			ImGui::Text("Materials: %u opaque, %u transparent", opaque_material_count, transparent_material_count);
+			ImGui::Text("Materials: %u opaque, %u masked, %u blended", material_counts[MATERIAL_BLEND_MODE_OPAQUE], material_counts[MATERIAL_BLEND_MODE_MASKED], material_counts[MATERIAL_BLEND_MODE_BLENDED]);
 			ImGui::Text("Lights: %u", GetScene().Count<Light>());
 			ImGui::Separator();
 			ImGui::Text("GPU Buffers: %llu", GetRenderInterface().GetGPUStats().mLiveBuffers.load());

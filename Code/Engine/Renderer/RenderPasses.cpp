@@ -1,6 +1,7 @@
 #include "PCH.h"
 #include "RenderPasses.h"
 #include "Shader.h"
+#include "RayTracing.h"
 
 #include "Timer.h"
 #include "Camera.h"
@@ -391,8 +392,9 @@ const GBufferData& AddMeshletsRasterPass(RenderGraph& inRenderGraph, Device& inD
                 continue;
 
             const Material* material = inScene->GetPtr<Material>(mesh.material);
-            //if (material && material->isTransparent)
-                //continue;
+
+            if (material && material->blendMode == MATERIAL_BLEND_MODE_BLENDED)
+                continue;
 
             Buffer& index_buffer  = inDevice.GetBuffer(BufferID(mesh.indexBuffer));
             Buffer& vertex_buffer = inDevice.GetBuffer(BufferID(mesh.vertexBuffer));
@@ -492,8 +494,8 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
             D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inRenderPass->CreatePipelineStateDesc(inDevice, g_SystemShaders.mGBufferAlphaClipShader);
             pso_state.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 
-            inData.mTransparentPipeline = inDevice.CreateGraphicsPipeline(pso_state);
-            inData.mTransparentPipeline->SetName(L"PSO_TRANSPARENT_GBUFFER");
+            inData.mMaskedPipeline = inDevice.CreateGraphicsPipeline(pso_state);
+            inData.mMaskedPipeline->SetName(L"PSO_MASKED_GBUFFER");
         }
 
         // store the render pass ptr so we can access it during execution
@@ -517,7 +519,6 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
         constexpr uint8_t clear_stencil_value = 0u;
         inCmdList.ClearDepthStencilTarget(inDevice, depth_texture, &clear_depth_value, &clear_stencil_value);
 
-        bool is_transparent = false;
         inCmdList.SetViewportAndScissor(inDevice.GetTexture(render_texture));
 
         // OPAQUE PASS
@@ -540,11 +541,11 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
 
             const Material* material = inScene->GetPtr<Material>(mesh.material);
 
-            if (material && material->isTransparent)
-                continue;
-
             if (material == nullptr)
                 material = &Material::Default;
+
+            if (material->blendMode != MATERIAL_BLEND_MODE_OPAQUE)
+                continue;
 
             ID3D12PipelineState* pipeline_state = inData.mOpaquePipeline.Get();
 
@@ -581,7 +582,7 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
         }
 
         // ALPHA CLIP PASS
-        bound_pipeline = inData.mTransparentPipeline.Get();
+        bound_pipeline = inData.mMaskedPipeline.Get();
         inCmdList->SetPipelineState(bound_pipeline);
 
         for (const auto& [entity, mesh] : inScene->Each<Mesh>())
@@ -600,13 +601,10 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
 
             const Material* material = inScene->GetPtr<Material>(mesh.material);
 
-            if (material && !material->isTransparent)
+            if (material == nullptr || material->blendMode != MATERIAL_BLEND_MODE_MASKED)
                 continue;
 
-            if (material == nullptr)
-                material = &Material::Default;
-
-            ID3D12PipelineState* pipeline_state = inData.mTransparentPipeline.Get();
+            ID3D12PipelineState* pipeline_state = inData.mMaskedPipeline.Get();
 
             if (material->vertexShader && material->pixelShader)
             {
@@ -713,69 +711,134 @@ const GBufferDebugData& AddGBufferDebugPass(RenderGraph& inRenderGraph, Device& 
 
 
 
-const TransparentForwardData& AddTransparentForwardPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, RenderGraphResourceID inOutputTexture, RenderGraphResourceID inDepthTexture)
+const TransparentForwardData& AddTransparentForwardPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferOutput& inGBuffer, RenderGraphResourceID inRenderTarget,
+    RenderGraphResourceID inBrdfLutTexture, RenderGraphResourceID inSkyCubeTexture, RenderGraphResourceID inDiffuseSkyCubeTexture, const DDGIOutput* inDDGI, bool inUseRayTracedShadows)
 {
     return inRenderGraph.AddGraphicsPass<TransparentForwardData>("Transparent Forward",
-        [&](RenderGraphBuilder& ioBuilder, IRenderPass* inRenderPass, TransparentForwardData& inData)
+    [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, TransparentForwardData& inData)
+    {
+        inData.mOutputTextureRTV    = ioRGBuilder.RenderTarget(inRenderTarget);
+        inData.mSelectionTextureRTV = ioRGBuilder.RenderTarget(inGBuffer.mSelectionTexture);
+        inData.mDepthTextureDSV     = ioRGBuilder.DepthStencilTarget(inGBuffer.mDepthTexture);
+
+        inData.mBrdfLutTextureSRV        = ioRGBuilder.Read(inBrdfLutTexture);
+        inData.mSkyCubeTextureSRV        = ioRGBuilder.Read(inSkyCubeTexture);
+        inData.mDiffuseSkyCubeTextureSRV = ioRGBuilder.Read(inDiffuseSkyCubeTexture);
+
+        if (inDDGI)
         {
-            inData.mOutputTexture = ioBuilder.RenderTarget(inOutputTexture);
-            inData.mDepthTexture = ioBuilder.DepthStencilTarget(inDepthTexture);
+            inData.mVolumesBufferSRV           = ioRGBuilder.Read(inDDGI->mVolumes);
+            inData.mProbeDataBufferSRV         = ioRGBuilder.Read(inDDGI->mProbeData);
+            inData.mProbesDepthTextureSRV      = ioRGBuilder.Read(inDDGI->mDepthProbes);
+            inData.mProbesIrradianceTextureSRV = ioRGBuilder.Read(inDDGI->mIrradianceProbes);
+        }
 
-            D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inRenderPass->CreatePipelineStateDesc(inDevice, g_SystemShaders.mTransparentForwardShader);
-            pso_state.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
-            pso_state.BlendState.IndependentBlendEnable = true;
-            pso_state.BlendState.RenderTarget[0].BlendEnable = true;
+        inData.mUseIndirectDiffuse = inDDGI != nullptr;
+        inData.mUseRayTracedShadows = inUseRayTracedShadows;
 
-            inData.mPipeline = inDevice.CreateGraphicsPipeline(pso_state);
-            inData.mPipeline->SetName(L"PSO_TRANSPARENT_FORWARD");
-        },
+        D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inRenderPass->CreatePipelineStateDesc(inDevice, g_SystemShaders.mTransparentForwardShader);
+        pso_state.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
 
-        [&inDevice, &inScene](TransparentForwardData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+        pso_state.BlendState.IndependentBlendEnable = TRUE;
+        pso_state.BlendState.RenderTarget[0].BlendEnable = TRUE;
+        pso_state.BlendState.RenderTarget[0].SrcBlend = D3D12_BLEND_ONE;
+        pso_state.BlendState.RenderTarget[0].DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
+        pso_state.BlendState.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
+        pso_state.BlendState.RenderTarget[0].SrcBlendAlpha = D3D12_BLEND_ONE;
+        pso_state.BlendState.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_INV_SRC_ALPHA;
+        pso_state.BlendState.RenderTarget[0].BlendOpAlpha = D3D12_BLEND_OP_ADD;
+        pso_state.BlendState.RenderTarget[1].BlendEnable = FALSE;
+
+        pso_state.RasterizerState.CullMode = D3D12_CULL_MODE_FRONT;
+        inData.mBackFacePipeline = inDevice.CreateGraphicsPipeline(pso_state);
+        inData.mBackFacePipeline->SetName(L"PSO_TRANSPARENT_FORWARD_BACK_FACES");
+
+        pso_state.RasterizerState.CullMode = D3D12_CULL_MODE_BACK;
+        inData.mFrontFacePipeline = inDevice.CreateGraphicsPipeline(pso_state);
+        inData.mFrontFacePipeline->SetName(L"PSO_TRANSPARENT_FORWARD_FRONT_FACES");
+    },
+
+    [&inRenderGraph, &inDevice, &inScene](TransparentForwardData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+    {
+        struct SortedDraw
         {
+            Entity mEntity;
+            float mDistance;
+        };
 
-            inCmdList->SetPipelineState(inData.mPipeline.Get());
-            inCmdList.SetViewportAndScissor(inDevice.GetTexture(inResources.GetTextureView(inData.mOutputTexture)));
+        Array<SortedDraw> draws;
 
-            for (const auto& [entity, mesh] : inScene->Each<Mesh>())
-            {
-                // done streaming?
-                if (!mesh.IsLoaded())
-                    continue;
+        const Vec3 camera_position = inRenderGraph.GetViewport().GetPosition();
 
-                // located in the scene?
-                if (!inScene->Has<Transform>(entity))
-                    continue;
+        for (const auto& [entity, mesh] : inScene->Each<Mesh>())
+        {
+            if (!mesh.IsLoaded())
+                continue;
 
-                // not marked for vis buffer?
-                if (!mesh.meshlets.empty())
-                    continue;
+            if (!mesh.meshlets.empty())
+                continue;
 
-                const Material* material = inScene->GetPtr<Material>(mesh.material);
+            const Material* material = inScene->GetPtr<Material>(mesh.material);
 
-                if (material == nullptr)
-                    material = &Material::Default;
+            if (material == nullptr || material->blendMode != MATERIAL_BLEND_MODE_BLENDED)
+                continue;
 
-                if (!material->isTransparent)
-                    continue;
+            if (material->vertexShader || material->pixelShader)
+                continue;
 
-                EVENT_SCOPE_GPU(inCmdList, mesh.name.empty() ? "Mesh" : mesh.name.c_str());
+            const Transform* transform = inScene->GetPtr<Transform>(entity);
 
-                inCmdList.PushGraphicsConstants(TransparentForwardConstants
-                {
-                    .mEntity = uint32_t(entity),
-                    .mInstanceIndex = inScene.GetInstanceIndex(entity),
-                });
+            if (transform == nullptr)
+                continue;
 
-                inCmdList.BindIndexBuffer(inDevice.GetBuffer(BufferID(mesh.indexBuffer)));
+            const Vec3 to_camera = mesh.bbox.Transformed(transform->worldTransform).GetCenter() - camera_position;
+            draws.push_back(SortedDraw { entity, glm::dot(to_camera, to_camera) });
+        }
 
-                if (entity == RenderSettings::mActiveEntity)
-                {
-                    // do stencil stuff?
-                }
+        if (draws.empty())
+            return;
 
-                inCmdList.DrawIndexed(mesh.indices.size(), 1, 0, 0, 0);
-            }
-        });
+        std::sort(draws.begin(), draws.end(), [](const SortedDraw& inLeft, const SortedDraw& inRight) { return inLeft.mDistance > inRight.mDistance; });
+
+        TransparentForwardConstants root_constants =
+        {
+            .mBrdfLutTexture        = inResources.GetBindlessHeapIndex(inData.mBrdfLutTextureSRV),
+            .mSkyCubeTexture        = inResources.GetBindlessHeapIndex(inData.mSkyCubeTextureSRV),
+            .mDiffuseSkyCubeTexture = inResources.GetBindlessHeapIndex(inData.mDiffuseSkyCubeTextureSRV),
+            .mUseRayTracedShadows   = inData.mUseRayTracedShadows,
+            .mUseIndirectDiffuse    = inData.mUseIndirectDiffuse,
+        };
+
+        if (inData.mUseIndirectDiffuse)
+        {
+            root_constants.mDDGIData = RenderSettings::GetDDGIData();
+            root_constants.mDDGIData.mVolumesBuffer = inResources.GetBindlessHeapIndex(inData.mVolumesBufferSRV);
+            root_constants.mDDGIData.mProbesDataBuffer = inResources.GetBindlessHeapIndex(inData.mProbeDataBufferSRV);
+            root_constants.mDDGIData.mProbesDepthTexture = inResources.GetBindlessHeapIndex(inData.mProbesDepthTextureSRV);
+            root_constants.mDDGIData.mProbesIrradianceTexture = inResources.GetBindlessHeapIndex(inData.mProbesIrradianceTextureSRV);
+        }
+
+        inCmdList.SetViewportAndScissor(inDevice.GetTexture(inResources.GetTextureView(inData.mOutputTextureRTV)));
+
+        for (const SortedDraw& draw : draws)
+        {
+            const Mesh& mesh = inScene->Get<Mesh>(draw.mEntity);
+
+            EVENT_SCOPE_GPU(inCmdList, mesh.name.empty() ? "Mesh" : mesh.name.c_str());
+
+            root_constants.mEntity = uint32_t(draw.mEntity);
+            root_constants.mInstanceIndex = inScene.GetInstanceIndex(draw.mEntity);
+
+            inCmdList.PushGraphicsConstants(root_constants);
+            inCmdList.BindIndexBuffer(inDevice.GetBuffer(BufferID(mesh.indexBuffer)));
+
+            inCmdList->SetPipelineState(inData.mBackFacePipeline.Get());
+            inCmdList.DrawIndexed(mesh.indices.size(), 1, 0, 0, 0);
+
+            inCmdList->SetPipelineState(inData.mFrontFacePipeline.Get());
+            inCmdList.DrawIndexed(mesh.indices.size(), 1, 0, 0, 0);
+        }
+    });
 }
 
 

@@ -81,7 +81,7 @@ struct RTMaterial
     uint   mEmissiveTexture;
     uint   mMetallicTexture;
     uint   mRoughnessTexture;
-    uint   mPad0;
+    float  mAlphaCutoff;
     float4 mAlbedo;
     float4 mEmissive;
 };
@@ -430,13 +430,13 @@ struct TransparentForwardConstants
 {
     uint     mEntity;
     uint     mInstanceIndex;
-    uint     shadowMaskTexture;
-    uint     reflectionsTexture;
-    uint     indirectDiffuseTexture;
-    uint     skyCubeTexture;
-    uint     diffuseSkyCubeTexture;
-    uint     brdfLutTexture;
-    TiledLightCullingRootConstants lights;
+    uint     mBrdfLutTexture;
+    uint     mSkyCubeTexture;
+    uint     mDiffuseSkyCubeTexture;
+    uint     mUseRayTracedShadows;
+    uint     mUseIndirectDiffuse;
+    uint     mPad0;
+    DDGIData mDDGIData;
 };
 
 

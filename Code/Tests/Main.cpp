@@ -2,6 +2,7 @@
 #include "ECS.h"
 #include "OS.h"
 #include "JSON.h"
+#include "GLTF.h"
 #include "Scene.h"
 #include "Assets.h"
 #include "Timer.h"
@@ -197,6 +198,8 @@ static void sTestSceneRoundTrip(const Path& inDirectory)
 		Material& material = scene.Add<Material>(material_entity);
 		material.albedo = Vec4(0.1f * index, 0.2f, 0.3f, 1.0f);
 		material.roughness = 0.123456789f;
+		material.blendMode = EMaterialBlendMode(index % MATERIAL_BLEND_MODE_COUNT);
+		material.alphaCutoff = 0.01f * index;
 
 		Mesh& mesh = scene.Add<Mesh>(entity);
 		Mesh::CreateCube(mesh, 1.0f + index);
@@ -238,12 +241,52 @@ static void sTestSceneRoundTrip(const Path& inDirectory)
 		const Material& loaded_material = loaded.Get<Material>(loaded_mesh.material);
 		CHECK(loaded_material.albedo == original_material.albedo);
 		CHECK(loaded_material.roughness == original_material.roughness);
+		CHECK(loaded_material.blendMode == original_material.blendMode);
+		CHECK(loaded_material.alphaCutoff == original_material.alphaCutoff);
 
 		CHECK(loaded.Has<Light>(entity) == scene.Has<Light>(entity));
 
 		if (scene.Has<Light>(entity))
 			CHECK(loaded.Get<Light>(entity).color == scene.Get<Light>(entity).color);
 	}
+}
+
+
+static void sTestGltfBlendModes(const Path& inGltfFile)
+{
+	if (!fs::exists(inGltfFile))
+	{
+		gLogWarning("Tests", "Skipped the glTF blend mode test, {} does not exist", inGltfFile.string());
+		return;
+	}
+
+	Scene scene = Scene(nullptr);
+
+	GltfImporter importer = GltfImporter(scene, nullptr);
+	CHECK(importer.LoadFromFile(inGltfFile.string(), nullptr));
+
+	auto FindMaterial = [&](StringView inName) -> const Material*
+	{
+		for (const auto& [entity, material] : scene.Each<Material>())
+		{
+			if (const Name* name = scene.GetPtr<Name>(entity); name && name->name == inName)
+				return &material;
+		}
+
+		return nullptr;
+	};
+
+	const Material* opaque = FindMaterial("MatOpaque");
+	const Material* blend = FindMaterial("MatBlend");
+	const Material* cutoff_25 = FindMaterial("MatCutoff25");
+	const Material* cutoff_75 = FindMaterial("MatCutoff75");
+	const Material* cutoff_default = FindMaterial("MatCutoffDefault");
+
+	CHECK(opaque && opaque->blendMode == MATERIAL_BLEND_MODE_OPAQUE);
+	CHECK(blend && blend->blendMode == MATERIAL_BLEND_MODE_BLENDED);
+	CHECK(cutoff_25 && cutoff_25->blendMode == MATERIAL_BLEND_MODE_MASKED && cutoff_25->alphaCutoff == 0.25f);
+	CHECK(cutoff_75 && cutoff_75->blendMode == MATERIAL_BLEND_MODE_MASKED && cutoff_75->alphaCutoff == 0.75f);
+	CHECK(cutoff_default && cutoff_default->blendMode == MATERIAL_BLEND_MODE_MASKED && cutoff_default->alphaCutoff == 0.5f);
 }
 
 
@@ -472,6 +515,7 @@ int main(int argc, char** argv)
 	sTestLegacyMemberSkipping(directory);
 	sTestSceneRoundTrip(directory);
 	sTestSceneMergeAndSwap();
+	sTestGltfBlendModes("Assets/Models/glTF-Sample-Models-main/2.0/AlphaBlendModeTest/glTF/AlphaBlendModeTest.gltf");
 
 	String legacy_scene = OS::sGetCommandLineValue("-legacy_scene");
 

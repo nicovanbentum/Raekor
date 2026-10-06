@@ -898,6 +898,29 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Material& inMaterial)
 
 	CheckForUndo(inEntity, inMaterial, m_MaterialUndo);
 
+	constexpr std::array blend_mode_names = { "Opaque", "Masked", "Blended" };
+	static_assert( blend_mode_names.size() == MATERIAL_BLEND_MODE_COUNT );
+
+	int blend_mode = inMaterial.blendMode;
+
+	if (ImGui::Combo("Blend Mode", &blend_mode, blend_mode_names.data(), blend_mode_names.size()))
+	{
+		inMaterial.blendMode = EMaterialBlendMode(blend_mode);
+		scene_changed = true;
+	}
+
+	if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal))
+		ImGui::SetTooltip("Opaque ignores alpha, Masked discards pixels below the alpha cutoff and Blended uses albedo alpha as opacity.");
+
+	CheckForUndo(inEntity, inMaterial, m_MaterialUndo);
+
+	if (inMaterial.blendMode == MATERIAL_BLEND_MODE_MASKED)
+	{
+		scene_changed |= ImGui::SliderFloat("Alpha Cutoff", &inMaterial.alphaCutoff, 0.0f, 1.0f);
+
+		CheckForUndo(inEntity, inMaterial, m_MaterialUndo);
+	}
+
 	//ImGui::Text(inMaterial.vertexShaderFile.c_str());
 	//ImGui::SameLine();
 
@@ -1103,10 +1126,6 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Material& inMaterial)
 	{
 		DrawTextureInteraction(texture.gpuMap, texture.swizzle, Material::Default.textures[index].gpuMap, texture.filepath, imgui_id);
 	} */
-
-	scene_changed |= ImGui::Checkbox("Is Transparent", &inMaterial.isTransparent);
-
-	CheckForUndo(inEntity, inMaterial, m_MaterialUndo);
 
 	return scene_changed;
 }

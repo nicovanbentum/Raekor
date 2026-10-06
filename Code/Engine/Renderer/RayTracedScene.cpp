@@ -203,6 +203,9 @@ void RayTracedScene::UploadTLASInstances(Application* inApp, Device& inDevice, C
         {
             if (material->vertexShader || material->pixelShader)
                 continue;
+
+            if (material->blendMode == MATERIAL_BLEND_MODE_BLENDED)
+                continue;
         }
 
         Buffer& blas_buffer = inDevice.GetBuffer(BufferID(mesh.BottomLevelAS));
@@ -433,6 +436,7 @@ void RayTracedScene::UploadMaterials(Application* inApp, Device& inDevice, Comma
         rt_material.mAlbedo = material.albedo;
         rt_material.mMetallic = material.metallic;
         rt_material.mRoughness = material.roughness;
+        rt_material.mAlphaCutoff = material.alphaCutoff;
         rt_material.mEmissive = Vec4(material.emissive * inExposure, 1.0);
 
         rt_material.mAlbedoTexture = inDevice.GetBindlessHeapIndex(TextureID(material.gpuAlbedoMap ? material.gpuAlbedoMap : Material::Default.gpuAlbedoMap));

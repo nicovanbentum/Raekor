@@ -341,8 +341,14 @@ void AssimpImporter::LoadMaterial(Entity entity, const aiMaterial* assimpMateria
 
 	aiString ai_alpha_mode;
 	if (assimpMaterial->Get(AI_MATKEY_GLTF_ALPHAMODE, ai_alpha_mode) == AI_SUCCESS)
-		if (strcmp(ai_alpha_mode.C_Str(), "MASK") == 0 || strcmp(ai_alpha_mode.C_Str(), "BLEND") == 0)
-			material.isTransparent = true;
+	{
+		if (strcmp(ai_alpha_mode.C_Str(), "MASK") == 0)
+			material.blendMode = MATERIAL_BLEND_MODE_MASKED;
+		else if (strcmp(ai_alpha_mode.C_Str(), "BLEND") == 0)
+			material.blendMode = MATERIAL_BLEND_MODE_BLENDED;
+	}
+
+	assimpMaterial->Get(AI_MATKEY_GLTF_ALPHACUTOFF, material.alphaCutoff);
 
 	aiColor4D diffuse;
 	if (AI_SUCCESS == aiGetMaterialColor(assimpMaterial, AI_MATKEY_COLOR_DIFFUSE, &diffuse))

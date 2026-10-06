@@ -39,7 +39,7 @@ PS_OUTPUT main(in VS_OUTPUT input) {
     float4 sampled_albedo = albedo_texture.Sample(SamplerAnisoWrap, input.texcoord);
     
 #ifdef ENABLE_DISCARD
-    if (sampled_albedo.a < 0.9)
+    if (material.mAlbedo.a * sampled_albedo.a < material.mAlphaCutoff)
         discard;
 #endif
     

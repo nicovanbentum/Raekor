@@ -263,6 +263,16 @@ struct Skeleton
 };
 
 
+enum EMaterialBlendMode : uint8_t
+{
+	MATERIAL_BLEND_MODE_OPAQUE = 0,
+	MATERIAL_BLEND_MODE_MASKED,
+	MATERIAL_BLEND_MODE_BLENDED,
+	MATERIAL_BLEND_MODE_COUNT
+};
+RTTI_DECLARE_ENUM(EMaterialBlendMode);
+
+
 struct Material
 {
 	RTTI_DECLARE_TYPE(Material);
@@ -272,7 +282,8 @@ struct Material
 	Vec3 emissive = Vec3(0.0f);
 	float metallic = 0.0f;
 	float roughness = 1.0f;
-	bool isTransparent = false;
+	EMaterialBlendMode blendMode = MATERIAL_BLEND_MODE_OPAQUE;
+	float alphaCutoff = 0.5f;
 
 	// texture file paths
 	String albedoFile; // ptr

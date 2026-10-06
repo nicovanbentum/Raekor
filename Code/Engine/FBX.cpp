@@ -297,7 +297,7 @@ void FBXImporter::ConvertMaterial(Entity inEntity, const ufbx_material* inMateri
 		if (albedo.texture->layers.count == 1)
 		{
 			if (albedo.texture->layers.data->alpha < 1.0f || albedo.texture->layers.data->blend_mode == UFBX_BLEND_REPLACE)
-				material.isTransparent = true;
+				material.blendMode = MATERIAL_BLEND_MODE_MASKED;
 		}
 	}
 

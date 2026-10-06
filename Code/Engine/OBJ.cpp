@@ -367,7 +367,7 @@ void OBJImporter::ConvertMaterial(Entity inEntity, const OBJMaterial& inMaterial
 	material.emissive = inMaterial.emissive;
 	material.metallic = inMaterial.metallic;
 	material.roughness = inMaterial.roughness;
-	material.isTransparent = inMaterial.alpha < 1.0;
+	material.blendMode = inMaterial.alpha < 1.0 ? MATERIAL_BLEND_MODE_BLENDED : MATERIAL_BLEND_MODE_OPAQUE;
 
 	if (!inMaterial.diffuseMap.empty())
 		material.albedoFile = TextureAsset::GetCachedPath(m_Directory.string() + inMaterial.diffuseMap);

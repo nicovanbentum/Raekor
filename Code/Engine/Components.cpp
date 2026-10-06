@@ -43,6 +43,14 @@ RTTI_DEFINE_ENUM(ELightType)
 }
 
 
+RTTI_DEFINE_ENUM(EMaterialBlendMode)
+{
+	RTTI_DEFINE_ENUM_MEMBER(SERIALIZE_ALL, "Opaque", MATERIAL_BLEND_MODE_OPAQUE);
+	RTTI_DEFINE_ENUM_MEMBER(SERIALIZE_ALL, "Masked", MATERIAL_BLEND_MODE_MASKED);
+	RTTI_DEFINE_ENUM_MEMBER(SERIALIZE_ALL, "Blended", MATERIAL_BLEND_MODE_BLENDED);
+}
+
+
 RTTI_DEFINE_TYPE(Light)
 {
 	RTTI_DEFINE_MEMBER(Light, SERIALIZE_ALL, "Type", type);
@@ -112,7 +120,8 @@ RTTI_DEFINE_TYPE(Material)
 	RTTI_DEFINE_MEMBER(Material, SERIALIZE_ALL, "Base Emissive", emissive);
 	RTTI_DEFINE_MEMBER(Material, SERIALIZE_ALL, "Metallic", metallic);
 	RTTI_DEFINE_MEMBER(Material, SERIALIZE_ALL, "Roughness", roughness);
-	RTTI_DEFINE_MEMBER(Material, SERIALIZE_ALL, "Transparency", isTransparent);
+	RTTI_DEFINE_MEMBER(Material, SERIALIZE_ALL, "Transparency", blendMode);
+	RTTI_DEFINE_MEMBER(Material, ESerializeType(SERIALIZE_ALL | SERIALIZE_NO_LEGACY_BINARY), "Alpha Cutoff", alphaCutoff);
 	RTTI_DEFINE_MEMBER(Material, SERIALIZE_ALL, "Albedo Map", albedoFile);
 	RTTI_DEFINE_MEMBER(Material, SERIALIZE_ALL, "Normal Map", normalFile);
 	RTTI_DEFINE_MEMBER(Material, SERIALIZE_ALL, "Emissive Map", emissiveFile);

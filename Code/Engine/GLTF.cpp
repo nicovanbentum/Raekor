@@ -500,7 +500,14 @@ int GltfImporter::GetJointIndex(const cgltf_node* inSkinNode, const cgltf_node* 
 void GltfImporter::ConvertMaterial(Entity inEntity, const cgltf_material& gltfMaterial)
 {
 	Material& material = m_Scene.Add<Material>(inEntity);
-	material.isTransparent = gltfMaterial.alpha_mode != cgltf_alpha_mode_opaque;
+	material.alphaCutoff = gltfMaterial.alpha_cutoff;
+
+	switch (gltfMaterial.alpha_mode)
+	{
+		case cgltf_alpha_mode_mask:  material.blendMode = MATERIAL_BLEND_MODE_MASKED;  break;
+		case cgltf_alpha_mode_blend: material.blendMode = MATERIAL_BLEND_MODE_BLENDED; break;
+		default:                     material.blendMode = MATERIAL_BLEND_MODE_OPAQUE;  break;
+	}
 
 	auto HasImageOnDisk = [](cgltf_image* image) -> bool 
 	{

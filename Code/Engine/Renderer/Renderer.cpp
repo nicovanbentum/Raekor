@@ -621,6 +621,10 @@ void Renderer::Recompile(Device& inDevice, RayTracedScene& inScene, IRenderInter
         if (m_Settings.mEnableDDGI && m_Settings.mDebugProbeRays && inDevice.IsRayTracingSupported())
             AddProbeDebugRaysPass(m_RenderGraph, inDevice, light_data.mOutputTexture, gbuffer_output.mDepthTexture, m_DebugLinesVertexBuffer, m_DebugLinesIndirectArgsBuffer);
 
+        AddTransparentForwardPass(m_RenderGraph, inDevice, inScene, gbuffer_output, light_data.mOutputTexture,
+                                  integrate_brdf_data.outputTexture, sky_cube_data.mSkyCubeTexture, convolved_cube_data.mConvolvedCubeTexture,
+                                  enable_ddgi ? &ddgi_output : nullptr, m_Settings.mEnableShadows && inDevice.IsRayTracingSupported());
+
         if (m_Settings.mEnableSSR)
             AddSSRTracePass(m_RenderGraph, inDevice, gbuffer_output, compose_input).mOutputTexture;
 

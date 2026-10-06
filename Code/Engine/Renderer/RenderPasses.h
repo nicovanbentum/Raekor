@@ -211,7 +211,7 @@ struct GBufferData
     GBufferOutput mOutput;
     IRenderPass* mRenderPass = nullptr;
     ComPtr<ID3D12PipelineState> mOpaquePipeline;
-    ComPtr<ID3D12PipelineState> mTransparentPipeline;
+    ComPtr<ID3D12PipelineState> mMaskedPipeline;
 };
 
 const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice,
@@ -222,17 +222,35 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice,
 ////////////////////////////////////////
 /// Transparent Foward Render Pass
 ////////////////////////////////////////
+struct DDGIOutput;
 
 struct TransparentForwardData
 {
-    RenderGraphResourceViewID mOutputTexture;
-    RenderGraphResourceViewID mDepthTexture;
-    ComPtr<ID3D12PipelineState> mPipeline;
-    IRenderPass* mRenderPass = nullptr;
+    RenderGraphResourceViewID mOutputTextureRTV;
+    RenderGraphResourceViewID mSelectionTextureRTV;
+    RenderGraphResourceViewID mDepthTextureDSV;
+    RenderGraphResourceViewID mBrdfLutTextureSRV;
+    RenderGraphResourceViewID mSkyCubeTextureSRV;
+    RenderGraphResourceViewID mDiffuseSkyCubeTextureSRV;
+    RenderGraphResourceViewID mVolumesBufferSRV;
+    RenderGraphResourceViewID mProbeDataBufferSRV;
+    RenderGraphResourceViewID mProbesDepthTextureSRV;
+    RenderGraphResourceViewID mProbesIrradianceTextureSRV;
+    bool mUseRayTracedShadows = false;
+    bool mUseIndirectDiffuse = false;
+    ComPtr<ID3D12PipelineState> mBackFacePipeline;
+    ComPtr<ID3D12PipelineState> mFrontFacePipeline;
 };
 
-const TransparentForwardData& AddForwardPass(RenderGraph& inRenderGraph, Device& inDevice,
-    const RayTracedScene& inScene
+const TransparentForwardData& AddTransparentForwardPass(RenderGraph& inRenderGraph, Device& inDevice,
+    const RayTracedScene& inScene,
+    const GBufferOutput& inGBuffer,
+    RenderGraphResourceID inRenderTarget,
+    RenderGraphResourceID inBrdfLutTexture,
+    RenderGraphResourceID inSkyCubeTexture,
+    RenderGraphResourceID inDiffuseSkyCubeTexture,
+    const DDGIOutput* inDDGI,
+    bool inUseRayTracedShadows
 );
 
 
