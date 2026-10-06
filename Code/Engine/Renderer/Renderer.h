@@ -88,6 +88,11 @@ public:
     TextureID GetEntityTexture() const;
     TextureID GetDisplayTexture() const;
 
+    uint64_t RequestEntityPick(UVec2 inPixel);
+    bool GetEntityPickResult(uint64_t inRequestID, Entity& outEntity) const;
+
+    void RequestScreenshot(const Path& inFile) { m_PendingScreenshot = inFile; }
+
     SDL_Window*         GetWindow() const       { return m_Window; }
     Settings&           GetSettings()           { return m_Settings; }
     Upscaler&           GetUpscaler()           { return m_Upscaler; }
@@ -106,6 +111,19 @@ private:
     uint64_t GetViewportKey(const Viewport& inViewport) const;
     uint64_t GetRenderGraphKey(const RayTracedScene& inScene, IRenderInterface* inRenderInterface) const;
 
+    void ResolveReadbacks(Device& inDevice);
+    void RecordReadbacks(Device& inDevice, CommandList& inCmdList);
+
+    struct Readback
+    {
+        BufferID    mBuffer;
+        Path        mFile;
+        uint64_t    mRequestID = 0;
+        UVec2       mSize = UVec2(0, 0);
+        uint32_t    mRowPitch = 0;
+        DXGI_FORMAT mFormat = DXGI_FORMAT_UNKNOWN;
+    };
+
 private:
     SDL_Window*                 m_Window;
     Mutex                       m_UploadMutex;
@@ -113,7 +131,16 @@ private:
     Array<TextureUpload>        m_PendingTextureUploads;
     Array<Entity>               m_PendingSkeletonUploads;
     RenderGraphResourceID       m_EntityTexture;
+    RenderGraphResourceID       m_DisplayResource;
     RenderGraphResourceViewID   m_DisplayTexture;
+    UVec2                       m_PendingEntityPickPixel;
+    uint64_t                    m_PendingEntityPickID = 0;
+    uint64_t                    m_EntityPickRequestCounter = 0;
+    uint64_t                    m_EntityPickResultID = 0;
+    Entity                      m_EntityPickResult = Entity::Null;
+    Path                        m_PendingScreenshot;
+    Readback                    m_EntityPickReadbacks[sFrameCount];
+    Readback                    m_ScreenshotReadbacks[sFrameCount];
     uint32_t                    m_FrameIndex = 0;
     uint32_t                    m_PrevFrameIndex = 0;
     uint64_t                    m_FrameCounter = 0;
@@ -158,7 +185,7 @@ public:
     uint32_t GetDebugTextureCount() const override { return DEBUG_TEXTURE_COUNT; }
     const char* GetDebugTextureName(uint32_t inIndex) const override;
 
-    uint32_t GetScreenshotBuffer(uint8_t* ioBuffer) { return 0; }
+    void RequestScreenshot(const Path& inFile) override { m_Renderer.RequestScreenshot(inFile); }
 
     void UploadMeshBuffers(Entity inEntity, Mesh& inMesh) override;
     void DestroyMeshBuffers(Entity inEntity, Mesh& inMesh) override;
@@ -174,7 +201,8 @@ public:
 
     uint32_t UploadTextureFromAsset(TextureAsset::Ptr inAsset, bool inIsSRGB = false, uint8_t inSwizzle = TEXTURE_SWIZZLE_RGBA) override;
 
-    uint32_t GetSelectedEntity(const Scene& inScene, uint32_t inScreenPosX, uint32_t inScreenPosY) override;
+    uint64_t RequestEntityPick(uint32_t inPixelX, uint32_t inPixelY) override { return m_Renderer.RequestEntityPick(UVec2(inPixelX, inPixelY)); }
+    bool GetEntityPickResult(uint64_t inRequestID, Entity& outEntity) override { return m_Renderer.GetEntityPickResult(inRequestID, outEntity); }
 
     void DrawDebugSettings(Application* inApp, Scene& inScene, const Viewport& inViewport) override;
 

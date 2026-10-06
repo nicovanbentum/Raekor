@@ -78,6 +78,7 @@ public:
 
 	virtual void OnUpdate(float dt) = 0;
 	virtual void OnEvent(const SDL_Event& event) = 0;
+	virtual bool OnCloseRequested() { return true; }
 
 	bool IsWindowBorderless() const;
 	bool IsWindowExclusiveFullscreen() const;
@@ -206,8 +207,10 @@ public:
 	   DX12: Expects a ResourceID (index into the resource heap). Returns a GPU descriptor handle ptr. */
 	virtual uint64_t GetImGuiTextureID(uint32_t inHandle) = 0;
 
-	virtual uint32_t GetScreenshotBuffer(uint8_t* ioBuffer) = 0;
-	virtual uint32_t GetSelectedEntity(const Scene& inScene, uint32_t inScreenPosX, uint32_t inScreenPosY) = 0;
+	virtual void RequestScreenshot(const Path& inFile) = 0;
+
+	virtual uint64_t RequestEntityPick(uint32_t inPixelX, uint32_t inPixelY) = 0;
+	virtual bool GetEntityPickResult(uint64_t inRequestID, Entity& outEntity) = 0;
 
 	virtual void UploadMeshBuffers(Entity inEntity, Mesh& inMesh) = 0;
 	virtual void DestroyMeshBuffers(Entity inEntity, Mesh& inMesh) = 0;

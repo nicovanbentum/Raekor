@@ -14,7 +14,7 @@ void Job::Wait() const
 
 	while (!IsFinished())
 	{
-		if (g_JobSystem.TryExecuteOne())
+		if (g_JobSystem.TryExecuteOne(m_Priority))
 		{
 			idle_iterations = 0;
 			continue;
@@ -183,13 +183,13 @@ void JobSystem::ParallelFor(uint32_t inCount, uint32_t inBatchSize, const std::f
 }
 
 
-bool JobSystem::TryExecuteOne()
+bool JobSystem::TryExecuteOne(EJobPriority inLowestPriority)
 {
 	Job::Ptr job = nullptr;
 
 	{
 		std::scoped_lock lock(m_QueueMutex);
-		job = PopJob();
+		job = PopJob(inLowestPriority);
 	}
 
 	if (!job)
@@ -304,10 +304,12 @@ void JobSystem::Execute(const Job::Ptr& inJob)
 }
 
 
-Job::Ptr JobSystem::PopJob()
+Job::Ptr JobSystem::PopJob(EJobPriority inLowestPriority)
 {
-	for (std::deque<Job::Ptr>& queue : m_Queues)
+	for (uint32_t priority = 0; priority <= uint32_t(inLowestPriority); priority++)
 	{
+		std::deque<Job::Ptr>& queue = m_Queues[priority];
+
 		if (!queue.empty())
 		{
 			Job::Ptr job = std::move(queue.front());

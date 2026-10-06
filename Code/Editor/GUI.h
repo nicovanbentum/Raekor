@@ -16,8 +16,10 @@ namespace RK::GUI {
 void BeginFrame();
 void EndFrame();
 
-void SetFont(const String& inFilePath);
-void SetDarkTheme();
+void SetFont(const String& inFilePath, float inScale = 1.0f);
+void SetDarkTheme(float inScale = 1.0f);
+
+float GetDisplayScale(SDL_Window* inWindow);
 
 IVec2 GetMousePosWindow(const Viewport& viewport, ImVec2 windowPos);
 

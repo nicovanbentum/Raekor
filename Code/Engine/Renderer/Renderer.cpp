@@ -324,11 +324,9 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
         inDevice.RetireUploadBuffers(backbuffer_data.mCopyCmdList);
         inDevice.RetireUploadBuffers(backbuffer_data.mDirectCmdList);
         inDevice.RetireUploadBuffers(backbuffer_data.mUpdateCmdList);
-
-        backbuffer_data.mCopyCmdList;
-        backbuffer_data.mDirectCmdList;
-        backbuffer_data.mUpdateCmdList;
     }
+
+    ResolveReadbacks(inDevice);
 
 
     // Update the total running time of the application / renderer
@@ -465,6 +463,8 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
 
         // Record the entire frame into the direct cmd list
         m_RenderGraph.Execute(inDevice, m_FrameConstants, direct_cmd_list);
+
+        RecordReadbacks(inDevice, direct_cmd_list);
 
         // Record commands to render ImGui to the backbuffer
         if (inApp->GetConfigSettings().mShowUI)
@@ -714,6 +714,7 @@ void Renderer::Recompile(Device& inDevice, RayTracedScene& inScene, IRenderInter
     }
 
     m_EntityTexture = gbuffer_output.mSelectionTexture;
+    m_DisplayResource = final_output;
     m_DisplayTexture = AddPreImGuiPass(m_RenderGraph, inDevice, final_output).mDisplayTextureSRV;
 
     // const auto& imgui_data = AddImGuiPass(m_RenderGraph, inDevice, inStagingHeap, compose_data.mOutputTexture);
@@ -950,9 +951,13 @@ void RenderInterface::UploadMeshBuffers(Entity inEntity, Mesh& inMesh)
 
 void RenderInterface::DestroyMeshBuffers(Entity inEntity, Mesh& inMesh)
 {
-    m_Device.ReleaseBuffer(BufferID(inMesh.indexBuffer));
-    m_Device.ReleaseBuffer(BufferID(inMesh.vertexBuffer));
-    m_Device.ReleaseBuffer(BufferID(inMesh.BottomLevelAS));
+    for (uint32_t* buffer : { &inMesh.indexBuffer, &inMesh.vertexBuffer, &inMesh.BottomLevelAS })
+    {
+        if (*buffer != 0)
+            m_Device.ReleaseBuffer(BufferID(*buffer));
+
+        *buffer = 0;
+    }
 }
 
 
@@ -998,16 +1003,15 @@ void RenderInterface::UploadSkeletonBuffers(Entity inEntity, Skeleton& inSkeleto
 
 void RenderInterface::DestroySkeletonBuffers(Entity inEntity, Skeleton& inSkeleton)
 {
-    m_Device.ReleaseBuffer(BufferID(inSkeleton.boneIndexBuffer));
-    m_Device.ReleaseBuffer(BufferID(inSkeleton.boneWeightBuffer));
-    m_Device.ReleaseBuffer(BufferID(inSkeleton.skinnedVertexBuffer));
-    m_Device.ReleaseBuffer(BufferID(inSkeleton.boneTransformsBuffer));
-
-    if (inSkeleton.blasScratchBuffer != 0)
+    for (uint32_t* buffer : { &inSkeleton.boneIndexBuffer, &inSkeleton.boneWeightBuffer, &inSkeleton.skinnedVertexBuffer, &inSkeleton.boneTransformsBuffer, &inSkeleton.blasScratchBuffer })
     {
-        m_Device.ReleaseBuffer(BufferID(inSkeleton.blasScratchBuffer));
-        inSkeleton.blasScratchBuffer = 0;
+        if (*buffer != 0)
+            m_Device.ReleaseBuffer(BufferID(*buffer));
+
+        *buffer = 0;
     }
+
+    inSkeleton.gpuBuffersUploaded = false;
 }
 
 
@@ -1650,58 +1654,166 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
 
 
 
-uint32_t RenderInterface::GetSelectedEntity(const Scene& inScene, uint32_t inScreenPosX, uint32_t inScreenPosY)
+uint64_t Renderer::RequestEntityPick(UVec2 inPixel)
 {
-    // ViewportWidget pre-flips the Y coordinate for OpenGL, undo that
-    inScreenPosY = m_Viewport.GetRenderSize().y - inScreenPosY;
+    m_PendingEntityPickPixel = inPixel;
+    m_PendingEntityPickID = ++m_EntityPickRequestCounter;
 
-    CommandList cmd_list = CommandList(m_Device, D3D12_COMMAND_LIST_TYPE_DIRECT, 0);
-    cmd_list.Reset();
+    return m_PendingEntityPickID;
+}
 
-    Texture& entity_texture = m_Device.GetTexture(m_Renderer.GetEntityTexture());
-    ID3D12Resource* entity_texture_resource = entity_texture.GetD3D12Resource();
 
-    BufferID readback_buffer_id = m_Device.CreateBuffer(Buffer::Describe(sizeof(Entity), Buffer::READBACK, true, "PixelReadbackBuffer"));
 
-    auto state = GetD3D12ResourceStates(entity_texture.GetUsage());
-    auto entity_texture_barrier = D3D12_RESOURCE_BARRIER(CD3DX12_RESOURCE_BARRIER::Transition(entity_texture_resource, state, D3D12_RESOURCE_STATE_COPY_SOURCE));
-    cmd_list->ResourceBarrier(1, &entity_texture_barrier);
+bool Renderer::GetEntityPickResult(uint64_t inRequestID, Entity& outEntity) const
+{
+    if (inRequestID == 0 || m_EntityPickResultID != inRequestID)
+        return false;
 
-    D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint = {};
-    footprint.Footprint = CD3DX12_SUBRESOURCE_FOOTPRINT(entity_texture.GetDesc().format, 1, 1, 1, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
+    outEntity = m_EntityPickResult;
+    return true;
+}
 
-    const CD3DX12_BOX box = CD3DX12_BOX(inScreenPosX, inScreenPosY, inScreenPosX + 1, inScreenPosY + 1);
-    const CD3DX12_TEXTURE_COPY_LOCATION src = CD3DX12_TEXTURE_COPY_LOCATION(entity_texture_resource, 0);
-    const CD3DX12_TEXTURE_COPY_LOCATION dest = CD3DX12_TEXTURE_COPY_LOCATION(m_Device.GetD3D12Resource(readback_buffer_id), footprint);
 
-    cmd_list->CopyTextureRegion(&dest, 0, 0, 0, &src, &box);
 
-    std::swap(entity_texture_barrier.Transition.StateBefore, entity_texture_barrier.Transition.StateAfter);
-    cmd_list->ResourceBarrier(1, &entity_texture_barrier);
+void Renderer::ResolveReadbacks(Device& inDevice)
+{
+    Readback& pick_readback = m_EntityPickReadbacks[m_FrameIndex];
 
-    cmd_list.Close();
+    if (pick_readback.mBuffer.IsValid())
+    {
+        const uint32_t* mapped_ptr = nullptr;
+        const CD3DX12_RANGE read_range = CD3DX12_RANGE(0, sizeof(uint32_t));
 
-    cmd_list.Submit(m_Device, m_Device.GetGraphicsQueue());
+        gThrowIfFailed(inDevice.GetBuffer(pick_readback.mBuffer)->Map(0, &read_range, (void**)&mapped_ptr));
+        m_EntityPickResult = Entity(*mapped_ptr);
+        m_EntityPickResultID = pick_readback.mRequestID;
+        inDevice.GetBuffer(pick_readback.mBuffer)->Unmap(0, nullptr);
 
-    ComPtr<ID3D12Fence> fence = nullptr;
-    m_Device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence));
+        inDevice.ReleaseBuffer(pick_readback.mBuffer);
+        pick_readback = {};
+    }
 
-    HANDLE fence_event = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+    Readback& screenshot_readback = m_ScreenshotReadbacks[m_FrameIndex];
 
-    m_Device.GetGraphicsQueue()->Signal(fence.Get(), 1);
+    if (screenshot_readback.mBuffer.IsValid())
+    {
+        const uint8_t* mapped_ptr = nullptr;
+        const CD3DX12_RANGE read_range = CD3DX12_RANGE(0, screenshot_readback.mRowPitch * screenshot_readback.mSize.y);
 
-    gThrowIfFailed(fence->SetEventOnCompletion(1, fence_event));
-    WaitForSingleObjectEx(fence_event, INFINITE, FALSE);
+        gThrowIfFailed(inDevice.GetBuffer(screenshot_readback.mBuffer)->Map(0, &read_range, (void**)&mapped_ptr));
 
-    uint32_t* mapped_ptr = nullptr;
-    const CD3DX12_RANGE range = CD3DX12_RANGE(0, 0);
-    gThrowIfFailed(m_Device.GetBuffer(readback_buffer_id)->Map(0, &range, reinterpret_cast<void**>( &mapped_ptr )));
+        const bool is_bgra = screenshot_readback.mFormat == DXGI_FORMAT_B8G8R8A8_UNORM || screenshot_readback.mFormat == DXGI_FORMAT_B8G8R8A8_UNORM_SRGB;
 
-    Entity result = Entity(*mapped_ptr);
+        SharedPtr<Array<uint8_t>> pixels = std::make_shared<Array<uint8_t>>(screenshot_readback.mSize.x * screenshot_readback.mSize.y * 4);
 
-    m_Device.ReleaseBuffer(readback_buffer_id);
+        for (uint32_t row = 0; row < screenshot_readback.mSize.y; row++)
+        {
+            const uint8_t* src = mapped_ptr + row * screenshot_readback.mRowPitch;
+            uint8_t* dst = pixels->data() + row * screenshot_readback.mSize.x * 4;
 
-    return result;
+            for (uint32_t pixel = 0; pixel < screenshot_readback.mSize.x; pixel++)
+            {
+                dst[pixel * 4 + 0] = src[pixel * 4 + ( is_bgra ? 2 : 0 )];
+                dst[pixel * 4 + 1] = src[pixel * 4 + 1];
+                dst[pixel * 4 + 2] = src[pixel * 4 + ( is_bgra ? 0 : 2 )];
+                dst[pixel * 4 + 3] = 255;
+            }
+        }
+
+        inDevice.GetBuffer(screenshot_readback.mBuffer)->Unmap(0, nullptr);
+        inDevice.ReleaseBuffer(screenshot_readback.mBuffer);
+
+        g_JobSystem.Schedule([pixels, file = screenshot_readback.mFile, size = screenshot_readback.mSize]()
+        {
+            if (stbi_write_png(file.string().c_str(), size.x, size.y, 4, pixels->data(), size.x * 4))
+                gLogInfo("Renderer", "Saved screenshot to {}", file.string());
+            else
+                gLogError("Renderer", "Failed to write screenshot to {}", file.string());
+        }, JOB_PRIORITY_LOW);
+
+        screenshot_readback = {};
+    }
+}
+
+
+
+void Renderer::RecordReadbacks(Device& inDevice, CommandList& inCmdList)
+{
+    auto CopyTextureToReadback = [&](TextureID inTexture, const D3D12_BOX* inBox, Readback& ioReadback, const char* inDebugName)
+    {
+        Texture& texture = inDevice.GetTexture(inTexture);
+        ID3D12Resource* resource = texture.GetD3D12Resource();
+
+        const UVec2 size = inBox ? UVec2(inBox->right - inBox->left, inBox->bottom - inBox->top) : UVec2(texture.GetWidth(), texture.GetHeight());
+
+        D3D12_RESOURCE_DESC desc = resource->GetDesc();
+        desc.Width = size.x;
+        desc.Height = size.y;
+        desc.MipLevels = 1;
+        desc.DepthOrArraySize = 1;
+
+        D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint = {};
+        uint64_t total_size = 0;
+        inDevice->GetCopyableFootprints(&desc, 0, 1, 0, &footprint, nullptr, nullptr, &total_size);
+
+        ioReadback.mSize = size;
+        ioReadback.mFormat = desc.Format;
+        ioReadback.mRowPitch = footprint.Footprint.RowPitch;
+        ioReadback.mBuffer = inDevice.CreateBuffer(Buffer::Describe(total_size, Buffer::READBACK, true, inDebugName));
+
+        const D3D12_RESOURCE_STATES state = GetD3D12ResourceStates(texture.GetUsage());
+
+        D3D12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(resource, state, D3D12_RESOURCE_STATE_COPY_SOURCE);
+        inCmdList->ResourceBarrier(1, &barrier);
+
+        const CD3DX12_TEXTURE_COPY_LOCATION src = CD3DX12_TEXTURE_COPY_LOCATION(resource, 0);
+        const CD3DX12_TEXTURE_COPY_LOCATION dst = CD3DX12_TEXTURE_COPY_LOCATION(inDevice.GetD3D12Resource(ioReadback.mBuffer), footprint);
+        inCmdList->CopyTextureRegion(&dst, 0, 0, 0, &src, inBox);
+
+        std::swap(barrier.Transition.StateBefore, barrier.Transition.StateAfter);
+        inCmdList->ResourceBarrier(1, &barrier);
+    };
+
+    if (m_PendingEntityPickID != 0)
+    {
+        const UVec2 pixel = m_PendingEntityPickPixel;
+        const uint64_t request_id = m_PendingEntityPickID;
+        m_PendingEntityPickID = 0;
+
+        const TextureID entity_texture = GetEntityTexture();
+        const Texture& texture = inDevice.GetTexture(entity_texture);
+
+        if (pixel.x < texture.GetWidth() && pixel.y < texture.GetHeight())
+        {
+            const CD3DX12_BOX box = CD3DX12_BOX(pixel.x, pixel.y, pixel.x + 1, pixel.y + 1);
+            CopyTextureToReadback(entity_texture, &box, m_EntityPickReadbacks[m_FrameIndex], "EntityPickReadback");
+            m_EntityPickReadbacks[m_FrameIndex].mRequestID = request_id;
+        }
+        else
+        {
+            m_EntityPickResult = Entity::Null;
+            m_EntityPickResultID = request_id;
+        }
+    }
+
+    if (!m_PendingScreenshot.empty())
+    {
+        const TextureID display_texture = m_RenderGraph.GetResources().GetTexture(m_DisplayResource);
+        const DXGI_FORMAT format = inDevice.GetTexture(display_texture).GetDesc().format;
+
+        const bool is_supported = format == DXGI_FORMAT_R8G8B8A8_UNORM || format == DXGI_FORMAT_R8G8B8A8_UNORM_SRGB ||
+                                  format == DXGI_FORMAT_B8G8R8A8_UNORM || format == DXGI_FORMAT_B8G8R8A8_UNORM_SRGB;
+
+        if (!is_supported)
+            gLogError("Renderer", "Can't save a screenshot of the current output, its format isn't 8 bits per channel. Turn off the debug texture and try again.");
+        else if (!m_ScreenshotReadbacks[m_FrameIndex].mBuffer.IsValid())
+        {
+            m_ScreenshotReadbacks[m_FrameIndex].mFile = m_PendingScreenshot;
+            CopyTextureToReadback(display_texture, nullptr, m_ScreenshotReadbacks[m_FrameIndex], "ScreenshotReadback");
+        }
+
+        m_PendingScreenshot.clear();
+    }
 }
 
 

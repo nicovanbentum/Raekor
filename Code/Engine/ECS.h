@@ -34,6 +34,8 @@ public:
 	virtual void    Remove(Entity inEntity) = 0;
 	virtual bool    Contains(Entity inEntity) const = 0;
 	virtual void	Copy(Entity inFrom, Entity inTo) = 0;
+	virtual void	Move(IComponentStorage& ioFrom, Entity inFrom, Entity inTo) = 0;
+	virtual UniquePtr<IComponentStorage> Clone() const = 0;
 
 	virtual void    Read(BinaryReadArchive& inArchive) = 0;
 	virtual void    Read(JSON::ReadArchive& inArchive) = 0;
@@ -276,12 +278,13 @@ public:
 		return all_members_read;
 	}
 
-	T& Insert(Entity entity, const T& t)
+	template<typename U>
+	T& Insert(Entity entity, U&& t)
 	{
 		if (Contains(entity))
 		{
 			T& existing_t = Get(entity);
-			existing_t = t;
+			existing_t = std::forward<U>(t);
 			return existing_t;
 		}
 
@@ -296,7 +299,7 @@ public:
 		}
 
 		m_Sparse[entity] = uint32_t(m_Entities.size() - 1);
-		return m_Components.emplace_back(t);
+		return m_Components.emplace_back(std::forward<U>(t));
 	}
 
 	T& Get(Entity entity)
@@ -321,6 +324,16 @@ public:
 	{
 		T component = Get(inFrom);
 		Insert(inTo, component);
+	}
+
+	void Move(IComponentStorage& ioFrom, Entity inFrom, Entity inTo) override final
+	{
+		Insert(inTo, std::move(ioFrom.GetDerived<T>()->Get(inFrom)));
+	}
+
+	UniquePtr<IComponentStorage> Clone() const override final
+	{
+		return std::make_unique<ComponentStorage<T>>(*this);
 	}
 
 	void Add(Entity inEntity) override final
@@ -865,6 +878,20 @@ public:
     auto end() { return std::end(m_Components); }
 
 	bool IsEmpty() const { return m_Entities.empty(); }
+
+	void Swap(ECStorage& ioOther)
+	{
+		std::swap(m_Entities, ioOther.m_Entities);
+		std::swap(m_Components, ioOther.m_Components);
+	}
+
+	void CopyFrom(const ECStorage& inOther)
+	{
+		m_Entities = inOther.m_Entities;
+
+		for (const auto& [hash, storage] : inOther.m_Components)
+			m_Components[hash] = storage->Clone();
+	}
 
 protected:
 	Array<Entity> m_Entities;

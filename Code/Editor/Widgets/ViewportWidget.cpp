@@ -13,14 +13,13 @@
 #include "Components.h"
 #include "Primitives.h"
 #include "Application.h"
-#include "MenubarWidget.h"
 
 namespace RK {
 
 RTTI_DEFINE_TYPE_NO_FACTORY(ViewportWidget) {}
 
 ViewportWidget::ViewportWidget(Editor* inEditor) :
-	IWidget(inEditor, reinterpret_cast<const char*>( ICON_FA_VIDEO " Viewport " )) 
+	IWidget(inEditor, reinterpret_cast<const char*>( ICON_FA_VIDEO " Viewport " ))
 {
 }
 
@@ -28,9 +27,8 @@ ViewportWidget::ViewportWidget(Editor* inEditor) :
 void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 {
 	m_Changed = false;
-	
+
 	Scene& scene = IWidget::GetScene();
-	Physics& physics = IWidget::GetPhysics();
 	Viewport& viewport = m_Editor->GetViewport();
 
     static int& show_border = g_CVariables->Create("r_show_border", 1, IF_DEBUG_ELSE(true, false));
@@ -38,63 +36,55 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
     static int& show_debug_text = g_CVariables->Create("r_show_debug_text", 1, IF_DEBUG_ELSE(true, false));
 	static int& show_debug_icons = g_CVariables->Create("r_show_debug_icons", 1, IF_DEBUG_ELSE(true, false));
 
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(2, 2));
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
 
-	const ImGuiWindowFlags flags = ImGuiWindowFlags_AlwaysAutoResize |
-								   ImGuiWindowFlags_NoScrollWithMouse |
-								   ImGuiWindowFlags_NoScrollbar;
+	const ImGuiWindowFlags flags = ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoScrollbar;
 
 	ImGui::SetNextWindowSize(ImVec2(160, 90), ImGuiCond_FirstUseEver);
 	m_Visible = ImGui::Begin(m_Title.c_str(), &m_Open, flags);
 	m_Editor->GetRenderInterface()->GetSettings().paused = !m_Visible;
 
-	ImVec2 pre_scene_cursor_pos = ImGui::GetCursorPos();
+	ImGui::PopStyleVar();
+
+	const ImVec2 pre_scene_cursor_pos = ImGui::GetCursorPos();
 
 	// figure out if we need to resize the viewport
 	ImVec2 size = ImGui::GetContentRegionAvail();
 	size.x = glm::max(size.x, 160.0f);
 	size.y = glm::max(size.y, 90.0f);
 
-	bool resized = false;
-	if (viewport.GetDisplaySize().x != size.x || viewport.GetDisplaySize().y != size.y)
+	if (viewport.GetDisplaySize().x != uint32_t(size.x) || viewport.GetDisplaySize().y != uint32_t(size.y))
 	{
 		viewport.SetRenderSize({ size.x, size.y });
 		viewport.SetDisplaySize({ size.x, size.y });
-		resized = true;
 	}
 
-	// update focused state
 	m_Focused = ImGui::IsWindowFocused();
 
-	// Update the display texture incase it changed
 	m_DisplayTexture = m_Editor->GetRenderInterface()->GetDisplayTexture();
 
-	// calculate display UVs
-	ImVec2 uv0 = ImVec2(0, 0);
-	ImVec2 uv1 = ImVec2(1, 1);
+	const ImVec4 border_color = show_border && m_Editor->GetGameState() != GAME_STOPPED ?
+		( m_Editor->GetGameState() == GAME_RUNNING ? cRunningColor : cPausedColor ) : ImVec4(0, 0, 0, 0);
 
-	// Render the display image
-	static const std::array border_state_colors =
-	{
-		cRunningColor,
-        cPausedColor,
-		ImVec4(0, 0, 0, 1),
-	};
-
-    ImVec4 border_color = show_border ? border_state_colors[m_Editor->GetGameState()] : ImVec4(0, 0, 0, 1);
-	ImGui::Image((ImTextureID)((intptr_t)m_DisplayTexture), size, uv0, uv1, ImVec4(1, 1, 1, 1), border_color);
+	ImGui::Image((ImTextureID)((intptr_t)m_DisplayTexture), size, ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), border_color);
 
 	m_IsMouseOver = ImGui::IsItemHovered();
-	ImVec2 viewportMin = ImGui::GetItemRectMin();
-	ImVec2 viewportMax = ImGui::GetItemRectMax();
+	const ImVec2 viewport_min = ImGui::GetItemRectMin();
+	const ImVec2 viewport_max = ImGui::GetItemRectMax();
 
-	m_WindowPos = ImGui::GetWindowPos();
-	m_WindowSize = ImGui::GetWindowSize();
+	m_WindowPos = viewport_min;
+	m_WindowSize = viewport_max - viewport_min;
+
+	const ImVec2 mouse_in_image = ImGui::GetMousePos() - viewport_min;
+	const UVec2 mouse_pixel = UVec2(
+		uint32_t(glm::clamp(mouse_in_image.x, 0.0f, size.x - 1.0f) * viewport.GetRenderSize().x / size.x),
+		uint32_t(glm::clamp(mouse_in_image.y, 0.0f, size.y - 1.0f) * viewport.GetRenderSize().y / size.y)
+	);
 
 	if (GetActiveEntity() != Entity::Null && scene.Has<Transform>(GetActiveEntity()) && m_IsGizmoEnabled)
 	{
 		ImGuizmo::SetDrawlist();
-		ImGuizmo::SetRect(viewportMin.x, viewportMin.y, viewportMax.x - viewportMin.x, viewportMax.y - viewportMin.y);
+		ImGuizmo::SetRect(viewport_min.x, viewport_min.y, viewport_max.x - viewport_min.x, viewport_max.y - viewport_min.y);
 
 		Mat4x4 local_to_world_transform = Mat4x4(1.0f);
 		Mat4x4 world_to_local_transform = Mat4x4(1.0f);
@@ -125,8 +115,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 		world_space_transform = glm::translate(world_space_transform, additional_translation);
 
-		// prevent the gizmo from going outside of the viewport
-		ImGui::GetWindowDrawList()->PushClipRect(viewportMin, viewportMax);
+		ImGui::GetWindowDrawList()->PushClipRect(viewport_min, viewport_max);
 
 		float* snap = nullptr;
 		Vec4 scale_snap = Vec4(m_Editor->GetSettings().scaleSnap);
@@ -151,12 +140,13 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			g_Input->IsKeyDown(Key::LCTRL) ? &snap[0] : nullptr
 		);
 
+		ImGui::GetWindowDrawList()->PopClipRect();
+
 		m_WasUsingGizmo = m_IsUsingGizmo;
 		m_IsUsingGizmo = ImGuizmo::IsUsing();
 
 		world_space_transform = glm::translate(world_space_transform, -additional_translation);
 
-		// activation
 		if (m_IsUsingGizmo && !m_WasUsingGizmo)
 		{
 			m_TransformUndo.entity = GetActiveEntity();
@@ -171,7 +161,6 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			m_Changed = true;
 		}
 
-		// de-activation
 		if (!m_IsUsingGizmo && m_WasUsingGizmo)
 		{
 			assert(m_TransformUndo.entity != Entity::Null);
@@ -183,92 +172,84 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	// the viewport image is a drag and drop target for dropping materials onto meshes
 	if (ImGui::BeginDragDropTarget())
 	{
-		const IVec2 mouse_pos = GUI::GetMousePosWindow(viewport, ImGui::GetWindowPos() + ( ImGui::GetWindowSize() - size ));
-		const uint32_t pixel = m_Editor->GetRenderInterface()->GetSelectedEntity(GetScene(), mouse_pos.x, mouse_pos.y);
-		const Entity picked = Entity(pixel);
+		Entity picked = Entity::Null;
 
-		Mesh* mesh = nullptr;
-		Skeleton* skeleton = nullptr;
+		if (GetRenderInterface().GetEntityPickResult(m_DropPickRequest, picked))
+			m_DropTargetEntity = scene.Exists(picked) ? picked : Entity::Null;
 
-		if (scene.Exists(picked))
+		m_DropPickRequest = GetRenderInterface().RequestEntityPick(mouse_pixel.x, mouse_pixel.y);
+
+		Mesh* mesh = scene.GetPtr<Mesh>(m_DropTargetEntity);
+		Skeleton* skeleton = scene.GetPtr<Skeleton>(m_DropTargetEntity);
+
+		if (m_DropTargetEntity != Entity::Null)
 		{
 			ImGui::BeginTooltip();
 
-			mesh = scene.GetPtr<Mesh>(picked);
-			skeleton = scene.GetPtr<Skeleton>(picked);
-
-			if (scene.Has<Mesh>(picked))
+			if (mesh)
 			{
-				ImGui::Text(std::string(std::string("Apply to ") + scene.Get<Name>(picked).name).c_str());
-				SetActiveEntity(picked);
+				const Name* name = scene.GetPtr<Name>(m_DropTargetEntity);
+				ImGui::Text("Apply to %s", name ? name->name.c_str() : "mesh");
 			}
 			else
-			{
-				ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 0, 0, 255));
-				ImGui::Text("Invalid target");
-				ImGui::PopStyleColor();
-			}
+				ImGui::TextColored(cStoppedColor, "Not a mesh");
 
 			ImGui::EndTooltip();
 		}
 
-		const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("drag_drop_entity");
-
-		if (payload && mesh)
+		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("drag_drop_entity"))
 		{
-			Entity entity = *reinterpret_cast<const Entity*>( payload->Data );
+			const Entity entity = *reinterpret_cast<const Entity*>( payload->Data );
 
-			if (scene.Has<Material>(entity))
+			if (mesh && scene.Has<Material>(entity))
 			{
-				m_Changed = true;
 				mesh->material = entity;
+				m_Changed = true;
 			}
 
-			if (scene.Has<Animation>(entity) && skeleton)
+			if (skeleton && scene.Has<Animation>(entity))
+			{
 				skeleton->animation = entity;
-				
+				m_Changed = true;
+			}
 
-			SetActiveEntity(picked);
+			if (mesh)
+				SetActiveEntity(m_DropTargetEntity);
+
+			m_DropTargetEntity = Entity::Null;
+			m_DropPickRequest = 0;
 		}
 
 		ImGui::EndDragDropTarget();
 	}
 
-	if (show_debug_icons) 
+	if (show_debug_icons)
 	{
 		for (const auto& [entity, light] : scene.Each<Light>())
-		{
 			AddClickableQuad(viewport, entity, (ImTextureID)GetRenderInterface().GetLightTexture(), light.position, 0.1f);
-		}
 
 		for (const auto& [entity, camera] : scene.Each<Camera>())
-		{
 			AddClickableQuad(viewport, entity, (ImTextureID)GetRenderInterface().GetCameraTexture(), camera.GetPosition(), 0.1f);
-		}
 
 		for (const auto& [entity, light, transform] : scene.Each<DirectionalLight, Transform>())
-		{
 			AddClickableQuad(viewport, entity, (ImTextureID)GetRenderInterface().GetLightTexture(), transform.position, 0.1f);
-		}
 	}
 
 	bool can_select_entity = m_IsMouseOver;
 	can_select_entity &= ImGui::IsMouseClicked(ImGuiMouseButton_Left);
-	can_select_entity &= SDL_GetModState() == SDL_KMOD_NONE;
+	can_select_entity &= ( SDL_GetModState() & ( SDL_KMOD_CTRL | SDL_KMOD_ALT | SDL_KMOD_SHIFT | SDL_KMOD_GUI ) ) == 0;
 	can_select_entity &= !ImGui::IsAnyItemHovered();
 	can_select_entity &= !g_Input->IsKeyDown(Key::LSHIFT);
-	can_select_entity &= !ImGuizmo::IsOver(m_GizmoOperation);
+	can_select_entity &= !ImGuizmo::IsOver(m_GizmoOperation) || GetActiveEntity() == Entity::Null;
 
 	if (can_select_entity)
 	{
-		const IVec2 mouse_pos = GUI::GetMousePosWindow(viewport, ImGui::GetWindowPos() + ( ImGui::GetWindowSize() - size ));
-
-		const uint32_t pixel = m_Editor->GetRenderInterface()->GetSelectedEntity(GetScene(), mouse_pos.x, mouse_pos.y);
+		const IVec2 ray_pos = GUI::GetMousePosWindow(viewport, viewport_min);
 
 		float hit_dist = FLT_MAX;
 		Entity hit_entity = Entity::Null;
 
-		Ray ray(viewport, Vec2(mouse_pos.x, mouse_pos.y));
+		Ray ray(viewport, Vec2(ray_pos.x, ray_pos.y));
 
 		for (const auto& quad : m_EntityQuads)
 		{
@@ -285,34 +266,111 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			}
 		}
 
-		Entity picked = hit_entity == Entity::Null ? Entity(pixel) : hit_entity;
-
-		if (GetActiveEntity() == picked)
+		if (hit_entity != Entity::Null)
 		{
-			SetActiveEntity(Entity::Null);
+			m_SelectPickRequest = 0;
+			SelectPickedEntity(hit_entity);
 		}
 		else
-			SetActiveEntity(picked);
+			m_SelectPickRequest = GetRenderInterface().RequestEntityPick(mouse_pixel.x, mouse_pixel.y);
+	}
+
+	if (m_SelectPickRequest != 0)
+	{
+		Entity picked = Entity::Null;
+
+		if (GetRenderInterface().GetEntityPickResult(m_SelectPickRequest, picked))
+		{
+			m_SelectPickRequest = 0;
+			SelectPickedEntity(picked);
+		}
 	}
 
 	m_EntityQuads.clear();
 
-	ImVec2 metricsPosition = ImGui::GetWindowPos();
+	ImGui::SetCursorPos(pre_scene_cursor_pos + ImGui::GetStyle().WindowPadding);
 
-	if (ImGuiDockNode* dock_node = ImGui::GetCurrentWindow()->DockNode)
-		if (!dock_node->IsHiddenTabBar())
-			metricsPosition.y += 25.0f;
+	DrawToolbar();
 
-	ImGui::SetCursorPos(pre_scene_cursor_pos + ImGui::GetStyle().FramePadding * 2.0f);
+	ImGui::End();
 
-	ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetColorU32(ImGuiCol_FrameBg));
+	if (m_Visible && ( show_debug_text || show_debug_fps ))
+	{
+		const float padding = ImGui::GetStyle().WindowPadding.x;
 
-	auto DrawGizmoButton = [&](const char* inLabel, ImGuizmo::OPERATION inOperation)
+		ImGui::SetNextWindowPos(ImVec2(viewport_max.x - padding, viewport_min.y + padding), ImGuiCond_Always, ImVec2(1.0f, 0.0f));
+		ImGui::SetNextWindowBgAlpha(0.35f);
+
+		const ImGuiWindowFlags metric_window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDocking |
+													 ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoInputs;
+
+		ImGui::Begin("##ViewportStats", nullptr, metric_window_flags);
+
+		const ImVec4 col_pink  = ImVec4(1.0f, 0.078f, 0.576f, 1.0f);
+
+#ifndef NDEBUG
+		static bool debug_layer_enabled = OS::sCheckCommandLineOption("-debug_layer");
+		static bool gpu_validation_enabled = OS::sCheckCommandLineOption("-gpu_validation");
+
+		if (debug_layer_enabled)
+			ImGui::TextColored(col_pink, "DEBUG DEVICE ENABLED");
+
+		if (gpu_validation_enabled)
+			ImGui::TextColored(col_pink, "GPU VALIDATION ENABLED");
+#endif
+
+		if (show_debug_fps)
+			ImGui::Text("%.2f ms (%.0f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+
+		if (show_debug_text)
+		{
+			uint64_t triangle_count = 0;
+			for (const Mesh& mesh : GetScene().GetStorage<Mesh>())
+				triangle_count += mesh.indices.size();
+			triangle_count /= 3;
+
+			uint32_t opaque_material_count = 0;
+			uint32_t transparent_material_count = 0;
+
+			for (const auto& [entity, material] : GetScene().Each<Material>())
+			{
+				if (material.isTransparent)
+					transparent_material_count++;
+				else
+					opaque_material_count++;
+			}
+
+			ImGui::Separator();
+			ImGui::Text("Draw calls: %u", GetScene().Count<Mesh>());
+			ImGui::Text("Triangles: %llu", triangle_count);
+			ImGui::Text("Materials: %u opaque, %u transparent", opaque_material_count, transparent_material_count);
+			ImGui::Text("Lights: %u", GetScene().Count<Light>());
+			ImGui::Separator();
+			ImGui::Text("GPU Buffers: %llu", GetRenderInterface().GetGPUStats().mLiveBuffers.load());
+			ImGui::Text("GPU Textures: %llu", GetRenderInterface().GetGPUStats().mLiveTextures.load());
+			ImGui::Text("Resolution: %u x %u", viewport.GetRenderSize().x, viewport.GetRenderSize().y);
+		}
+
+		ImGui::End();
+	}
+
+	m_TotalTime += inDeltaTime;
+}
+
+
+void ViewportWidget::DrawToolbar()
+{
+	Scene& scene = GetScene();
+
+	ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.10f, 0.10f, 0.11f, 0.75f));
+
+	auto DrawGizmoButton = [&](const char* inLabel, ImGuizmo::OPERATION inOperation, const char* inTooltip)
 	{
 		const bool is_selected = ( m_GizmoOperation == inOperation ) && m_IsGizmoEnabled;
 
 		if (is_selected)
-			ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetColorU32(ImGuiCol_ButtonHovered));
+			ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
 
 		if (ImGui::Button(inLabel))
 		{
@@ -327,72 +385,68 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 		if (is_selected)
 			ImGui::PopStyleColor();
+
+		if (ImGui::IsItemHovered())
+			ImGui::SetTooltip("%s", inTooltip);
 	};
 
-	/*ImGui::Checkbox("Gizmo", &m_IsGizmoEnabled);
-	ImGui::SameLine();*/
+	DrawGizmoButton((const char*)ICON_FA_ARROWS_ALT, ImGuizmo::OPERATION::TRANSLATE, "Move (T)");
+	ImGui::SameLine(0.0f, 2.0f);
+	DrawGizmoButton((const char*)ICON_FA_SYNC_ALT, ImGuizmo::OPERATION::ROTATE, "Rotate (R)");
+	ImGui::SameLine(0.0f, 2.0f);
+	DrawGizmoButton((const char*)ICON_FA_EXPAND_ARROWS_ALT, ImGuizmo::OPERATION::SCALE, "Scale (S)");
 
-	DrawGizmoButton((const char*)ICON_FA_ARROWS_ALT, ImGuizmo::OPERATION::TRANSLATE);
 	ImGui::SameLine();
-	DrawGizmoButton((const char*)ICON_FA_SYNC_ALT, ImGuizmo::OPERATION::ROTATE);
-	ImGui::SameLine();
-	DrawGizmoButton((const char*)ICON_FA_EXPAND_ARROWS_ALT, ImGuizmo::OPERATION::SCALE);
 
-	MenubarWidget* menubar_widget = inWidgets->GetWidget<MenubarWidget>();
-
-	if (menubar_widget && !menubar_widget->IsOpen())
-	{
-		ImGui::SameLine();
-
-		if (ImGui::Button((const char*)ICON_FA_ADDRESS_BOOK))
-			menubar_widget->Show();
-	}
-
-	const ImVec2 cursor_pos = ImGui::GetCursorPos();
-	
-	ImGui::SameLine();
 	ImGui::Button((const char*)ICON_FA_COG);
-	
-	ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding, 5.0f);
+
+	if (ImGui::IsItemHovered())
+		ImGui::SetTooltip("Viewport, renderer and camera settings");
+
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f, 10.0f));
 
-
-	if (ImGui::BeginPopupContextItem(NULL, ImGuiPopupFlags_MouseButtonLeft))
+	if (ImGui::BeginPopupContextItem("##ViewportSettings", ImGuiPopupFlags_MouseButtonLeft))
 	{
-		ImGui::PushStyleVar(ImGuiStyleVar_SeparatorTextAlign, ImVec2(0.5f, 0.5f));
-		ImGui::SeparatorText("Viewport Settings");
+		static int& show_border = g_CVariables->GetValue<int>("r_show_border");
+		static int& show_debug_fps = g_CVariables->GetValue<int>("r_show_debug_fps");
+		static int& show_debug_text = g_CVariables->GetValue<int>("r_show_debug_text");
+		static int& show_debug_icons = g_CVariables->GetValue<int>("r_show_debug_icons");
 
-        ImGui::Checkbox("Show Border", (bool*)&show_border);
+		ImGui::SeparatorText("Viewport");
 
-        ImGui::Checkbox("Show Debug FPS", (bool*)&show_debug_fps);
+		ImGui::Checkbox("Play Mode Border", (bool*)&show_border);
+		ImGui::Checkbox("Frame Time", (bool*)&show_debug_fps);
+		ImGui::Checkbox("Statistics", (bool*)&show_debug_text);
+		ImGui::Checkbox("Light & Camera Icons", (bool*)&show_debug_icons);
 
-        ImGui::Checkbox("Show Debug Text", (bool*)&show_debug_text);
+		ImGui::SeparatorText("Snapping (hold Ctrl)");
 
-		ImGui::Checkbox("Show Debug Icons", (bool*)&show_debug_icons);
+		ImGui::DragFloat("Move", &m_Editor->GetSettings().translationSnap, 0.01f, 0.01f, 100.0f, "%.2f m");
+		ImGui::DragFloat("Rotate", &m_Editor->GetSettings().rotationSnap, 0.5f, 0.5f, 180.0f, "%.1f deg");
+		ImGui::DragFloat("Scale", &m_Editor->GetSettings().scaleSnap, 0.01f, 0.01f, 10.0f, "%.2f");
 
-		int current_debug_texture = m_Editor->GetRenderInterface()->GetDebugTextureIndex();
+		ImGui::SeparatorText("Debug View");
+
+		const int current_debug_texture = int(m_Editor->GetRenderInterface()->GetDebugTextureIndex());
 		const uint32_t debug_texture_count = m_Editor->GetRenderInterface()->GetDebugTextureCount();
 
-		ImGui::AlignTextToFramePadding();
-
-		if (ImGui::BeginMenu("Debug Render Output"))
+		if (ImGui::BeginCombo("##DebugView", m_Editor->GetRenderInterface()->GetDebugTextureName(current_debug_texture)))
 		{
-			for (int texture_idx = 0; texture_idx < debug_texture_count; texture_idx++)
+			for (uint32_t texture_idx = 0; texture_idx < debug_texture_count; texture_idx++)
 			{
-				if (ImGui::RadioButton(m_Editor->GetRenderInterface()->GetDebugTextureName(texture_idx), current_debug_texture == texture_idx))
+				if (ImGui::Selectable(m_Editor->GetRenderInterface()->GetDebugTextureName(texture_idx), current_debug_texture == int(texture_idx)))
 					m_Editor->GetRenderInterface()->SetDebugTextureIndex(texture_idx);
 			}
 
-			ImGui::EndMenu();
+			ImGui::EndCombo();
 		}
 
-		// Draw all the renderer debug UI
 		m_Editor->GetRenderInterface()->DrawDebugSettings(m_Editor, GetScene(), m_Editor->GetViewport());
 
-		ImGui::SeparatorText("Physics Settings");
+		ImGui::SeparatorText("Physics");
 
 		bool debug_physics = GetPhysics().GetDebugRendering();
-		if (ImGui::Checkbox("Debug Visualize Physics", &debug_physics))
+		if (ImGui::Checkbox("Visualize Physics", &debug_physics))
 			GetPhysics().SetDebugRendering(debug_physics);
 
 		if (ImGui::Button("Generate Rigid Bodies"))
@@ -405,85 +459,37 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			}
 
 			GetPhysics().GenerateRigidBodiesEntireScene(GetScene());
+			m_Editor->MarkSceneChanged();
 
 			gLogInfo("Physics", "Rigid body generation took {} seconds", timer.GetElapsedFormatted());
 		}
 
-		ImGui::SameLine();
+		if (ImGui::IsItemHovered())
+			ImGui::SetTooltip("Adds a static rigid body to every mesh in the scene.");
 
-		if (ImGui::Button("Spawn/Reset Balls"))
+		ImGui::SeparatorText("Camera");
+
+		const Entity camera_entity = m_Editor->GetCameraEntity();
+		const char* camera_name = "Editor Camera";
+
+		if (scene.Has<Name, Camera>(camera_entity))
+			camera_name = scene.Get<Name>(camera_entity).name.c_str();
+
+		if (ImGui::BeginCombo("##ActiveCamera", camera_name))
 		{
-			const Entity material_entity = scene.Create();
-			Name& material_name = scene.Add<Name>(material_entity);
-			material_name = "Ball Material";
-			Material& ball_material = scene.Add<Material>(material_entity);
-			ball_material.albedo = glm::vec4(1.0f, 0.25f, 0.38f, 1.0f);
-
-			if (IRenderInterface* render_interface = m_Editor->GetRenderInterface())
-				render_interface->UploadMaterialTextures(material_entity, ball_material, GetAssets());
-
-			for (uint32_t i = 0; i < 64; i++)
-			{
-				Entity entity = scene.CreateSpatialEntity("ball");
-				
-				Mesh& mesh = scene.Add<Mesh>(entity);
-				Transform& transform = scene.Get<Transform>(entity);
-
-				mesh.material = material_entity;
-
-				constexpr float radius = 2.5f;
-				Mesh::CreateSphere(mesh, radius, 32, 32);
-				GetRenderInterface().UploadMeshBuffers(entity, mesh);
-				GetRenderInterface().UploadMaterialTextures(material_entity, ball_material, GetAssets());
-
-				transform.position = Vec3(-65.0f, 85.0f + i * ( radius * 2.0f ), 0.0f);
-				transform.Compose();
-
-				RigidBody& collider = scene.Add<RigidBody>(entity);
-				collider.motionType = JPH::EMotionType::Dynamic;
-				JPH::ShapeSettings* settings = new JPH::SphereShapeSettings(radius);
-
-				JPH::BodyCreationSettings body_settings = JPH::BodyCreationSettings
-				(
-					settings,
-					JPH::Vec3(transform.position.x, transform.position.y, transform.position.z),
-					JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w),
-					collider.motionType,
-					EPhysicsObjectLayers::MOVING
-				);
-
-				body_settings.mFriction = 0.1;
-				body_settings.mRestitution = 0.35;
-
-				JPH::BodyInterface& body_interface = GetPhysics().GetSystem()->GetBodyInterface();
-				collider.bodyID = body_interface.CreateAndAddBody(body_settings, JPH::EActivation::Activate);
-
-				//body_interface.AddImpulse(collider.bodyID, JPH::Vec3Arg(50.0f, -2.0f, 50.0f));
-			}
-		}
-
-		ImGui::SeparatorText("Camera Settings");
-
-		Entity camera_entity = m_Editor->GetCameraEntity();
-
-		const char* camera_name = "<built-in>";
-
-		if (GetScene().Has<Name, Camera>(camera_entity))
-		{
-			camera_name = GetScene().Get<Name>(camera_entity).name.c_str();
-		}
-
-		if (ImGui::BeginCombo("##ActiveCamera", camera_name)) 
-		{
-			if (ImGui::Selectable("<built-in>", camera_entity == Entity::Null))
+			if (ImGui::Selectable("Editor Camera", camera_entity == Entity::Null))
 				m_Editor->SetCameraEntity(Entity::Null);
 
-			for (const auto& [entity, camera] : GetScene().Each<Camera>())
+			for (const auto& [entity, camera] : scene.Each<Camera>())
 			{
-				const Name& name = GetScene().Get<Name>(entity);
+				const Name* name = scene.GetPtr<Name>(entity);
 
-				if (ImGui::Selectable(name.name.c_str(), camera_entity == entity))
+				ImGui::PushID(uint32_t(entity));
+
+				if (ImGui::Selectable(name ? name->name.c_str() : "Camera", camera_entity == entity))
 					m_Editor->SetCameraEntity(entity);
+
+				ImGui::PopID();
 			}
 
 			ImGui::EndCombo();
@@ -502,30 +508,25 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 				camera.SetAngle(orientation);
 
 			float field_of_view = camera.GetFov();
-			if (ImGui::DragFloat("Field of View", &field_of_view, 0.1f)) 
+			if (ImGui::DragFloat("Field of View", &field_of_view, 0.1f, 1.0f, 179.0f, "%.1f deg"))
 				camera.SetFov(field_of_view);
 		}
 
-		ImGui::PopStyleVar();
 		ImGui::EndPopup();
 	}
 
 	ImGui::PopStyleVar();
-	ImGui::PopStyleVar();
 
-	ImGui::SetCursorPos(cursor_pos);
-
-	ImGui::SameLine();
-	ImGui::SetCursorPosX(( ImGui::GetContentRegionAvail().x / 2 ));
-
-	if (ImGui::Button((const char*)ICON_FA_HAMMER)) {}
+	const EGameState game_state = m_Editor->GetGameState();
+	const float button_width = ImGui::GetFrameHeight();
+	const float play_controls_width = button_width * 2.0f + ImGui::GetStyle().ItemSpacing.x;
 
 	ImGui::SameLine();
+	ImGui::SetCursorPosX(glm::max(ImGui::GetCursorPosX(), ( ImGui::GetWindowWidth() - play_controls_width ) * 0.5f));
 
-    const EGameState game_state = m_Editor->GetGameState();
 	ImGui::PushStyleColor(ImGuiCol_Text, game_state == GAME_RUNNING ? cPausedColor : cRunningColor);
 
-	if (ImGui::Button(game_state == GAME_RUNNING ? (const char*)ICON_FA_PAUSE : (const char*)ICON_FA_PLAY))
+	if (ImGui::Button(game_state == GAME_RUNNING ? (const char*)ICON_FA_PAUSE : (const char*)ICON_FA_PLAY, ImVec2(button_width, 0.0f)))
 	{
         if (game_state == GAME_STOPPED)
             m_Editor->Start();
@@ -536,133 +537,70 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	}
 
 	ImGui::PopStyleColor();
+
+	if (ImGui::IsItemHovered())
+		ImGui::SetTooltip(game_state == GAME_RUNNING ? "Pause" : game_state == GAME_PAUSED ? "Resume (F5)" : "Play (F5)");
+
 	ImGui::SameLine();
 
-	const EGameState current_game_state = game_state;
-	if (current_game_state != GAME_STOPPED)
-		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.0f, 1.0f));
+	ImGui::BeginDisabled(game_state == GAME_STOPPED);
+	ImGui::PushStyleColor(ImGuiCol_Text, game_state != GAME_STOPPED ? cStoppedColor : ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
 
-	if (ImGui::Button((const char*)ICON_FA_STOP))
-	{
+	if (ImGui::Button((const char*)ICON_FA_STOP, ImVec2(button_width, 0.0f)))
         m_Editor->Stop();
-	}
-
-	if (current_game_state != GAME_STOPPED)
-		ImGui::PopStyleColor();
 
 	ImGui::PopStyleColor();
+	ImGui::EndDisabled();
 
-	ImGui::End();
+	if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+		ImGui::SetTooltip("Stop (Escape)");
+
+	ImGui::PopStyleColor();
 	ImGui::PopStyleVar();
+}
 
-	if (m_Visible)
+
+void ViewportWidget::SelectPickedEntity(Entity inEntity)
+{
+	Scene& scene = GetScene();
+
+	if (inEntity == Entity::Null || !scene.Exists(inEntity) || inEntity == scene.GetRootEntity())
 	{
-		//Gui::PushStyleColor(ImGuiCol_Text, ImVec4(0, 0, 0, 1));
-		ImGui::SetNextWindowPos(metricsPosition + ImVec2(size.x - 260.0f, 0.0f));
-		ImGui::SetNextWindowBgAlpha(0.0f);
-
-		const ImGuiWindowFlags metric_window_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize;
-		ImGui::Begin("GPU Metrics Shadow", (bool*)0, metric_window_flags);
-		// ImGui::Text("Culled meshes: %i", renderer.m_GBuffer->culled);
-		const GPUInfo& gpu_info = m_Editor->GetRenderInterface()->GetGPUInfo();
-
-		const ImVec4 col_white = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
-		const ImVec4 col_pink  = ImVec4(1.0f, 0.078f, 0.576f, 1.0f);
-
-#ifndef NDEBUG
-		static bool debug_layer_enabled = OS::sCheckCommandLineOption("-debug_layer");
-		static bool gpu_validation_enabled = OS::sCheckCommandLineOption("-gpu_validation");
-
-		if (debug_layer_enabled)
-			ImGui::TextColored(col_pink, "DEBUG DEVICE ENABLED");
-
-		if (gpu_validation_enabled)
-			ImGui::TextColored(col_pink, "GPU VALIDATION ENABLED");
-#endif
-
-		uint64_t triangle_count = 0;
-		for (const Mesh& mesh : GetScene().GetStorage<Mesh>())
-			triangle_count += mesh.indices.size();
-		triangle_count /= 3;
-
-		if (show_debug_text)
-		{
-            ImGui::Text("Frame: %i", GetRenderInterface().GetGPUStats().mFrameCounter);
-			ImGui::Text("Buffers: %i", GetRenderInterface().GetGPUStats().mLiveBuffers.load());
-			ImGui::Text("Textures: %i", GetRenderInterface().GetGPUStats().mLiveTextures.load());
-#if 0
-			ImGui::Text("RTV Heap: %i", GetRenderInterface().GetGPUStats().mLiveRTVHeap.load());
-			ImGui::Text("DSV Heap: %i", GetRenderInterface().GetGPUStats().mLiveDSVHeap.load());
-			ImGui::Text("Sampler Heap: %i", GetRenderInterface().GetGPUStats().mLiveSamplerHeap.load());
-			ImGui::Text("Resource Heap: %i", GetRenderInterface().GetGPUStats().mLiveResourceHeap.load());
-#endif
-
-			uint32_t opaque_material_count = 0;
-			uint32_t transparent_material_count = 0;
-
-			for (const auto& [entity, material] : GetScene().Each<Material>())
-			{
-				if (material.isTransparent)
-					transparent_material_count++;
-				else
-					opaque_material_count++;
-			}
-
-			uint32_t light_count = 0;
-
-
-			ImGui::Text("Lights: %i", GetScene().Count<Light>());
-			ImGui::Text("Opaque Materials: %i", opaque_material_count);
-			ImGui::Text("Transparent Materials: %i", transparent_material_count);
-			ImGui::Text("Draw calls: %i", GetScene().Count<Mesh>());
-			ImGui::Text("Transforms: %i", GetScene().Count<Transform>());
-			ImGui::Text("Triangle Count: %i", triangle_count);
-			ImGui::Text("Render Resolution: %i x %i", viewport.GetRenderSize().x, viewport.GetRenderSize().y);
-			ImGui::Text("Display Resolution: %i x %i", viewport.GetDisplaySize().x, viewport.GetDisplaySize().y);
-		}
-
-        if (show_debug_fps)
-        {
-			ImGui::Text("Frame %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-        }
-
-		ImGui::End();
-
-		//Gui::PopStyleColor();
+		SetActiveEntity(Entity::Null);
+		return;
 	}
-	
-	m_TotalTime += inDeltaTime;
+
+	SetActiveEntity(inEntity);
 }
 
 
 void ViewportWidget::OnEvent(Widgets* inWidgets, const SDL_Event& inEvent)
 {
+	if (inEvent.type != SDL_EVENT_KEY_DOWN || inEvent.key.repeat || g_Input->IsRelativeMouseMode())
+		return;
 
-	if (inEvent.type == SDL_EVENT_KEY_DOWN && !inEvent.key.repeat && !g_Input->IsRelativeMouseMode())
+	if (( SDL_GetModState() & ( SDL_KMOD_CTRL | SDL_KMOD_ALT | SDL_KMOD_SHIFT ) ) != 0)
+		return;
+
+	switch (inEvent.key.key)
 	{
-		switch (inEvent.key.key)
+		case SDLK_T:
 		{
-			case SDLK_R:
-			{
-				m_GizmoOperation = ImGuizmo::OPERATION::ROTATE;
-				break;
-			}
-			case SDLK_T:
-			{
-				m_GizmoOperation = ImGuizmo::OPERATION::TRANSLATE;
-				break;
-			}
-			case SDLK_S:
-			{
-				m_GizmoOperation = ImGuizmo::OPERATION::SCALE;
-				break;
-			}
-			case SDLK_DELETE:
-			{
-				GetScene().Destroy(GetActiveEntity());
-				SetActiveEntity(Entity::Null);
-			} break;
-		}
+			m_GizmoOperation = ImGuizmo::OPERATION::TRANSLATE;
+			m_IsGizmoEnabled = true;
+		} break;
+
+		case SDLK_R:
+		{
+			m_GizmoOperation = ImGuizmo::OPERATION::ROTATE;
+			m_IsGizmoEnabled = true;
+		} break;
+
+		case SDLK_S:
+		{
+			m_GizmoOperation = ImGuizmo::OPERATION::SCALE;
+			m_IsGizmoEnabled = true;
+		} break;
 	}
 }
 
@@ -718,8 +656,8 @@ void ViewportWidget::AddClickableQuad(const Viewport& inViewport, Entity inEntit
 		vertex = vp * vertex;
 		vertex /= vertex.w;
 
-		vertex.x = ImGui::GetWindowPos().x + ( vertex.x + 1.0f ) * 0.5f * ImGui::GetWindowSize().x;
-		vertex.y = ImGui::GetWindowPos().y + ( 1.0f - vertex.y ) * 0.5f * ImGui::GetWindowSize().y;
+		vertex.x = m_WindowPos.x + ( vertex.x + 1.0f ) * 0.5f * m_WindowSize.x;
+		vertex.y = m_WindowPos.y + ( 1.0f - vertex.y ) * 0.5f * m_WindowSize.y;
 	}
 
 	// Flip the 1.0 for DirectX, 0 for OpenGL and Vulkan

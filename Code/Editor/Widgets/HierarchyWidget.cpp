@@ -2,6 +2,7 @@
 #include "HierarchyWidget.h"
 #include "Application.h"
 #include "Components.h"
+#include "Primitives.h"
 #include "Scene.h"
 #include "Editor.h"
 #include "Input.h"
@@ -20,201 +21,394 @@ void HierarchyWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 {
 	ImGui::Begin(m_Title.c_str(), &m_Open);
 	m_Visible = ImGui::IsWindowAppearing();
+	m_Focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
 
-	ImGui::PushItemWidth(-1);
-	ImGui::InputText("##Filter", &m_Filter);
-	ImGui::PopItemWidth();
+	Scene& scene = GetScene();
 
-	ImGui::PushStyleColor(ImGuiCol_Header, ImGui::GetColorU32(ImGuiCol_TabHovered));
-	ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImGui::GetColorU32(ImGuiCol_TabHovered));
+	DrawToolbar(scene);
 
-	ImGuiSelectionBasicStorage& multi_select = m_Editor->GetMultiSelect();
+	ImGui::PushStyleVar(ImGuiStyleVar_IndentSpacing, ImGui::GetFontSize() * 1.1f);
 
-	//ImGuiMultiSelectIO* ms_io = ImGui::BeginMultiSelect(ImGuiMultiSelectFlags_ScopeWindow | ImGuiMultiSelectFlags_BoxSelect1d | ImGuiMultiSelectFlags_NoRangeSelect | ImGuiMultiSelectFlags_ClearOnClickVoid, multi_select.Size, 100);
-
-	Scene::TraverseFunction Traverse = [](void* inContext, Scene& inScene, Entity inEntity) 
+	if (ImGui::BeginChild("##HierarchyTree"))
 	{
-		HierarchyWidget* widget = (HierarchyWidget*)inContext;
-
-		if (inScene.GetParent(inEntity) == inScene.GetRootEntity())
+		if (m_Filter.empty())
 		{
-			if (inScene.HasChildren(inEntity))
-			{
-				if (widget->DrawFamilyNode(inScene, inEntity))
-				{
-
-					widget->DrawFamily(inScene, inEntity);
-					ImGui::TreePop();
-				}
-			}
-			else
-				widget->DrawChildlessNode(inScene, inEntity);
+			for (Entity entity : scene.GetChildren(scene.GetRootEntity()))
+				DrawNode(scene, entity);
 		}
-	};
+		else
+			DrawFilteredList(scene);
 
-	GetScene().TraverseDepthFirst(GetScene().GetRootEntity(), Traverse, this);
+		if (ImGui::IsWindowHovered() && !ImGui::IsAnyItemHovered() && ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+		{
+			m_Editor->GetMultiSelect().Clear();
+			SetActiveEntity(Entity::Null);
+		}
 
-	//ms_io = ImGui::EndMultiSelect();
+		if (ImGui::BeginPopupContextWindow("##HierarchyContext", ImGuiPopupFlags_MouseButtonRight | ImGuiPopupFlags_NoOpenOverItems))
+		{
+			DrawCreateMenuItems(scene, Entity::Null);
+			ImGui::EndPopup();
+		}
 
-    if (m_EntityClicked != Entity::Null)
-    {
-	    /*if (ms_io->Requests.size())
-		    multi_select.ApplyRequests(ms_io);
+		DropTargetWindow(scene);
+	}
 
-	    if (multi_select.Size > 1)
-		    SetActiveEntity(Entity::Null);*/
-    }
+	ImGui::EndChild();
 
-    if (m_EntityClicked != Entity::Null && ImGui::IsMouseReleased(ImGuiMouseButton_Left))
-    {
-        m_Editor->SetActiveEntity(m_Editor->GetActiveEntity() == m_EntityClicked ? Entity::Null : m_EntityClicked);
-        m_EntityClicked = Entity::Null;
-    }
+	ImGui::PopStyleVar();
 
-	ImGui::PopStyleColor(2);
-
-	DropTargetWindow(GetScene());
+	m_PrevActiveEntity = GetActiveEntity();
 
 	ImGui::End();
 }
 
 
-bool HierarchyWidget::DrawFamilyNode(Scene& inScene, Entity inEntity)
+void HierarchyWidget::DrawToolbar(Scene& inScene)
 {
-	ImGuiSelectionBasicStorage& multi_select = m_Editor->GetMultiSelect();
+	const float add_button_width = ImGui::GetFrameHeight();
 
-	const String name = inScene.Has<Name>(inEntity) ? inScene.Get<Name>(inEntity).name : "N/A";
-	const Entity active = m_Editor->GetActiveEntity();
-	const bool is_selected = active == inEntity || multi_select.Contains(inEntity);
+	ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - add_button_width - ImGui::GetStyle().ItemSpacing.x);
+	ImGui::InputTextWithHint("##Filter", (const char*)ICON_FA_SEARCH "  Search entities..", &m_Filter);
 
-	const ImGuiTreeNodeFlags tree_selected = is_selected ? ImGuiTreeNodeFlags_Selected : 0;
-	const ImGuiTreeNodeFlags tree_flags = tree_selected | ImGuiTreeNodeFlags_OpenOnArrow;
-	const float font_size = ImGui::GetFontSize();
+	ImGui::SameLine();
 
-	//ImGui::Selectable((const char*)ICON_FA_CUBE "   ", is_selected, ImGuiSelectableFlags_None, ImVec2(font_size, font_size));
+	if (ImGui::Button((const char*)ICON_FA_PLUS, ImVec2(add_button_width, 0.0f)))
+		ImGui::OpenPopup("##HierarchyAdd");
 
-	//ImGui::SameLine();
-	
-	ImGui::SetNextItemSelectionUserData(inEntity);
+	if (ImGui::IsItemHovered())
+		ImGui::SetTooltip("Create a new entity");
 
-	const bool opened = ImGui::TreeNodeEx(name.c_str(), tree_flags);
-
-	if (ImGui::BeginPopupContextItem())
+	if (ImGui::BeginPopup("##HierarchyAdd"))
 	{
-		m_Editor->SetActiveEntity(inEntity);
-
-		if (ImGui::MenuItem("Delete"))
-		{
-			multi_select.Clear();
-			m_Editor->SetActiveEntity(Entity::Null);
-			GetScene().DestroySpatialEntity(inEntity);
-		}
-
-		if (ImGui::MenuItem("Select Children"))
-		{
-		}
-
+		DrawCreateMenuItems(inScene, Entity::Null);
 		ImGui::EndPopup();
 	}
-
-	if (ImGui::IsItemClicked())
-	{
-        m_EntityClicked = inEntity;
-		multi_select.Clear();
-	}
-
-	DropTargetNode(inScene, inEntity);
-
-	return opened;
 }
 
 
-void HierarchyWidget::DrawChildlessNode(Scene& inScene, Entity inEntity)
+void HierarchyWidget::DrawNode(Scene& inScene, Entity inEntity)
 {
-	ImGuiSelectionBasicStorage& multi_select = m_Editor->GetMultiSelect();
+	const bool has_children = inScene.HasChildren(inEntity);
+	const Name* name = inScene.GetPtr<Name>(inEntity);
+	const Entity active_entity = GetActiveEntity();
 
 	ImGui::PushID(uint32_t(inEntity));
 
-	Entity active_entity = m_Editor->GetActiveEntity();
-	const float font_size = ImGui::GetFontSize();
-	const bool is_selected = active_entity == inEntity || multi_select.Contains(inEntity);
+	ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding;
 
-	//if (ImGui::Selectable((const char*)ICON_FA_CUBE "   ", is_selected, ImGuiSelectableFlags_None, ImVec2(font_size, font_size))) {}
+	if (!has_children)
+		flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
 
-	//ImGui::SameLine();
+	if (IsSelected(inEntity))
+		flags |= ImGuiTreeNodeFlags_Selected;
 
-	String name = inScene.Has<Name>(inEntity) ? inScene.Get<Name>(inEntity).name : "N/A";
+	if (active_entity != m_PrevActiveEntity && active_entity != Entity::Null && IsDescendantOf(inScene, active_entity, inEntity))
+		ImGui::SetNextItemOpen(true);
 
-	ImGui::SetNextItemSelectionUserData(inEntity);
+	bool opened = false;
 
-	const ImGuiTreeNodeFlags tree_selected = is_selected ? ImGuiTreeNodeFlags_Selected : 0;
-	const ImGuiTreeNodeFlags tree_flags = tree_selected | ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_Bullet;
-
-	const bool opened = ImGui::TreeNodeEx(name.c_str(), tree_flags);
-	ImGui::TreePop();
-	//if (ImGui::Selectable(name.c_str(), inEntity == active_entity || multi_select.Contains(inEntity)))
-		//m_Editor->SetActiveEntity(active_entity == inEntity ? Entity::Null : inEntity);
-
-	if (ImGui::BeginPopupContextItem())
+	if (m_RenameEntity == inEntity)
 	{
-		m_Editor->SetActiveEntity(inEntity);
+		opened = ImGui::TreeNodeEx("##RenameNode", flags | ImGuiTreeNodeFlags_AllowOverlap, "%s", GetEntityIcon(inScene, inEntity));
+		ImGui::SameLine();
 
-		if (ImGui::MenuItem("Delete"))
+		if (m_FocusRename)
 		{
-			void* it = NULL; ImGuiID id; 
-			while (multi_select.GetNextSelectedItem(&it, &id))
-			{ 
-				m_Editor->SetActiveEntity(Entity::Null);
-				GetScene().DestroySpatialEntity(Entity(id));
-			}
-
-			multi_select.Clear();
+			ImGui::SetKeyboardFocusHere();
+			m_FocusRename = false;
 		}
 
-        if (multi_select.Size < 2)
-        {
-            if (ImGui::MenuItem("Create Child"))
-            {
-                Entity child_entity = GetScene().CreateSpatialEntity("Child");
-                GetScene().ParentTo(child_entity, inEntity);
-            }
-        }
+		ImGui::SetNextItemWidth(-FLT_MIN);
 
-		ImGui::EndPopup();
+		if (ImGui::InputText("##Rename", &m_RenameBuffer, ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll))
+		{
+			if (Name* rename = inScene.GetPtr<Name>(inEntity))
+			{
+				rename->name = m_RenameBuffer;
+				m_Editor->MarkSceneChanged();
+			}
+
+			m_RenameEntity = Entity::Null;
+		}
+		else if (ImGui::IsItemDeactivated())
+			m_RenameEntity = Entity::Null;
+	}
+	else
+	{
+		opened = ImGui::TreeNodeEx("##Node", flags, "%s  %s", GetEntityIcon(inScene, inEntity), name ? name->name.c_str() : "Unnamed");
+
+		if (active_entity == inEntity && active_entity != m_PrevActiveEntity && !ImGui::IsItemVisible())
+			ImGui::SetScrollHereY();
+
+		HandleSelection(inEntity);
+		HandleDragDrop(inScene, inEntity);
+
+		if (ImGui::BeginPopupContextItem("##NodeContext"))
+		{
+			DrawContextMenu(inScene, inEntity);
+			ImGui::EndPopup();
+		}
 	}
 
-    if (ImGui::IsItemClicked())
-    {
-        m_EntityClicked = inEntity;
-        multi_select.Clear();
-    }
+	if (opened && has_children)
+	{
+		for (Entity child : inScene.GetChildren(inEntity))
+			DrawNode(inScene, child);
+
+		ImGui::TreePop();
+	}
 
 	ImGui::PopID();
-
-	DropTargetNode(inScene, inEntity);
 }
 
 
-void HierarchyWidget::DropTargetNode(Scene& inScene, Entity inEntity)
+void HierarchyWidget::DrawFilteredList(Scene& inScene)
 {
+	const ImGuiTextFilter filter = ImGuiTextFilter(m_Filter.c_str());
+
+	uint32_t match_count = 0;
+
+	for (const auto& [entity, name] : inScene.Each<Name>())
+	{
+		if (!inScene.Has<Transform>(entity) || !filter.PassFilter(name.name.c_str()))
+			continue;
+
+		match_count++;
+
+		ImGui::PushID(uint32_t(entity));
+
+		ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding;
+
+		if (IsSelected(entity))
+			flags |= ImGuiTreeNodeFlags_Selected;
+
+		ImGui::TreeNodeEx("##FilteredNode", flags, "%s  %s", GetEntityIcon(inScene, entity), name.name.c_str());
+
+		HandleSelection(entity);
+		HandleDragDrop(inScene, entity);
+
+		if (ImGui::BeginPopupContextItem("##NodeContext"))
+		{
+			DrawContextMenu(inScene, entity);
+			ImGui::EndPopup();
+		}
+
+		const Entity parent = inScene.GetParent(entity);
+
+		if (parent != Entity::Null && parent != inScene.GetRootEntity())
+		{
+			if (const Name* parent_name = inScene.GetPtr<Name>(parent))
+			{
+				ImGui::SameLine();
+				ImGui::TextDisabled("in %s", parent_name->name.c_str());
+			}
+		}
+
+		ImGui::PopID();
+	}
+
+	if (match_count == 0)
+		ImGui::TextDisabled("No entities match \"%s\"", m_Filter.c_str());
+}
+
+
+void HierarchyWidget::DrawContextMenu(Scene& inScene, Entity inEntity)
+{
+	if (!IsSelected(inEntity))
+	{
+		m_Editor->GetMultiSelect().Clear();
+		SetActiveEntity(inEntity);
+	}
+
+	const bool is_editing = m_Editor->GetGameState() != GAME_RUNNING;
+
+	ImGui::BeginDisabled(!is_editing);
+
+	if (ImGui::MenuItem("Rename", "F2"))
+	{
+		const Name* name = inScene.GetPtr<Name>(inEntity);
+		m_RenameBuffer = name ? name->name : "";
+		m_RenameEntity = inEntity;
+		m_FocusRename = true;
+	}
+
+	if (ImGui::MenuItem((const char*)ICON_FA_CLONE "  Duplicate", "Ctrl+D"))
+		m_Editor->DuplicateSelection();
+
+	if (ImGui::BeginMenu((const char*)ICON_FA_PLUS "  Create Child"))
+	{
+		DrawCreateMenuItems(inScene, inEntity);
+		ImGui::EndMenu();
+	}
+
+	const Entity parent = inScene.GetParent(inEntity);
+
+	if (ImGui::MenuItem("Move to Root", nullptr, false, parent != Entity::Null && parent != inScene.GetRootEntity()))
+		Reparent(inScene, inEntity, inScene.GetRootEntity());
+
+	if (ImGui::MenuItem("Frame in Viewport", nullptr, false, inScene.Has<Transform>(inEntity) && m_Editor->GetCameraEntity() == Entity::Null))
+	{
+		const Transform& transform = inScene.Get<Transform>(inEntity);
+
+		Vec3 target = transform.GetPositionWorldSpace();
+		float radius = 1.0f;
+
+		if (const Mesh* mesh = inScene.GetPtr<Mesh>(inEntity))
+		{
+			const BBox3D bounds = mesh->bbox.Transformed(transform.worldTransform);
+			target = bounds.GetCenter();
+			radius = glm::max(glm::length(bounds.GetExtents()) * 0.5f, 0.1f);
+		}
+
+		Camera& camera = m_Editor->GetCamera();
+		const float distance = radius / glm::tan(glm::radians(camera.GetFov()) * 0.5f);
+
+		camera.SetPosition(target - camera.GetForward() * distance);
+		camera.LookAt(target);
+
+		m_Editor->SetViewportChanged(true);
+	}
+
+	ImGui::Separator();
+
+	if (ImGui::MenuItem((const char*)ICON_FA_TRASH "  Delete", "Delete"))
+		m_Editor->DeleteSelection();
+
+	ImGui::EndDisabled();
+}
+
+
+void HierarchyWidget::DrawCreateMenuItems(Scene& inScene, Entity inParent)
+{
+	auto FinishCreation = [&](Entity inEntity)
+	{
+		if (inParent != Entity::Null)
+			inScene.ParentTo(inEntity, inParent);
+
+		SetActiveEntity(inEntity);
+		m_Editor->SetViewportChanged(true);
+		m_Editor->MarkSceneChanged();
+	};
+
+	auto CreateShape = [&](const char* inName, auto inCreateFunction)
+	{
+		const Entity entity = inScene.CreateSpatialEntity(inName);
+
+		Mesh& mesh = inScene.Add<Mesh>(entity);
+		inCreateFunction(mesh);
+
+		GetRenderInterface().UploadMeshBuffers(entity, mesh);
+		FinishCreation(entity);
+	};
+
+	ImGui::BeginDisabled(m_Editor->GetGameState() == GAME_RUNNING);
+
+	if (ImGui::MenuItem((const char*)ICON_FA_CUBE "  Empty Entity"))
+		FinishCreation(inScene.CreateSpatialEntity("Empty"));
+
+	if (ImGui::MenuItem("      Cube"))
+		CreateShape("Cube", [](Mesh& ioMesh) { Mesh::CreateCube(ioMesh, 1.0f); });
+
+	if (ImGui::MenuItem("      Sphere"))
+		CreateShape("Sphere", [](Mesh& ioMesh) { Mesh::CreateSphere(ioMesh, 0.5f, 32, 32); });
+
+	if (ImGui::MenuItem("      Plane"))
+		CreateShape("Plane", [](Mesh& ioMesh) { Mesh::CreatePlane(ioMesh, 1.0f); });
+
+	ImGui::Separator();
+
+	if (ImGui::MenuItem((const char*)ICON_FA_LIGHTBULB "  Point Light"))
+	{
+		const Entity entity = inScene.CreateSpatialEntity("Point Light");
+		inScene.Add<Light>(entity).type = LIGHT_TYPE_POINT;
+		FinishCreation(entity);
+	}
+
+	if (ImGui::MenuItem((const char*)ICON_FA_LIGHTBULB "  Spot Light"))
+	{
+		const Entity entity = inScene.CreateSpatialEntity("Spot Light");
+		inScene.Add<Light>(entity).type = LIGHT_TYPE_SPOT;
+		FinishCreation(entity);
+	}
+
+	if (ImGui::MenuItem((const char*)ICON_FA_CAMERA "  Camera"))
+	{
+		const Entity entity = inScene.CreateSpatialEntity("Camera");
+		inScene.Add<Camera>(entity).SetFar(1000.0f);
+		FinishCreation(entity);
+	}
+
+	ImGui::EndDisabled();
+}
+
+
+void HierarchyWidget::HandleSelection(Entity inEntity)
+{
+	if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && m_Editor->GetGameState() != GAME_RUNNING)
+	{
+		const Name* name = GetScene().GetPtr<Name>(inEntity);
+		m_RenameBuffer = name ? name->name : "";
+		m_RenameEntity = inEntity;
+		m_FocusRename = true;
+		return;
+	}
+
+	if (!ImGui::IsItemClicked(ImGuiMouseButton_Left) || ImGui::IsItemToggledOpen())
+		return;
+
 	ImGuiSelectionBasicStorage& multi_select = m_Editor->GetMultiSelect();
 
-	if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceNoDisableHover | ImGuiDragDropFlags_SourceNoHoldToOpenOthers))
+	if (ImGui::GetIO().KeyCtrl)
+	{
+		const Entity active_entity = GetActiveEntity();
+
+		if (active_entity != Entity::Null)
+			multi_select.SetItemSelected(ImGuiID(active_entity), true);
+
+		multi_select.SetItemSelected(ImGuiID(inEntity), !multi_select.Contains(ImGuiID(inEntity)));
+
+		m_Editor->SetActiveEntity(Entity::Null);
+
+		if (multi_select.Size == 1)
+		{
+			void* iterator = nullptr;
+			ImGuiID id = 0;
+			multi_select.GetNextSelectedItem(&iterator, &id);
+			SetActiveEntity(Entity(id));
+		}
+	}
+	else
+	{
+		multi_select.Clear();
+		SetActiveEntity(inEntity);
+	}
+}
+
+
+void HierarchyWidget::HandleDragDrop(Scene& inScene, Entity inEntity)
+{
+	if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceNoHoldToOpenOthers))
 	{
 		ImGui::SetDragDropPayload("drag_drop_entity", &inEntity, sizeof(Entity));
+
+		if (const Name* name = inScene.GetPtr<Name>(inEntity))
+			ImGui::Text("%s  %s", GetEntityIcon(inScene, inEntity), name->name.c_str());
+
 		ImGui::EndDragDropSource();
 	}
 
 	if (ImGui::BeginDragDropTarget())
 	{
-		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("drag_drop_entity"))
-		{
-			Entity child = *reinterpret_cast<const Entity*>( payload->Data );
+		const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("drag_drop_entity", ImGuiDragDropFlags_AcceptPeekOnly);
 
-			if (inScene.Has<Transform>(child))
-			{
-				inScene.ParentTo(child, inEntity);
-			}
+		if (payload)
+		{
+			const Entity child = *reinterpret_cast<const Entity*>( payload->Data );
+			const bool is_valid = child != inEntity && inScene.Has<Transform>(child) && !IsDescendantOf(inScene, inEntity, child);
+
+			if (is_valid && ImGui::AcceptDragDropPayload("drag_drop_entity"))
+				Reparent(inScene, child, inEntity);
 		}
 
 		ImGui::EndDragDropTarget();
@@ -224,19 +418,14 @@ void HierarchyWidget::DropTargetNode(Scene& inScene, Entity inEntity)
 
 void HierarchyWidget::DropTargetWindow(Scene& inScene)
 {
-	ImGuiSelectionBasicStorage& multi_select = m_Editor->GetMultiSelect();
-
 	if (ImGui::BeginDragDropTargetCustom(ImGui::GetCurrentWindow()->InnerRect, ImGui::GetCurrentWindow()->ID))
 	{
 		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("drag_drop_entity"))
 		{
-			Entity entity = *reinterpret_cast<const Entity*>( payload->Data );
-			Transform& transform = inScene.Get<Transform>(entity);
+			const Entity entity = *reinterpret_cast<const Entity*>( payload->Data );
 
-			transform.localTransform = transform.worldTransform;
-			transform.Decompose();
-
-			inScene.ParentTo(entity, inScene.GetRootEntity());
+			if (inScene.Has<Transform>(entity))
+				Reparent(inScene, entity, inScene.GetRootEntity());
 		}
 
 		ImGui::EndDragDropTarget();
@@ -244,46 +433,91 @@ void HierarchyWidget::DropTargetWindow(Scene& inScene)
 }
 
 
-void HierarchyWidget::DrawFamily(Scene& inScene, Entity inEntity)
+bool HierarchyWidget::IsSelected(Entity inEntity) const
 {
-	ImGuiSelectionBasicStorage& multi_select = m_Editor->GetMultiSelect();
-
-	if (inScene.HasChildren(inEntity))
-	{
-		for (Entity child : inScene.GetChildren(inEntity))
-		{
-			if (inScene.HasChildren(child))
-			{
-				if (DrawFamilyNode(inScene, child))
-				{
-					DrawFamily(inScene, child);
-					ImGui::TreePop();
-				}
-			}
-			else
-				DrawChildlessNode(inScene, child);
-		}
-	}
+	return m_Editor->GetActiveEntity() == inEntity || m_Editor->GetMultiSelect().Contains(ImGuiID(inEntity));
 }
 
 
-void HierarchyWidget::OnEvent(Widgets* inWidgets, const SDL_Event& inEvent) 
+bool HierarchyWidget::IsDescendantOf(Scene& inScene, Entity inEntity, Entity inAncestor) const
 {
-	ImGuiSelectionBasicStorage& multi_select = m_Editor->GetMultiSelect();
-
-	if (inEvent.type == SDL_EVENT_KEY_DOWN && !inEvent.key.repeat && !g_Input->IsRelativeMouseMode())
+	for (Entity parent = inScene.GetParent(inEntity); parent != Entity::Null; parent = inScene.GetParent(parent))
 	{
-		switch (inEvent.key.key)
+		if (parent == inAncestor)
+			return true;
+	}
+
+	return false;
+}
+
+
+void HierarchyWidget::Reparent(Scene& inScene, Entity inEntity, Entity inParent)
+{
+	if (inScene.GetParent(inEntity) == inParent)
+		return;
+
+	Transform& transform = inScene.Get<Transform>(inEntity);
+
+	Mat4x4 parent_world_transform = Mat4x4(1.0f);
+
+	if (inParent != inScene.GetRootEntity())
+	{
+		if (const Transform* parent_transform = inScene.GetPtr<Transform>(inParent))
+			parent_world_transform = parent_transform->worldTransform;
+	}
+
+	transform.localTransform = glm::inverse(parent_world_transform) * transform.worldTransform;
+	transform.Decompose();
+
+	inScene.Unparent(inEntity);
+	inScene.ParentTo(inEntity, inParent);
+
+	m_Editor->SetViewportChanged(true);
+	m_Editor->MarkSceneChanged();
+}
+
+
+const char* HierarchyWidget::GetEntityIcon(Scene& inScene, Entity inEntity) const
+{
+	if (inScene.Has<DirectionalLight>(inEntity))
+		return (const char*)ICON_FA_SUN;
+
+	if (inScene.Has<Light>(inEntity))
+		return (const char*)ICON_FA_LIGHTBULB;
+
+	if (inScene.Has<Camera>(inEntity))
+		return (const char*)ICON_FA_CAMERA;
+
+	if (inScene.Has<DDGISceneSettings>(inEntity))
+		return (const char*)ICON_FA_GLOBE;
+
+	if (inScene.Has<Skeleton>(inEntity))
+		return (const char*)ICON_FA_BONE;
+
+	if (inScene.Has<Mesh>(inEntity))
+		return (const char*)ICON_FA_CUBE;
+
+	if (inScene.Has<NativeScript>(inEntity))
+		return (const char*)ICON_FA_CODE;
+
+	if (inScene.HasChildren(inEntity))
+		return (const char*)ICON_FA_LAYER_GROUP;
+
+	return (const char*)ICON_FA_CIRCLE;
+}
+
+
+void HierarchyWidget::OnEvent(Widgets* inWidgets, const SDL_Event& inEvent)
+{
+	if (inEvent.type == SDL_EVENT_KEY_DOWN && !inEvent.key.repeat && inEvent.key.key == SDLK_F2 && m_Focused)
+	{
+		const Entity active_entity = GetActiveEntity();
+
+		if (active_entity != Entity::Null && GetScene().Has<Name>(active_entity))
 		{
-			case SDLK_DELETE:
-			{
-				void* it = NULL; ImGuiID id;
-				while (multi_select.GetNextSelectedItem(&it, &id))
-				{
-					GetScene().DestroySpatialEntity(Entity(id));
-					m_Editor->SetActiveEntity(Entity::Null);
-				}
-			} break;
+			m_RenameBuffer = GetScene().Get<Name>(active_entity).name;
+			m_RenameEntity = active_entity;
+			m_FocusRename = true;
 		}
 	}
 }

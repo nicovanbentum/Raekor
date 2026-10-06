@@ -76,7 +76,7 @@ public:
 
 	void ParallelFor(uint32_t inCount, uint32_t inBatchSize, const std::function<void(uint32_t inIndex)>& inFunction);
 
-	bool TryExecuteOne();
+	bool TryExecuteOne(EJobPriority inLowestPriority = JOB_PRIORITY_LOW);
 
 	void WaitForAll();
 
@@ -92,7 +92,7 @@ public:
 private:
 	void Enqueue(const Job::Ptr& inJob);
 	void Execute(const Job::Ptr& inJob);
-	Job::Ptr PopJob();
+	Job::Ptr PopJob(EJobPriority inLowestPriority = JOB_PRIORITY_LOW);
 	bool HasQueuedJobs() const;
 	void WorkerLoop(uint32_t inThreadIndex);
 

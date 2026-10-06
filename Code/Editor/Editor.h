@@ -3,13 +3,33 @@
 #include "GUI.h"
 #include "Undo.h"
 #include "Scene.h"
+#include "Timer.h"
 #include "Assets.h"
 #include "Widget.h"
 #include "Physics.h"
 #include "Compiler.h"
+#include "Threading.h"
 #include "Application.h"
 
 namespace RK {
+
+enum ESceneTaskType
+{
+	SCENE_TASK_OPEN,
+	SCENE_TASK_IMPORT
+};
+
+
+struct SceneTask
+{
+	ESceneTaskType mType;
+	Path mFile;
+	Timer mTimer;
+	Job::Ptr mJob;
+	UniquePtr<Scene> mScene;
+	Atomic<bool> mSucceeded = false;
+};
+
 
 class Editor : public Game
 {
@@ -28,6 +48,7 @@ public:
 
 	void OnUpdate(float dt) override;
 	void OnEvent(const SDL_Event& event) override;
+	bool OnCloseRequested() override;
 
 	Scene* GetScene() final { return &m_Scene; }
 	Assets* GetAssets() final { return &m_Assets; }
@@ -52,17 +73,46 @@ public:
 	bool GetViewportChanged() const { return m_ViewportChanged; }
 	void SetViewportChanged(bool inChanged) { m_ViewportChanged = inChanged; }
 
+	void NewScene();
+	void OpenScene(const Path& inFile);
+	void ImportScene(const Path& inFile);
+	void SaveScene();
+	void SaveSceneAs();
+	void SaveScene(const Path& inFile);
+
+	void OpenSceneDialog();
+	void ImportSceneDialog();
+
+	void DeleteSelection();
+	void DuplicateSelection();
+
+	void MarkSceneChanged() { m_ChangeCount++; }
+	bool IsSceneDirty() const { return m_ChangeCount != m_SavedChangeCount; }
+	void RunAfterUnsavedChangesCheck(const std::function<void()>& inAction);
+
+	const SceneTask* GetSceneTask() const { return m_SceneTask.get(); }
+	bool IsSaving() const { return m_SaveJob && !m_SaveJob->IsFinished(); }
+
+	void ResetLayout() { m_ResetLayout = true; }
+
 	void BeginImGuiDockSpace();
 	void EndImGuiDockSpace();
 
 protected:
+	void UpdateSceneTask();
+	void UpdateWindowTitle();
+	void StartSceneTask(ESceneTaskType inType, const Path& inFile);
+
+	void DrawStatusBar();
+	void DrawUnsavedChangesPopup();
+
 	Scene m_Scene;
 	Assets m_Assets;
 	Physics m_Physics;
 	Widgets m_Widgets;
 	UndoSystem m_UndoSystem;
 	IRenderInterface* m_RenderInterface;
-	
+
 	Camera m_Camera;
 	Entity m_CameraEntity = Entity::Null;
 
@@ -70,14 +120,22 @@ protected:
 	bool m_ViewportFullscreen = false;
 	void* m_CompilerWindow = nullptr;
 	void* m_CompilerProcess = nullptr;
-	
+
 	ImGuiID m_DockSpaceID;
 	bool m_DockSpaceBuilt = false;
 
 	Atomic<Entity> m_ActiveEntity = Entity::Null;
 	ImGuiSelectionBasicStorage m_Selection;
 
+	Job::Ptr m_SaveJob;
+	UniquePtr<SceneTask> m_SceneTask;
 
+	uint64_t m_ChangeCount = 0;
+	uint64_t m_SavedChangeCount = 0;
+	String m_WindowTitle;
+	std::function<void()> m_PendingAction;
+	bool m_OpenUnsavedChangesPopup = false;
+	bool m_ResetLayout = false;
 };
 
 

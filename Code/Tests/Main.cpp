@@ -247,6 +247,61 @@ static void sTestSceneRoundTrip(const Path& inDirectory)
 }
 
 
+static void sTestSceneMergeAndSwap()
+{
+	Scene source = Scene(nullptr);
+
+	const Entity material_entity = source.Create();
+	source.Add<Name>(material_entity).name = "Material";
+	source.Add<Material>(material_entity).albedo = Vec4(0.25f, 0.5f, 0.75f, 1.0f);
+
+	const Entity parent = source.CreateSpatialEntity("Parent");
+	const Entity child = source.CreateSpatialEntity("Child");
+	source.Unparent(child);
+	source.ParentTo(child, parent);
+
+	Mesh& mesh = source.Add<Mesh>(child);
+	Mesh::CreateCube(mesh, 2.0f);
+	mesh.material = material_entity;
+
+	Scene snapshot = Scene(nullptr);
+	snapshot.CopyFrom(source);
+
+	CHECK(snapshot.GetEntities().size() == source.GetEntities().size());
+	CHECK(snapshot.GetParent(child) == parent);
+	CHECK(snapshot.Get<Mesh>(child).positions == source.Get<Mesh>(child).positions);
+
+	Scene destination = Scene(nullptr);
+	const Entity existing = destination.CreateSpatialEntity("Existing");
+
+	const Array<Entity> merged = destination.Merge(source);
+
+	CHECK(merged.size() == 3);
+	CHECK(source.GetEntities().size() == 1);
+	CHECK(source.Count<Mesh>() == 0);
+	CHECK(destination.Has<Name>(existing) && destination.Get<Name>(existing).name == "Existing");
+	CHECK(destination.Count<Mesh>() == 1);
+
+	const Entity merged_child = destination.GetEntities<Mesh>()[0];
+	const Entity merged_parent = destination.GetParent(merged_child);
+
+	CHECK(destination.Has<Name>(merged_child) && destination.Get<Name>(merged_child).name == "Child");
+	CHECK(destination.Has<Name>(merged_parent) && destination.Get<Name>(merged_parent).name == "Parent");
+	CHECK(destination.GetParent(merged_parent) == destination.GetRootEntity());
+	CHECK(destination.Get<Mesh>(merged_child).positions == snapshot.Get<Mesh>(child).positions);
+
+	const Entity merged_material = destination.Get<Mesh>(merged_child).material;
+	CHECK(destination.Has<Material>(merged_material) && destination.Get<Material>(merged_material).albedo == Vec4(0.25f, 0.5f, 0.75f, 1.0f));
+
+	Scene swapped = Scene(nullptr);
+	swapped.Swap(destination);
+
+	CHECK(destination.GetEntities().size() == 1);
+	CHECK(swapped.Count<Mesh>() == 1);
+	CHECK(swapped.GetParent(merged_child) == merged_parent);
+}
+
+
 static void sTestLegacySceneConversion(const Path& inDirectory, const Path& inLegacyScene)
 {
 	if (!fs::exists(inLegacyScene))
@@ -416,6 +471,7 @@ int main(int argc, char** argv)
 	sTestComponentTableVersioning(directory);
 	sTestLegacyMemberSkipping(directory);
 	sTestSceneRoundTrip(directory);
+	sTestSceneMergeAndSwap();
 
 	String legacy_scene = OS::sGetCommandLineValue("-legacy_scene");
 

@@ -430,13 +430,17 @@ void Scene::Destroy(Entity inEntity)
 
 void Scene::LoadMaterialTextures(Assets& inAssets)
 {
+	LoadMaterialTextures(inAssets, GetEntities<Material>());
+}
+
+
+void Scene::LoadMaterialTextures(Assets& inAssets, Slice<const Entity> inMaterials)
+{
 	Timer timer;
 
-	ComponentStorage<Material>* materials = GetComponentStorage<Material>();
-
-	g_JobSystem.ParallelFor(uint32_t(materials->Length()), 1, [&](uint32_t inIndex)
+	g_JobSystem.ParallelFor(uint32_t(inMaterials.size()), 1, [&](uint32_t inIndex)
 	{
-		const Material& material = materials->m_Components[inIndex];
+		const Material& material = Get<Material>(inMaterials[inIndex]);
 		inAssets.GetAsset<TextureAsset>(material.albedoFile);
 		inAssets.GetAsset<TextureAsset>(material.normalFile);
 		inAssets.GetAsset<TextureAsset>(material.emissiveFile);
@@ -446,11 +450,11 @@ void Scene::LoadMaterialTextures(Assets& inAssets)
 
 	gLogInfo("Scene", "Load textures to RAM took {:.3f} seconds.", timer.Restart());
 
-    for (const auto& [entity, material] : Each<Material>())
-	{
-		if (m_Renderer)
-			m_Renderer->UploadMaterialTextures(entity, material, inAssets);
-	}
+	if (m_Renderer == nullptr)
+		return;
+
+	for (Entity entity : inMaterials)
+		m_Renderer->UploadMaterialTextures(entity, Get<Material>(entity), inAssets);
 
 	gLogInfo("Scene", "Upload textures to GPU took {:.3f} seconds.", timer.GetElapsedTime());
 }
@@ -650,44 +654,12 @@ void Scene::OpenFromFile(const String& inFilePath, Assets& ioAssets, Application
 			inApp->GetUndo()->Clear();
 	}
 
-	Timer timer;
-
-	if (!ReadSceneFile(inFilePath))
+	if (!LoadFromFile(inFilePath, ioAssets))
 		return;
 
-	gLogInfo("Scene", "Load ECStorage data took {:.3f} seconds.", timer.Restart());
+	Timer timer;
 
-	LoadMaterialTextures(ioAssets);
-
-	if (m_Renderer)
-	{
-		for (const auto& [entity, light] : Each<DirectionalLight>())
-		{
-			if (light.cubeMapFile.empty())
-				continue;
-
-			if (TextureAsset::Ptr asset = ioAssets.GetAsset<TextureAsset>(light.cubeMapFile))
-				light.cubeMap = m_Renderer->UploadTextureFromAsset(asset);
-		}
-	}
-
-	timer.Restart();
-
-	if (m_Renderer)
-	{
-		ComponentStorage<Mesh>* meshes = GetComponentStorage<Mesh>();
-
-		g_JobSystem.ParallelFor(uint32_t(meshes->Length()), 1, [&](uint32_t inIndex)
-		{
-			const Entity entity = meshes->m_Entities[inIndex];
-			Mesh& mesh = meshes->m_Components[inIndex];
-
-			m_Renderer->UploadMeshBuffers(entity, mesh);
-
-			if (Skeleton* skeleton = GetPtr<Skeleton>(entity))
-				m_Renderer->UploadSkeletonBuffers(entity, *skeleton, mesh);
-		});
-	}
+	UploadMeshes();
 
 	BindScripts(ioAssets, inApp);
 
@@ -695,58 +667,188 @@ void Scene::OpenFromFile(const String& inFilePath, Assets& ioAssets, Application
 }
 
 
-void Scene::OpenFromFileAsync(const String& inFilePath, Assets& ioAssets, Application* inApp)
+bool Scene::LoadFromFile(const String& inFilePath, Assets& ioAssets)
 {
 	PROFILE_FUNCTION_CPU();
-
-	m_ActiveSceneFilePath = inFilePath;
 
 	Timer timer;
 
 	if (!ReadSceneFile(inFilePath))
+		return false;
+
+	m_ActiveSceneFilePath = inFilePath;
+
+	gLogInfo("Scene", "Load ECStorage data took {:.3f} seconds.", timer.Restart());
+
+	LoadMaterialTextures(ioAssets);
+
+	UploadDirectionalLightCubeMaps(ioAssets);
+
+	return true;
+}
+
+
+void Scene::UploadDirectionalLightCubeMaps(Assets& ioAssets)
+{
+	if (m_Renderer == nullptr)
 		return;
 
-	gLogInfo("Scene", "Load ECStorage data took {:.3f} seconds.", timer.GetElapsedTime());
-
-	BindScripts(ioAssets, inApp);
-
-	g_JobSystem.Schedule([this]()
+	for (const auto& [entity, light] : Each<DirectionalLight>())
 	{
-		for (const auto& [entity, mesh] : Each<Mesh>())
+		if (light.cubeMapFile.empty())
+			continue;
+
+		if (TextureAsset::Ptr asset = ioAssets.GetAsset<TextureAsset>(light.cubeMapFile))
+			light.cubeMap = m_Renderer->UploadTextureFromAsset(asset);
+	}
+}
+
+
+void Scene::UploadMeshes()
+{
+	UploadMeshes(GetEntities<Mesh>());
+}
+
+
+void Scene::UploadMeshes(Slice<const Entity> inEntities)
+{
+	if (m_Renderer == nullptr)
+		return;
+
+	g_JobSystem.ParallelFor(uint32_t(inEntities.size()), 1, [&](uint32_t inIndex)
+	{
+		const Entity entity = inEntities[inIndex];
+
+		if (Mesh* mesh = GetPtr<Mesh>(entity))
 		{
-			if (m_Renderer)
-				m_Renderer->UploadMeshBuffers(entity, mesh);
+			m_Renderer->UploadMeshBuffers(entity, *mesh);
 
 			if (Skeleton* skeleton = GetPtr<Skeleton>(entity))
-				m_Renderer->UploadSkeletonBuffers(entity, *skeleton, mesh);
+				m_Renderer->UploadSkeletonBuffers(entity, *skeleton, *mesh);
 		}
 	});
+}
 
-	Array<Job::Ptr> texture_jobs;
-	texture_jobs.reserve(Count<Material>());
 
-	for (const auto& [entity, material] : Each<Material>())
+void Scene::ReleaseResources()
+{
+	for (const auto& [entity, script] : Each<NativeScript>())
 	{
-		texture_jobs.push_back(g_JobSystem.Schedule([&ioAssets, &material]()
-		{
-			ioAssets.GetAsset<TextureAsset>(material.albedoFile);
-			ioAssets.GetAsset<TextureAsset>(material.normalFile);
-			ioAssets.GetAsset<TextureAsset>(material.emissiveFile);
-			ioAssets.GetAsset<TextureAsset>(material.metallicFile);
-			ioAssets.GetAsset<TextureAsset>(material.roughnessFile);
-		}));
+		delete script.script;
+		script.script = nullptr;
 	}
 
-	if (m_Renderer)
+	if (m_Renderer == nullptr)
+		return;
+
+	for (const auto& [entity, mesh] : Each<Mesh>())
 	{
-		g_JobSystem.Schedule([this, &ioAssets]()
-		{
-			for (const auto& [entity, material] : Each<Material>())
-			{
-				m_Renderer->UploadMaterialTextures(entity, material, ioAssets);
-			}
-		}, texture_jobs);
+		m_Renderer->DestroyMeshBuffers(entity, mesh);
+
+		if (Skeleton* skeleton = GetPtr<Skeleton>(entity))
+			m_Renderer->DestroySkeletonBuffers(entity, *skeleton);
 	}
+}
+
+
+void Scene::Swap(Scene& ioOther)
+{
+	ECStorage::Swap(ioOther);
+
+	std::swap(m_Hierarchy, ioOther.m_Hierarchy);
+	std::swap(m_RootEntity, ioOther.m_RootEntity);
+	std::swap(m_ActiveSceneFilePath, ioOther.m_ActiveSceneFilePath);
+}
+
+
+void Scene::CopyFrom(Scene& inOther)
+{
+	ECStorage::CopyFrom(inOther);
+
+	Array<EntityHierarchy::Pair> pairs;
+	pairs.reserve(inOther.m_Hierarchy.count());
+
+	for (const EntityHierarchy::Pair& pair : inOther.m_Hierarchy)
+		pairs.push_back(pair);
+
+	m_Hierarchy.clear();
+	m_Hierarchy.insert(pairs);
+
+	m_RootEntity = inOther.m_RootEntity;
+	m_ActiveSceneFilePath = inOther.m_ActiveSceneFilePath;
+}
+
+
+Array<Entity> Scene::Merge(Scene& ioOther)
+{
+	HashMap<Entity, Entity> mapping;
+
+	Array<Entity> new_entities;
+	new_entities.reserve(ioOther.m_Entities.size());
+
+	for (Entity entity : ioOther.m_Entities)
+	{
+		if (entity == ioOther.m_RootEntity)
+			continue;
+
+		const Entity new_entity = Create();
+		mapping[entity] = new_entity;
+		new_entities.push_back(new_entity);
+	}
+
+	for (const auto& [hash, other_storage] : ioOther.m_Components)
+	{
+		IComponentStorage* storage = GetComponentStorage(hash);
+
+		if (storage == nullptr)
+		{
+			gLogWarning("Scene", "Skipped merging unknown component storage with hash {:#x}", hash);
+			continue;
+		}
+
+		for (Entity entity : ioOther.m_Entities)
+		{
+			if (entity != ioOther.m_RootEntity && other_storage->Contains(entity))
+				storage->Move(*other_storage, entity, mapping[entity]);
+		}
+	}
+
+	auto RemapEntity = [&mapping](Entity& ioEntity)
+	{
+		const auto mapped = mapping.find(ioEntity);
+		ioEntity = mapped != mapping.end() ? mapped->second : Entity::Null;
+	};
+
+	for (Entity entity : new_entities)
+	{
+		if (Mesh* mesh = GetPtr<Mesh>(entity))
+			RemapEntity(mesh->material);
+
+		if (Skeleton* skeleton = GetPtr<Skeleton>(entity))
+			RemapEntity(skeleton->animation);
+
+		if (Transform* transform = GetPtr<Transform>(entity))
+			RemapEntity(transform->animation);
+	}
+
+	Array<Entity> parents = { ioOther.m_RootEntity };
+
+	for (size_t index = 0; index < parents.size(); index++)
+	{
+		const Entity parent = parents[index];
+
+		for (Entity child : ioOther.GetChildren(parent))
+		{
+			ParentTo(mapping[child], parent == ioOther.m_RootEntity ? m_RootEntity : mapping[parent]);
+			parents.push_back(child);
+		}
+	}
+
+	ioOther.Clear();
+	ioOther.m_Hierarchy.clear();
+	ioOther.m_RootEntity = ioOther.Create();
+
+	return new_entities;
 }
 
 
@@ -795,15 +897,9 @@ void Scene::Optimize()
 
 bool SceneImporter::LoadFromFile(const String& inFile, Assets* inAssets)
 {
-	/*
-	* LOAD GLTF FROM DISK
-	*/
 	Timer timer;
 
-	// TODO: make passing in ioAssets optional
-	m_ImportedScene.OpenFromFile(inFile, *inAssets);
-
-	if (!m_ImportedScene.Count<Mesh>() || !m_ImportedScene.Count<Material>())
+	if (inAssets == nullptr || !m_ImportedScene.LoadFromFile(inFile, *inAssets))
 	{
 		gLogError("Scene", "Error loading {}", inFile);
 		return false;
@@ -811,129 +907,29 @@ bool SceneImporter::LoadFromFile(const String& inFile, Assets* inAssets)
 
 	gLogInfo("Scene Import", "File load took {:.2f} ms", Timer::sToMilliseconds(timer.Restart()));
 
-	/*
-	* PARSE MATERIALS
-	*/
-	for (const auto& [entity, material] : m_ImportedScene.Each<Material>())
-	{
-		Entity new_entity = m_Scene.Create();
-
-		Name& name = m_Scene.Add<Name>(new_entity, m_ImportedScene.Get<Name>(entity));
-
-		ConvertMaterial(new_entity, m_ImportedScene.Get<Material>(entity));
-
-		m_MaterialMapping[entity] = new_entity;
-	}
-
-	gLogInfo("Scene Import", "Materials took {:.2f} ms", Timer::sToMilliseconds(timer.Restart()));
-
-	/*
-	* PARSE NODES & MESHES
-	*/
-	Scene::TraverseFunction Traverse = [](void* inContext, Scene& inScene, Entity inEntity) 
-	{
-		SceneImporter* importer = (SceneImporter*)inContext;
-
-		if (inScene.GetParent(inEntity) == inScene.GetRootEntity())
-			importer->ParseNode(inEntity, Entity::Null);
-	};
-	
-	m_ImportedScene.TraverseDepthFirst(m_ImportedScene.GetRootEntity(), Traverse, this);
-
 	const Entity root_entity = m_Scene.CreateSpatialEntity(Path(inFile).filename().string());
 
-	for (Entity entity : m_CreatedNodeEntities)
+	const Array<Entity> new_entities = m_Scene.Merge(m_ImportedScene);
+
+	Array<Entity> new_materials;
+
+	for (Entity entity : new_entities)
 	{
-		if (!m_Scene.HasParent(entity) || m_Scene.GetParent(entity) == m_Scene.GetRootEntity())
-			 m_Scene.ParentTo(entity, root_entity);
+		if (m_Scene.GetParent(entity) == m_Scene.GetRootEntity())
+			m_Scene.ParentTo(entity, root_entity);
+
+		if (m_Scene.Has<Material>(entity))
+			new_materials.push_back(entity);
 	}
 
-	gLogInfo("Scene Import", "Meshes & nodes took {:.2f} ms", Timer::sToMilliseconds(timer.Restart()));
+	gLogInfo("Scene Import", "Merging took {:.2f} ms", Timer::sToMilliseconds(timer.Restart()));
 
-	// Load the converted textures from disk and upload them to the GPU
-	if (inAssets != nullptr)
-	{
-		Array<Entity> materials;
-		materials.reserve(m_MaterialMapping.size());
+	if (m_Renderer)
+		m_Scene.UploadMeshes(new_entities);
 
-		for (const auto& [imported_entity, output_entity] : m_MaterialMapping)
-			materials.push_back(output_entity);
-
-		m_Scene.LoadMaterialTextures(*inAssets);
-	}
+	m_Scene.LoadMaterialTextures(*inAssets, new_materials);
 
 	return true;
-}
-
-
-void SceneImporter::ParseNode(Entity inEntity, Entity inParent)
-{
-	// Create new inEntity
-	Entity new_entity = m_CreatedNodeEntities.emplace_back(m_Scene.CreateSpatialEntity());
-
-	// Copy over transform
-	if (m_ImportedScene.Has<Transform>(inEntity))
-		m_Scene.Add<Transform>(new_entity, m_ImportedScene.Get<Transform>(inEntity));
-	else
-		m_Scene.Add<Transform>(new_entity);
-
-	// Copy over name
-	if (m_ImportedScene.Has<Name>(inEntity))
-		m_Scene.Add<Name>(new_entity, m_ImportedScene.Get<Name>(inEntity));
-	else
-		m_Scene.Add<Name>(new_entity);
-
-	// set the new inEntity's parent
-	if (inParent != Entity::Null)
-		m_Scene.ParentTo(new_entity, inParent);
-
-	// Copy over mesh
-	if (m_ImportedScene.Has<Mesh>(inEntity))
-		ConvertMesh(new_entity, m_ImportedScene.Get<Mesh>(inEntity));
-
-	// Copy over skeleton
-	if (m_ImportedScene.Has<Skeleton>(inEntity))
-		ConvertBones(new_entity, m_ImportedScene.Get<Skeleton>(inEntity));
-
-	// Copy over animations
-	if (m_ImportedScene.Has<Animation>(inEntity))
-		m_Scene.Add<Animation>(new_entity, m_ImportedScene.Get<Animation>(inEntity));
-
-	// recurse into children
-	for (Entity child : m_ImportedScene.GetChildren(inEntity))
-		ParseNode(child, new_entity);
-}
-
-
-void SceneImporter::ConvertMesh(Entity inEntity, const Mesh& inMesh)
-{
-	Mesh& mesh = m_Scene.Add<Mesh>(inEntity, inMesh);
-
-	mesh.material = m_MaterialMapping[mesh.material];
-
-	if (m_Renderer)
-		m_Renderer->UploadMeshBuffers(inEntity, mesh);
-}
-
-
-void SceneImporter::ConvertBones(Entity inEntity, const Skeleton& inSkeleton)
-{
-	Mesh& mesh = m_Scene.Get<Mesh>(inEntity);
-	Skeleton& skeleton = m_Scene.Add<Skeleton>(inEntity, inSkeleton);
-
-	if (m_Renderer)
-		m_Renderer->UploadSkeletonBuffers(inEntity, skeleton, mesh);
-}
-
-
-void SceneImporter::ConvertMaterial(Entity inEntity, const Material& inMaterial)
-{
-	Material& material = m_Scene.Add<Material>(inEntity, inMaterial);
-
-	material.gpuAlbedoMap = 0;
-	material.gpuNormalMap = 0;
-	material.gpuMetallicMap = 0;
-	material.gpuRoughnessMap = 0;
 }
 
 } // RK

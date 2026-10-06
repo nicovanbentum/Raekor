@@ -249,10 +249,10 @@ struct Skeleton
 	Array<Mat4x4> boneWSTransformMatrices; // ptr
 
 	// Skinning GPU buffers
-	uint32_t boneIndexBuffer;
-	uint32_t boneWeightBuffer;
-	uint32_t boneTransformsBuffer;
-	uint32_t skinnedVertexBuffer;
+	uint32_t boneIndexBuffer = 0;
+	uint32_t boneWeightBuffer = 0;
+	uint32_t boneTransformsBuffer = 0;
+	uint32_t skinnedVertexBuffer = 0;
 	uint32_t blasScratchBuffer = 0;
 	bool gpuBuffersUploaded = false;
 

@@ -68,19 +68,33 @@ public:
 
 	// load materials from disk in parallel, is used for both importing and scene loading.
 	void LoadMaterialTextures(Assets& ioAssets);
+	void LoadMaterialTextures(Assets& ioAssets, Slice<const Entity> inMaterials);
 
 	// save Scene to disk
 	void SaveToFile(const String& inFile, Assets& ioAssets, Application* inApp = nullptr);
 	void OpenFromFile(const String& inFile, Assets& ioAssets, Application* inApp = nullptr);
-	void OpenFromFileAsync(const String& inFile, Assets& ioAssets, Application* inApp = nullptr);
+	bool LoadFromFile(const String& inFile, Assets& ioAssets);
+
+	void Swap(Scene& ioOther);
+	void CopyFrom(Scene& inOther);
+	Array<Entity> Merge(Scene& ioOther);
+
+	void UploadMeshes();
+	void UploadMeshes(Slice<const Entity> inEntities);
+	void UploadDirectionalLightCubeMaps(Assets& ioAssets);
+
+	void ReleaseResources();
+
+	const Path& GetFilePath() const { return m_ActiveSceneFilePath; }
+	void SetFilePath(const Path& inPath) { m_ActiveSceneFilePath = inPath; }
 
 	// script utilities
+	void BindScripts(Assets& ioAssets, Application* inApp);
 	void BindScriptToEntity(Entity inEntity, NativeScript& inScript, Application* inApp);
 	void Optimize();
 
 private:
 	bool ReadSceneFile(const String& inFilePath);
-	void BindScripts(Assets& ioAssets, Application* inApp);
 
 protected:
 	Path m_ActiveSceneFilePath;
@@ -109,19 +123,11 @@ protected:
 class SceneImporter : public Importer
 {
 public:
-	SceneImporter(Scene& inScene, IRenderInterface* inRenderer) : Importer(inScene, inRenderer), m_ImportedScene(inRenderer) {}
+	SceneImporter(Scene& inScene, IRenderInterface* inRenderer) : Importer(inScene, inRenderer), m_ImportedScene(nullptr) {}
 	bool LoadFromFile(const String& inFile, Assets* inAssets) override;
 
 private:
-	void ParseNode(Entity inEntity, Entity inParent);
-	void ConvertMesh(Entity inEntity, const Mesh& inMesh);
-	void ConvertBones(Entity inEntity, const Skeleton& inSkeleton);
-	void ConvertMaterial(Entity inEntity, const Material& inAssimpMaterial);
-
-private:
 	Scene m_ImportedScene;
-	Array<Entity> m_CreatedNodeEntities;
-	HashMap<Entity, Entity> m_MaterialMapping;
 };
 
 } // Namespace Raekor

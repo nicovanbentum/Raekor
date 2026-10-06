@@ -35,15 +35,18 @@ public:
 	bool IsEnabled() const { return m_IsEnabled; }
 	void SetEnabled(bool inEnabled) { m_IsEnabled = inEnabled; }
 
-	int AllocateCPU();
-	CPUProfileSection& GetSectionCPU(int inIndex) { return m_CPUSections[inIndex]; }
+	int BeginCPU(const char* inName);
+	void EndCPU(int inIndex, uint64_t inFrame);
+
+	uint64_t GetFrame() const { return m_Frame; }
 	const Array<CPUProfileSection>& GetCPUProfileSections() const { return m_HistoryCPUSections; }
 
 protected:
 	int m_Depth = 0;
 	bool m_IsEnabled = true;
+	uint64_t m_Frame = 0;
+	std::thread::id m_ThreadID = std::this_thread::get_id();
 
-	Mutex m_SectionsMutex;
 	Array<CPUProfileSection> m_CPUSections;
 	Array<CPUProfileSection> m_HistoryCPUSections;
 };
@@ -59,7 +62,8 @@ public:
 	~CPUProfileSectionScoped();
 
 private:
-	int mIndex = 0;
+	int mIndex = -1;
+	uint64_t mFrame = 0;
 };
 
 }
