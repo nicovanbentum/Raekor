@@ -35,11 +35,12 @@ void InspectorWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 	ViewportWidget* viewport_widget = inWidgets->GetWidget<ViewportWidget>();
 	SequenceWidget* sequence_widget = inWidgets->GetWidget<SequenceWidget>();
-	ShaderGraphWidget* nodegraph_widget = inWidgets->GetWidget<ShaderGraphWidget>();
 
 	m_SceneChanged = false;
 
-	if (viewport_widget && GetActiveEntity() != Entity::Null)
+	const int selection_count = m_Editor->GetMultiSelect().Size;
+
+	if (viewport_widget && GetActiveEntity() != Entity::Null && GetScene().Exists(GetActiveEntity()))
 	{
 		m_SceneChanged = DrawEntityInspector(inWidgets);
 	}
@@ -47,87 +48,225 @@ void InspectorWidget::Draw(Widgets* inWidgets, float inDeltaTime)
     {
         DrawKeyFrameInspector(inWidgets);
     }
-	
+	else if (selection_count > 1)
+	{
+		ImGui::TextDisabled("%i entities selected", selection_count);
+		ImGui::TextDisabled("Select a single entity to edit its components.");
+	}
+	else
+	{
+		ImGui::TextDisabled("Select an entity in the viewport or scene");
+		ImGui::TextDisabled("panel to inspect its components.");
+	}
+
 	ImGui::End();
 };
 
 
 bool InspectorWidget::DrawEntityInspector(Widgets* inWidgets)
 {
-	Entity active_entity = m_Editor->GetActiveEntity();
+	const Entity active_entity = m_Editor->GetActiveEntity();
+
 	if (active_entity == Entity::Null)
 		return false;
 
-	ImGui::Text("Entity ID: %i", active_entity);
+	Scene& scene = GetScene();
+	bool scene_changed = false;
 
-	if (GetScene().HasParent(active_entity))
+	if (Name* name = scene.GetPtr<Name>(active_entity))
 	{
-		ImGui::Text("Parent ID:");
-		ImGui::SameLine();
-	
-		Entity parent = GetScene().GetParent(active_entity);
-		String button_text = std::format("{}", uint32_t(parent));
+		ImGui::SetNextItemWidth(-FLT_MIN);
+		ImGui::InputTextWithHint("##EntityName", "Entity name", &name->name, ImGuiInputTextFlags_AutoSelectAll);
+		CheckForUndo(active_entity, *name, m_NameUndo);
 
-		if (ImGui::SmallButton(button_text.c_str()))
+		scene_changed |= ImGui::IsItemDeactivatedAfterEdit();
+	}
+
+	ImGui::TextDisabled("ID %u", uint32_t(active_entity));
+
+	const Entity parent = scene.GetParent(active_entity);
+
+	if (parent != Entity::Null && parent != scene.GetRootEntity())
+	{
+		const Name* parent_name = scene.GetPtr<Name>(parent);
+
+		ImGui::SameLine();
+		ImGui::TextDisabled("  Parent");
+		ImGui::SameLine();
+
+		if (ImGui::TextLink(std::format("{}##ParentLink", parent_name ? parent_name->name : std::to_string(uint32_t(parent))).c_str()))
 			SetActiveEntity(parent);
 	}
 
-	Scene& scene = GetScene();
-	Assets& assets = GetAssets();
-	bool scene_changed = false;
+	ImGui::Spacing();
 
-	// I much prefered the for_each_tuple_element syntax tbh
+	const RTTI* component_to_remove = nullptr;
+
 	std::apply([&](const auto& ... components)
 	{
-		( ..., [&](Assets& assets, Scene& scene, Entity& entity)
+		( ..., [&](Entity entity)
 		{
 			using ComponentType = typename std::decay<decltype( components )>::type::type;
 
-			if (scene.Has<ComponentType>(entity))
-			{
-				ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-				
-				bool is_open = true;
-				if (ImGui::CollapsingHeader(components.name, ImGuiTreeNodeFlags_DefaultOpen))
-				{
-					ImGui::PopStyleVar();
+			if (std::is_same_v<ComponentType, Name> || !scene.Has<ComponentType>(entity))
+				return;
 
-					if (is_open) 
-						scene_changed |= DrawComponent(entity, scene.Get<ComponentType>(entity));
+			ImGui::PushID(components.name);
+
+			ImGui::PushStyleColor(ImGuiCol_Header, ImGui::GetStyleColorVec4(ImGuiCol_FrameBg));
+			ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImGui::GetStyleColorVec4(ImGuiCol_FrameBgHovered));
+			ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImGui::GetStyleColorVec4(ImGuiCol_FrameBgActive));
+
+			const bool is_open = ImGui::CollapsingHeader(components.name, ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_AllowOverlap);
+
+			ImGui::PopStyleColor(3);
+
+			const bool can_remove = !std::is_same_v<ComponentType, Transform>;
+
+			if (can_remove)
+			{
+				const float button_size = ImGui::GetFrameHeight();
+				ImGui::SameLine(ImGui::GetContentRegionMax().x - button_size);
+
+				ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+
+				if (ImGui::Button((const char*)ICON_FA_ELLIPSIS_V, ImVec2(button_size, 0.0f)))
+					ImGui::OpenPopup("##ComponentOptions");
+
+				ImGui::PopStyleColor();
+
+				if (ImGui::BeginPopup("##ComponentOptions"))
+				{
+					if (ImGui::MenuItem((const char*)ICON_FA_TRASH "  Remove Component"))
+						component_to_remove = &RTTI_OF<ComponentType>();
+
+					ImGui::EndPopup();
 				}
-				else
-					ImGui::PopStyleVar();
 			}
 
-		}( assets, scene, active_entity ) );
+			if (is_open)
+			{
+				ImGui::Indent(ImGui::GetStyle().FramePadding.x);
+				scene_changed |= DrawComponent(entity, scene.Get<ComponentType>(entity));
+				ImGui::Unindent(ImGui::GetStyle().FramePadding.x);
+				ImGui::Spacing();
+			}
+
+			ImGui::PopID();
+
+		}( active_entity ) );
 	}, Components);
 
-	ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
-	ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding, 4.0f);
+	if (component_to_remove)
+	{
+		RemoveComponent(active_entity, *component_to_remove);
+		scene_changed = true;
+	}
 
+	ImGui::Spacing();
 	ImGui::Separator();
+	ImGui::Spacing();
 
-    for (const auto& [type_hash, components] : GetScene())
-    {
-        if (!components->Contains(active_entity))
-        {
-            if (RTTI* rtti = g_RTTIFactory.GetRTTI(type_hash))
-            {
-                char text_buffer[100];
-                ImFormatString(text_buffer, std::size(text_buffer), "Add %s", rtti->GetTypeName());
+	if (ImGui::Button((const char*)ICON_FA_PLUS "  Add Component", ImVec2(-FLT_MIN, 0.0f)))
+	{
+		m_ComponentFilter.clear();
+		ImGui::OpenPopup("##AddComponent");
+	}
 
-                if (ImGui::Button(text_buffer, ImVec2(-1.0f, ImGui::GetFrameHeight())))
-                {
-                    components->Add(active_entity);
-                }
-            }
-        }
-    }
+	ImGui::SetNextWindowSize(ImVec2(ImGui::GetItemRectSize().x, 0.0f));
 
-	ImGui::PopStyleVar();
-	ImGui::PopStyleVar();
+	if (ImGui::BeginPopup("##AddComponent"))
+	{
+		if (ImGui::IsWindowAppearing())
+			ImGui::SetKeyboardFocusHere();
+
+		ImGui::SetNextItemWidth(-FLT_MIN);
+		ImGui::InputTextWithHint("##ComponentFilter", (const char*)ICON_FA_SEARCH "  Search components..", &m_ComponentFilter);
+
+		const ImGuiTextFilter filter = ImGuiTextFilter(m_ComponentFilter.c_str());
+		bool any_listed = false;
+
+		std::apply([&](const auto& ... components)
+		{
+			( ..., [&](Entity entity)
+			{
+				using ComponentType = typename std::decay<decltype( components )>::type::type;
+
+				if (scene.Has<ComponentType>(entity) || !filter.PassFilter(components.name))
+					return;
+
+				any_listed = true;
+
+				if (ImGui::Selectable(components.name))
+				{
+					scene.Add<ComponentType>(entity);
+
+					if constexpr (std::is_same_v<ComponentType, Mesh>)
+						scene.Get<Mesh>(entity).material = Entity::Null;
+
+					scene_changed = true;
+					ImGui::CloseCurrentPopup();
+				}
+
+			}( active_entity ) );
+		}, Components);
+
+		if (!any_listed)
+			ImGui::TextDisabled("No components to add");
+
+		ImGui::EndPopup();
+	}
 
 	return scene_changed;
+}
+
+
+void InspectorWidget::RemoveComponent(Entity inEntity, const RTTI& inRTTI)
+{
+	Scene& scene = GetScene();
+
+	if (&inRTTI == &RTTI_OF<Mesh>())
+	{
+		Mesh& mesh = scene.Get<Mesh>(inEntity);
+
+		if (Skeleton* skeleton = scene.GetPtr<Skeleton>(inEntity))
+		{
+			GetRenderInterface().DestroySkeletonBuffers(inEntity, *skeleton);
+			scene.Remove<Skeleton>(inEntity);
+		}
+
+		GetRenderInterface().DestroyMeshBuffers(inEntity, mesh);
+	}
+
+	if (&inRTTI == &RTTI_OF<Skeleton>())
+		GetRenderInterface().DestroySkeletonBuffers(inEntity, scene.Get<Skeleton>(inEntity));
+
+	if (&inRTTI == &RTTI_OF<RigidBody>())
+	{
+		RigidBody& rigid_body = scene.Get<RigidBody>(inEntity);
+
+		if (!rigid_body.bodyID.IsInvalid())
+		{
+			JPH::BodyInterface& body_interface = GetPhysics().GetSystem()->GetBodyInterface();
+			body_interface.RemoveBody(rigid_body.bodyID);
+			body_interface.DestroyBody(rigid_body.bodyID);
+		}
+	}
+
+	if (&inRTTI == &RTTI_OF<Camera>() && m_Editor->GetCameraEntity() == inEntity)
+		m_Editor->SetCameraEntity(Entity::Null);
+
+	if (&inRTTI == &RTTI_OF<NativeScript>())
+	{
+		NativeScript& script = scene.Get<NativeScript>(inEntity);
+		delete script.script;
+		script.script = nullptr;
+	}
+
+	if (IComponentStorage* storage = scene.GetComponentStorage(inRTTI.GetHash()))
+		storage->Remove(inEntity);
+
+	m_Editor->GetUndo()->Clear();
 }
 
 

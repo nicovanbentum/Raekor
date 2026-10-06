@@ -48,21 +48,52 @@ void ConsoleWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 		ImVec4(1.00f, 0.40f, 0.40f, 1.0f)
 	};
 
+	StaticArray<uint32_t, LOG_LEVEL_COUNT> level_counts = {};
+
+	{
+		std::scoped_lock lock(m_ItemsMutex);
+
+		for (const LogMessage& item : m_Items)
+			level_counts[item.mLevel]++;
+	}
+
+	bool clear_items = false;
+
+	if (ImGui::Button((const char*)ICON_FA_TRASH))
+		clear_items = true;
+
+	if (ImGui::IsItemHovered())
+		ImGui::SetTooltip("Clear the console");
+
+	ImGui::SameLine();
+
 	for (int level = 0; level < LOG_LEVEL_COUNT; level++)
 	{
-		ImGui::PushStyleColor(ImGuiCol_Text, level_colors[level]);
-		ImGui::Checkbox(gToString(ELogLevel(level)), &m_ShowLevel[level]);
-		ImGui::PopStyleColor();
+		const String label = std::format("{} {}##ConsoleLevel{}", gToString(ELogLevel(level)), level_counts[level], level);
+
+		ImGui::PushStyleColor(ImGuiCol_Text, m_ShowLevel[level] ? level_colors[level] : ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+		ImGui::PushStyleColor(ImGuiCol_Button, m_ShowLevel[level] ? ImGui::GetStyleColorVec4(ImGuiCol_FrameBg) : ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+
+		if (ImGui::Button(label.c_str()))
+			m_ShowLevel[level] = !m_ShowLevel[level];
+
+		ImGui::PopStyleColor(2);
+
+		if (ImGui::IsItemHovered())
+			ImGui::SetTooltip("Show or hide %s messages", gToString(ELogLevel(level)));
+
 		ImGui::SameLine();
 	}
 
-	m_Filter.Draw("##ConsoleFilter", ImGui::GetContentRegionAvail().x);
+	ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+	ImGui::InputTextWithHint("##ConsoleFilter", (const char*)ICON_FA_SEARCH "  Filter messages..", m_Filter.InputBuf, IM_ARRAYSIZE(m_Filter.InputBuf));
+
+	if (ImGui::IsItemEdited())
+		m_Filter.Build();
 
 	const float footer_height = ImGui::GetStyle().ItemSpacing.y + ImGui::GetFrameHeightWithSpacing();
 
-	ImGui::BeginChild("##LOG", ImVec2(ImGui::GetContentRegionAvail().x, -footer_height), false, ImGuiWindowFlags_HorizontalScrollbar);
-
-	bool clear_items = false;
+	ImGui::BeginChild("##LOG", ImVec2(ImGui::GetContentRegionAvail().x, -footer_height), ImGuiChildFlags_None, ImGuiWindowFlags_HorizontalScrollbar);
 
 	if (ImGui::BeginPopupContextWindow())
 	{
@@ -111,10 +142,10 @@ void ConsoleWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 	ImGui::SetItemDefaultFocus();
 
-	ImGui::PushItemWidth(ImGui::GetWindowWidth());
+	ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x);
 	ImGuiInputTextFlags flags = ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CallbackCompletion | ImGuiInputTextFlags_CallbackHistory;
 
-	if (ImGui::InputText("##Input", &m_InputBuffer, flags, sEditCallback, (void*)this))
+	if (ImGui::InputTextWithHint("##Input", "Enter a console variable and value, Tab completes, Up/Down selects", &m_InputBuffer, flags, sEditCallback, (void*)this))
 	{
 		if (!m_InputBuffer.empty())
 			ExecuteCommand(m_InputBuffer);
@@ -165,7 +196,6 @@ void ConsoleWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	}
 
 	ImGui::PopItemWidth();
-	ImGui::Separator();
 	ImGui::End();
 }
 

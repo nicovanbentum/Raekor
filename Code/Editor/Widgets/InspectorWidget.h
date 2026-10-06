@@ -59,11 +59,14 @@ private:
 	bool DrawComponent(Entity inEntity, DirectionalLight& ioDirectionalLight);
 	bool DrawComponent(Entity inEntity, DDGISceneSettings& ioDDGISceneSettings);
 
+	void RemoveComponent(Entity inEntity, const RTTI& inRTTI);
+
 	template<typename T>
 	void CheckForUndo(Entity inEntity, T& inComponent, ComponentUndo<T>& inUndo);
 
 private:
 	bool m_SceneChanged = false;
+	String m_ComponentFilter;
 	ComponentUndo<Name> m_NameUndo;
 	ComponentUndo<Light> m_LightUndo;
 	ComponentUndo<Camera> m_CameraUndo;

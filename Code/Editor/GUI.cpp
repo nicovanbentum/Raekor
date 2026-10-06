@@ -307,8 +307,6 @@ bool ImGui::DragDropTargetButton(const char* label, const char* text, bool hasva
 
 	ImU32 frame_col = GetColorU32(g.ActiveId == id ? ImGuiCol_FrameBgActive : hovered ? ImGuiCol_FrameBgHovered : ImGuiCol_FrameBg);
 
-	if (!hasvalue)
-		frame_col = ImGui::GetColorU32(ImVec4(0.5, 0, 0, 1));
 	
 	RenderFrame(frame_bb.Min, frame_bb.Max, frame_col, true, style.FrameRounding);
 

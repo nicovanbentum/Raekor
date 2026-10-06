@@ -21,7 +21,7 @@ void MaterialsWidget::UpdateLayoutSizes(float avail_width)
     if (m_StretchSpacing == false)
         avail_width += floorf(m_LayoutItemSpacing * 0.5f);
 
-    const uint32_t item_count = GetScene().Count<Material>();
+    const uint32_t item_count = uint32_t(m_VisibleItems.size());
 
     // Layout: calculate number of icon per line and number of lines
     m_LayoutItemSize = ImVec2(floorf(m_IconSize), floorf(m_IconSize));
@@ -43,6 +43,42 @@ void MaterialsWidget::Draw(Widgets* inWidgets, float dt)
 	m_Visible = ImGui::IsWindowAppearing();
     
 	Scene& scene = GetScene();
+
+    const bool is_editing = m_Editor->GetGameState() != GAME_RUNNING;
+
+    ImGui::BeginDisabled(!is_editing);
+
+    if (ImGui::Button((const char*)ICON_FA_PLUS "  New Material"))
+    {
+        const Entity entity = scene.Create();
+        scene.Add<Name>(entity).name = "Material";
+        scene.Add<Material>(entity, Material::Default);
+
+        SetActiveEntity(entity);
+        m_Editor->MarkSceneChanged();
+    }
+
+    ImGui::EndDisabled();
+
+    ImGui::SameLine();
+
+    ImGui::SetNextItemWidth(glm::min(ImGui::GetContentRegionAvail().x, ImGui::GetFontSize() * 16.0f));
+    ImGui::InputTextWithHint("##MaterialFilter", (const char*)ICON_FA_SEARCH "  Search materials..", &m_Filter);
+
+    ImGui::SameLine();
+    ImGui::TextDisabled("Drag a material onto a mesh in the viewport to assign it, Ctrl + Scroll to zoom");
+
+    const ImGuiTextFilter filter = ImGuiTextFilter(m_Filter.c_str());
+
+    m_VisibleItems.clear();
+
+    for (const auto& [index, entity] : gEnumerate(scene.GetEntities<Material>()))
+    {
+        const Name* name = scene.GetPtr<Name>(entity);
+
+        if (filter.PassFilter(name ? name->name.c_str() : ""))
+            m_VisibleItems.push_back(uint32_t(index));
+    }
 
     ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowContentSize(ImVec2(0.0f, m_LayoutOuterPadding + m_LayoutLineCount * ( m_LayoutItemSize.x + m_LayoutItemSpacing )));
@@ -77,12 +113,12 @@ void MaterialsWidget::Draw(Widgets* inWidgets, float dt)
             for (int line_idx = clipper.DisplayStart; line_idx < clipper.DisplayEnd; line_idx++)
             {
                 const int item_min_idx_for_current_line = line_idx * column_count;
-                const int item_max_idx_for_current_line = glm::min(( line_idx + 1 ) * column_count, int(materials.size()));
+                const int item_max_idx_for_current_line = glm::min(( line_idx + 1 ) * column_count, int(m_VisibleItems.size()));
 
                 for (int item_idx = item_min_idx_for_current_line; item_idx < item_max_idx_for_current_line; ++item_idx)
                 {
-                    const Entity& entity = entities[item_idx];
-                    const Material& material = materials[item_idx];
+                    const Entity& entity = entities[m_VisibleItems[item_idx]];
+                    const Material& material = materials[m_VisibleItems[item_idx]];
 
                     ImGui::PushID(entity);
 
@@ -96,12 +132,21 @@ void MaterialsWidget::Draw(Widgets* inWidgets, float dt)
                     if (ImGui::Selectable("", item_is_selected, ImGuiSelectableFlags_None, m_LayoutItemSize))
                         SetActiveEntity(entity);
 
+                    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                    {
+                        const Name* name = GetScene().GetPtr<Name>(entity);
+                        ImGui::SetTooltip("%s", name ? name->name.c_str() : "Material");
+                    }
+
                     if (item_curr_idx_to_focus == item_idx)
                         ImGui::SetKeyboardFocusHere(-1);
 
                     if (ImGui::BeginDragDropSource())
                     {
                         ImGui::SetDragDropPayload("drag_drop_entity", &entity, sizeof(Entity));
+
+                        const Name* name = GetScene().GetPtr<Name>(entity);
+                        ImGui::Text("%s  %s", (const char*)ICON_FA_PALETTE, name ? name->name.c_str() : "Material");
 
                         ImGui::EndDragDropSource();
                     }
@@ -125,11 +170,15 @@ void MaterialsWidget::Draw(Widgets* inWidgets, float dt)
 
                         if (m_LayoutItemSize.x >= ImGui::CalcTextSize("Gr").x)
                         {
-                            const Name& name = GetScene().Get<Name>(entity);
+                            const Name* name = GetScene().GetPtr<Name>(entity);
+                            const String label = name ? name->name : "Material";
                             const ImVec4 clip_rect = ImVec4(box_min.x, box_min.y, box_max.x, box_max.y);
                             const ImU32 label_color = ImGui::GetColorU32(item_is_selected ? ImGuiCol_Text : ImGuiCol_TextDisabled);
-                            draw_list->AddText(NULL, 0.0f, ImVec2(box_min.x + 1, box_max.y + 1 - ImGui::GetFontSize()), IM_COL32_BLACK, name.name.c_str(), name.name.c_str() + name.name.size(), 0.0f, &clip_rect);
-                            draw_list->AddText(NULL, 0.0f, ImVec2(box_min.x, box_max.y - ImGui::GetFontSize()), label_color, name.name.c_str(), name.name.c_str() + name.name.size(), 0.0f, &clip_rect);
+                            draw_list->AddRectFilled(ImVec2(box_min.x, box_max.y - ImGui::GetFontSize() - 2.0f), box_max, IM_COL32(0, 0, 0, 160));
+                            draw_list->AddText(NULL, 0.0f, ImVec2(box_min.x + 2.0f, box_max.y - ImGui::GetFontSize() - 1.0f), label_color, label.c_str(), label.c_str() + label.size(), 0.0f, &clip_rect);
+
+                            if (item_is_selected)
+                                draw_list->AddRect(box_min, box_max, ImGui::GetColorU32(ImGuiCol_CheckMark), 0.0f, 0, 2.0f);
                         }
                     }
 

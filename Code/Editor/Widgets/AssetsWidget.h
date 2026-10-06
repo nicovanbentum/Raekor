@@ -22,6 +22,9 @@ public:
     void UpdateLayoutSizes(float inAvailableWidth);
 
 private:
+    String m_Filter;
+    Array<uint32_t> m_VisibleItems;
+
     float m_IconSize = 56.0f;
     int m_IconSpacing = 10;
     int m_IconHitSpacing = 4;
