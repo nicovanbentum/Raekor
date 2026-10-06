@@ -43,5 +43,3 @@ Basic RenderGraph architecture (automatically creates resource views and handles
 - Deferred Shading
 - TAA / FSR2 / DLSS / XeSS
 - Post Processing
-
-![image](https://svgshare.com/i/yZn.svg)
