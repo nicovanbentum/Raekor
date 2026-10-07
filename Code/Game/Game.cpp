@@ -1,5 +1,6 @@
 #include "PCH.h"
 #include "Game.h"
+#include "OS.h"
 #include "Input.h"
 #include "Script.h"
 #include "UIRenderer.h"
@@ -118,9 +119,12 @@ GameApp::GameApp() :
 
     m_Renderer.Recompile(m_Device, m_RayTracedScene, GetRenderInterface());
 
-    if (!m_ConfigSettings.mSceneFile.empty() && fs::exists(m_ConfigSettings.mSceneFile))
+    const String scene_override = OS::sGetCommandLineValue("-scene");
+    const Path scene_file = scene_override.empty() ? m_ConfigSettings.mSceneFile : Path(scene_override);
+
+    if (!scene_file.empty() && fs::exists(scene_file))
     {
-        m_Scene.OpenFromFile(m_ConfigSettings.mSceneFile.string(), m_Assets, this);
+        m_Scene.OpenFromFile(scene_file.string(), m_Assets, this);
     }
 
     Game::Start();

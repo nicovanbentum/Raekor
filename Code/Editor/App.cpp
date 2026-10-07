@@ -142,8 +142,11 @@ DXApp::DXApp() :
 
     m_Renderer.Recompile(m_Device, m_RayTracedScene, GetRenderInterface());
 
-    if (!m_ConfigSettings.mSceneFile.empty() && fs::exists(m_ConfigSettings.mSceneFile))
-        OpenScene(m_ConfigSettings.mSceneFile);
+    const String scene_override = OS::sGetCommandLineValue("-scene");
+    const Path scene_file = scene_override.empty() ? m_ConfigSettings.mSceneFile : Path(scene_override);
+
+    if (!scene_file.empty() && fs::exists(scene_file))
+        OpenScene(scene_file);
 }
 
 
