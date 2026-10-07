@@ -524,7 +524,13 @@ public:
 
 	Entity Create()
 	{
-		return m_Entities.emplace_back(Entity(m_Entities.size()));
+		const Entity entity = Entity(m_NextEntity++);
+
+		if (m_EntityIndices.size() <= entity)
+			m_EntityIndices.resize(size_t(entity) + 1, UINT32_MAX);
+
+		m_EntityIndices[entity] = uint32_t(m_Entities.size());
+		return m_Entities.emplace_back(entity);
 	}
 
 	void Destroy(Entity inEntity)
@@ -534,6 +540,18 @@ public:
 			if (components->Contains(inEntity))
 				components->Remove(inEntity);
 		}
+
+		if (!Exists(inEntity))
+			return;
+
+		const uint32_t index = m_EntityIndices[inEntity];
+		const Entity last = m_Entities.back();
+
+		m_Entities[index] = last;
+		m_EntityIndices[last] = index;
+
+		m_Entities.pop_back();
+		m_EntityIndices[inEntity] = UINT32_MAX;
 	}
 
 	template<typename Component>
@@ -643,6 +661,8 @@ public:
 			components->Clear();
 
 		m_Entities.clear();
+		m_EntityIndices.clear();
+		m_NextEntity = 0;
 	}
 
 	template<typename ...Components>
@@ -672,14 +692,11 @@ public:
 
 	bool Exists(Entity inEntity) const
 	{
-		if (inEntity == Entity::Null)
+		if (inEntity == Entity::Null || inEntity >= m_EntityIndices.size())
 			return false;
 
-		for (Entity entity : m_Entities)
-			if (entity == inEntity)
-				return true;
-
-		return false;
+		const uint32_t index = m_EntityIndices[inEntity];
+		return index < m_Entities.size() && m_Entities[index] == inEntity;
 	}
 
 	template<typename Component>
@@ -882,19 +899,39 @@ public:
 	void Swap(ECStorage& ioOther)
 	{
 		std::swap(m_Entities, ioOther.m_Entities);
+		std::swap(m_EntityIndices, ioOther.m_EntityIndices);
+		std::swap(m_NextEntity, ioOther.m_NextEntity);
 		std::swap(m_Components, ioOther.m_Components);
 	}
 
 	void CopyFrom(const ECStorage& inOther)
 	{
 		m_Entities = inOther.m_Entities;
+		m_EntityIndices = inOther.m_EntityIndices;
+		m_NextEntity = inOther.m_NextEntity;
 
 		for (const auto& [hash, storage] : inOther.m_Components)
 			m_Components[hash] = storage->Clone();
 	}
 
 protected:
+	void RebuildEntityIndices()
+	{
+		m_NextEntity = 0;
+		m_EntityIndices.clear();
+
+		for (Entity entity : m_Entities)
+			m_NextEntity = std::max(m_NextEntity, uint32_t(entity) + 1);
+
+		m_EntityIndices.resize(m_NextEntity, UINT32_MAX);
+
+		for (uint32_t index = 0; index < m_Entities.size(); index++)
+			m_EntityIndices[m_Entities[index]] = index;
+	}
+
 	Array<Entity> m_Entities;
+	Array<uint32_t> m_EntityIndices;
+	uint32_t m_NextEntity = 0;
 	mutable HashMap<uint32_t, UniquePtr<IComponentStorage>> m_Components;
 };
 

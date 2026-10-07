@@ -432,6 +432,49 @@ static void sTestSceneMergeAndSwap()
 }
 
 
+static void sTestEntityLifetime(const Path& inDirectory)
+{
+	Scene scene = Scene(nullptr);
+	const size_t initial_count = scene.GetEntities().size();
+
+	const Entity parent = scene.CreateSpatialEntity("Parent");
+	const Entity child = scene.CreateSpatialEntity("Child");
+	scene.ParentTo(child, parent);
+
+	Array<Entity> spawned;
+	for (int index = 0; index < 64; index++)
+		spawned.push_back(scene.CreateSpatialEntity("Spawned"));
+
+	CHECK(scene.GetEntities().size() == initial_count + 66);
+
+	for (Entity entity : spawned)
+		scene.Destroy(entity);
+
+	scene.Destroy(parent);
+
+	CHECK(scene.GetEntities().size() == initial_count);
+	CHECK(!scene.Exists(parent) && !scene.Exists(child) && !scene.Exists(spawned.front()));
+	CHECK(!scene.Has<Name>(child));
+
+	const Entity survivor = scene.CreateSpatialEntity("Survivor");
+	CHECK(scene.Exists(survivor));
+	CHECK(std::find(spawned.begin(), spawned.end(), survivor) == spawned.end() && survivor != parent && survivor != child);
+
+	Assets assets;
+	const String scene_path = ( inDirectory / "lifetime.scene" ).string();
+	scene.SaveToFile(scene_path, assets);
+
+	Scene loaded = Scene(nullptr);
+	loaded.OpenFromFile(scene_path, assets);
+
+	CHECK(loaded.GetEntities().size() == scene.GetEntities().size());
+	CHECK(loaded.Exists(survivor) && loaded.Get<Name>(survivor).name == "Survivor");
+
+	const Entity created_after_load = loaded.Create();
+	CHECK(created_after_load > survivor && loaded.Exists(created_after_load));
+}
+
+
 static void sTestLegacySceneConversion(const Path& inDirectory, const Path& inLegacyScene)
 {
 	if (!fs::exists(inLegacyScene))
@@ -603,6 +646,7 @@ int main(int argc, char** argv)
 	sTestLegacyMemberSkipping(directory);
 	sTestSceneRoundTrip(directory);
 	sTestSceneMergeAndSwap();
+	sTestEntityLifetime(directory);
 	sTestScriptVariables(directory);
 	sTestGltfBlendModes("Assets/Models/glTF-Sample-Models-main/2.0/AlphaBlendModeTest/glTF/AlphaBlendModeTest.gltf");
 

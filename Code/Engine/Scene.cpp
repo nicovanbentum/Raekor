@@ -548,6 +548,7 @@ bool Scene::ReadSceneFile(const String& inFilePath)
 	m_Hierarchy.clear();
 
 	ReadFileBinary(file, m_Entities);
+	RebuildEntityIndices();
 
 	Array<EntityHierarchy::Pair> pairs;
 	ReadFileBinary(file, pairs);
