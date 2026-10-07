@@ -27,6 +27,7 @@ public:
     const ID3D12Device5* operator-> () const { return m_Device.Get(); }
 
     void OnUpdate();
+    void LogDebugMessages();
 
     uint32_t GetFrameIndex() const { return m_FrameIndex; }
     uint32_t GetFrameCounter() const { return m_FrameCounter; }
@@ -151,6 +152,7 @@ private:
 
     ComPtr<ID3D12Device5> m_Device;
     ComPtr<IDXGIAdapter1> m_Adapter;
+    ComPtr<ID3D12InfoQueue> m_InfoQueue;
     ComPtr<D3D12MA::Allocator> m_Allocator;
     ComPtr<ID3D12CommandQueue> m_CopyQueue;
     ComPtr<ID3D12CommandQueue> m_ComputeQueue;

@@ -56,7 +56,23 @@ Device::Device(Application* inApp)
     factory->EnumAdapterByGpuPreference(0, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE, IID_PPV_ARGS(&m_Adapter));
 
     gThrowIfFailed(D3D12CreateDevice(m_Adapter.Get(), D3D_FEATURE_LEVEL_12_2, IID_PPV_ARGS(&m_Device)));
-    
+
+    if (ComPtr<ID3D12InfoQueue1> info_queue = nullptr; SUCCEEDED(m_Device.As(&info_queue)))
+    {
+        const auto MessageCallback = [](D3D12_MESSAGE_CATEGORY inCategory, D3D12_MESSAGE_SEVERITY inSeverity, D3D12_MESSAGE_ID inID, LPCSTR inDescription, void* inContext)
+        {
+            if (inSeverity <= D3D12_MESSAGE_SEVERITY_ERROR)
+                gLogError("D3D12", "{}", inDescription);
+            else if (inSeverity == D3D12_MESSAGE_SEVERITY_WARNING)
+                gLogWarning("D3D12", "{}", inDescription);
+        };
+
+        DWORD callback_cookie = 0;
+        info_queue->RegisterMessageCallback(MessageCallback, D3D12_MESSAGE_CALLBACK_FLAG_NONE, nullptr, &callback_cookie);
+    }
+    else
+        m_Device.As(&m_InfoQueue);
+
     const static bool enable_dlss = OS::sCheckCommandLineOption("-enable_dlss");
     if (enable_dlss)
     {
@@ -232,8 +248,38 @@ Device::~Device()
 }
 
 
+void Device::LogDebugMessages()
+{
+    if (m_InfoQueue == nullptr)
+        return;
+
+    const uint64_t message_count = m_InfoQueue->GetNumStoredMessages();
+
+    for (uint64_t message_index = 0; message_index < message_count; message_index++)
+    {
+        SIZE_T message_size = 0;
+        m_InfoQueue->GetMessage(message_index, nullptr, &message_size);
+
+        Array<uint8_t> message_data(message_size);
+        D3D12_MESSAGE* message = reinterpret_cast<D3D12_MESSAGE*>(message_data.data());
+
+        if (FAILED(m_InfoQueue->GetMessage(message_index, message, &message_size)))
+            continue;
+
+        if (message->Severity <= D3D12_MESSAGE_SEVERITY_ERROR)
+            gLogError("D3D12", "{}", message->pDescription);
+        else if (message->Severity == D3D12_MESSAGE_SEVERITY_WARNING)
+            gLogWarning("D3D12", "{}", message->pDescription);
+    }
+
+    m_InfoQueue->ClearStoredMessages();
+}
+
+
 void Device::OnUpdate()
 {
+    LogDebugMessages();
+
     m_FrameIndex = ++m_FrameCounter % sFrameCount;
 
     std::scoped_lock lock(m_ReleaseMutex);

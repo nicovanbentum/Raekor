@@ -33,10 +33,12 @@ static constexpr uint32_t sMaxRootSignatureSize = 64 * sizeof(uint32_t);
 static constexpr uint32_t sMaxRootConstantsSize = sMaxRootSignatureSize - ( EBindSlot::Count * 2 * sizeof(uint32_t) );
 
 
-inline void gThrowIfFailed(HRESULT inResult, ID3D12Device* inDevice = nullptr)
+inline void gThrowIfFailed(HRESULT inResult, ID3D12Device* inDevice = nullptr, const std::source_location& inLocation = std::source_location::current())
 {
     if (FAILED(inResult))
     {
+        gLogError("DX12", "Call failed with HRESULT {:#x} at {}({})", uint32_t(inResult), inLocation.file_name(), inLocation.line());
+
         if (inResult == 0x887a0005 && inDevice) // device removed
         {
             HRESULT reason = inDevice->GetDeviceRemovedReason();
