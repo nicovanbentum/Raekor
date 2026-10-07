@@ -48,21 +48,10 @@ void Scene::DestroySpatialEntity(Entity inEntity)
 
 Vec3 Scene::GetSunLightDirection() const
 {
-	Vec3 sun_direction = Vec3(0.25f, -0.9f, 0.0f);
+	if (const DirectionalLight* sun_light = GetSunLight())
+		return Vec3(sun_light->GetDirection());
 
-	if (Count<DirectionalLight>() == 1)
-	{
-		const Entity sunlight_entity = GetEntities<DirectionalLight>()[0];
-		const Transform& sunlight_transform = Get<Transform>(sunlight_entity);
-		sun_direction = sunlight_transform.GetRotationWorldSpace() * sun_direction;
-	}
-	else
-	{
-		// we rotate default light a little or else we get nan values in our view matrix
-		sun_direction = static_cast<Quat>( Vec3(glm::radians(15.0f), 0, 0) ) * sun_direction;
-	}
-
-	return glm::clamp(sun_direction, { -1.0f, -1.0f, -1.0f }, { 1.0f, 1.0f, 1.0f });
+	return glm::normalize(Quat(Vec3(glm::radians(15.0f), 0.0f, 0.0f)) * DirectionalLight::cDefaultDirection);
 }
 
 
@@ -78,7 +67,7 @@ const DirectionalLight* Scene::GetSunLight() const
 void Scene::UpdateLights()
 {
 	for (auto [entity, light, transform] : Each<DirectionalLight, Transform>())
-		light.direction = Vec4(transform.GetRotationWorldSpace() * Vec3(0, -1, 0), 1.0);
+		light.direction = Vec4(glm::normalize(transform.GetRotationWorldSpace() * DirectionalLight::cDefaultDirection), 0.0f);
 
 	for (auto [entity, light, transform] : Each<Light, Transform>())
 	{

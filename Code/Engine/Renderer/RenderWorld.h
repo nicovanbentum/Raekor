@@ -67,7 +67,6 @@ struct RenderSun
 {
     bool      mEnabled = false;
     Vec3      mDirection = Vec3(0.0f, -1.0f, 0.0f);
-    Vec4      mSkyDirection = Vec4(0.0f, -1.0f, 0.0f, 0.0f);
     Vec4      mColor = Vec4(0.0f);
     TextureID mCubeMap;
 };

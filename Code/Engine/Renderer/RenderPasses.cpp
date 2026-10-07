@@ -218,7 +218,7 @@ const SkyCubeData& AddSkyCubePass(RenderGraph& inRenderGraph, Device& inDevice, 
         inCmdList.PushComputeConstants(SkyCubeRootConstants
         {
             .mSkyCubeTexture    = inResources.GetBindlessHeapIndex(inData.mSkyCubeTexture),
-            .mSunLightDirection = sun.mSkyDirection,
+            .mSunLightDirection = sun.mDirection,
             .mSunLightColor     = sun.mColor
         });
 

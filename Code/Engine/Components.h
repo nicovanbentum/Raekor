@@ -67,6 +67,8 @@ struct DirectionalLight
 {
 	RTTI_DECLARE_TYPE(DirectionalLight);
 
+	static constexpr Vec3 cDefaultDirection = Vec3(0.25f, -0.9f, 0.0f);
+
 	Vec4 GetColor() const { return Vec4(Vec3(color), illuminance); }
 	const Vec4& GetDirection() const { return direction; }
 

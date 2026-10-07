@@ -159,7 +159,6 @@ void RenderWorld::Extract(const Scene& inScene, const Device& inDevice, float in
     if (const DirectionalLight* sun_light = inScene.GetSunLight())
     {
         m_Sun.mEnabled = true;
-        m_Sun.mSkyDirection = sun_light->GetDirection();
         m_Sun.mColor = sun_light->GetColor();
         m_Sun.mCubeMap = gToTextureID(sun_light->cubeMap);
     }
