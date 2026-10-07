@@ -116,8 +116,8 @@ public:
 	void Step(Scene& scene, float dt);
 	void OnUpdate(Scene& scene);
 
-	void SaveState() { m_Physics->SaveState(*m_StateRecorder); }
-	void RestoreState() { m_Physics->RestoreState(*m_StateRecorder); };
+	void SaveState();
+	bool RestoreState();
 
 	bool GetDebugRendering() const { return m_Debug; }
 	void SetDebugRendering(bool inEnabled) { m_Debug = inEnabled; }
@@ -127,9 +127,16 @@ public:
 
 	void GenerateRigidBodiesEntireScene(Scene& inScene);
 
+	void RegisterBody(JPH::BodyID inBodyID);
+	void DestroyBody(JPH::BodyID inBodyID);
+	void DestroyOrphanedBodies(Scene& inScene);
+
 	JPH::PhysicsSystem* GetSystem() { return m_Physics; }
 
 private:
+	Mutex m_BodiesMutex;
+	HashSet<uint32_t> m_Bodies;
+
 	struct /* unnamed */
 	{
 		int& state = g_CVariables->Create("physics_enabled", int(Idle), true);
@@ -140,7 +147,7 @@ private:
 	JPH::PhysicsSystem* m_Physics = nullptr;
 	JPH::JobSystem* m_JobSystem = nullptr;
 	JPH::TempAllocator* m_TempAllocator = nullptr;
-	JPH::StateRecorder* m_StateRecorder = nullptr;
+	JPH::StateRecorderImpl* m_StateRecorder = nullptr;
 	BPLayerInterfaceImpl m_BroadPhaseLayers;
 	ObjectLayerPairFilter m_ObjectPairFilter;
 	ObjectVsBroadPhaseLayerFilter m_ObjectBroadPhaseFilter;

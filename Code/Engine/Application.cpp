@@ -330,8 +330,13 @@ void Game::Stop()
     if (GetGameState() == GAME_STOPPED)
         return;
 
+    CallScripts(&INativeScript::OnStop, "OnStop");
+
     if (Physics* physics = GetPhysics())
     {
+        if (Scene* scene = GetScene())
+            physics->DestroyOrphanedBodies(*scene);
+
         if (physics->GetState() != Physics::Idle)
         {
             physics->RestoreState();
@@ -341,8 +346,6 @@ void Game::Stop()
                 physics->Step(*scene, 1.0f / 60.0f);
         }
     }
-
-    CallScripts(&INativeScript::OnStop, "OnStop");
 
     SetCameraEntity(Entity::Null);
 

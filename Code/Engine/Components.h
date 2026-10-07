@@ -194,7 +194,7 @@ struct RigidBody
     float sphereRadius;
 
 	JPH::BodyID bodyID;
-	JPH::EMotionType motionType;
+	JPH::EMotionType motionType = JPH::EMotionType::Static;
     JPH::BoxShapeSettings settings;
     JPH::MeshShapeSettings meshSettings;
 	JPH::Ref<JPH::ShapeSettings> shapeSettings;
@@ -202,6 +202,7 @@ struct RigidBody
     void CreateBody(Physics& inPhysics, const Transform& inTransform);
     void ActivateBody(Physics& inPhysics, const Transform& inTransform);
     void DeactivateBody(Physics& inPhysics);
+    void DestroyBody(Physics& inPhysics);
 
     void CreateCubeCollider(Physics& inPhysics, const BBox3D& inBBox);
     void CreateSphereCollider(Physics& inPhysics, float inRadius);

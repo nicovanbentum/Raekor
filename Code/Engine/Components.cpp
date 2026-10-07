@@ -702,14 +702,28 @@ void RigidBody::CreateBody(Physics& inPhysics, const Transform& inTransform)
         JPH::Vec3(inTransform.position.x, inTransform.position.y, inTransform.position.z),
         JPH::Quat(inTransform.rotation.x, inTransform.rotation.y, inTransform.rotation.z, inTransform.rotation.w),
         motionType,
-        EPhysicsObjectLayers::MOVING
+        motionType == JPH::EMotionType::Static ? EPhysicsObjectLayers::NON_MOVING : EPhysicsObjectLayers::MOVING
     );
 
     if (shapeSettings->GetRTTI() != JPH_RTTI(JPH::MeshShapeSettings))
         settings.mAllowDynamicOrKinematic = true;
 
     JPH::BodyInterface& bodies = inPhysics.GetSystem()->GetBodyInterface();
-    bodyID = bodies.CreateBody(settings)->GetID();
+
+    if (JPH::Body* body = bodies.CreateBody(settings))
+    {
+        bodyID = body->GetID();
+        inPhysics.RegisterBody(bodyID);
+    }
+    else
+        gLogError("Physics", "Failed to create a rigid body, the physics system is out of bodies");
+}
+
+
+void RigidBody::DestroyBody(Physics& inPhysics)
+{
+    inPhysics.DestroyBody(bodyID);
+    bodyID = JPH::BodyID();
 }
 
 
@@ -731,7 +745,9 @@ void RigidBody::ActivateBody(Physics& inPhysics, const Transform& inTransform)
 void RigidBody::DeactivateBody(Physics& inPhysics)
 {
     JPH::BodyInterface& bodies = inPhysics.GetSystem()->GetBodyInterface();
-    bodies.RemoveBody(bodyID);
+
+    if (!bodyID.IsInvalid() && bodies.IsAdded(bodyID))
+        bodies.RemoveBody(bodyID);
 }
 
 

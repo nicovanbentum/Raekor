@@ -127,6 +127,7 @@ Physics::Physics(IRenderInterface* inRenderer)
 
 Physics::~Physics()
 {
+	delete m_StateRecorder;
 	delete m_TempAllocator;
 	delete m_JobSystem;
 	delete m_Physics;
@@ -171,6 +172,8 @@ void Physics::Step(Scene& inScene, float inDeltaTime)
 void Physics::OnUpdate(Scene& inScene)
 {
 	PROFILE_FUNCTION_CPU();
+
+	DestroyOrphanedBodies(inScene);
 
    /* for (const auto& [entity, transform, rigid_body] : inScene.Each<Transform, RigidBody>())
     {
@@ -271,6 +274,80 @@ void Physics::OnUpdate(Scene& inScene)
 	}
 
     collider_jobs.Wait();
+}
+
+
+void Physics::SaveState()
+{
+	delete m_StateRecorder;
+	m_StateRecorder = new JPH::StateRecorderImpl();
+
+	m_Physics->SaveState(*m_StateRecorder);
+}
+
+
+bool Physics::RestoreState()
+{
+	m_StateRecorder->Rewind();
+
+	if (m_Physics->RestoreState(*m_StateRecorder))
+		return true;
+
+	gLogWarning("Physics", "Could not restore the physics state, bodies were added or removed without being cleaned up");
+	return false;
+}
+
+
+void Physics::RegisterBody(JPH::BodyID inBodyID)
+{
+	std::scoped_lock lock(m_BodiesMutex);
+	m_Bodies.insert(inBodyID.GetIndexAndSequenceNumber());
+}
+
+
+void Physics::DestroyBody(JPH::BodyID inBodyID)
+{
+	if (inBodyID.IsInvalid())
+		return;
+
+	{
+		std::scoped_lock lock(m_BodiesMutex);
+		m_Bodies.erase(inBodyID.GetIndexAndSequenceNumber());
+	}
+
+	JPH::BodyInterface& bodies = m_Physics->GetBodyInterface();
+
+	if (bodies.IsAdded(inBodyID))
+		bodies.RemoveBody(inBodyID);
+
+	bodies.DestroyBody(inBodyID);
+}
+
+
+void Physics::DestroyOrphanedBodies(Scene& inScene)
+{
+	HashSet<uint32_t> owned_bodies;
+
+	for (const auto& [entity, rigid_body] : inScene.Each<RigidBody>())
+	{
+		if (!rigid_body.bodyID.IsInvalid())
+			owned_bodies.insert(rigid_body.bodyID.GetIndexAndSequenceNumber());
+	}
+
+	Array<JPH::BodyID> orphaned_bodies;
+
+	{
+		std::scoped_lock lock(m_BodiesMutex);
+
+		for (uint32_t body : m_Bodies)
+		{
+			if (!owned_bodies.contains(body))
+				orphaned_bodies.emplace_back(body);
+		}
+	}
+
+	for (JPH::BodyID body : orphaned_bodies)
+		DestroyBody(body);
 }
 
 
