@@ -42,7 +42,6 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 	ImGui::SetNextWindowSize(ImVec2(160, 90), ImGuiCond_FirstUseEver);
 	m_Visible = ImGui::Begin(m_Title.c_str(), &m_Open, flags);
-	m_Editor->GetRenderInterface()->GetSettings().paused = !m_Visible;
 
 	ImGui::PopStyleVar();
 
@@ -435,7 +434,7 @@ void ViewportWidget::DrawToolbar()
 			ImGui::EndCombo();
 		}
 
-		m_Editor->GetRenderInterface()->DrawDebugSettings(m_Editor, GetScene(), m_Editor->GetViewport());
+		m_Editor->GetRenderInterface()->DrawDebugSettings(m_Editor);
 
 		ImGui::SeparatorText("Physics");
 

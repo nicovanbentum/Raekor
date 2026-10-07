@@ -5,23 +5,14 @@
 #include "Script.h"
 #include "UIRenderer.h"
 #include "DebugRenderer.h"
-#include "Renderer/Shader.h"
-#include "Renderer/Renderer.h"
-#include "Renderer/GPUProfiler.h"
-
-using namespace RK::DX12;
-
-extern float samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d_1spp(int pixel_i, int pixel_j, int sampleIndex, int sampleDimension);
 
 namespace RK {
 
 GameApp::GameApp() :
     Game(WindowFlag::RESIZE),
-    m_Device(this),
-    m_Scene(&m_RenderInterface),
-    m_Physics(&m_RenderInterface),
-    m_Renderer(m_Device, m_Viewport, m_Window),
-    m_RenderInterface(this, m_Device, m_Renderer)
+    m_Scene(&m_RenderSystem),
+    m_Physics(&m_RenderSystem),
+    m_RenderSystem(this)
 {
     LoadScripts();
 
@@ -31,92 +22,7 @@ GameApp::GameApp() :
     ImGui::GetIO().IniFilename = "";
     ImGui::GetStyle().ScaleAllSizes(1.33333333f);
 
-    DX12::g_GPUProfiler = new DX12::GPUProfiler(m_Device);
-
-    g_RTTIFactory.Register(RTTI_OF<DX12::ComputeProgram>());
-    g_RTTIFactory.Register(RTTI_OF<DX12::GraphicsProgram>());
-    g_RTTIFactory.Register(RTTI_OF<DX12::SystemShadersDX12>());
-
-    Timer timer;
-
-    JSON::ReadArchive read_archive("Assets\\Shaders\\Backend\\Shaders.json");
-    read_archive >> DX12::g_SystemShaders;
-
-    // compile shaders
-    DX12::g_SystemShaders.OnCompile(m_Device);
-
-    if (!DX12::g_SystemShaders.IsCompiled())
-    {
-        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "DX12 Error", "Failed to compile system shaders", m_Window);
-        std::abort();
-    }
-
-    // Creating the SRVs at heap index 0 results in a 4x4 black square in the top left of the texture,
-   // this is a hacky workaround. at least we get the added benefit of 0 being an 'invalid' index :D
-    (void)m_Device.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).Add(nullptr);
-
-    static Array<Vec4> blue_noise_samples;
-    blue_noise_samples.reserve(128 * 128);
-
-    for (int y = 0; y < 128; y++)
-    {
-        for (int x = 0; x < 128; x++)
-        {
-            Vec4& sample = blue_noise_samples.emplace_back();
-
-            for (int i = 0; i < sample.length(); i++)
-                sample[i] = samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d_1spp(x, y, 0, i);
-        }
-    }
-
-    TextureID bluenoise_texture = m_Device.CreateTexture(Texture::Desc
-        {
-            .format = DXGI_FORMAT_R32G32B32A32_FLOAT,
-            .width = 128,
-            .height = 128,
-            .usage = Texture::Usage::SHADER_READ_ONLY,
-            .debugName = "BlueNoise128x1spp"
-        });
-
-    assert(m_Device.GetBindlessHeapIndex(bluenoise_texture) == BINDLESS_BLUE_NOISE_TEXTURE_INDEX);
-
-    m_Device.UploadTextureData(m_Device.GetTexture(bluenoise_texture), 0, 0, sizeof(Vec4) * 128, blue_noise_samples.data());
-
-    gLogInfo("CPU", "Shader compilation took {:.2f} ms", Timer::sToMilliseconds(timer.Restart()));
-
-    // Create default textures / assets
-    m_DefaultBlackTexture  = m_Device.CreateTexture(Texture::Desc2D(DXGI_FORMAT_R32G32B32A32_FLOAT, 1, 1, Texture::SHADER_READ_ONLY));
-    m_DefaultWhiteTexture  = m_Device.CreateTexture(Texture::Desc2D(DXGI_FORMAT_R32G32B32A32_FLOAT, 1, 1, Texture::SHADER_READ_ONLY));
-    m_DefaultNormalTexture = m_Device.CreateTexture(Texture::Desc2D(DXGI_FORMAT_R32G32B32A32_FLOAT, 1, 1, Texture::SHADER_READ_ONLY));
-
-    constexpr std::array black_pixels  = { Vec4(0.0, 0.0, 0.0, 0.0), Vec4(0.0, 0.0, 0.0, 0.0), Vec4(0.0, 0.0, 0.0, 0.0), Vec4(0.0, 0.0, 0.0, 0.0) };
-    constexpr std::array white_pixels  = { Vec4(1.0, 1.0, 1.0, 1.0), Vec4(1.0, 1.0, 1.0, 1.0), Vec4(1.0, 1.0, 1.0, 1.0), Vec4(1.0, 1.0, 1.0, 1.0) };
-    constexpr std::array normal_pixels = { Vec4(0.5, 0.5, 1.0, 1.0), Vec4(0.5, 0.5, 1.0, 1.0), Vec4(0.5, 0.5, 1.0, 1.0), Vec4(0.5, 0.5, 1.0, 1.0) };
-
-    m_Device.SetDebugName(m_DefaultBlackTexture, "DefaultBlackTexture");
-    m_Device.SetDebugName(m_DefaultWhiteTexture, "DefaultWhiteTexture");
-    m_Device.SetDebugName(m_DefaultNormalTexture, "DefaultNormalTexture");
-
-    m_Device.UploadTextureData(m_Device.GetTexture(m_DefaultBlackTexture),  0, 0, sizeof(Vec4), black_pixels.data());
-    m_Device.UploadTextureData(m_Device.GetTexture(m_DefaultWhiteTexture),  0, 0, sizeof(Vec4), white_pixels.data());
-    m_Device.UploadTextureData(m_Device.GetTexture(m_DefaultNormalTexture), 0, 0, sizeof(Vec4), normal_pixels.data());
-
-    Material::Default.gpuAlbedoMap = m_DefaultWhiteTexture.GetValue();
-    Material::Default.gpuNormalMap = m_DefaultNormalTexture.GetValue();
-    Material::Default.gpuEmissiveMap = m_DefaultWhiteTexture.GetValue();
-    Material::Default.gpuMetallicMap = m_DefaultWhiteTexture.GetValue();
-    Material::Default.gpuRoughnessMap = m_DefaultWhiteTexture.GetValue();
-
-    m_RenderInterface.SetBlackTexture(m_DefaultBlackTexture.GetValue());
-    m_RenderInterface.SetWhiteTexture(m_DefaultWhiteTexture.GetValue());
-
-    gLogInfo("CPU", "Default material upload took {:.2f} ms", Timer::sToMilliseconds(timer.Restart()));
-
-    // initialize ImGui
-    ImGui_ImplSDL3_InitForD3D(m_Window);
-    InitImGui(m_Device, Renderer::sSwapchainFormat, sFrameCount);
-
-    m_Renderer.Recompile(m_Device, GetRenderInterface());
+    m_RenderSystem.InitImGui(m_Window);
 
     const String scene_override = OS::sGetCommandLineValue("-scene");
     const Path scene_file = scene_override.empty() ? m_ConfigSettings.mSceneFile : Path(scene_override);
@@ -186,19 +92,6 @@ void GameApp::OnUpdate(float inDeltaTime)
     if (GetGameState() == GAME_RUNNING)
         m_Scene.UpdateNativeScripts(inDeltaTime, this);
 
-
-    if (m_GameState == GAME_RUNNING)
-        RenderSettings::mPathTraceReset = true;
-
-    for (const Animation& animation : m_Scene.GetComponents<Animation>())
-    {
-        if (animation.IsPlaying())
-        {
-            RenderSettings::mPathTraceReset = true;
-            break;
-        }
-    }
-
     int width, height;
     SDL_GetWindowSize(m_Window, &width, &height);
 
@@ -218,7 +111,7 @@ void GameApp::OnUpdate(float inDeltaTime)
 
     auto cursor_pos = ImGui::GetCursorPos();
     
-    ImGui::Image(m_RenderInterface.GetDisplayTexture(), ImVec2(width, height));
+    ImGui::Image(m_RenderSystem.GetDisplayTexture(), ImVec2(width, height));
     
     ImGui::SetCursorPos(cursor_pos);
     ImGui::Text("Frame %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
@@ -229,11 +122,7 @@ void GameApp::OnUpdate(float inDeltaTime)
     ImGui::EndFrame();
     ImGui::Render();
 
-    m_Renderer.OnRender(this, m_Device, m_Viewport, m_Scene, GetRenderInterface(), inDeltaTime);
-
-    m_Device.OnUpdate();
-
-    g_GPUProfiler->Reset(m_Device);
+    m_RenderSystem.OnRender(this, m_Scene, inDeltaTime);
 }
 
 void GameApp::OnEvent(const SDL_Event& inEvent)
@@ -285,7 +174,7 @@ void GameApp::OnEvent(const SDL_Event& inEvent)
                 SDL_SetWindowFullscreen(m_Window, true);
 
             // Updat the viewport and tell the renderer to resize to the viewport
-            m_Renderer.SetShouldResize(true);
+            m_RenderSystem.GetRenderer().SetShouldResize(true);
         }
     }
 
@@ -308,7 +197,7 @@ void GameApp::OnEvent(const SDL_Event& inEvent)
     }
 
     if (inEvent.type == SDL_EVENT_WINDOW_RESIZED)
-        m_Renderer.SetShouldResize(true);
+        m_RenderSystem.GetRenderer().SetShouldResize(true);
 }
 
 } // RK

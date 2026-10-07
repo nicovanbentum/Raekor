@@ -64,6 +64,7 @@ private:
         int& mDoPathTrace        = g_CVariables->Create("r_path_trace",           0,   true);
         float& mSunConeAngle     = g_CVariables->Create("r_sun_cone_angle",       0.0f, true);
         float& mJitterScale      = g_CVariables->Create("r_jitter_scale",         1.0f, true);
+        int& mDebugTexture       = g_CVariables->Create("r_debug_texture",        0,   true);
     } m_Settings;
 
 public:
@@ -71,9 +72,9 @@ public:
 
     void OnResize(Device& inDevice, Viewport& inViewport, bool inExclusiveFullscreen = false);
     void OnResizeViewport(Device& inDevice, Viewport& inViewport);
-    void OnRender(Application* inApp, Device& inDevice, Viewport& inViewport, const Scene& inScene, IRenderInterface* inRenderInterface, float inDeltaTime);
+    void OnRender(Application* inApp, Device& inDevice, Viewport& inViewport, const Scene& inScene, float inDeltaTime);
 
-    void Recompile(Device& inDevice, IRenderInterface* inRenderInterface);
+    void Recompile(Device& inDevice);
 
     CommandList& StartSingleSubmit();
     void FlushSingleSubmit(Device& inDevice, CommandList& inCommandList);
@@ -83,6 +84,8 @@ public:
     void SetShouldResize(bool inValue) { m_ShouldResize = inValue; }
     void SetShouldRecompile(bool inValue) { m_ShouldRecompile = inValue; }
     void SetShouldCaptureNextFrame(bool inValue) { m_ShouldCaptureNextFrame = inValue; }
+
+    void SetDefaultTextures(TextureID inBlackTexture, TextureID inWhiteTexture) { m_BlackTexture = inBlackTexture; m_WhiteTexture = inWhiteTexture; }
 
     GPUScene& GetGPUScene() { return m_GPUScene; }
     const RenderWorld& GetRenderWorld() const { return m_RenderWorld; }
@@ -97,6 +100,7 @@ public:
 
     SDL_Window*         GetWindow() const       { return m_Window; }
     Settings&           GetSettings()           { return m_Settings; }
+    const Settings&     GetSettings() const     { return m_Settings; }
     Upscaler&           GetUpscaler()           { return m_Upscaler; }
     const RenderGraph&  GetRenderGraph() const  { return m_RenderGraph; }
     uint64_t            GetFrameCounter() const { return m_FrameCounter; }
@@ -112,7 +116,7 @@ private:
     void UpdateFontAtlas(Device& inDevice);
 
     uint64_t GetViewportKey(const Viewport& inViewport) const;
-    uint64_t GetRenderGraphKey(IRenderInterface* inRenderInterface) const;
+    uint64_t GetRenderGraphKey() const;
 
     void ResolveReadbacks(Device& inDevice);
     void RecordReadbacks(Device& inDevice, CommandList& inCmdList);
@@ -156,6 +160,8 @@ private:
     BufferID                    m_DebugLinesVertexBuffer;
     BufferID                    m_DebugLinesIndirectArgsBuffer;
     Mesh                        m_ProbeDebugMesh;
+    TextureID                   m_BlackTexture;
+    TextureID                   m_WhiteTexture;
     TextureID                   m_FontAtlasTexture;
     uint32_t                    m_FontAtlasVersion = 0;
     BackBufferData              m_BackBufferData[sFrameCount];
@@ -165,59 +171,6 @@ private:
     GPUScene                    m_GPUScene;
     RenderWorld                 m_RenderWorld;
     RenderGraph                 m_RenderGraph;
-};
-
-
-
-class RenderInterface : public IRenderInterface
-{
-public:
-    RenderInterface(Application* inApp, Device& inDevice, Renderer& inRenderer);
-
-    void UpdateGPUStats(Device& inDevice);
-
-    uint64_t GetLightTexture() override;
-    uint64_t GetCameraTexture() override;
-    uint64_t GetDisplayTexture() override;
-
-    uint64_t GetImGuiTextureID(uint32_t inTextureID) override;
-
-    uint64_t GetDebugTextureIndex() const override { return m_Settings.mDebugTexture; }
-    void SetDebugTextureIndex(int inIndex) override { m_Settings.mDebugTexture = inIndex; }
-
-    uint32_t GetDebugTextureCount() const override { return DEBUG_TEXTURE_COUNT; }
-    const char* GetDebugTextureName(uint32_t inIndex) const override;
-
-    void RequestScreenshot(const Path& inFile) override { m_Renderer.RequestScreenshot(inFile); }
-
-    void UploadMeshBuffers(Entity inEntity, Mesh& inMesh) override;
-    void DestroyMeshBuffers(Entity inEntity, Mesh& inMesh) override;
-
-    void UploadSkeletonBuffers(Entity inEntity, Skeleton& inSkeleton, Mesh& inMesh) override;
-    void DestroySkeletonBuffers(Entity inEntity, Skeleton& inSkeleton) override;
-
-    void UploadMaterialTextures(Entity inEntity, Material& inMaterial, Assets& inAssets) override;
-    void DestroyMaterialTextures(Entity inEntity, Material& inMaterial, Assets& inAssets) override {}
-
-    void CompileMaterialShaders(Entity inEntity, Material& inMaterial) override;
-    void ReleaseMaterialShaders(Entity inEntity, Material& inMaterial) override;
-
-    uint32_t UploadTextureFromAsset(TextureAsset::Ptr inAsset, bool inIsSRGB = false, uint8_t inSwizzle = TEXTURE_SWIZZLE_RGBA) override;
-
-    uint64_t RequestEntityPick(uint32_t inPixelX, uint32_t inPixelY) override { return m_Renderer.RequestEntityPick(UVec2(inPixelX, inPixelY)); }
-    bool GetEntityPickResult(uint64_t inRequestID, Entity& outEntity) override { return m_Renderer.GetEntityPickResult(inRequestID, outEntity); }
-
-    void DrawDebugSettings(Application* inApp, Scene& inScene, const Viewport& inViewport) override;
-
-private:
-    TextureID m_LightTexture;
-    TextureID m_CameraTexture;
-
-private:
-    Device& m_Device;
-    Viewport& m_Viewport;
-    Renderer& m_Renderer;
-
 };
 
 

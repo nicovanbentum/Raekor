@@ -3,9 +3,7 @@
 #include "Assets.h"
 #include "Physics.h"
 #include "Application.h"
-#include "Renderer/Device.h"
-#include "Renderer/Resource.h"
-#include "Renderer/Renderer.h"
+#include "Renderer/RenderSystem.h"
 
 namespace RK {
 
@@ -24,20 +22,14 @@ public:
     Scene* GetScene() override { return &m_Scene; }
     Assets* GetAssets() override { return &m_Assets; }
     Physics* GetPhysics() override { return &m_Physics; }
-    IRenderInterface* GetRenderInterface() override { return &m_RenderInterface; }
+    IRenderInterface* GetRenderInterface() override { return &m_RenderSystem; }
 
 private:
     Scene m_Scene;
     Assets m_Assets;
     Physics m_Physics;
 
-    DX12::Device m_Device;
-    DX12::Renderer m_Renderer;
-    DX12::RenderInterface m_RenderInterface;
-
-    DX12::TextureID m_DefaultWhiteTexture;
-    DX12::TextureID m_DefaultBlackTexture;
-    DX12::TextureID m_DefaultNormalTexture;
+    DX12::RenderSystem m_RenderSystem;
 
     Camera m_Camera;
     Entity m_CameraEntity = Entity::Null;

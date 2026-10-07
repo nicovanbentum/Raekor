@@ -7,16 +7,14 @@
 #include "Script.h"
 #include "Defines.h"
 #include "DiscordRPC.h"
+#include "RenderInterface.h"
 
 namespace RK {
 
-class Mesh;
 class Scene;
 class Assets;
 class Physics;
 class IWidget;
-class Skeleton;
-class Material;
 class UndoSystem;
 class Application;
 class IRenderInterface;
@@ -150,102 +148,5 @@ protected:
     float m_ScriptPollTime = 0.0f;
 };
 
-
-struct GPUInfo
-{
-	String mVendor;
-	String mProduct;
-	String mActiveAPI;
-};
-
-
-struct GPUStats
-{
-    uint64_t mFrameCounter = 0;
-	uint64_t mTotalVideoMemory = 0;
-	uint64_t mAvailableVideoMemory = 0;
-	Atomic<uint64_t> mLiveBuffers = 0;
-	Atomic<uint64_t> mLiveTextures = 0;
-
-	Atomic<uint64_t> mLiveRTVHeap = 0;
-	Atomic<uint64_t> mLiveDSVHeap = 0;
-	Atomic<uint64_t> mLiveSamplerHeap = 0;
-	Atomic<uint64_t> mLiveResourceHeap = 0;
-
-};
-
-
-class IRenderInterface
-{
-public:
-	struct Settings
-	{
-		int& vsync			= g_CVariables->Create("r_vsync",			1);
-		int& doBloom		= g_CVariables->Create("r_bloom",			0);
-		int& paused			= g_CVariables->Create("r_paused",			0);
-		int& debugVoxels	= g_CVariables->Create("r_voxelize_debug",	0);
-		int& debugCascades	= g_CVariables->Create("r_debug_cascades",	0);
-		int& disableTiming	= g_CVariables->Create("r_disable_timings",	0);
-		int& shouldVoxelize = g_CVariables->Create("r_voxelize",	    0);
-		int& enableTAA		= g_CVariables->Create("r_taa",				0);
-        int& mDisplayMode   = g_CVariables->Create("r_display_mode",    0);
-		int& mDebugTexture	= g_CVariables->Create("r_debug_texture",	0, true);
-        float mSensitivity  = g_CVariables->Create("sensitivity",       2.0f);
-	} m_Settings;
-
-	Settings& GetSettings() { return m_Settings; }
-	GPUStats& GetGPUStats() { return m_GPUStats; }
-	const Settings& GetSettings() const { return m_Settings; }
-	const GPUStats& GetGPUStats() const { return m_GPUStats; }
-
-	const GPUInfo& GetGPUInfo() const { return m_GPUInfo; }
-	void SetGPUInfo(const GPUInfo& inInfo) { m_GPUInfo = inInfo; }
-
-	virtual void SetWhiteTexture(uint32_t inTexture) { m_WhiteTexture = inTexture; }
-	virtual void SetBlackTexture(uint32_t inTexture) { m_BlackTexture = inTexture; }
-	virtual uint32_t GetWhiteTexture() const { return m_WhiteTexture; }
-	virtual uint32_t GetBlackTexture() const { return m_BlackTexture; }
-	
-	virtual uint64_t GetLightTexture() { return 0; }
-	virtual uint64_t GetCameraTexture() { return 0; }
-	virtual uint64_t GetDisplayTexture() = 0;
-
-	virtual uint64_t GetDebugTextureIndex() const = 0;
-	virtual void SetDebugTextureIndex(int inIndex) = 0;
-
-	virtual uint32_t    GetDebugTextureCount() const = 0;
-	virtual const char* GetDebugTextureName(uint32_t inIndex) const = 0;
-
-	/* OpenGL: Does nothing, returns inHandle.
-	   DX12: Expects a ResourceID (index into the resource heap). Returns a GPU descriptor handle ptr. */
-	virtual uint64_t GetImGuiTextureID(uint32_t inHandle) = 0;
-
-	virtual void RequestScreenshot(const Path& inFile) = 0;
-
-	virtual uint64_t RequestEntityPick(uint32_t inPixelX, uint32_t inPixelY) = 0;
-	virtual bool GetEntityPickResult(uint64_t inRequestID, Entity& outEntity) = 0;
-
-	virtual void UploadMeshBuffers(Entity inEntity, Mesh& inMesh) = 0;
-	virtual void DestroyMeshBuffers(Entity inEntity, Mesh& inMesh) = 0;
-
-	virtual void CompileMaterialShaders(Entity inEntity, Material& inMaterial) {};
-	virtual void ReleaseMaterialShaders(Entity inEntity, Material& inMaterial) {};
-
-	virtual void UploadSkeletonBuffers(Entity inEntity, Skeleton& inSkeleton, Mesh& inMesh) = 0;
-	virtual void DestroySkeletonBuffers(Entity inEntity, Skeleton& inSkeleton) = 0;
-
-	virtual void UploadMaterialTextures(Entity inEntity, Material& inMaterial, Assets& inAssets);
-	virtual void DestroyMaterialTextures(Entity inEntity, Material& inMaterial, Assets& inAssets) = 0;
-
-	virtual uint32_t UploadTextureFromAsset(TextureAsset::Ptr inAsset, bool inIsSRGB = false, uint8_t inSwizzle = TEXTURE_SWIZZLE_RGBA) = 0;
-
-	virtual void DrawDebugSettings(Application* inApp, Scene& inScene, const Viewport& inViewport) = 0;
-
-protected:
-	uint32_t	m_WhiteTexture;
-	uint32_t	m_BlackTexture;
-	GPUInfo		m_GPUInfo;
-	GPUStats	m_GPUStats;
-};
 
 } // Namespace Raekor

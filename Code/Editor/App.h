@@ -5,8 +5,7 @@
 #include "Engine/scene.h"
 #include "Engine/assets.h"
 #include "Engine/physics.h"
-#include "Engine/Renderer/Device.h"
-#include "Engine/Renderer/Renderer.h"
+#include "Engine/Renderer/RenderSystem.h"
 #include "Engine/Renderer/CommandList.h"
 #include "Editor/Widgets/ProfileWidget.h"
 
@@ -21,19 +20,12 @@ public:
     virtual void OnUpdate(float inDeltaTime) override;
     virtual void OnEvent(const SDL_Event& inEvent) override;
 
-    Device& GetDevice() { return m_Device; }
-    Renderer& GetRenderer() { return m_Renderer; }
-    IRenderInterface* GetRenderInterface() { return &m_RenderInterface; }
+    Device& GetDevice() { return m_RenderSystem.GetDevice(); }
+    Renderer& GetRenderer() { return m_RenderSystem.GetRenderer(); }
+    IRenderInterface* GetRenderInterface() { return &m_RenderSystem; }
 
 private:
-    TextureID  m_ImGuiFontTextureID;
-    TextureID  m_DefaultWhiteTexture;
-    TextureID  m_DefaultBlackTexture;
-    TextureID  m_DefaultNormalTexture;
-
-    Device          m_Device;
-    Renderer        m_Renderer;
-    RenderInterface m_RenderInterface;
+    RenderSystem m_RenderSystem;
 };
 
 
