@@ -288,8 +288,10 @@ void Viewport::OnUpdate(const Camera& inCamera)
 	m_PrevView = m_View;
 	m_PrevProjection = m_Projection;
 	
+	const float aspect_ratio = float(m_RenderSize.x) / float(glm::max(m_RenderSize.y, 1u));
+
 	m_View = inCamera.ToViewMatrix();
-	m_Projection = inCamera.ToProjectionMatrix();
+	m_Projection = glm::perspectiveRH(glm::radians(inCamera.GetFov()), aspect_ratio, inCamera.GetNear(), inCamera.GetFar());
 
 	m_InvView = glm::inverse(m_View);
 	m_InvProjection = glm::inverse(m_Projection);
