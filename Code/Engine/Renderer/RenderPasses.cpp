@@ -74,7 +74,6 @@ bool RenderSettings::mDDGIFollowCamera = false;
 uint32_t RenderSettings::mDDGICascadeCount = 1;
 StaticArray<DDGIVolume, DDGI_MAX_CASCADES> RenderSettings::mDDGIVolumes = {};
 
-Entity RenderSettings::mActiveEntity = Entity::Null;
 
 
 
@@ -184,18 +183,15 @@ const TransitionResourceData& AddTransitionResourcePass(RenderGraph& inRenderGra
 
 
 
-const SkyCubeData& AddSkyCubePass(RenderGraph& inRenderGraph, Device& inDevice, const Scene& inScene)
+const SkyCubeData& AddSkyCubePass(RenderGraph& inRenderGraph, Device& inDevice, const RenderWorld& inWorld)
 {
     return inRenderGraph.AddComputePass<SkyCubeData>("Skycube Generate",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, SkyCubeData& inData)
     {  
-        if (const DirectionalLight* sun_light = inScene.GetSunLight())
+        if (inWorld.GetSun().mCubeMap.IsValid())
         {
-            if (sun_light->cubeMap)
-            {
-                inData.mSkyCubeTexture = ioRGBuilder.Import(inDevice, TextureID(sun_light->cubeMap));
-                return;
-            }
+            inData.mSkyCubeTexture = ioRGBuilder.Import(inDevice, inWorld.GetSun().mCubeMap);
+            return;
         }
 
         inData.mSkyCubeTexture = ioRGBuilder.Create(Texture::Desc 
@@ -212,18 +208,18 @@ const SkyCubeData& AddSkyCubePass(RenderGraph& inRenderGraph, Device& inDevice, 
 
         ioRGBuilder.Write(inData.mSkyCubeTexture);
     },
-    [&inDevice, &inScene](SkyCubeData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+    [&inDevice, &inWorld](SkyCubeData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
-        const DirectionalLight* sun_light = inScene.GetSunLight();
+        const RenderSun& sun = inWorld.GetSun();
 
-        if (sun_light && sun_light->cubeMap)
+        if (sun.mCubeMap.IsValid())
             return;
 
         inCmdList.PushComputeConstants(SkyCubeRootConstants
         {
             .mSkyCubeTexture    = inResources.GetBindlessHeapIndex(inData.mSkyCubeTexture),
-            .mSunLightDirection = sun_light ? sun_light->GetDirection() : DirectionalLight().GetDirection(),
-            .mSunLightColor     = sun_light ? sun_light->GetColor() : Vec4(0.0f)
+            .mSunLightDirection = sun.mSkyDirection,
+            .mSunLightColor     = sun.mColor
         });
 
         inCmdList->SetPipelineState(g_SystemShaders.mSkyCubeShader.GetComputePSO());
@@ -236,7 +232,7 @@ const SkyCubeData& AddSkyCubePass(RenderGraph& inRenderGraph, Device& inDevice, 
 
 
 
-const ConvolveCubeData& AddConvolveSkyCubePass(RenderGraph& inRenderGraph, Device& inDevice, const Scene& inScene, const SkyCubeData& inSkyCubeData)
+const ConvolveCubeData& AddConvolveSkyCubePass(RenderGraph& inRenderGraph, Device& inDevice, const RenderWorld& inWorld, const SkyCubeData& inSkyCubeData)
 {
     return inRenderGraph.AddGraphicsPass<ConvolveCubeData>("Skycube Convolve",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ConvolveCubeData& inData)
@@ -244,15 +240,12 @@ const ConvolveCubeData& AddConvolveSkyCubePass(RenderGraph& inRenderGraph, Devic
         uint32_t texture_width = 16u;
         uint32_t texture_height = 16u;
 
-        if (const DirectionalLight* sun_light = inScene.GetSunLight())
+        if (inWorld.GetSun().mCubeMap.IsValid())
         {
-            if (sun_light->cubeMap)
-            {
-                const Texture::Desc& desc = ioRGBuilder.GetResourceDesc(inSkyCubeData.mSkyCubeTexture).mTextureDesc;
+            const Texture::Desc& desc = ioRGBuilder.GetResourceDesc(inSkyCubeData.mSkyCubeTexture).mTextureDesc;
 
-                texture_width = desc.width;
-                texture_height = desc.height;
-            }
+            texture_width = desc.width;
+            texture_height = desc.height;
         }
 
         inData.mConvolvedCubeTexture = ioRGBuilder.Create(Texture::DescCube
@@ -267,7 +260,7 @@ const ConvolveCubeData& AddConvolveSkyCubePass(RenderGraph& inRenderGraph, Devic
         inData.mCubeTextureSRV = ioRGBuilder.Read(inSkyCubeData.mSkyCubeTexture);
     },
 
-    [&inDevice, &inScene](ConvolveCubeData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+    [&inDevice](ConvolveCubeData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
         inCmdList->SetPipelineState(g_SystemShaders.mConvolveCubeShader.GetComputePSO());
 
@@ -321,31 +314,34 @@ const IntegrateBrdfData& AddIntegrateBrdfPass(RenderGraph& inRenderGraph, Device
 
 
 
-const SkinningData& AddSkinningPass(RenderGraph& inRenderGraph, Device& inDevice, const Scene& inScene)
+const SkinningData& AddSkinningPass(RenderGraph& inRenderGraph, Device& inDevice, const RenderWorld& inWorld)
 {
     return inRenderGraph.AddComputePass<SkinningData>("Skinning",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, SkinningData& inData) 
     {
     },
-    [&inDevice, &inScene](SkinningData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+    [&inDevice, &inWorld](SkinningData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
+        Slice<const RenderSkinnedMesh> skinned_meshes = inWorld.GetSkinnedMeshes();
+
+        if (skinned_meshes.empty())
+            return;
+
         inCmdList->SetPipelineState(g_SystemShaders.mSkinningShader.GetComputePSO());
 
+        Slice<const Mat4x4> bone_matrices = inWorld.GetBoneMatrices();
+
         Array<D3D12_RESOURCE_BARRIER> post_skinning_barriers;
-        post_skinning_barriers.reserve(inScene.Count<Skeleton>());
+        post_skinning_barriers.reserve(skinned_meshes.size());
 
-        for (const auto& [entity, mesh, skeleton] : inScene.Each<Mesh, Skeleton>())
+        for (const RenderSkinnedMesh& skinned_mesh : skinned_meshes)
         {
-            if (!skeleton.gpuBuffersUploaded)
-                continue;
+            PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>(inCmdList), PIX_COLOR(0, 255, 0), inWorld.GetName(skinned_mesh.mNameOffset));
 
-            if (const Name* name = inScene.GetPtr<Name>(entity))
-                PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>(inCmdList), PIX_COLOR(0, 255, 0), name->name.c_str());
+            Buffer& bone_matrix_buffer = inDevice.GetBuffer(skinned_mesh.mBoneTransformsBuffer);
 
-            Buffer& bone_matrix_buffer = inDevice.GetBuffer(BufferID(skeleton.boneTransformsBuffer));
-
-            const Mat4x4* bone_matrices_data = skeleton.boneTransformMatrices.data();
-            const size_t bone_matrices_size = skeleton.boneTransformMatrices.size() * sizeof(Mat4x4);
+            const Mat4x4* bone_matrices_data = bone_matrices.data() + skinned_mesh.mBoneMatrixOffset;
+            const size_t bone_matrices_size = skinned_mesh.mBoneMatrixCount * sizeof(Mat4x4);
 
             inDevice.UploadBufferData(inCmdList, bone_matrix_buffer, 0, bone_matrices_data, bone_matrices_size);
 
@@ -354,132 +350,27 @@ const SkinningData& AddSkinningPass(RenderGraph& inRenderGraph, Device& inDevice
 
             inCmdList.PushComputeConstants(SkinningRootConstants 
             {
-                .mBoneIndicesBuffer     = inDevice.GetBindlessHeapIndex(BufferID(skeleton.boneIndexBuffer)),
-                .mBoneWeightsBuffer     = inDevice.GetBindlessHeapIndex(BufferID(skeleton.boneWeightBuffer)),
-                .mMeshVertexBuffer      = inDevice.GetBindlessHeapIndex(BufferID(mesh.vertexBuffer)),
-                .mSkinnedVertexBuffer   = inDevice.GetBindlessHeapIndex(BufferID(skeleton.skinnedVertexBuffer)),
-                .mBoneTransformsBuffer  = inDevice.GetBindlessHeapIndex(BufferID(skeleton.boneTransformsBuffer)),
-                .mDispatchSize          = uint32_t(mesh.positions.size())
+                .mBoneIndicesBuffer     = inDevice.GetBindlessHeapIndex(skinned_mesh.mBoneIndexBuffer),
+                .mBoneWeightsBuffer     = inDevice.GetBindlessHeapIndex(skinned_mesh.mBoneWeightBuffer),
+                .mMeshVertexBuffer      = inDevice.GetBindlessHeapIndex(skinned_mesh.mMeshVertexBuffer),
+                .mSkinnedVertexBuffer   = inDevice.GetBindlessHeapIndex(skinned_mesh.mSkinnedVertexBuffer),
+                .mBoneTransformsBuffer  = inDevice.GetBindlessHeapIndex(skinned_mesh.mBoneTransformsBuffer),
+                .mDispatchSize          = skinned_mesh.mVertexCount
             });
 
-            inCmdList->Dispatch((mesh.positions.size() + 63) / 64, 1, 1);
+            inCmdList->Dispatch((skinned_mesh.mVertexCount + 63) / 64, 1, 1);
 
-            ID3D12Resource* skinned_vertex_buffer = inDevice.GetD3D12Resource(BufferID(skeleton.skinnedVertexBuffer));
+            ID3D12Resource* skinned_vertex_buffer = inDevice.GetD3D12Resource(skinned_mesh.mSkinnedVertexBuffer);
             post_skinning_barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(skinned_vertex_buffer, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE));
         }
 
-        if (!post_skinning_barriers.empty())
-            inCmdList->ResourceBarrier(post_skinning_barriers.size(), post_skinning_barriers.data());
-    });
-}
-
-
-const GBufferData& AddMeshletsRasterPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene)
-{
-    return inRenderGraph.AddGraphicsPass<GBufferData>("Raster Meshlets",
-    [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, GBufferData& inData)
-    {
-        inData.mOutput.mRenderTexture = ioRGBuilder.Create(Texture::Desc
-        {
-            .format = DXGI_FORMAT_R32G32B32A32_FLOAT,
-            .width  = inRenderGraph.GetViewport().GetRenderSize().x,
-            .height = inRenderGraph.GetViewport().GetRenderSize().y,
-            .usage  = Texture::RENDER_TARGET,
-            .debugName = "RT_GBufferRender"
-        });
-
-        inData.mOutput.mVelocityTexture = ioRGBuilder.Create(Texture::Desc
-        {
-            .format = DXGI_FORMAT_R32G32_FLOAT,
-            .width  = inRenderGraph.GetViewport().GetRenderSize().x,
-            .height = inRenderGraph.GetViewport().GetRenderSize().y,
-            .usage  = Texture::RENDER_TARGET,
-            .debugName = "RT_GBufferVelocity"
-        });
-
-        inData.mOutput.mDepthTexture = ioRGBuilder.Create(Texture::Desc
-        {
-            .format = DXGI_FORMAT_D32_FLOAT_S8X24_UINT,
-            .width  = inRenderGraph.GetViewport().GetRenderSize().x,
-            .height = inRenderGraph.GetViewport().GetRenderSize().y,
-            .usage  = Texture::DEPTH_STENCIL_TARGET,
-            .debugName = "RT_GBufferDepth"
-        });
-
-        ioRGBuilder.RenderTarget(inData.mOutput.mRenderTexture); // SV_Target0
-        ioRGBuilder.RenderTarget(inData.mOutput.mVelocityTexture); // SV_Target1
-        ioRGBuilder.DepthStencilTarget(inData.mOutput.mDepthTexture);
-
-        D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inRenderPass->CreatePipelineStateDesc(inDevice, g_SystemShaders.mGBufferShader);
-        inData.mOpaquePipeline = inDevice.CreateGraphicsPipeline(pso_state);
-        inData.mOpaquePipeline->SetName(L"PSO_MESHLETS_RASTER");
-    },
-
-    [&inRenderGraph, &inDevice, &inScene](GBufferData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
-    {
-        const Viewport& viewport = inRenderGraph.GetViewport();
-        inCmdList.SetViewportAndScissor(viewport);
-        inCmdList->SetPipelineState(inData.mOpaquePipeline.Get());
-
-        constexpr Vec4 clear_color_value = Vec4(0.0f, 0.0f, 0.0f, 0.0f);
-        inCmdList.ClearRenderTarget(inDevice, inResources.GetTexture(inData.mOutput.mRenderTexture), clear_color_value);
-        inCmdList.ClearRenderTarget(inDevice, inResources.GetTexture(inData.mOutput.mVelocityTexture), clear_color_value);
-
-        constexpr float clear_depth_value = 1.0f;
-        constexpr uint8_t clear_stencil_value = 0u;
-        inCmdList.ClearDepthStencilTarget(inDevice, inResources.GetTexture(inData.mOutput.mDepthTexture), &clear_depth_value, &clear_stencil_value);
-
-        for (const auto& [entity, mesh] : inScene->Each<Mesh>())
-        {
-            const Transform* transform = inScene->GetPtr<Transform>(entity);
-            if (!transform)
-                continue;
-
-            if (!BufferID(mesh.BottomLevelAS).IsValid())
-                continue;
-
-            if (mesh.meshlets.empty())
-                continue;
-
-            const Material* material = inScene->GetPtr<Material>(mesh.material);
-
-            if (material && material->blendMode == MATERIAL_BLEND_MODE_BLENDED)
-                continue;
-
-            Buffer& index_buffer  = inDevice.GetBuffer(BufferID(mesh.indexBuffer));
-            Buffer& vertex_buffer = inDevice.GetBuffer(BufferID(mesh.vertexBuffer));
-
-            if (mesh.material == Entity::Null)
-                continue;
-
-            if (material == nullptr)
-                material = &Material::Default;
-
-            int material_index = inScene->GetPackedIndex<Material>(mesh.material);
-            material_index = material_index == -1 ? 0 : material_index;
-
-            const int instance_index = inScene->GetPackedIndex<Mesh>(entity);
-            assert(instance_index != -1);
-
-            if (const Name* name = inScene->GetPtr<Name>(entity))
-                PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( inCmdList ), PIX_COLOR(0, 255, 0), name->name.c_str());
-
-            inCmdList.BindIndexBuffer(index_buffer);
-            inCmdList.PushGraphicsConstants(GbufferRootConstants{ .mInstanceIndex = uint32_t(instance_index) });
-
-            if (entity == RenderSettings::mActiveEntity)
-            {
-                // do stencil stuff?
-            }
-
-            inCmdList.DrawIndexed(mesh.indices.size(), 1, 0, 0, 0);
-        }
+        inCmdList->ResourceBarrier(uint32_t(post_skinning_barriers.size()), post_skinning_barriers.data());
     });
 }
 
 
 
-const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene)
+const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, const RenderWorld& inWorld)
 {
     return inRenderGraph.AddGraphicsPass<GBufferData>("GBuffer",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, GBufferData& inData)
@@ -552,9 +443,8 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
         inData.mRenderPass = inRenderPass;
     },
 
-    [&inDevice, &inScene](GBufferData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+    [&inDevice, &inWorld](GBufferData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
-
         TextureID depth_texture     = inResources.GetTexture(inData.mOutput.mDepthTexture);
         TextureID render_texture    = inResources.GetTexture(inData.mOutput.mRenderTexture);
         TextureID velocity_texture  = inResources.GetTexture(inData.mOutput.mVelocityTexture);
@@ -571,123 +461,51 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
 
         inCmdList.SetViewportAndScissor(inDevice.GetTexture(render_texture));
 
-        // OPAQUE PASS
-        ID3D12PipelineState* bound_pipeline = inData.mOpaquePipeline.Get();
-        inCmdList->SetPipelineState(bound_pipeline);
+        Slice<const RenderInstance> instances = inWorld.GetInstances();
 
-        for (const auto& [entity, mesh] : inScene->Each<Mesh>())
+        auto DrawInstances = [&](ERenderBlendMode inBlendMode, ID3D12PipelineState* inDefaultPipeline)
         {
-            // done streaming?
-            if (!mesh.IsLoaded())
-                continue;
+            ID3D12PipelineState* bound_pipeline = inDefaultPipeline;
+            inCmdList->SetPipelineState(bound_pipeline);
 
-            // located in the scene?
-            if (!inScene->Has<Transform>(entity))
-                continue;
-
-            // not marked for vis buffer?
-            if (!mesh.meshlets.empty())
-                continue;
-
-            const Material* material = inScene->GetPtr<Material>(mesh.material);
-
-            if (material == nullptr)
-                material = &Material::Default;
-
-            if (material->blendMode != MATERIAL_BLEND_MODE_OPAQUE)
-                continue;
-
-            ID3D12PipelineState* pipeline_state = inData.mOpaquePipeline.Get();
-
-            if (material->vertexShader && material->pixelShader)
+            for (uint32_t instance_index = 0; instance_index < instances.size(); instance_index++)
             {
-                pipeline_state = g_ShaderCompiler.GetGraphicsPipeline(inDevice, inData.mRenderPass, material->vertexShader, material->pixelShader);
+                const RenderInstance& instance = instances[instance_index];
 
-                if (pipeline_state == nullptr)
+                if (instance.mBlendMode != inBlendMode)
                     continue;
-            }
 
-            if (pipeline_state != bound_pipeline)
-            {
-                inCmdList->SetPipelineState(pipeline_state);
-                bound_pipeline = pipeline_state;
-            }
+                ID3D12PipelineState* pipeline_state = inDefaultPipeline;
 
-            EVENT_SCOPE_GPU(inCmdList, mesh.name.empty() ? "Mesh" : mesh.name.c_str());
-
-            inCmdList.PushGraphicsConstants(GbufferRootConstants
-            {
-                .mEntity = uint32_t(entity),
-                .mInstanceIndex = inScene.GetInstanceIndex(entity),
-            });
-
-            inCmdList.BindIndexBuffer(inDevice.GetBuffer(BufferID(mesh.indexBuffer)));
-
-            if (entity == RenderSettings::mActiveEntity)
-            {
-                // do stencil stuff?
-            }
-
-            inCmdList.DrawIndexed(mesh.indices.size(), 1, 0, 0, 0);
-        }
-
-        // ALPHA CLIP PASS
-        bound_pipeline = inData.mMaskedPipeline.Get();
-        inCmdList->SetPipelineState(bound_pipeline);
-
-        for (const auto& [entity, mesh] : inScene->Each<Mesh>())
-        {
-            // done streaming?
-            if (!mesh.IsLoaded())
-                continue;
-
-            // located in the scene?
-            if (!inScene->Has<Transform>(entity))
-                continue;
-
-            // not marked for vis buffer?
-            if (!mesh.meshlets.empty())
-                continue;
-
-            const Material* material = inScene->GetPtr<Material>(mesh.material);
-
-            if (material == nullptr || material->blendMode != MATERIAL_BLEND_MODE_MASKED)
-                continue;
-
-            ID3D12PipelineState* pipeline_state = inData.mMaskedPipeline.Get();
-
-            if (material->vertexShader && material->pixelShader)
-            {
-                pipeline_state = g_ShaderCompiler.GetGraphicsPipeline(inDevice, inData.mRenderPass, material->vertexShader, material->pixelShader);
-
-                if (pipeline_state == nullptr)
-                    continue;
-            }
-
-            if (pipeline_state != bound_pipeline)
-            {
-                inCmdList->SetPipelineState(pipeline_state);
-                bound_pipeline = pipeline_state;
-            }
-
-            EVENT_SCOPE_GPU(inCmdList, mesh.name.empty() ? "Mesh" : mesh.name.c_str());
-
-            inCmdList.PushGraphicsConstants(GbufferRootConstants
+                if (instance.mVertexShader && instance.mPixelShader)
                 {
-                    .mEntity = uint32_t(entity),
-                    .mInstanceIndex = inScene.GetInstanceIndex(entity),
+                    pipeline_state = g_ShaderCompiler.GetGraphicsPipeline(inDevice, inData.mRenderPass, instance.mVertexShader, instance.mPixelShader);
+
+                    if (pipeline_state == nullptr)
+                        continue;
+                }
+
+                if (pipeline_state != bound_pipeline)
+                {
+                    inCmdList->SetPipelineState(pipeline_state);
+                    bound_pipeline = pipeline_state;
+                }
+
+                EVENT_SCOPE_GPU(inCmdList, instance.mNameOffset ? inWorld.GetName(instance.mNameOffset) : "Mesh");
+
+                inCmdList.PushGraphicsConstants(GbufferRootConstants
+                {
+                    .mEntity = uint32_t(instance.mEntity),
+                    .mInstanceIndex = instance_index,
                 });
 
-            inCmdList.BindIndexBuffer(inDevice.GetBuffer(BufferID(mesh.indexBuffer)));
-
-            if (entity == RenderSettings::mActiveEntity)
-            {
-                // do stencil stuff?
+                inCmdList.BindIndexBuffer(inDevice.GetBuffer(instance.mIndexBuffer));
+                inCmdList.DrawIndexed(instance.mIndexCount, 1, 0, 0, 0);
             }
+        };
 
-            inCmdList.DrawIndexed(mesh.indices.size(), 1, 0, 0, 0);
-        }
-
+        DrawInstances(RENDER_BLEND_MODE_OPAQUE, inData.mOpaquePipeline.Get());
+        DrawInstances(RENDER_BLEND_MODE_MASKED, inData.mMaskedPipeline.Get());
     });
 }
 
@@ -761,7 +579,7 @@ const GBufferDebugData& AddGBufferDebugPass(RenderGraph& inRenderGraph, Device& 
 
 
 
-const TransparentForwardData& AddTransparentForwardPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferOutput& inGBuffer, RenderGraphResourceID inRenderTarget,
+const TransparentForwardData& AddTransparentForwardPass(RenderGraph& inRenderGraph, Device& inDevice, const RenderWorld& inWorld, const GBufferOutput& inGBuffer, RenderGraphResourceID inRenderTarget,
     RenderGraphResourceID inBrdfLutTexture, RenderGraphResourceID inSkyCubeTexture, RenderGraphResourceID inDiffuseSkyCubeTexture, const DDGIOutput* inDDGI, bool inUseRayTracedShadows)
 {
     return inRenderGraph.AddGraphicsPass<TransparentForwardData>("Transparent Forward",
@@ -808,11 +626,11 @@ const TransparentForwardData& AddTransparentForwardPass(RenderGraph& inRenderGra
         inData.mFrontFacePipeline->SetName(L"PSO_TRANSPARENT_FORWARD_FRONT_FACES");
     },
 
-    [&inRenderGraph, &inDevice, &inScene](TransparentForwardData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+    [&inRenderGraph, &inDevice, &inWorld](TransparentForwardData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
         struct SortedDraw
         {
-            Entity mEntity;
+            uint32_t mInstanceIndex;
             float mDistance;
         };
 
@@ -820,29 +638,17 @@ const TransparentForwardData& AddTransparentForwardPass(RenderGraph& inRenderGra
 
         const Vec3 camera_position = inRenderGraph.GetViewport().GetPosition();
 
-        for (const auto& [entity, mesh] : inScene->Each<Mesh>())
+        Slice<const RenderInstance> instances = inWorld.GetInstances();
+
+        for (uint32_t instance_index = 0; instance_index < instances.size(); instance_index++)
         {
-            if (!mesh.IsLoaded())
+            const RenderInstance& instance = instances[instance_index];
+
+            if (instance.mBlendMode != RENDER_BLEND_MODE_TRANSPARENT || instance.HasCustomShaders())
                 continue;
 
-            if (!mesh.meshlets.empty())
-                continue;
-
-            const Material* material = inScene->GetPtr<Material>(mesh.material);
-
-            if (material == nullptr || material->blendMode != MATERIAL_BLEND_MODE_BLENDED)
-                continue;
-
-            if (material->vertexShader || material->pixelShader)
-                continue;
-
-            const Transform* transform = inScene->GetPtr<Transform>(entity);
-
-            if (transform == nullptr)
-                continue;
-
-            const Vec3 to_camera = mesh.bbox.Transformed(transform->worldTransform).GetCenter() - camera_position;
-            draws.push_back(SortedDraw { entity, glm::dot(to_camera, to_camera) });
+            const Vec3 to_camera = instance.mBoundsCenter - camera_position;
+            draws.push_back(SortedDraw { instance_index, glm::dot(to_camera, to_camera) });
         }
 
         if (draws.empty())
@@ -872,133 +678,21 @@ const TransparentForwardData& AddTransparentForwardPass(RenderGraph& inRenderGra
 
         for (const SortedDraw& draw : draws)
         {
-            const Mesh& mesh = inScene->Get<Mesh>(draw.mEntity);
+            const RenderInstance& instance = instances[draw.mInstanceIndex];
 
-            EVENT_SCOPE_GPU(inCmdList, mesh.name.empty() ? "Mesh" : mesh.name.c_str());
+            EVENT_SCOPE_GPU(inCmdList, instance.mNameOffset ? inWorld.GetName(instance.mNameOffset) : "Mesh");
 
-            root_constants.mEntity = uint32_t(draw.mEntity);
-            root_constants.mInstanceIndex = inScene.GetInstanceIndex(draw.mEntity);
+            root_constants.mEntity = uint32_t(instance.mEntity);
+            root_constants.mInstanceIndex = draw.mInstanceIndex;
 
             inCmdList.PushGraphicsConstants(root_constants);
-            inCmdList.BindIndexBuffer(inDevice.GetBuffer(BufferID(mesh.indexBuffer)));
+            inCmdList.BindIndexBuffer(inDevice.GetBuffer(instance.mIndexBuffer));
 
             inCmdList->SetPipelineState(inData.mBackFacePipeline.Get());
-            inCmdList.DrawIndexed(mesh.indices.size(), 1, 0, 0, 0);
+            inCmdList.DrawIndexed(instance.mIndexCount, 1, 0, 0, 0);
 
             inCmdList->SetPipelineState(inData.mFrontFacePipeline.Get());
-            inCmdList.DrawIndexed(mesh.indices.size(), 1, 0, 0, 0);
-        }
-    });
-}
-
-
-
-const ShadowMapData& AddShadowMapPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene)
-{
-    return inRenderGraph.AddGraphicsPass<ShadowMapData>("ShadowMap",
-    [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ShadowMapData& inData)
-    {
-        inData.mOutputTexture = ioRGBuilder.Create(Texture::Desc 
-        {
-            .format = DXGI_FORMAT_D32_FLOAT,
-            .width  = 2048,
-            .height = 2048,
-            .usage  = Texture::Usage::DEPTH_STENCIL_TARGET,
-            .debugName = "ShadowMap2048"
-        });
-
-        ioRGBuilder.DepthStencilTarget(inData.mOutputTexture);
-
-        D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_desc = inRenderPass->CreatePipelineStateDesc(inDevice, g_SystemShaders.mShadowMapShader);
-
-        inData.mPipeline = inDevice.CreateGraphicsPipeline(pso_desc);
-    },
-
-    [&inDevice, &inRenderGraph, &inScene](ShadowMapData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
-    {
-        if (inScene->Count<Mesh>() == 0)
-            return;
-
-        std::array frustum_corners = 
-        {
-            Vec3(-1.0f,  1.0f, -1.0f),
-            Vec3( 1.0f,  1.0f, -1.0f),
-            Vec3( 1.0f, -1.0f, -1.0f),
-            Vec3(-1.0f, -1.0f, -1.0f),
-            Vec3(-1.0f,  1.0f,  1.0f),
-            Vec3( 1.0f,  1.0f,  1.0f),
-            Vec3( 1.0f, -1.0f,  1.0f),
-            Vec3(-1.0f, -1.0f,  1.0f),
-        };
-
-        Mat4x4 projection = glm::perspectiveRH
-        (
-            glm::radians(inRenderGraph.GetViewport().GetFieldOfView()),
-            inRenderGraph.GetViewport().GetAspectRatio(),
-            inRenderGraph.GetViewport().GetNear(),
-            128.0f
-        );
-
-        const Viewport& vp = inRenderGraph.GetViewport();
-        const Mat4x4 inv_vp = glm::inverse(projection * vp.GetView());
-
-        for (Vec3& corner : frustum_corners)
-        {
-            Vec4 corner_ws = inv_vp * Vec4(corner, 1.0f);
-            corner = corner_ws / corner_ws.w;
-        }
-
-        float radius = 0.0f;
-        Vec3 frustum_center = Vec3(0.0f);
-
-        for (const Vec3& corner : frustum_corners)
-            frustum_center += corner;
-        
-        frustum_center /= 8.0f;
-
-        for (const Vec3& corner : frustum_corners)
-            radius = glm::max(radius, glm::length(corner - frustum_center));
-
-        radius = std::ceil(radius * 16.0f) / 16.0f;
-
-        const Vec3 max_extents = Vec3(radius);
-        const Vec3 min_extents = -max_extents;
-
-        const Vec3 light_dir = glm::normalize(inScene->GetSunLightDirection());
-
-        const Mat4x4 light_view_matrix = glm::lookAtRH(frustum_center + light_dir * min_extents.z, frustum_center, Vec3(0.0f, 1.0f, 0.0f));
-        const Mat4x4 light_ortho_matrix = glm::orthoRH_ZO(min_extents.x, max_extents.x, min_extents.y, max_extents.y, 0.0f, max_extents.z - min_extents.z);
-
-        inCmdList->SetPipelineState(inData.mPipeline.Get());
-
-        TextureID texture = inResources.GetTexture(inData.mOutputTexture);
-
-        D3D12_CPU_DESCRIPTOR_HANDLE dsv_handle = inDevice.GetCPUDescriptorHandle(texture);
-        inCmdList->ClearDepthStencilView(dsv_handle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
-
-        inCmdList.SetViewportAndScissor(inDevice.GetTexture(texture));
-
-        if (inScene->Count<Mesh>() > 0)
-        {
-            ShadowMapRootConstants root_constants =
-            {
-                .mViewProjMatrix = light_ortho_matrix * light_view_matrix
-            };
-
-            for (const auto& [entity, mesh] : inScene->Each<Mesh>())
-            {
-                const Name* name = inScene->GetPtr<Name>(entity);
-                EVENT_SCOPE_GPU(inCmdList, !mesh.name.empty() ? mesh.name.c_str() : name ? name->name.c_str() : "Mesh");
-
-                const int instance_index = inScene->GetPackedIndex<Mesh>(entity);
-                assert(instance_index != -1);
-
-                root_constants.mInstanceIndex = uint32_t(instance_index);
-                inCmdList.PushGraphicsConstants(root_constants);
-
-                inCmdList.BindIndexBuffer(inDevice.GetBuffer(BufferID(mesh.indexBuffer)));
-                inCmdList->DrawIndexedInstanced(mesh.indices.size(), 1, 0, 0, 0);
-            }
+            inCmdList.DrawIndexed(instance.mIndexCount, 1, 0, 0, 0);
         }
     });
 }
@@ -1208,7 +902,7 @@ const DownsampleData& AddDownsamplePass(RenderGraph& inRenderGraph, Device& inDe
 
 
 
-const TiledLightCullingData& AddTiledLightCullingPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene)
+const TiledLightCullingData& AddTiledLightCullingPass(RenderGraph& inRenderGraph, Device& inDevice)
 {
     return inRenderGraph.AddComputePass<TiledLightCullingData>("LightCull",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, TiledLightCullingData& inData)
@@ -1226,7 +920,7 @@ const TiledLightCullingData& AddTiledLightCullingPass(RenderGraph& inRenderGraph
         ioRGBuilder.Write(inData.mLightGridBuffer);
         ioRGBuilder.Write(inData.mLightIndicesBuffer);
     },
-    [&inRenderGraph, &inScene](TiledLightCullingData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
+    [&inRenderGraph](TiledLightCullingData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
     {
         inData.mRootConstants = 
         {
@@ -1247,7 +941,7 @@ const TiledLightCullingData& AddTiledLightCullingPass(RenderGraph& inRenderGraph
 
 
 
-const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferOutput& inGBuffer, const TiledLightCullingData& inLightCullData, RenderGraphResourceID inBrdfLutTexture, RenderGraphResourceID inSkyCubeTexture, RenderGraphResourceID inDiffuseCubeTexture, RenderGraphResourceID inShadowTexture, RenderGraphResourceID inReflectionsTexture, RenderGraphResourceID inAOTexture, RenderGraphResourceID inIndirectDiffuseTexture, bool inUseReflectionsTexture, bool inUseIndirectDiffuseTexture)
+const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice, const GBufferOutput& inGBuffer, const TiledLightCullingData& inLightCullData, RenderGraphResourceID inBrdfLutTexture, RenderGraphResourceID inSkyCubeTexture, RenderGraphResourceID inDiffuseCubeTexture, RenderGraphResourceID inShadowTexture, RenderGraphResourceID inReflectionsTexture, RenderGraphResourceID inAOTexture, RenderGraphResourceID inIndirectDiffuseTexture, bool inUseReflectionsTexture, bool inUseIndirectDiffuseTexture)
 {
     return inRenderGraph.AddGraphicsPass<LightingData>("Shading",
 
@@ -1291,7 +985,7 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
         inData.mPipeline->SetName(L"PSO_DEFERRED_LIGHTING");
     },
 
-    [&inRenderGraph, &inDevice, &inScene, &inLightCullData](LightingData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+    [&inRenderGraph, &inDevice, &inLightCullData](LightingData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
         inCmdList.DiscardTexture(inDevice, inResources.GetTexture(inData.mOutputTexture));
         //constexpr Vec4 clear_color = Vec4(0.0f, 0.0f, 0.0f, 0.0f);

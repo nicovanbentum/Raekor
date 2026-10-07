@@ -389,11 +389,17 @@ private:
 using BufferID = Buffer::Pool::TypedID;
 using TextureID = Texture::Pool::TypedID;
 
+inline BufferID gToBufferID(uint32_t inHandle) { return inHandle ? BufferID(inHandle) : BufferID(); }
+inline TextureID gToTextureID(uint32_t inHandle) { return inHandle ? TextureID(inHandle) : TextureID(); }
+
 
 struct BufferUpload
 {
-    BufferID mBuffer;
-    ByteSlice mData;
+    ComPtr<ID3D12Resource> mDestination;
+    ID3D12Resource* mSource = nullptr;
+    uint64_t mSourceOffset = 0;
+    uint64_t mSize = 0;
+    D3D12_RESOURCE_STATES mInitialState = D3D12_RESOURCE_STATE_COMMON;
 };
 
 struct TextureUpload

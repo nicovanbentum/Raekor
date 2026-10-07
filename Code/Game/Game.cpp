@@ -21,7 +21,6 @@ GameApp::GameApp() :
     m_Scene(&m_RenderInterface),
     m_Physics(&m_RenderInterface),
     m_Renderer(m_Device, m_Viewport, m_Window),
-    m_RayTracedScene(m_Scene),
     m_RenderInterface(this, m_Device, m_Renderer)
 {
     LoadScripts();
@@ -117,7 +116,7 @@ GameApp::GameApp() :
     ImGui_ImplSDL3_InitForD3D(m_Window);
     InitImGui(m_Device, Renderer::sSwapchainFormat, sFrameCount);
 
-    m_Renderer.Recompile(m_Device, m_RayTracedScene, GetRenderInterface());
+    m_Renderer.Recompile(m_Device, GetRenderInterface());
 
     const String scene_override = OS::sGetCommandLineValue("-scene");
     const Path scene_file = scene_override.empty() ? m_ConfigSettings.mSceneFile : Path(scene_override);
@@ -230,7 +229,7 @@ void GameApp::OnUpdate(float inDeltaTime)
     ImGui::EndFrame();
     ImGui::Render();
 
-    m_Renderer.OnRender(this, m_Device, m_Viewport, m_RayTracedScene, GetRenderInterface(), inDeltaTime);
+    m_Renderer.OnRender(this, m_Device, m_Viewport, m_Scene, GetRenderInterface(), inDeltaTime);
 
     m_Device.OnUpdate();
 

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "RenderGraph.h"
-#include "RayTracedScene.h"
+#include "RenderWorld.h"
 
 namespace RK::DX12 {
 
@@ -52,8 +52,6 @@ struct RenderSettings
     static RK_API bool mDDGIFollowCamera;
     static RK_API uint32_t mDDGICascadeCount;
     static RK_API StaticArray<DDGIVolume, DDGI_MAX_CASCADES> mDDGIVolumes;
-
-    static RK_API Entity mActiveEntity;
 
     static float GetExposure() { return 1.0f / ( 1.2f * std::exp2(mEV100) ); }
 
@@ -147,7 +145,7 @@ struct SkyCubeData
 };
 
 const SkyCubeData& AddSkyCubePass(RenderGraph& inRenderGraph, Device& inDevice,
-    const Scene& inScene 
+    const RenderWorld& inWorld
 );
 
 
@@ -162,7 +160,7 @@ struct ConvolveCubeData
 };
 
 const ConvolveCubeData& AddConvolveSkyCubePass(RenderGraph& inRenderGraph, Device& inDevice,
-    const Scene& inScene,
+    const RenderWorld& inWorld,
     const SkyCubeData& inSkyCubeData
 );
 
@@ -186,11 +184,10 @@ const IntegrateBrdfData& AddIntegrateBrdfPass(RenderGraph& inRenderGraph, Device
 ////////////////////////////////////////
 struct SkinningData
 {
-    // all data is stored in Mesh
 };
 
 const SkinningData& AddSkinningPass(RenderGraph& inRenderGraph, Device& inDevice,
-    const Scene& inScene
+    const RenderWorld& inWorld
 );
 
 
@@ -215,7 +212,7 @@ struct GBufferData
 };
 
 const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice,
-    const RayTracedScene& inScene
+    const RenderWorld& inWorld
 );
 
 
@@ -243,7 +240,7 @@ struct TransparentForwardData
 };
 
 const TransparentForwardData& AddTransparentForwardPass(RenderGraph& inRenderGraph, Device& inDevice,
-    const RayTracedScene& inScene,
+    const RenderWorld& inWorld,
     const GBufferOutput& inGBuffer,
     RenderGraphResourceID inRenderTarget,
     RenderGraphResourceID inBrdfLutTexture,
@@ -251,14 +248,6 @@ const TransparentForwardData& AddTransparentForwardPass(RenderGraph& inRenderGra
     RenderGraphResourceID inDiffuseSkyCubeTexture,
     const DDGIOutput* inDDGI,
     bool inUseRayTracedShadows
-);
-
-
-////////////////////////////////////////
-/// Meshlets Raster Render Pass
-////////////////////////////////////////
-const GBufferData& AddMeshletsRasterPass(RenderGraph& inRenderGraph, Device& inDevice,
-    const RayTracedScene& inScene
 );
 
 
@@ -278,20 +267,6 @@ const GBufferDebugData& AddGBufferDebugPass(RenderGraph& inRenderGraph, Device& 
     EDebugTexture inDebugTexture
 );
 
-
-
-//////////////////////////////////////////
-///// Shadow Map Pass
-//////////////////////////////////////////
-struct ShadowMapData
-{
-    RenderGraphResourceID mOutputTexture;
-    ComPtr<ID3D12PipelineState> mPipeline;
-};
-
-const ShadowMapData& AddShadowMapPass(RenderGraph& inRenderGraph, Device& inDevice,
-    const RayTracedScene& inScene
-);
 
 
 ////////////////////////////////////////
@@ -372,7 +347,7 @@ struct TiledLightCullingData
     TiledLightCullingRootConstants mRootConstants;
 };
 
-const TiledLightCullingData& AddTiledLightCullingPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene);
+const TiledLightCullingData& AddTiledLightCullingPass(RenderGraph& inRenderGraph, Device& inDevice);
 
 
 //////////////////////////////////////////
@@ -397,7 +372,6 @@ struct LightingData
 };
 
 const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice, 
-    const RayTracedScene& inScene,
     const GBufferOutput& inGBuffer, 
     const TiledLightCullingData& inLightData,
     RenderGraphResourceID inBrdfLutTexture,

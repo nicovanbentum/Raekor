@@ -63,6 +63,7 @@ public:
     [[nodiscard]] void SetDebugName(TextureID inTexture, const char* inName);
 
     void UploadBufferData(CommandList& inCmdList, Buffer& inBuffer, uint32_t inOffset, const void* inData, uint32_t inSize);
+    void UploadInitialBufferData(Buffer& inBuffer, const void* inData, uint64_t inSize);
     void UploadTextureData(Texture& inTexture, uint32_t inMip, uint32_t inLayer, uint32_t inROwPitch, const void* inData);
 
     void FlushUploads(CommandList& inCmdList);
@@ -151,8 +152,8 @@ private:
     BOOL mIsRayTracingSupported = false;
 
     ComPtr<ID3D12Device5> m_Device;
-    ComPtr<IDXGIAdapter1> m_Adapter;
     ComPtr<ID3D12InfoQueue> m_InfoQueue;
+    ComPtr<IDXGIAdapter1> m_Adapter;
     ComPtr<D3D12MA::Allocator> m_Allocator;
     ComPtr<ID3D12CommandQueue> m_CopyQueue;
     ComPtr<ID3D12CommandQueue> m_ComputeQueue;

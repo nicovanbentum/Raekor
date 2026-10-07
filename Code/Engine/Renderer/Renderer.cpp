@@ -269,7 +269,7 @@ void Renderer::OnResizeViewport(Device& inDevice, Viewport& inViewport)
 
 
 
-void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewport, RayTracedScene& inScene, IRenderInterface* inRenderInterface, float inDeltaTime)
+void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewport, const Scene& inScene, IRenderInterface* inRenderInterface, float inDeltaTime)
 {
     PROFILE_FUNCTION_CPU();
 
@@ -282,23 +282,21 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
 
     static bool do_stress_test = OS::sCheckCommandLineOption("-stress_test");
 
-    if (inScene->Any<DDGISceneSettings>() && inScene->Count<DDGISceneSettings>())
-    {
-        const Entity& ddgi_entity = inScene->GetEntities<DDGISceneSettings>()[0];
-        const Transform& ddgi_transform = inScene->Get<Transform>(ddgi_entity);
-        const DDGISceneSettings& ddgi_settings = inScene->Get<DDGISceneSettings>(ddgi_entity);
+    m_RenderWorld.Extract(inScene, inDevice, RenderSettings::GetExposure(), m_Settings.mDisableAlbedo);
 
-        RenderSettings::mDDGIProbeCount = glm::max(ddgi_settings.mDDGIProbeCount, IVec3(1));
-        RenderSettings::mDDGIProbeSpacing = ddgi_settings.mDDGIProbeSpacing;
-        RenderSettings::mDDGICornerPosition = ddgi_transform.position;
-        RenderSettings::mDDGIFollowCamera = ddgi_settings.mFollowCamera;
-        RenderSettings::mDDGICascadeCount = glm::clamp(ddgi_settings.mCascadeCount, 1, DDGI_MAX_CASCADES);
+    if (const RenderDDGIVolume& ddgi_volume = m_RenderWorld.GetDDGIVolume(); ddgi_volume.mEnabled)
+    {
+        RenderSettings::mDDGIProbeCount = glm::max(ddgi_volume.mProbeCount, IVec3(1));
+        RenderSettings::mDDGIProbeSpacing = ddgi_volume.mProbeSpacing;
+        RenderSettings::mDDGICornerPosition = ddgi_volume.mCornerPosition;
+        RenderSettings::mDDGIFollowCamera = ddgi_volume.mFollowCamera;
+        RenderSettings::mDDGICascadeCount = glm::clamp(ddgi_volume.mCascadeCount, 1, DDGI_MAX_CASCADES);
     }
 
     RenderSettings::UpdateDDGIVolumes(inViewport.GetPosition());
 
     const bool resize_viewport = m_ShouldResize || GetViewportKey(inViewport) != m_ViewportKey;
-    const bool need_recompile = resize_viewport || shaders_hotloaded || m_ShouldRecompile || GetRenderGraphKey(inScene, inRenderInterface) != m_RenderGraphKey || ( do_stress_test && m_FrameCounter > 60 );
+    const bool need_recompile = resize_viewport || shaders_hotloaded || m_ShouldRecompile || GetRenderGraphKey(inRenderInterface) != m_RenderGraphKey || ( do_stress_test && m_FrameCounter > 60 );
 
     if (need_recompile)
     {
@@ -318,7 +316,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
         if (resize_viewport)
             OnResizeViewport(inDevice, inViewport);
 
-        Recompile(inDevice, inScene, inRenderInterface);
+        Recompile(inDevice, inRenderInterface);
 
         m_FrameCounter = 0;
         m_ShouldResize = false;
@@ -382,12 +380,12 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     m_FrameConstants.mFrameCounter = m_FrameCounter;
     m_FrameConstants.mPrevJitter = m_FrameConstants.mJitter;
     m_FrameConstants.mJitter = enable_jitter ? Vec2(jitter_x, jitter_y) : Vec2(0.0f, 0.0f);
-    m_FrameConstants.mSunColor = inScene->GetSunLight() ? inScene->GetSunLight()->GetColor() : Vec4(0.0f);
+    m_FrameConstants.mSunColor = m_RenderWorld.GetSun().mColor;
     m_FrameConstants.mSunColor.a *= m_FrameConstants.mExposure;
-    m_FrameConstants.mSunDirection = Vec4(inScene->GetSunLightDirection(), 0.0f);
+    m_FrameConstants.mSunDirection = Vec4(m_RenderWorld.GetSun().mDirection, 0.0f);
     m_FrameConstants.mCameraPosition = Vec4(vp.GetPosition(), 1.0f);
     m_FrameConstants.mViewportSize = inViewport.GetRenderSize();
-    m_FrameConstants.mNrOfLights = inScene->Count<Light>();
+    m_FrameConstants.mNrOfLights = uint32_t(m_RenderWorld.GetLights().size());
     m_FrameConstants.mViewMatrix = vp.GetView();
     m_FrameConstants.mInvViewMatrix = glm::inverse(vp.GetView());
     m_FrameConstants.mProjectionMatrix = final_proj_matrix;
@@ -406,8 +404,6 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     m_FrameConstants.mDebugLinesVertexBuffer = inDevice.GetBindlessHeapIndex(m_DebugLinesVertexBuffer);
     m_FrameConstants.mDebugLinesIndirectArgsBuffer = inDevice.GetBindlessHeapIndex(m_DebugLinesIndirectArgsBuffer);
 
-    // update RenderSettings
-    RenderSettings::mActiveEntity = inApp->GetActiveEntity();
 
 
     // handle PIX capture requests
@@ -434,52 +430,19 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
         PROFILE_SCOPE_GPU(direct_cmd_list, "OnRender");
 
         {
-            // std::scoped_lock lock = std::scoped_lock(m_UploadMutex);
+            PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( copy_cmd_list ), PIX_COLOR(0, 255, 0), "UPLOAD SCENE");
 
-            // upload vertex buffers, index buffers, and BLAS for meshes
-            {
-                PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( copy_cmd_list ), PIX_COLOR(0, 255, 0), "UPLOAD MESHES");
+            inDevice.FlushUploads(copy_cmd_list);
 
-                for (Entity entity : m_PendingMeshUploads)
-                {
-                    {
-                        inScene.UploadMesh(inApp, inDevice, inScene->Get<Mesh>(entity), inScene->GetPtr<Skeleton>(entity), copy_cmd_list);
-                    }
-                }
-            }
-
-            // upload skeleton bone attributes and bone transform buffers
-            for (Entity entity : m_PendingSkeletonUploads)
-                inScene.UploadSkeleton(inApp, inDevice, inScene->Get<Skeleton>(entity), copy_cmd_list);
-
-            {
-                std::scoped_lock lock = std::scoped_lock(m_UploadMutex);
-
-                inDevice.FlushUploads(copy_cmd_list);
-
-                // clear all pending uploads for this frame, memory will be re-used
-                m_PendingMeshUploads.clear();
-                m_PendingTextureUploads.clear();
-                m_PendingSkeletonUploads.clear();
-            }
+            if (upload_tlas)
+                m_GPUScene.Upload(inDevice, copy_cmd_list, m_RenderWorld);
         }
 
-        //// Record uploads for the RT scene 
-        if (upload_tlas)
-        {
-            std::scoped_lock lock = std::scoped_lock(m_UploadMutex);
-
-            inScene.UploadInstances(inApp, inDevice, copy_cmd_list);
-            inScene.UploadMaterials(inApp, inDevice, copy_cmd_list, m_Settings.mDisableAlbedo, RenderSettings::GetExposure());
-            inScene.UploadTLASInstances(inApp, inDevice, copy_cmd_list);
-            inScene.UploadLights(inApp, inDevice, copy_cmd_list, RenderSettings::GetExposure());
-        }
-
-        m_FrameConstants.mTLAS = inScene.HasTLAS() ? inScene.GetTLASDescriptorIndex() : inScene.GetEmptyTLASDescriptorIndex();
-        m_FrameConstants.mShadowTLAS = inScene->GetSunLight() ? m_FrameConstants.mTLAS : inScene.GetEmptyTLASDescriptorIndex();
-        m_FrameConstants.mLightsBuffer = inScene.GetLightsDescriptorIndex();
-        m_FrameConstants.mMaterialsBuffer = inScene.GetMaterialsDescriptorIndex();
-        m_FrameConstants.mInstancesBuffer = inScene.GetInstancesDescriptorIndex();
+        m_FrameConstants.mTLAS = m_GPUScene.HasTLAS() ? m_GPUScene.GetTLASDescriptorIndex() : m_GPUScene.GetEmptyTLASDescriptorIndex();
+        m_FrameConstants.mShadowTLAS = m_RenderWorld.GetSun().mEnabled ? m_FrameConstants.mTLAS : m_GPUScene.GetEmptyTLASDescriptorIndex();
+        m_FrameConstants.mLightsBuffer = m_GPUScene.GetLightsDescriptorIndex();
+        m_FrameConstants.mMaterialsBuffer = m_GPUScene.GetMaterialsDescriptorIndex();
+        m_FrameConstants.mInstancesBuffer = m_GPUScene.GetInstancesDescriptorIndex();
 
         //// Submit all copy commands
         copy_cmd_list.Close();
@@ -550,7 +513,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
 
 
 
-void Renderer::Recompile(Device& inDevice, RayTracedScene& inScene, IRenderInterface* inRenderInterface)
+void Renderer::Recompile(Device& inDevice, IRenderInterface* inRenderInterface)
 {
     g_GPUProfiler->SetEnabled(true);
 
@@ -585,52 +548,49 @@ void Renderer::Recompile(Device& inDevice, RayTracedScene& inScene, IRenderInter
     RenderGraphResourceID rt_shadows_texture = default_textures.mWhiteTexture;
     RenderGraphResourceID reflections_texture = default_textures.mBlackTexture;
 
-    const SkinningData& skinning_data = AddSkinningPass(m_RenderGraph, inDevice, inScene);
+    const SkinningData& skinning_data = AddSkinningPass(m_RenderGraph, inDevice, m_RenderWorld);
 
     if (inDevice.IsRayTracingSupported())
-        AddBuildAccelerationStructuresPass(m_RenderGraph, inDevice, inScene);
+        AddBuildAccelerationStructuresPass(m_RenderGraph, inDevice, m_RenderWorld, m_GPUScene);
 
-    const SkyCubeData& sky_cube_data = AddSkyCubePass(m_RenderGraph, inDevice, inScene);
+    const SkyCubeData& sky_cube_data = AddSkyCubePass(m_RenderGraph, inDevice, m_RenderWorld);
 
     const DownsampleData& sky_cube_downsample_data = AddDownsamplePass(m_RenderGraph, inDevice, sky_cube_data.mSkyCubeTexture, "Skycube Prefilter");
 
-    const ConvolveCubeData& convolved_cube_data = AddConvolveSkyCubePass(m_RenderGraph, inDevice, inScene, sky_cube_data);
+    const ConvolveCubeData& convolved_cube_data = AddConvolveSkyCubePass(m_RenderGraph, inDevice, m_RenderWorld, sky_cube_data);
 
     const IntegrateBrdfData& integrate_brdf_data = AddIntegrateBrdfPass(m_RenderGraph, inDevice);
 
     if (m_Settings.mDoPathTrace && inDevice.IsRayTracingSupported())
     {
-        compose_input = AddPathTracePass(m_RenderGraph, inDevice, inScene, sky_cube_data, gbuffer_output).mOutputTexture;
+        compose_input = AddPathTracePass(m_RenderGraph, inDevice, sky_cube_data, gbuffer_output).mOutputTexture;
     }
     else
     {
-        gbuffer_output = AddGBufferPass(m_RenderGraph, inDevice, inScene).mOutput;
-
-        // AddShadowMapPass(m_RenderGraph, inDevice, inScene);
+        gbuffer_output = AddGBufferPass(m_RenderGraph, inDevice, m_RenderWorld).mOutput;
 
         // const auto& grass_data = AddGrassRenderPass(m_RenderGraph, inDevice, gbuffer_data);
 
-        //const auto shadow_texture = AddShadowMaskPass(m_RenderGraph, inDevice, inScene, gbuffer_data).mOutputTexture;
         if (m_Settings.mEnableShadows && inDevice.IsRayTracingSupported())
-            rt_shadows_texture = AddRayTracedShadowsPass(m_RenderGraph, inDevice, inScene, gbuffer_output);
+            rt_shadows_texture = AddRayTracedShadowsPass(m_RenderGraph, inDevice, gbuffer_output);
 
         if (m_Settings.mEnableGTAO)
             ao_texture = AddDenoisePasses(m_RenderGraph, inDevice, gbuffer_output, AddGTAOPass(m_RenderGraph, inDevice, gbuffer_output).mOutputTexture, "GTAO");
 
         if (m_Settings.mEnableRTAO && inDevice.IsRayTracingSupported())
-            ao_texture = AddAmbientOcclusionPass(m_RenderGraph, inDevice, inScene, gbuffer_output);
+            ao_texture = AddAmbientOcclusionPass(m_RenderGraph, inDevice, gbuffer_output);
 
         const bool enable_ddgi = m_Settings.mEnableDDGI && inDevice.IsRayTracingSupported();
 
         if (enable_ddgi)
-            ddgi_output = AddDDGIPass(m_RenderGraph, inDevice, inScene, gbuffer_output, sky_cube_data);
+            ddgi_output = AddDDGIPass(m_RenderGraph, inDevice, m_GPUScene, gbuffer_output, sky_cube_data);
 
         if (m_Settings.mEnableReflections && inDevice.IsRayTracingSupported())
-            reflections_texture = AddReflectionsPass(m_RenderGraph, inDevice, inScene, gbuffer_output, sky_cube_data, convolved_cube_data, enable_ddgi ? &ddgi_output : nullptr).mOutputTexture;
+            reflections_texture = AddReflectionsPass(m_RenderGraph, inDevice, gbuffer_output, sky_cube_data, convolved_cube_data, enable_ddgi ? &ddgi_output : nullptr).mOutputTexture;
 
-        const TiledLightCullingData& light_cull_data = AddTiledLightCullingPass(m_RenderGraph, inDevice, inScene);
+        const TiledLightCullingData& light_cull_data = AddTiledLightCullingPass(m_RenderGraph, inDevice);
 
-        const LightingData& light_data = AddLightingPass(m_RenderGraph, inDevice, inScene, 
+        const LightingData& light_data = AddLightingPass(m_RenderGraph, inDevice, 
                                                          gbuffer_output, light_cull_data, integrate_brdf_data.outputTexture, sky_cube_data.mSkyCubeTexture, convolved_cube_data.mConvolvedCubeTexture, 
                                                          rt_shadows_texture, reflections_texture, ao_texture, ddgi_output.mOutput,
                                                          reflections_texture != default_textures.mBlackTexture, ddgi_output.mOutput != default_textures.mBlackTexture);
@@ -648,7 +608,7 @@ void Renderer::Recompile(Device& inDevice, RayTracedScene& inScene, IRenderInter
         if (m_Settings.mEnableDDGI && m_Settings.mDebugProbeRays && inDevice.IsRayTracingSupported())
             AddProbeDebugRaysPass(m_RenderGraph, inDevice, light_data.mOutputTexture, gbuffer_output.mDepthTexture, m_DebugLinesVertexBuffer, m_DebugLinesIndirectArgsBuffer);
 
-        AddTransparentForwardPass(m_RenderGraph, inDevice, inScene, gbuffer_output, light_data.mOutputTexture,
+        AddTransparentForwardPass(m_RenderGraph, inDevice, m_RenderWorld, gbuffer_output, light_data.mOutputTexture,
                                   integrate_brdf_data.outputTexture, sky_cube_data.mSkyCubeTexture, convolved_cube_data.mConvolvedCubeTexture,
                                   enable_ddgi ? &ddgi_output : nullptr, m_Settings.mEnableShadows && inDevice.IsRayTracingSupported());
 
@@ -752,7 +712,7 @@ void Renderer::Recompile(Device& inDevice, RayTracedScene& inScene, IRenderInter
 
     m_RenderGraph.Compile(inDevice, m_GlobalConstants);
 
-    m_RenderGraphKey = GetRenderGraphKey(inScene, inRenderInterface);
+    m_RenderGraphKey = GetRenderGraphKey(inRenderInterface);
 }
 
 
@@ -797,9 +757,9 @@ uint64_t Renderer::GetViewportKey(const Viewport& inViewport) const
 
 
 
-uint64_t Renderer::GetRenderGraphKey(const RayTracedScene& inScene, IRenderInterface* inRenderInterface) const
+uint64_t Renderer::GetRenderGraphKey(IRenderInterface* inRenderInterface) const
 {
-    const DirectionalLight* sun_light = inScene->GetSunLight();
+    const RenderSun& sun = m_RenderWorld.GetSun();
 
     const std::array key_data =
     {
@@ -822,8 +782,8 @@ uint64_t Renderer::GetRenderGraphKey(const RayTracedScene& inScene, IRenderInter
         uint64_t(RenderSettings::mDDGIProbeCount.y),
         uint64_t(RenderSettings::mDDGIProbeCount.z),
         uint64_t(RenderSettings::mDDGICascadeCount),
-        uint64_t(sun_light != nullptr),
-        uint64_t(sun_light ? sun_light->cubeMap : 0)
+        uint64_t(sun.mEnabled),
+        uint64_t(sun.mCubeMap.GetValue())
     };
 
     return gHashFNV1a((const char*)key_data.data(), sizeof(key_data[0]) * key_data.size());
@@ -954,81 +914,138 @@ const char* RenderInterface::GetDebugTextureName(uint32_t inIndex) const
 
 void RenderInterface::UploadMeshBuffers(Entity inEntity, Mesh& inMesh)
 {
-    const int indices_size = inMesh.indices.size() * sizeof(inMesh.indices[0]);
-    const int vertices_size = inMesh.vertices.size() * sizeof(inMesh.vertices[0]);
+    DestroyMeshBuffers(inEntity, inMesh);
+
+    const uint64_t indices_size = inMesh.indices.size() * sizeof(inMesh.indices[0]);
+    const uint64_t vertices_size = inMesh.vertices.size() * sizeof(inMesh.vertices[0]);
 
     if (!vertices_size || !indices_size)
         return;
 
-    inMesh.indexBuffer = m_Device.CreateBuffer(Buffer::Desc {
+    const BufferID index_buffer = m_Device.CreateBuffer(Buffer::Desc
+    {
         .format = DXGI_FORMAT_R32_UINT,
-        .size   = uint32_t(indices_size),
+        .size   = indices_size,
         .stride = sizeof(uint32_t) * 3,
         .usage  = Buffer::Usage::INDEX_BUFFER,
         .debugName = "IndexBuffer"
-    }).GetValue();
+    });
 
-    inMesh.vertexBuffer = m_Device.CreateBuffer(Buffer::Desc {
-        .size   = uint32_t(vertices_size),
+    const BufferID vertex_buffer = m_Device.CreateBuffer(Buffer::Desc
+    {
+        .size   = vertices_size,
         .stride = sizeof(Vertex),
         .usage  = Buffer::Usage::VERTEX_BUFFER,
         .debugName = "VertexBuffer"
-    }).GetValue();
+    });
 
-    // actual data upload happens in RayTracedScene::UploadMesh at the start of the frame
-    m_Renderer.QueueMeshUpload(inEntity);
+    m_Device.UploadInitialBufferData(m_Device.GetBuffer(index_buffer), inMesh.indices.data(), indices_size);
+    m_Device.UploadInitialBufferData(m_Device.GetBuffer(vertex_buffer), inMesh.vertices.data(), vertices_size);
+
+    const BufferID bottom_level_as = m_Renderer.GetGPUScene().CreateBottomLevelAS(m_Device, BottomLevelASBuild
+    {
+        .mIndexBuffer  = index_buffer,
+        .mVertexBuffer = vertex_buffer,
+        .mIndexCount   = uint32_t(inMesh.indices.size()),
+        .mVertexCount  = uint32_t(inMesh.positions.size())
+    });
+
+    inMesh.indexBuffer = index_buffer.GetValue();
+    inMesh.vertexBuffer = vertex_buffer.GetValue();
+    inMesh.BottomLevelAS = bottom_level_as.GetValue();
 }
 
 
 void RenderInterface::DestroyMeshBuffers(Entity inEntity, Mesh& inMesh)
 {
-    for (uint32_t* buffer : { &inMesh.indexBuffer, &inMesh.vertexBuffer, &inMesh.BottomLevelAS })
-    {
-        if (*buffer != 0)
-            m_Device.ReleaseBuffer(BufferID(*buffer));
+    m_Renderer.GetGPUScene().ReleaseBottomLevelAS(m_Device, gToBufferID(inMesh.BottomLevelAS));
 
-        *buffer = 0;
+    for (uint32_t buffer : { inMesh.indexBuffer, inMesh.vertexBuffer })
+    {
+        if (buffer != 0)
+            m_Device.ReleaseBuffer(BufferID(buffer));
     }
+
+    inMesh.indexBuffer = 0;
+    inMesh.vertexBuffer = 0;
+    inMesh.BottomLevelAS = 0;
 }
 
 
 void RenderInterface::UploadSkeletonBuffers(Entity inEntity, Skeleton& inSkeleton, Mesh& inMesh)
 {
+    DestroySkeletonBuffers(inEntity, inSkeleton);
+
     inSkeleton.boneTransformMatrices.resize(inSkeleton.boneOffsetMatrices.size(), Mat4x4(1.0f));
     inSkeleton.boneWSTransformMatrices.resize(inSkeleton.boneOffsetMatrices.size(), Mat4x4(1.0f));
 
-    inSkeleton.boneIndexBuffer = m_Device.CreateBuffer(Buffer::Desc {
-        .size   = uint32_t(inSkeleton.boneIndices.size() * sizeof(IVec4)),
+    if (inSkeleton.boneIndices.empty() || inSkeleton.boneWeights.empty() || inSkeleton.boneTransformMatrices.empty() || inMesh.vertices.empty())
+        return;
+
+    const BufferID bone_index_buffer = m_Device.CreateBuffer(Buffer::Desc
+    {
+        .size   = inSkeleton.boneIndices.size() * sizeof(IVec4),
         .stride = sizeof(IVec4),
         .usage  = Buffer::Usage::SHADER_READ_ONLY,
         .debugName = "BoneIndicesBuffer"
-        }).GetValue();
+    });
 
-    inSkeleton.boneWeightBuffer = m_Device.CreateBuffer(Buffer::Desc {
-        .size   = uint32_t(inSkeleton.boneWeights.size() * sizeof(Vec4)),
+    const BufferID bone_weight_buffer = m_Device.CreateBuffer(Buffer::Desc
+    {
+        .size   = inSkeleton.boneWeights.size() * sizeof(Vec4),
         .stride = sizeof(Vec4),
         .usage  = Buffer::Usage::SHADER_READ_ONLY,
         .debugName = "BoneWeightsBuffer"
-        }).GetValue();
+    });
 
-    inSkeleton.boneTransformsBuffer = m_Device.CreateBuffer(Buffer::Desc {
-        .size   = uint32_t(inSkeleton.boneTransformMatrices.size() * sizeof(Mat4x4)),
+    const BufferID bone_transforms_buffer = m_Device.CreateBuffer(Buffer::Desc
+    {
+        .size   = inSkeleton.boneTransformMatrices.size() * sizeof(Mat4x4),
         .stride = sizeof(Mat4x4),
         .usage  = Buffer::Usage::SHADER_READ_ONLY,
         .debugName = "BoneTransformsBuffer"
-        }).GetValue();
+    });
 
-    inSkeleton.skinnedVertexBuffer = m_Device.CreateBuffer(Buffer::Desc {
-        .size   = uint32_t(sizeof(inMesh.vertices[0]) * inMesh.vertices.size()),
+    const BufferID skinned_vertex_buffer = m_Device.CreateBuffer(Buffer::Desc
+    {
+        .size   = sizeof(inMesh.vertices[0]) * inMesh.vertices.size(),
         .stride = sizeof(RTVertex),
         .usage  = Buffer::Usage::SHADER_READ_WRITE,
         .debugName = "SkinnedVertexBuffer"
-    }).GetValue();
+    });
 
-    inSkeleton.blasScratchBuffer = 0;
-    inSkeleton.gpuBuffersUploaded = false;
+    m_Device.UploadInitialBufferData(m_Device.GetBuffer(bone_index_buffer), inSkeleton.boneIndices.data(), inSkeleton.boneIndices.size() * sizeof(IVec4));
+    m_Device.UploadInitialBufferData(m_Device.GetBuffer(bone_weight_buffer), inSkeleton.boneWeights.data(), inSkeleton.boneWeights.size() * sizeof(Vec4));
 
-    m_Renderer.QueueSkeletonUpload(inEntity);
+    inSkeleton.boneIndexBuffer = bone_index_buffer.GetValue();
+    inSkeleton.boneWeightBuffer = bone_weight_buffer.GetValue();
+    inSkeleton.boneTransformsBuffer = bone_transforms_buffer.GetValue();
+    inSkeleton.skinnedVertexBuffer = skinned_vertex_buffer.GetValue();
+
+    if (inMesh.BottomLevelAS != 0)
+    {
+        GPUScene& gpu_scene = m_Renderer.GetGPUScene();
+        gpu_scene.ReleaseBottomLevelAS(m_Device, gToBufferID(inMesh.BottomLevelAS));
+
+        const uint32_t index_count = uint32_t(inMesh.indices.size());
+        const uint32_t vertex_count = uint32_t(inMesh.positions.size());
+
+        inMesh.BottomLevelAS = gpu_scene.CreateBottomLevelAS(m_Device, BottomLevelASBuild
+        {
+            .mIndexBuffer  = gToBufferID(inMesh.indexBuffer),
+            .mVertexBuffer = gToBufferID(inMesh.vertexBuffer),
+            .mIndexCount   = index_count,
+            .mVertexCount  = vertex_count,
+            .mAllowUpdate  = true
+        }).GetValue();
+
+        const uint64_t scratch_size = GPUScene::sGetBottomLevelASUpdateScratchSize(m_Device, index_count, vertex_count);
+        constexpr uint64_t alignment = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BYTE_ALIGNMENT;
+
+        inSkeleton.blasScratchBuffer = m_Device.CreateBuffer(Buffer::RWByteAddressBuffer(std::max(gAlignUp(scratch_size, alignment), alignment), "SCRATCH_BUFFER_BLAS_REFIT")).GetValue();
+    }
+
+    inSkeleton.gpuBuffersUploaded = true;
 }
 
 
@@ -1236,108 +1253,6 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
 
         if (ImGui::Button("PIX GPU Capture"))
             m_Renderer.SetShouldCaptureNextFrame(true);
-
-        if (ImGui::Button("Lower Dynamic Lights"))
-        {
-            for (const auto& [entity, light] : inScene.Each<Light>())
-            {
-                if (light.type == LIGHT_TYPE_SPOT || light.type == LIGHT_TYPE_POINT)
-                {
-                    light.color.a /= 1000.0f;
-                }
-            }
-        }
-
-        if (ImGui::Button("Re-calculate Normals"))
-        {
-            for (const auto& [entity, mesh] : inScene.Each<Mesh>())
-            {
-                mesh.CalculateNormals();
-                mesh.CalculateTangents();
-                mesh.CalculateVertices();
-            }
-        }
-
-        if (ImGui::Button("Material albedo 1"))
-        {
-            for (const auto& [entity, material] : inScene.Each<Material>())
-                material.albedo = Vec4(1.0f);
-        }
-
-        if (ImGui::Button("Material albedo 2"))
-        {
-            for (const auto& [entity, material] : inScene.Each<Material>())
-                material.albedo *= Vec4(2.0f);
-        }
-
-        if (ImGui::Button("Flip mesh uvs Y"))
-        {
-            for (const auto& [entity, mesh] : inScene.Each<Mesh>())
-            {
-                for (Vec2& uv : mesh.uvs)
-                    uv.y = 1.0 - uv.y;
-
-                mesh.CalculateVertices();
-
-                UploadMeshBuffers(entity, mesh);
-            }
-        }
-
-
-        if (ImGui::Button("Clear DDGI History"))
-        {
-        }
-
-        if (ImGui::Button("Generate Meshlets"))
-        {
-            Timer timer;
-
-            gLogInfo("Renderer", "Generating meshlets...");
-
-            for (const auto& [entity, mesh] : inScene.Each<Mesh>())
-            {
-                const size_t max_vertices = 64;
-                const size_t max_triangles = 124;
-                const float cone_weight = 0.0f;
-
-                size_t max_meshlets = meshopt_buildMeshletsBound(mesh.indices.size(), max_vertices, max_triangles);
-                Array<meshopt_Meshlet> meshlets(max_meshlets);
-                Array<unsigned int> meshlet_vertices(max_meshlets * max_vertices);
-                Array<unsigned char> meshlet_triangles(max_meshlets * max_triangles * 3);
-
-                size_t meshlet_count = meshopt_buildMeshlets(meshlets.data(), meshlet_vertices.data(), meshlet_triangles.data(), mesh.indices.data(),
-                    mesh.indices.size(), &mesh.positions[0].x, mesh.positions.size(), sizeof(mesh.positions[0]), max_vertices, max_triangles, cone_weight);
-
-                meshlets.resize(meshlet_count);
-                meshlet_vertices.resize(meshlet_count * max_vertices);
-                meshlet_triangles.resize(meshlet_count * max_triangles * 3);
-
-                mesh.meshlets.reserve(meshlet_count);
-                mesh.meshletIndices.resize(meshlet_count * max_vertices);
-                mesh.meshletTriangles.resize(meshlet_count * max_triangles);
-
-                for (const meshopt_Meshlet& opt_meshlet : meshlets)
-                {
-                    Meshlet& meshlet = mesh.meshlets.emplace_back();
-                    meshlet.mTriangleCount = opt_meshlet.triangle_count;
-                    meshlet.mTriangleOffset = opt_meshlet.triangle_offset;
-                    meshlet.mVertexCount = opt_meshlet.vertex_count;
-                    meshlet.mVertexOffset = opt_meshlet.vertex_offset;
-                }
-
-                assert(mesh.meshletIndices.size() == meshlet_vertices.size());
-                std::memcpy(mesh.meshletIndices.data(), meshlet_vertices.data(), mesh.meshletIndices.size());
-
-                for (uint32_t idx = 0; idx < mesh.meshletTriangles.size(); idx += 3)
-                {
-                    mesh.meshletTriangles[idx].mX = meshlet_triangles[idx];
-                    mesh.meshletTriangles[idx].mY = meshlet_triangles[idx + 1];
-                    mesh.meshletTriangles[idx].mZ = meshlet_triangles[idx + 2];
-                }
-            }
-
-            gLogInfo("Renderer", "Generating meshlets took {:.3f} seconds", timer.GetElapsedTime());
-        }
 
         if (ImGui::Button("Save As GraphViz.."))
         {

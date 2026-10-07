@@ -11,13 +11,13 @@
 
 namespace RK::DX12 {
 
-const BuildAccelerationStructuresData& AddBuildAccelerationStructuresPass(RenderGraph& inRenderGraph, Device& inDevice, RayTracedScene& inScene)
+const BuildAccelerationStructuresData& AddBuildAccelerationStructuresPass(RenderGraph& inRenderGraph, Device& inDevice, const RenderWorld& inWorld, GPUScene& inGPUScene)
 {
     return inRenderGraph.AddComputePass<BuildAccelerationStructuresData>("Build Acceleration Structures",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, BuildAccelerationStructuresData& inData)
     {
     },
-    [&inDevice, &inScene](BuildAccelerationStructuresData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+    [&inDevice, &inWorld, &inGPUScene](BuildAccelerationStructuresData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
         static const int& update_skinning = g_CVariables->Create("update_skinning", 1, true);
 
@@ -25,16 +25,13 @@ const BuildAccelerationStructuresData& AddBuildAccelerationStructuresPass(Render
 
         if (update_skinning)
         {
-            for (const auto& [entity, mesh, skeleton] : inScene->Each<Mesh, Skeleton>())
-            {
-                if (mesh.HasBLAS() && skeleton.gpuBuffersUploaded)
-                    inScene.UpdateBLAS(nullptr, inDevice, mesh, skeleton, inCmdList);
-            }
+            for (const RenderSkinnedMesh& skinned_mesh : inWorld.GetSkinnedMeshes())
+                inGPUScene.RefitBottomLevelAS(inDevice, inCmdList, skinned_mesh);
         }
 
         inCmdList->ResourceBarrier(1, &uav_barrier);
 
-        inScene.BuildTLAS(inDevice, inCmdList);
+        inGPUScene.BuildTLAS(inDevice, inCmdList);
 
         inCmdList->ResourceBarrier(1, &uav_barrier);
     });
@@ -42,7 +39,7 @@ const BuildAccelerationStructuresData& AddBuildAccelerationStructuresPass(Render
 
 
 
-const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferOutput& inGBuffer)
+const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, Device& inDevice, const GBufferOutput& inGBuffer)
 {
     const TraceShadowsData& trace_data = inRenderGraph.AddComputePass<TraceShadowsData>("RT Shadows Trace",
     [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, TraceShadowsData& inData)
@@ -61,7 +58,7 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
         inData.mGBufferRenderTextureSRV = inRGBuilder.Read(inGBuffer.mRenderTexture);
     },
 
-    [&inRenderGraph, &inDevice, &inScene](TraceShadowsData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+    [&inRenderGraph, &inDevice](TraceShadowsData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
         const Viewport& viewport = inRenderGraph.GetViewport();
 
@@ -82,7 +79,7 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
 
 
 
-const RenderGraphResourceID AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferOutput& inGBuffer)
+const RenderGraphResourceID AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDevice, const GBufferOutput& inGBuffer)
 {
     const RTAOData& rtao_data = inRenderGraph.AddComputePass<RTAOData>("RTAO",
     [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, RTAOData& inData)
@@ -102,7 +99,7 @@ const RenderGraphResourceID AddAmbientOcclusionPass(RenderGraph& inRenderGraph, 
         inData.mGBufferRenderTextureSRV = inRGBuilder.Read(inGBuffer.mRenderTexture);
     },
 
-    [&inRenderGraph, &inDevice, &inScene](RTAOData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+    [&inRenderGraph, &inDevice](RTAOData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
         const Viewport& viewport = inRenderGraph.GetViewport();
 
@@ -238,7 +235,7 @@ const RenderGraphResourceID AddDenoisePasses(RenderGraph& inRenderGraph, Device&
 
 
 
-const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferOutput& inGBuffer, const SkyCubeData& inSkyCubeData, const ConvolveCubeData& inConvolvedCubeData, const DDGIOutput* inDDGI)
+const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& inDevice, const GBufferOutput& inGBuffer, const SkyCubeData& inSkyCubeData, const ConvolveCubeData& inConvolvedCubeData, const DDGIOutput* inDDGI)
 {
     const UVec2 render_size = inRenderGraph.GetViewport().GetRenderSize();
     const uint32_t mip_count = glm::min(uint32_t(glm::floor(glm::log2(float(glm::max(render_size.x, render_size.y))))) + 1u, 7u);
@@ -273,7 +270,7 @@ const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& in
         }
     },
 
-    [&inRenderGraph, &inDevice, &inScene](ReflectionsData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
+    [&inRenderGraph, &inDevice](ReflectionsData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
     {
         const Viewport& viewport = inRenderGraph.GetViewport();
 
@@ -337,7 +334,7 @@ const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& in
 
 
 
-const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const SkyCubeData& inSkyCubeData, GBufferOutput& ioGBuffer)
+const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevice, const SkyCubeData& inSkyCubeData, GBufferOutput& ioGBuffer)
 {
     return inRenderGraph.AddComputePass<PathTraceData>("PathTrace",
     [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, PathTraceData& inData)
@@ -403,7 +400,7 @@ const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevi
         inData.mSkyCubeTextureSRV = inRGBuilder.Read(inSkyCubeData.mSkyCubeTexture);
     },
 
-    [&inRenderGraph, &inDevice, &inScene](PathTraceData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+    [&inRenderGraph, &inDevice](PathTraceData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
         const Viewport& viewport = inRenderGraph.GetViewport();
 
@@ -449,7 +446,7 @@ const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevi
 
 
 
-DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferOutput& inGBuffer, const SkyCubeData& inSkyCubeData)
+DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const GPUScene& inGPUScene, const GBufferOutput& inGBuffer, const SkyCubeData& inSkyCubeData)
 {
     //////////////////////////////////////////
     ///// Probe Trace Compute Pass
@@ -536,7 +533,7 @@ DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTr
 
         inData.mSkyCubeTextureSRV = ioRGBuilder.Read(inSkyCubeData.mSkyCubeTexture);
     },
-    [&inRenderGraph, &inDevice, &inScene](ProbeTraceData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
+    [&inRenderGraph, &inDevice, &inGPUScene](ProbeTraceData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
     {
         Buffer& volumes_buffer = inDevice.GetBuffer(inRGResources.GetBuffer(inData.mVolumesBuffer));
         inDevice.UploadBufferData(inCmdList, volumes_buffer, 0, RenderSettings::mDDGIVolumes.data(), sizeof(DDGIVolume) * RenderSettings::mDDGIVolumes.size());
@@ -544,7 +541,7 @@ DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTr
         const D3D12_RESOURCE_BARRIER volumes_barrier = CD3DX12_RESOURCE_BARRIER::Transition(volumes_buffer.GetD3D12Resource(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
         inCmdList->ResourceBarrier(1, &volumes_barrier);
 
-        if (!inScene.HasTLAS())
+        if (!inGPUScene.HasTLAS())
             return;
 
         inData.mRandomRotationMatrix = gRandomOrientation();
@@ -597,9 +594,9 @@ DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTr
         inData.mRaysIrradianceTextureSRV = ioRGBuilder.Read(trace_data.mRaysIrradianceTexture);
     },
 
-    [&inDevice, &trace_data, &inScene](ProbeUpdateData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+    [&inDevice, &trace_data, &inGPUScene](ProbeUpdateData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
-        if (!inScene.HasTLAS())
+        if (!inGPUScene.HasTLAS())
             return;
 
         ProbeUpdateRootConstants root_constants =

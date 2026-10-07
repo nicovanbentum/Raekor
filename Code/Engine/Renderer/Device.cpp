@@ -944,6 +944,30 @@ void Device::UploadBufferData(CommandList& inCmdList, Buffer& inBuffer, uint32_t
 
 
 
+void Device::UploadInitialBufferData(Buffer& inBuffer, const void* inData, uint64_t inSize)
+{
+    assert(inBuffer.GetSize() >= inSize);
+
+    std::scoped_lock lock = std::scoped_lock(m_UploadMutex);
+
+    BufferID upload_buffer;
+    uint64_t upload_offset = 0;
+    uint8_t* upload_ptr = AllocateUploadMemory(inSize, sizeof(Vec4), upload_buffer, upload_offset);
+
+    std::memcpy(upload_ptr, inData, inSize);
+
+    m_BufferUploads.emplace_back(BufferUpload
+    {
+        .mDestination   = inBuffer.GetD3D12Resource(),
+        .mSource        = GetD3D12Resource(upload_buffer),
+        .mSourceOffset  = upload_offset,
+        .mSize          = inSize,
+        .mInitialState  = GetD3D12InitialResourceStates(inBuffer.GetUsage())
+    });
+}
+
+
+
 void Device::UploadTextureData(Texture& inTexture, uint32_t inMip, uint32_t inLayer, uint32_t inRowPitch, const void* inData)
 {
     uint32_t nr_of_rows = 0u;
@@ -983,6 +1007,33 @@ void Device::UploadTextureData(Texture& inTexture, uint32_t inMip, uint32_t inLa
 void Device::FlushUploads(CommandList& inCmdList)
 {
     std::scoped_lock lock = std::scoped_lock(m_UploadMutex);
+
+    if (!m_BufferUploads.empty())
+    {
+        Array<D3D12_RESOURCE_BARRIER> barriers;
+        barriers.reserve(m_BufferUploads.size());
+
+        for (const BufferUpload& upload : m_BufferUploads)
+        {
+            if (upload.mInitialState != D3D12_RESOURCE_STATE_COMMON && upload.mInitialState != D3D12_RESOURCE_STATE_COPY_DEST)
+                barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(upload.mDestination.Get(), upload.mInitialState, D3D12_RESOURCE_STATE_COPY_DEST));
+        }
+
+        if (!barriers.empty())
+            inCmdList->ResourceBarrier(uint32_t(barriers.size()), barriers.data());
+
+        barriers.clear();
+
+        for (const BufferUpload& upload : m_BufferUploads)
+        {
+            inCmdList->CopyBufferRegion(upload.mDestination.Get(), 0, upload.mSource, upload.mSourceOffset, upload.mSize);
+            barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(upload.mDestination.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ));
+        }
+
+        inCmdList->ResourceBarrier(uint32_t(barriers.size()), barriers.data());
+
+        m_BufferUploads.clear();
+    }
 
     for (const TextureUpload& upload : m_TextureUploads)
     {

@@ -8,7 +8,6 @@
 #include "Engine/Renderer/Device.h"
 #include "Engine/Renderer/Renderer.h"
 #include "Engine/Renderer/CommandList.h"
-#include "Engine/Renderer/RayTracedScene.h"
 #include "Editor/Widgets/ProfileWidget.h"
 
 namespace RK::DX12 {
@@ -24,7 +23,6 @@ public:
 
     Device& GetDevice() { return m_Device; }
     Renderer& GetRenderer() { return m_Renderer; }
-    RayTracedScene& GetRayTracedScene() { return m_RayTracedScene; }
     IRenderInterface* GetRenderInterface() { return &m_RenderInterface; }
 
 private:
@@ -35,7 +33,6 @@ private:
 
     Device          m_Device;
     Renderer        m_Renderer;
-    RayTracedScene  m_RayTracedScene;
     RenderInterface m_RenderInterface;
 };
 

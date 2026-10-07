@@ -31,7 +31,6 @@ DXApp::DXApp() :
     Editor(WindowFlag::RESIZE, &m_RenderInterface),
     m_Device(this),
     m_Renderer(m_Device, m_Viewport, m_Window),
-    m_RayTracedScene(m_Scene),
     m_RenderInterface(this, m_Device, m_Renderer)
 {
     g_GPUProfiler = new GPUProfiler(m_Device);
@@ -140,7 +139,7 @@ DXApp::DXApp() :
     //m_Widgets.GetWidget<GPUProfileWidget>()->Hide();
     m_Widgets.GetWidget<DeviceResourcesWidget>()->Hide();
 
-    m_Renderer.Recompile(m_Device, m_RayTracedScene, GetRenderInterface());
+    m_Renderer.Recompile(m_Device, GetRenderInterface());
 
     const String scene_override = OS::sGetCommandLineValue("-scene");
     const Path scene_file = scene_override.empty() ? m_ConfigSettings.mSceneFile : Path(scene_override);
@@ -177,7 +176,7 @@ void DXApp::OnUpdate(float inDeltaTime)
 
     m_RenderInterface.UpdateGPUStats(m_Device);
 
-    m_Renderer.OnRender(this, m_Device, m_Viewport, m_RayTracedScene, GetRenderInterface(), inDeltaTime);
+    m_Renderer.OnRender(this, m_Device, m_Viewport, m_Scene, GetRenderInterface(), inDeltaTime);
     
     m_Device.OnUpdate();
 

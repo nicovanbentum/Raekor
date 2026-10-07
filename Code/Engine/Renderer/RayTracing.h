@@ -3,7 +3,8 @@
 #include "Components.h"
 #include "RenderGraph.h"
 #include "RenderPasses.h"
-#include "RayTracedScene.h"
+#include "GPUScene.h"
+#include "RenderWorld.h"
 
 namespace RK::DX12 {
 
@@ -14,7 +15,8 @@ struct BuildAccelerationStructuresData
 };
 
 const BuildAccelerationStructuresData& AddBuildAccelerationStructuresPass(RenderGraph& inRenderGraph, Device& inDevice,
-    RayTracedScene& inScene
+    const RenderWorld& inWorld,
+    GPUScene& inGPUScene
 );
 
 
@@ -30,7 +32,6 @@ struct TraceShadowsData
 
 
 const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, Device& inDevice,
-    const RayTracedScene& inScene,
     const GBufferOutput& inGBuffer
 );
 
@@ -47,7 +48,6 @@ struct RTAOData
 };
 
 const RenderGraphResourceID AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDevice,
-    const RayTracedScene& inScene,
     const GBufferOutput& inGBuffer
 );
 
@@ -99,7 +99,6 @@ struct ReflectionsData
 };
 
 const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& inDevice,
-    const RayTracedScene& inScene,
     const GBufferOutput& inGBuffer,
     const SkyCubeData& inSkyCubeData,
     const ConvolveCubeData& inConvolvedCubeData,
@@ -123,7 +122,6 @@ struct PathTraceData
 };
 
 const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevice,
-    const RayTracedScene& inScene,
     const SkyCubeData& inSkyCubeData,
     GBufferOutput& ioGBuffer
 );
@@ -142,7 +140,7 @@ struct DDGIOutput
     RenderGraphResourceID mVolumes;
 };
 
-DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferOutput& inGBuffer, const SkyCubeData& inSkyCubeData);
+DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const GPUScene& inGPUScene, const GBufferOutput& inGBuffer, const SkyCubeData& inSkyCubeData);
 
 
 

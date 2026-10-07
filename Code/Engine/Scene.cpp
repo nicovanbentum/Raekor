@@ -378,13 +378,28 @@ Entity Scene::Clone(Entity inEntity, Entity inParent)
 	if (Has<Mesh>(copy))
 	{
 		Mesh& mesh = Get<Mesh>(copy);
+		mesh.vertexBuffer = 0;
+		mesh.indexBuffer = 0;
+		mesh.BottomLevelAS = 0;
+
+		Skeleton* skeleton = GetPtr<Skeleton>(copy);
+
+		if (skeleton)
+		{
+			skeleton->boneIndexBuffer = 0;
+			skeleton->boneWeightBuffer = 0;
+			skeleton->boneTransformsBuffer = 0;
+			skeleton->skinnedVertexBuffer = 0;
+			skeleton->blasScratchBuffer = 0;
+			skeleton->gpuBuffersUploaded = false;
+		}
 
 		if (m_Renderer)
 		{
-			m_Renderer->UploadMeshBuffers(copy, Get<Mesh>(copy));
+			m_Renderer->UploadMeshBuffers(copy, mesh);
 
-			if (Has<Skeleton>(copy))
-				m_Renderer->UploadSkeletonBuffers(copy, Get<Skeleton>(copy), mesh);
+			if (skeleton)
+				m_Renderer->UploadSkeletonBuffers(copy, *skeleton, mesh);
 		}
 	}
 	

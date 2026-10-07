@@ -33,7 +33,6 @@ private:
 
     DX12::Device m_Device;
     DX12::Renderer m_Renderer;
-    DX12::RayTracedScene m_RayTracedScene;
     DX12::RenderInterface m_RenderInterface;
 
     DX12::TextureID m_DefaultWhiteTexture;

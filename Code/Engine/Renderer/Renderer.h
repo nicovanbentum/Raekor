@@ -2,11 +2,14 @@
 
 #include "Shared.h"
 #include "Resource.h"
+#include "GPUScene.h"
 #include "Upscalers.h"
 #include "RenderGraph.h"
+#include "RenderWorld.h"
 #include "RenderPasses.h"
 
 #include "Threading.h"
+#include "Components.h"
 #include "Application.h"
 
 namespace RK {
@@ -21,7 +24,6 @@ namespace RK::DX12 {
 class Device;
 class CommandList;
 class RenderGraph;
-class RayTracedScene;
 
 
 struct BackBufferData
@@ -69,9 +71,9 @@ public:
 
     void OnResize(Device& inDevice, Viewport& inViewport, bool inExclusiveFullscreen = false);
     void OnResizeViewport(Device& inDevice, Viewport& inViewport);
-    void OnRender(Application* inApp, Device& inDevice, Viewport& inViewport, RayTracedScene& inScene, IRenderInterface* inRenderInterfacee, float inDeltaTime);
+    void OnRender(Application* inApp, Device& inDevice, Viewport& inViewport, const Scene& inScene, IRenderInterface* inRenderInterface, float inDeltaTime);
 
-    void Recompile(Device& inDevice, RayTracedScene& inScene, IRenderInterface* inRenderInterface);
+    void Recompile(Device& inDevice, IRenderInterface* inRenderInterface);
 
     CommandList& StartSingleSubmit();
     void FlushSingleSubmit(Device& inDevice, CommandList& inCommandList);
@@ -82,8 +84,8 @@ public:
     void SetShouldRecompile(bool inValue) { m_ShouldRecompile = inValue; }
     void SetShouldCaptureNextFrame(bool inValue) { m_ShouldCaptureNextFrame = inValue; }
 
-    void QueueMeshUpload(Entity inEntity) { std::scoped_lock lock(m_UploadMutex); m_PendingMeshUploads.push_back(inEntity); }
-    void QueueSkeletonUpload(Entity inEntity) { std::scoped_lock lock(m_UploadMutex); m_PendingSkeletonUploads.push_back(inEntity); }
+    GPUScene& GetGPUScene() { return m_GPUScene; }
+    const RenderWorld& GetRenderWorld() const { return m_RenderWorld; }
 
     TextureID GetEntityTexture() const;
     TextureID GetDisplayTexture() const;
@@ -110,7 +112,7 @@ private:
     void UpdateFontAtlas(Device& inDevice);
 
     uint64_t GetViewportKey(const Viewport& inViewport) const;
-    uint64_t GetRenderGraphKey(const RayTracedScene& inScene, IRenderInterface* inRenderInterface) const;
+    uint64_t GetRenderGraphKey(IRenderInterface* inRenderInterface) const;
 
     void ResolveReadbacks(Device& inDevice);
     void RecordReadbacks(Device& inDevice, CommandList& inCmdList);
@@ -127,10 +129,6 @@ private:
 
 private:
     SDL_Window*                 m_Window;
-    Mutex                       m_UploadMutex;
-    Array<Entity>               m_PendingMeshUploads;
-    Array<TextureUpload>        m_PendingTextureUploads;
-    Array<Entity>               m_PendingSkeletonUploads;
     RenderGraphResourceID       m_EntityTexture;
     RenderGraphResourceID       m_DisplayResource;
     RenderGraphResourceViewID   m_DisplayTexture;
@@ -164,6 +162,8 @@ private:
     FrameConstants              m_FrameConstants = {};
     GlobalConstants             m_GlobalConstants = {};
     Upscaler                    m_Upscaler;
+    GPUScene                    m_GPUScene;
+    RenderWorld                 m_RenderWorld;
     RenderGraph                 m_RenderGraph;
 };
 
