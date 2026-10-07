@@ -45,7 +45,7 @@ private:
         int& mDisableAlbedo      = g_CVariables->Create("r_disable_albedo",       0, true);
         int& mEnableDDGI         = g_CVariables->Create("r_enable_ddgi",          1, true);
         int& mDebugProbeRays     = g_CVariables->Create("r_debug_gi_rays",        0, true);
-        int& mDebugProbes        = g_CVariables->Create("r_debug_gi_probes",      1, true);
+        int& mDebugProbes        = g_CVariables->Create("r_debug_gi_probes",      0, true);
         int& mEnableDebugOverlay = g_CVariables->Create("r_enable_debug_overlay", 1, true);
         int& mEnableRTAO         = g_CVariables->Create("r_enable_rtao",          0, true);
         int& mEnableGTAO         = g_CVariables->Create("r_enable_gtao",          0, true);
