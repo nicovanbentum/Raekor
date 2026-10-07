@@ -44,6 +44,9 @@ CVariables::CVariables(int argc, char** argv)
 		const String cvar = string.substr(1, equals_pos - 1);
 		const String value = string.substr(equals_pos + 1);
 
+		if (!Exists(cvar))
+			continue;
+
 		if (!SetValue(cvar, value))
 			gLogWarning("CVars", "Failed to set cvar \"{}\" to {}", cvar, value);
 		else
