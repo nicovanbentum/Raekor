@@ -16,6 +16,7 @@
 #include "Timer.h"
 #include "Profiler.h"
 #include "Primitives.h"
+#include "UIRenderer.h"
 #include "Application.h"
 
 namespace RK::DX12 {
@@ -144,6 +145,30 @@ void Renderer::CreateProbeDebugMesh(Device& inDevice)
         memcpy(mapped_ptr, m_ProbeDebugMesh.vertices.data(), vertices_size);
         vertex_buffer->Unmap(0, nullptr);
     }
+}
+
+
+
+void Renderer::UpdateFontAtlas(Device& inDevice)
+{
+    if (!g_UIRenderer.HasFont() || g_UIRenderer.GetFontAtlasVersion() == m_FontAtlasVersion)
+        return;
+
+    if (m_FontAtlasTexture.IsValid())
+        inDevice.ReleaseTexture(m_FontAtlasTexture);
+
+    m_FontAtlasTexture = inDevice.CreateTexture(Texture::Desc
+    {
+        .format = DXGI_FORMAT_R8_UNORM,
+        .width  = g_UIRenderer.GetFontAtlasWidth(),
+        .height = g_UIRenderer.GetFontAtlasHeight(),
+        .usage  = Texture::Usage::SHADER_READ_ONLY,
+        .debugName = "UIFontAtlas"
+    });
+
+    inDevice.UploadTextureData(inDevice.GetTexture(m_FontAtlasTexture), 0, 0, g_UIRenderer.GetFontAtlasWidth(), g_UIRenderer.GetFontAtlas().data());
+
+    m_FontAtlasVersion = g_UIRenderer.GetFontAtlasVersion();
 }
 
 
@@ -402,6 +427,8 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     copy_cmd_list.Reset();
     direct_cmd_list.Reset();
     update_cmd_list.Reset();
+
+    UpdateFontAtlas(inDevice);
 
     {
         PROFILE_SCOPE_GPU(direct_cmd_list, "OnRender");
@@ -687,7 +714,7 @@ void Renderer::Recompile(Device& inDevice, RayTracedScene& inScene, IRenderInter
     RenderGraphResourceID final_output = compose_data.mOutputTexture;
 
     // Render UI on top
-    const SDFUIData& sdfui_data = AddSDFUIPass(m_RenderGraph, inDevice, final_output);
+    const SDFUIData& sdfui_data = AddSDFUIPass(m_RenderGraph, inDevice, final_output, m_FontAtlasTexture);
 
     switch (debug_texture)
     {

@@ -1832,38 +1832,31 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, 
 
 
 
-const SDFUIData& AddSDFUIPass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inRenderTarget)
+const SDFUIData& AddSDFUIPass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inRenderTarget, const TextureID& inFontAtlas)
 {
     return inRenderGraph.AddGraphicsPass<SDFUIData>("SDFUI",
     [&](RenderGraphBuilder& inBuilder, IRenderPass* inRenderPass, SDFUIData& inData)
     {
-        inData.mDrawCommandBuffer = inBuilder.Create(Buffer::Desc 
+        inData.mPrimitivesBuffer = inBuilder.Create(Buffer::Desc
         {
-            .size = sizeof(float4) * 1024 * 1024,
-            .stride = sizeof(float4),
-            .debugName = "DrawCommandBuffer"
+            .size = sizeof(UIPrimitive) * SDFUIData::cMaxPrimitives,
+            .stride = sizeof(UIPrimitive),
+            .debugName = "UIPrimitivesBuffer"
         });
 
-        inData.mDrawCommandHeaderBuffer = inBuilder.Create(Buffer::Desc 
-        {
-            .size = sizeof(DrawCommandHeader) * 1024 * 1024,
-            .stride = sizeof(DrawCommandHeader),
-            .debugName = "DrawCommandHeaderBuffer"
-        });
-
-        inData.mDrawCommandBufferSRV = inBuilder.Read(inData.mDrawCommandBuffer);
-        inData.mDrawCommandHeaderBufferSRV = inBuilder.Read(inData.mDrawCommandHeaderBuffer);
+        inData.mPrimitivesBufferSRV = inBuilder.Read(inData.mPrimitivesBuffer);
 
         inBuilder.RenderTarget(inRenderTarget);
 
         D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inRenderPass->CreatePipelineStateDesc(inDevice, g_SystemShaders.mSDFUIShader);
         pso_state.BlendState.RenderTarget[0].BlendEnable = true;
         pso_state.BlendState.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
-        pso_state.BlendState.RenderTarget[0].SrcBlendAlpha = D3D12_BLEND_SRC_ALPHA;
-        pso_state.BlendState.RenderTarget[0].DestBlend = D3D12_BLEND_DEST_ALPHA;
-        pso_state.BlendState.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_DEST_ALPHA;
+        pso_state.BlendState.RenderTarget[0].DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
         pso_state.BlendState.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
-        pso_state.InputLayout = {}; // clear the input layout, we generate the fullscreen triangle inside the vertex shader
+        pso_state.BlendState.RenderTarget[0].SrcBlendAlpha = D3D12_BLEND_ONE;
+        pso_state.BlendState.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_INV_SRC_ALPHA;
+        pso_state.BlendState.RenderTarget[0].BlendOpAlpha = D3D12_BLEND_OP_ADD;
+        pso_state.InputLayout = {};
         pso_state.DepthStencilState.DepthEnable = FALSE;
         pso_state.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 
@@ -1871,41 +1864,35 @@ const SDFUIData& AddSDFUIPass(RenderGraph& inRenderGraph, Device& inDevice, Rend
         inData.mPipeline->SetName(L"PSO_SDFUI");
     },
 
-    [&inRenderGraph, &inDevice](SDFUIData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+    [&inRenderGraph, &inDevice, &inFontAtlas](SDFUIData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
-        Slice<const Vec4> draw_commands = g_UIRenderer.GetDrawCommands();
-        Slice<const DrawCommandHeader> draw_command_headers = g_UIRenderer.GetDrawCommandHeaders();
+        Slice<const UIPrimitive> primitives = g_UIRenderer.GetPrimitives();
 
-        if (draw_commands.empty() || draw_command_headers.empty())
+        if (primitives.empty())
             return;
 
-        Buffer& draw_command_gpu_buffer = inDevice.GetBuffer(inResources.GetBuffer(inData.mDrawCommandBuffer));
-        Buffer& draw_command_header_gpu_buffer = inDevice.GetBuffer(inResources.GetBuffer(inData.mDrawCommandHeaderBuffer));
+        if (primitives.size() > SDFUIData::cMaxPrimitives)
+            primitives = primitives.first(SDFUIData::cMaxPrimitives);
 
-        inDevice.UploadBufferData(inCmdList, draw_command_gpu_buffer, 0, draw_commands.data(), draw_commands.size_bytes());
-        inDevice.UploadBufferData(inCmdList, draw_command_header_gpu_buffer, 0, draw_command_headers.data(), draw_command_headers.size_bytes());
+        Buffer& primitives_buffer = inDevice.GetBuffer(inResources.GetBuffer(inData.mPrimitivesBuffer));
+        inDevice.UploadBufferData(inCmdList, primitives_buffer, 0, primitives.data(), primitives.size_bytes());
 
-        const std::array barriers =
-        {
-            CD3DX12_RESOURCE_BARRIER::Transition(draw_command_gpu_buffer.GetD3D12Resource(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE),
-            CD3DX12_RESOURCE_BARRIER::Transition(draw_command_header_gpu_buffer.GetD3D12Resource(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE)
-        };
-
-        inCmdList->ResourceBarrier(barriers.size(), barriers.data());
+        const auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(primitives_buffer.GetD3D12Resource(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+        inCmdList->ResourceBarrier(1, &barrier);
 
         inCmdList->SetPipelineState(inData.mPipeline.Get());
         inCmdList.SetViewportAndScissor(inRenderGraph.GetViewport());
 
         inCmdList.PushGraphicsConstants(SDFUIRootConstants
         {
-            .mDrawCommandBuffer = inResources.GetBindlessHeapIndex(inData.mDrawCommandBufferSRV),
-            .mDrawCommandHeaderBuffer = inResources.GetBindlessHeapIndex(inData.mDrawCommandHeaderBufferSRV),
-            .mCommandCount = uint32_t(draw_command_headers.size()),
-            .mRenderSize = inRenderGraph.GetViewport().GetDisplaySize(),
-            .mRenderSizeRcp = 1.0f / Vec2(inRenderGraph.GetViewport().GetDisplaySize()),
+            .mPrimitivesBuffer = inResources.GetBindlessHeapIndex(inData.mPrimitivesBufferSRV),
+            .mFontAtlasTexture = inFontAtlas.IsValid() ? inDevice.GetBindlessHeapIndex(inFontAtlas) : 0u,
+            .mFontDistanceRange = g_UIRenderer.GetFontDistanceRange(),
+            .mFontAtlasPixelHeight = UIRenderer::cFontAtlasPixelHeight,
+            .mInvRenderSize = 1.0f / Vec2(inRenderGraph.GetViewport().GetDisplaySize()),
         });
 
-        inCmdList->DrawInstanced(3, 1, 0, 0);
+        inCmdList->DrawInstanced(6, uint32_t(primitives.size()), 0, 0);
     });
 }
 

@@ -572,27 +572,31 @@ struct ImGuiRootConstants
     uint mBindlessTextureIndex;
 };
 
-enum EDrawCommandType
+enum EUIPrimitiveType
 {
-    DRAW_COMMAND_RECT,
-    DRAW_COMMAND_CIRCLE,
-    DRAW_COMMAND_CIRCLE_FILLED,
+    UI_PRIMITIVE_RECT,
+    UI_PRIMITIVE_CIRCLE,
+    UI_PRIMITIVE_GLYPH,
 };
 
-struct DrawCommandHeader
+struct UIPrimitive
 {
-    EDrawCommandType type;
-    uint startOffset;
+    float4 mColor;
+    float4 mRect;
+    float4 mUVRect;
+    float  mRadius;
+    float  mThickness;
+    float  mSoftness;
+    uint   mType;
 };
 
 struct SDFUIRootConstants
 {
-    uint mDrawCommandBuffer;
-    uint mDrawCommandHeaderBuffer;
-    uint mCommandCount;
-    uint3 mPad0;
-    uint2 mRenderSize;
-    uint2 mRenderSizeRcp;
+    uint   mPrimitivesBuffer;
+    uint   mFontAtlasTexture;
+    float  mFontDistanceRange;
+    float  mFontAtlasPixelHeight;
+    float2 mInvRenderSize;
 };
 
 

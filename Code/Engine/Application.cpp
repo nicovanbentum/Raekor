@@ -7,6 +7,7 @@
 #include "Archive.h"
 #include "Script.h"
 #include "Camera.h"
+#include "UIRenderer.h"
 #include "Member.h"
 #include "Input.h"
 #include "Timer.h"
@@ -275,6 +276,13 @@ void Application::AddRecentScene(const Path& inPath)
 		new_paths.pop_back();
 
 	m_ConfigSettings.mRecentScenes = new_paths;
+}
+
+
+Game::Game(WindowFlags inFlags) : Application(inFlags)
+{
+	if (!m_ConfigSettings.mFontFile.empty() && fs::exists(m_ConfigSettings.mFontFile))
+		g_UIRenderer.LoadFont(m_ConfigSettings.mFontFile);
 }
 
 

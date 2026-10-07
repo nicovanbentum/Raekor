@@ -127,7 +127,7 @@ protected:
 class Game : public Application
 {
 public:
-    Game(WindowFlags inFlags) : Application(inFlags) {}
+    Game(WindowFlags inFlags);
     virtual ~Game() = default;
 
     virtual void Start();

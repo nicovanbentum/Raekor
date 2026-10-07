@@ -107,6 +107,7 @@ public:
 
 private:
     void CreateProbeDebugMesh(Device& inDevice);
+    void UpdateFontAtlas(Device& inDevice);
 
     uint64_t GetViewportKey(const Viewport& inViewport) const;
     uint64_t GetRenderGraphKey(const RayTracedScene& inScene, IRenderInterface* inRenderInterface) const;
@@ -157,6 +158,8 @@ private:
     BufferID                    m_DebugLinesVertexBuffer;
     BufferID                    m_DebugLinesIndirectArgsBuffer;
     Mesh                        m_ProbeDebugMesh;
+    TextureID                   m_FontAtlasTexture;
+    uint32_t                    m_FontAtlasVersion = 0;
     BackBufferData              m_BackBufferData[sFrameCount];
     FrameConstants              m_FrameConstants = {};
     GlobalConstants             m_GlobalConstants = {};

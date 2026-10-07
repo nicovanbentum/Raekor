@@ -87,7 +87,7 @@
         {
             "Vertex Shader": 
             {
-                "File Path": "Assets/Shaders/Backend/FullscreenTriangleVS.hlsl"
+                "File Path": "Assets/Shaders/Backend/SDFUIVS.hlsl"
             },
 
             "Pixel Shader": 

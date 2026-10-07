@@ -1,47 +1,65 @@
 #include "Include/Bindless.hlsli"
-#include "Include/Packing.hlsli"
 #include "Include/Common.hlsli"
 
-FRAME_CONSTANTS(fc)
 ROOT_CONSTANTS(SDFUIRootConstants, rc)
 
-float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0
+struct VS_OUTPUT
 {
-    StructuredBuffer<float4> draw_command_buffer = ResourceDescriptorHeap[rc.mDrawCommandBuffer];
-    StructuredBuffer<DrawCommandHeader> draw_header_buffer = ResourceDescriptorHeap[rc.mDrawCommandHeaderBuffer];
-    
-    float4 final_color = float4(0, 0, 0, 0);
-    
-    for (int command_index = 0; command_index < rc.mCommandCount; command_index++)
-    {
-        DrawCommandHeader header = draw_header_buffer[command_index];
-        
-        if (header.type == DRAW_COMMAND_CIRCLE_FILLED)
-        {
-            uint offset       = header.startOffset;
-            float4 color      = draw_command_buffer[offset++];
-            float4 pos_radius = draw_command_buffer[offset++];
-            
-            float distance = length(inParams.mPixelCoords.xy - pos_radius.xy) - pos_radius.z;
-            
-            //float glow_strength = 0.5;
-            //float glow_mask = saturate(distance / 20.0f);
-            //final_color = lerp(final_color, float4(1, 1, 0, 1), (1.0 - glow_mask) * glow_strength);
-            
-            final_color = lerp(final_color, color, saturate(1.0 - distance));
-        }
-        else if (header.type == DRAW_COMMAND_RECT)
-        {
-            uint offset     = header.startOffset;
-            float4 color    = draw_command_buffer[offset++];
-            float4 pos_size = draw_command_buffer[offset++];
-            float radius    = draw_command_buffer[offset++].x;
-            
-            float distance = length(max(abs(inParams.mPixelCoords.xy - pos_size.xy) - pos_size.zw + radius, 0.0)) - radius;
-            final_color = lerp(final_color, color, saturate(1.0 - distance));
-        }
-    }
-    
-    return final_color;
+    float4 mPosition : SV_Position;
+    float2 mPixel    : PIXEL;
+    nointerpolation uint mPrimitive : PRIMITIVE;
+};
 
+
+float RoundedBoxDistance(float2 inPoint, float2 inHalfSize, float inRadius)
+{
+    const float2 q = abs(inPoint) - inHalfSize + inRadius;
+    return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - inRadius;
+}
+
+
+float Coverage(float inDistance, float inSoftness)
+{
+    return 1.0 - smoothstep(-0.5, 0.5 + inSoftness, inDistance);
+}
+
+
+float4 main(in VS_OUTPUT inParams) : SV_Target0
+{
+    StructuredBuffer<UIPrimitive> primitives = ResourceDescriptorHeap[rc.mPrimitivesBuffer];
+    UIPrimitive primitive = primitives[inParams.mPrimitive];
+
+    const float2 center = ( primitive.mRect.xy + primitive.mRect.zw ) * 0.5;
+    const float2 half_size = ( primitive.mRect.zw - primitive.mRect.xy ) * 0.5;
+
+    float coverage = 0.0;
+
+    if (primitive.mType == UI_PRIMITIVE_RECT)
+    {
+        float distance = RoundedBoxDistance(inParams.mPixel - center, half_size, primitive.mRadius);
+
+        if (primitive.mThickness > 0.0)
+            distance = abs(distance + primitive.mThickness * 0.5) - primitive.mThickness * 0.5;
+
+        coverage = Coverage(distance, primitive.mSoftness);
+    }
+    else if (primitive.mType == UI_PRIMITIVE_CIRCLE)
+    {
+        const float distance = length(inParams.mPixel - center) - primitive.mRadius;
+        coverage = Coverage(distance, primitive.mSoftness);
+    }
+    else if (primitive.mType == UI_PRIMITIVE_GLYPH)
+    {
+        Texture2D<float> font_atlas = ResourceDescriptorHeap[rc.mFontAtlasTexture];
+
+        const float2 uv = lerp(primitive.mUVRect.xy, primitive.mUVRect.zw, ( inParams.mPixel - primitive.mRect.xy ) / max(primitive.mRect.zw - primitive.mRect.xy, 1e-4));
+        const float sampled = font_atlas.SampleLevel(SamplerLinearClamp, uv, 0);
+
+        const float atlas_distance = ( 0.5 - sampled ) * 2.0 * rc.mFontDistanceRange;
+        const float screen_distance = atlas_distance * primitive.mRadius;
+
+        coverage = Coverage(screen_distance, 0.0);
+    }
+
+    return float4(primitive.mColor.rgb, primitive.mColor.a * coverage);
 }

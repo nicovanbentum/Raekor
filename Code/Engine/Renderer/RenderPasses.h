@@ -539,16 +539,17 @@ const DebugPrimitivesData& AddDebugOverlayPass(RenderGraph& inRenderGraph, Devic
 
 struct SDFUIData
 {
-    RenderGraphResourceID mDrawCommandBuffer;
-    RenderGraphResourceID mDrawCommandHeaderBuffer;
-    RenderGraphResourceViewID mDrawCommandBufferSRV;
-    RenderGraphResourceViewID mDrawCommandHeaderBufferSRV;
+    static constexpr uint32_t cMaxPrimitives = 64 * 1024;
+
+    RenderGraphResourceID mPrimitivesBuffer;
+    RenderGraphResourceViewID mPrimitivesBufferSRV;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
 
 
-const SDFUIData& AddSDFUIPass(RenderGraph& inRenderGraph, Device& inDevice, 
-    RenderGraphResourceID inRenderTarget);
+const SDFUIData& AddSDFUIPass(RenderGraph& inRenderGraph, Device& inDevice,
+    RenderGraphResourceID inRenderTarget,
+    const TextureID& inFontAtlas);
 
 
 
