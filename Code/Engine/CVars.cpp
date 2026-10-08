@@ -23,13 +23,6 @@ RTTI_DEFINE_TYPE(CVariables)
 
 CVariables::CVariables(int argc, char** argv)
 {
-	std::ifstream stream = std::ifstream("cvars.json");
-	if (!stream.is_open() || fs::file_size("cvars.json") == 0)
-		return;
-
-	JSON::ReadArchive json_archive = JSON::ReadArchive("cvars.json");
-	json_archive >> *this;
-
 	for (int i = 0; i < argc; i++)
 	{
 		if (argv[i][0] != '-')
@@ -41,19 +34,32 @@ CVariables::CVariables(int argc, char** argv)
 		if (equals_pos == std::string::npos)
 			continue;
 
-		const String cvar = string.substr(1, equals_pos - 1);
-		const String value = string.substr(equals_pos + 1);
-
-		if (!Exists(cvar))
-			continue;
-
-		if (!SetValue(cvar, value))
-			gLogWarning("CVars", "Failed to set cvar \"{}\" to {}", cvar, value);
-		else
-		{
-			gLogInfo("CVars", "Set cvar \"{}\" to {}", cvar, value);
-		}
+		m_CommandLineValues[string.substr(1, equals_pos - 1)] = string.substr(equals_pos + 1);
 	}
+
+	std::ifstream stream = std::ifstream("cvars.json");
+	if (!stream.is_open() || fs::file_size("cvars.json") == 0)
+		return;
+
+	JSON::ReadArchive json_archive = JSON::ReadArchive("cvars.json");
+	json_archive >> *this;
+
+	for (const auto& [name, value] : m_CommandLineValues)
+		ApplyCommandLineValue(name);
+}
+
+
+void CVariables::ApplyCommandLineValue(const String& inName)
+{
+	const auto value = m_CommandLineValues.find(inName);
+
+	if (value == m_CommandLineValues.end() || !Exists(inName) || m_ConVars[inName].mType == CVAR_TYPE_FUNCTION)
+		return;
+
+	if (SetValue(inName, value->second))
+		gLogInfo("CVars", "Set cvar \"{}\" to {}", inName, value->second);
+	else
+		gLogWarning("CVars", "Failed to set cvar \"{}\" to {}", inName, value->second);
 }
 
 

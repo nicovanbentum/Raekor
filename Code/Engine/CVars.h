@@ -76,14 +76,20 @@ public:
 	const HashMap<String, CVar>& GetCVars() const { return m_ConVars; }
 
 private:
+	void ApplyCommandLineValue(const String& inName);
+
 	HashMap<String, CVar> m_ConVars;
+	HashMap<String, String> m_CommandLineValues;
 };
 
 template<typename T>
 inline T& CVariables::Create(const std::string& inName, T value, bool force)
 {
 	if (m_ConVars.find(inName) == m_ConVars.end() || force)
+	{
 		m_ConVars[inName] = CVar(value);
+		ApplyCommandLineValue(inName);
+	}
 
 	return m_ConVars[inName].GetValue<T>();
 }
