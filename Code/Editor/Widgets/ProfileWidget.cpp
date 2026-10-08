@@ -21,6 +21,20 @@ void ProfileWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	ImGui::Begin(m_Title.c_str(), &m_Open);
 	m_Visible = ImGui::IsWindowAppearing();
 
+	ImGui::SetNextItemWidth(ImGui::CalcTextSize("GPU").x + ImGui::GetFrameHeightWithSpacing() * 2.0f);
+	if (ImGui::BeginCombo("##profilersource", m_ShowGPU ? "GPU" : "CPU"))
+	{
+		if (ImGui::Selectable("CPU", !m_ShowGPU))
+			SetShowGPU(false);
+
+		if (ImGui::Selectable("GPU", m_ShowGPU))
+			SetShowGPU(true);
+
+		ImGui::EndCombo();
+	}
+
+	ImGui::SameLine();
+
 	ImGui::AlignTextToFramePadding();
 	ImGui::Text("Filter:");
 	ImGui::SameLine();
@@ -40,92 +54,48 @@ void ProfileWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	ImGui::SetNextItemWidth(100.0f);
 	ImGui::SliderFloat("Zoom##profilerzoom", &m_Zoom, 1.0f, 10.0f, "%.1f");
 
-	const Array<ProfileSection>& cpu_sections = g_Profiler->GetCPUSections();
-	const Array<ProfileSection>& gpu_sections = g_Profiler->GetGPUSections();
+	const Array<ProfileSection>& sections = m_ShowGPU ? g_Profiler->GetGPUSections() : g_Profiler->GetCPUSections();
 
-	const TrackBounds cpu_bounds = sGetTrackBounds(cpu_sections);
-	const TrackBounds gpu_bounds = sGetTrackBounds(gpu_sections);
-
-	uint32_t row_count = 0;
-	uint32_t track_count = 0;
-	uint64_t total_ticks = 1;
-
-	if (!cpu_sections.empty())
-	{
-		track_count++;
-		row_count += cpu_bounds.mMaxDepth + 1;
-		total_ticks = glm::max(total_ticks, cpu_bounds.mHighestTick - cpu_bounds.mLowestTick);
-	}
-
-	if (!gpu_sections.empty())
-	{
-		track_count++;
-		row_count += gpu_bounds.mMaxDepth + 1;
-		total_ticks = glm::max(total_ticks, gpu_bounds.mHighestTick - gpu_bounds.mLowestTick);
-	}
-
-	if (track_count == 0)
+	if (sections.empty())
 	{
 		ImGui::TextDisabled("No profiling data available.");
 		ImGui::End();
 		return;
 	}
 
-	ImVec2 avail_size = ImGui::GetContentRegionAvail();
-	avail_size.x = glm::max(avail_size.x, 1.0f);
+	uint32_t max_depth = 0;
+	uint64_t lowest_tick = UINT64_MAX;
+	uint64_t highest_tick = 0;
 
-	const float track_label_height = ImGui::GetTextLineHeightWithSpacing() * track_count;
-	const float bar_height = glm::max(( avail_size.y - track_label_height ) / row_count, 1.0f) * m_Zoom;
-	const float pixels_per_tick = avail_size.x / total_ticks;
-
-	if (!cpu_sections.empty())
-		DrawTrack(0, "CPU", cpu_sections, pixels_per_tick, bar_height, filter);
-
-	if (!gpu_sections.empty())
-		DrawTrack(1, "GPU", gpu_sections, pixels_per_tick, bar_height, filter);
-
-	ImGui::End();
-}
-
-
-ProfileWidget::TrackBounds ProfileWidget::sGetTrackBounds(const Array<ProfileSection>& inSections)
-{
-	TrackBounds bounds;
-
-	for (const ProfileSection& section : inSections)
+	for (const ProfileSection& section : sections)
 	{
-		bounds.mMaxDepth = glm::max(bounds.mMaxDepth, section.mDepth);
-		bounds.mLowestTick = glm::min(bounds.mLowestTick, section.mStartTick);
-		bounds.mHighestTick = glm::max(bounds.mHighestTick, section.mEndTick);
+		max_depth = glm::max(max_depth, section.mDepth);
+		lowest_tick = glm::min(lowest_tick, section.mStartTick);
+		highest_tick = glm::max(highest_tick, section.mEndTick);
 	}
 
-	return bounds;
-}
+	const uint64_t total_ticks = glm::max(highest_tick - lowest_tick, 1ull);
 
-
-void ProfileWidget::DrawTrack(int inTrack, const char* inLabel, const Array<ProfileSection>& inSections, float inPixelsPerTick, float inBarHeight, const ImGuiTextFilter& inFilter)
-{
-	const TrackBounds bounds = sGetTrackBounds(inSections);
-	const float track_time = Timer::sGetTicksToSeconds(bounds.mHighestTick - bounds.mLowestTick);
-
-	ImGui::Text("%s (%.2f ms)", inLabel, Timer::sToMilliseconds(track_time));
-
-	ImGui::PushID(inTrack);
+	ImGui::SameLine();
+	ImGui::Text("Total: %.2f ms", Timer::sToMilliseconds(Timer::sGetTicksToSeconds(total_ticks)));
 
 	const ImVec2 start_pos = ImGui::GetCursorScreenPos();
-	const float track_width = ImGui::GetContentRegionAvail().x;
+	const ImVec2 avail_size = ImVec2(glm::max(ImGui::GetContentRegionAvail().x, 1.0f), glm::max(ImGui::GetContentRegionAvail().y, 1.0f));
 
-	for (const auto& [index, section] : gEnumerate(inSections))
+	const float bar_height = ( avail_size.y / ( max_depth + 1 ) ) * m_Zoom;
+	const float pixels_per_tick = avail_size.x / total_ticks;
+
+	for (const auto& [index, section] : gEnumerate(sections))
 	{
-		const float start_pos_x = start_pos.x + ( section.mStartTick - bounds.mLowestTick ) * inPixelsPerTick;
-		const float end_pos_x = start_pos.x + ( section.mEndTick - bounds.mLowestTick ) * inPixelsPerTick;
+		const float start_pos_x = start_pos.x + ( section.mStartTick - lowest_tick ) * pixels_per_tick;
+		const float end_pos_x = start_pos.x + ( section.mEndTick - lowest_tick ) * pixels_per_tick;
 
 		// skip sections that are too small to see
 		if (end_pos_x - start_pos_x < 1.0f)
 			continue;
 
-		const float start_pos_y = start_pos.y + ( section.mDepth + 0 ) * inBarHeight;
-		const float end_pos_y = start_pos.y + ( section.mDepth + 1 ) * inBarHeight;
+		const float start_pos_y = start_pos.y + ( section.mDepth + 0 ) * bar_height;
+		const float end_pos_y = start_pos.y + ( section.mDepth + 1 ) * bar_height;
 
 		const ImVec2 pad = ImVec2(1.0f, 1.0f);
 		const ImRect bbox = ImRect(ImVec2(start_pos_x, start_pos_y), ImVec2(end_pos_x, end_pos_y));
@@ -140,11 +110,10 @@ void ProfileWidget::DrawTrack(int inTrack, const char* inLabel, const Array<Prof
 
 		ImGui::PopID();
 
-		const bool is_selected = m_SelectedTrack == inTrack && m_SelectedSectionIndex == index;
+		const bool is_selected = m_SelectedSectionIndex == index;
 
 		if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
 		{
-			m_SelectedTrack = is_selected ? -1 : inTrack;
 			m_SelectedSectionIndex = is_selected ? -1 : index;
 		}
 
@@ -154,7 +123,7 @@ void ProfileWidget::DrawTrack(int inTrack, const char* inLabel, const Array<Prof
 			ImGui::SetTooltip(text_buffer);
 
 		const float label_hash = float(gHash32Bit(section.mName)) / UINT32_MAX;
-		const bool passes_filter = inFilter.PassFilter(section.mName);
+		const bool passes_filter = filter.PassFilter(section.mName);
 
 		float upper_v = is_hovered ? 0.6f : 0.5f;
 		float lower_v = is_hovered ? 0.5f : 0.4f;
@@ -177,7 +146,7 @@ void ProfileWidget::DrawTrack(int inTrack, const char* inLabel, const Array<Prof
 		ImGui::GetWindowDrawList()->AddRectFilledMultiColor(bbox.Min + pad, bbox.Max - pad, upper_gradient, lower_gradient, lower_gradient, upper_gradient);
 
 		// dont render labels for tiny bars
-		if (bbox.GetWidth() > track_width * 0.01f)
+		if (bbox.GetWidth() > avail_size.x * 0.01f)
 		{
 			const ImVec2 label_size = ImGui::CalcTextSize(text_buffer, NULL, true);
 			const ImRect text_clip_rect = ImRect(bbox.Min + pad, bbox.Max - pad * 2.0f);
@@ -189,10 +158,19 @@ void ProfileWidget::DrawTrack(int inTrack, const char* inLabel, const Array<Prof
 		}
 	}
 
-	ImGui::PopID();
-
 	ImGui::SetCursorScreenPos(start_pos);
-	ImGui::Dummy(ImVec2(track_width, ( bounds.mMaxDepth + 1 ) * inBarHeight));
+	ImGui::Dummy(ImVec2(avail_size.x, ( max_depth + 1 ) * bar_height));
+
+	ImGui::End();
+}
+
+
+void ProfileWidget::SetShowGPU(bool inShowGPU)
+{
+	if (m_ShowGPU != inShowGPU)
+		m_SelectedSectionIndex = -1;
+
+	m_ShowGPU = inShowGPU;
 }
 
 

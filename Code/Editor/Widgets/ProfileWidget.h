@@ -20,20 +20,11 @@ public:
 	void OnEvent(Widgets* inWidgets, const SDL_Event& inEvent) override;
 
 private:
-	struct TrackBounds
-	{
-		uint32_t mMaxDepth = 0;
-		uint64_t mLowestTick = UINT64_MAX;
-		uint64_t mHighestTick = 0;
-	};
-
-	static TrackBounds sGetTrackBounds(const Array<ProfileSection>& inSections);
-
-	void DrawTrack(int inTrack, const char* inLabel, const Array<ProfileSection>& inSections, float inPixelsPerTick, float inBarHeight, const ImGuiTextFilter& inFilter);
+	void SetShowGPU(bool inShowGPU);
 
 	float m_Zoom = 1.0f;
+	bool m_ShowGPU = true;
 	String m_FilterInputBuffer;
-	int m_SelectedTrack = -1;
 	int m_SelectedSectionIndex = -1;
 };
 
