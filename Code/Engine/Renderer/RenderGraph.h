@@ -57,6 +57,9 @@ struct RenderGraphResource
     bool mImported = false;
     /* Bindless descriptor heap index */
     DescriptorID mDescriptorID;
+    uint64_t mHeapOffset = 0;
+    D3D12_RESOURCE_STATES mState = D3D12_RESOURCE_STATE_COMMON;
+    bool mInitialized = false;
 };
 
 
@@ -107,23 +110,18 @@ private:
 class RenderGraphResourceAllocator
 {
 public:
-    ~RenderGraphResourceAllocator() { Clear(); }
-
-    void Reserve(Device& inDevice, uint64_t inSize, uint64_t inAlignment);
+    bool Reserve(Device& inDevice, uint64_t inSize, uint64_t inAlignment);
     void Release(Device& inDevice);
     void RetireHeaps(Device& inDevice);
 
-    void Clear();
-
-    BufferID CreateBuffer(Device& inDevice, const Buffer::Desc& inDesc);
-    TextureID CreateTexture(Device& inDevice, const Texture::Desc& inDesc);
+    BufferID CreateBuffer(Device& inDevice, const Buffer::Desc& inDesc, uint64_t inHeapOffset);
+    TextureID CreateTexture(Device& inDevice, const Texture::Desc& inDesc, uint64_t inHeapOffset);
 
     uint64_t GetSize() const { return m_Size; }
-    uint64_t GetOffset() const { return m_Offset; }
+
+    static D3D12_RESOURCE_STATES sGetInitialState(const Texture::Desc& inDesc);
 
 private:
-    uint64_t Allocate(Device& inDevice, const D3D12_RESOURCE_DESC& inDesc);
-
     static constexpr uint64_t sHeapIdleFrames = 120;
 
     struct Heap
@@ -135,12 +133,10 @@ private:
 
 private:
     uint64_t m_Size = 0;
-    uint64_t m_Offset = 0;
     uint64_t m_Alignment = 0;
 
     Array<Heap> m_RetiredHeaps;
     ComPtr<D3D12MA::Allocation> m_Allocation = nullptr;
-    ComPtr<D3D12MA::VirtualBlock> m_VirtualBlock = nullptr;
 };
 
 
@@ -175,9 +171,12 @@ public:
     bool IsTexture(RenderGraphResourceViewID inResource) const { return m_ResourceViews[inResource].mResourceType == RESOURCE_TYPE_TEXTURE; }
 
 private:
+    void ReleaseCachedResources(Device& inDevice);
+
     RenderGraphResourceAllocator m_Allocator;
     Array<RenderGraphResource> m_Resources;
     Array<RenderGraphResource> m_ResourceViews;
+    Array<RenderGraphResource> m_CachedResources;
 };
 
 
@@ -343,7 +342,7 @@ public:
     /* Set render targets before the start of a pass */
     void SetRenderTargets(Device& inDevice, IRenderPass* inRenderPass, CommandList& inCmdList) const;
 
-    void InitializeResources(Device& inDevice, CommandList& inCmdList) const;
+    void InitializeResources(Device& inDevice, CommandList& inCmdList);
 
     /* Dump the entire graph to GraphViz text, can be written directly to a file and opened using the VS Code extension. */
     String	ToGraphVizText(const Device& inDevice, TextureID inBackBuffer) const;

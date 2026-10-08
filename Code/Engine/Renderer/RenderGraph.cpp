@@ -239,17 +239,17 @@ void RenderGraphBuilder::Clear()
 
 
 
-void RenderGraphResourceAllocator::Reserve(Device& inDevice, uint64_t inSize, uint64_t inAlignment)
+bool RenderGraphResourceAllocator::Reserve(Device& inDevice, uint64_t inSize, uint64_t inAlignment)
 {
-    m_Offset = 0;
+    const auto IsSuitable = [inSize, inAlignment](const D3D12MA::Allocation* inAllocation, uint64_t inAllocationAlignment)
+    {
+        return inAllocation->GetSize() >= inSize && inAllocation->GetSize() <= inSize * 2 && inAllocationAlignment >= inAlignment;
+    };
 
     if (m_Allocation != nullptr)
     {
-        const bool fits = m_Allocation->GetSize() >= inSize && m_Alignment >= inAlignment;
-        const bool oversized = m_Allocation->GetSize() > inSize * 2;
-
-        if (fits && !oversized)
-            return;
+        if (IsSuitable(m_Allocation.Get(), m_Alignment))
+            return true;
 
         Release(inDevice);
     }
@@ -258,7 +258,7 @@ void RenderGraphResourceAllocator::Reserve(Device& inDevice, uint64_t inSize, ui
     {
         const bool is_idle = inDevice.GetFrameCounter() >= heap.mFrameCounter + sFrameCount + 1;
 
-        if (is_idle && heap.mAllocation->GetSize() >= inSize && heap.mAlignment >= inAlignment)
+        if (is_idle && IsSuitable(heap.mAllocation.Get(), heap.mAlignment))
         {
             m_Allocation = heap.mAllocation;
             m_Alignment = heap.mAlignment;
@@ -285,27 +285,13 @@ void RenderGraphResourceAllocator::Reserve(Device& inDevice, uint64_t inSize, ui
 
     m_Size = m_Allocation->GetSize();
 
-    D3D12MA::VIRTUAL_BLOCK_DESC virtual_block_desc = {};
-    virtual_block_desc.Size = m_Size;
-    virtual_block_desc.Flags = D3D12MA::VIRTUAL_BLOCK_FLAG_ALGORITHM_LINEAR;
-
-    gThrowIfFailed(D3D12MA::CreateVirtualBlock(&virtual_block_desc, m_VirtualBlock.GetAddressOf()));
-}
-
-
-
-void RenderGraphResourceAllocator::Clear()
-{
-    if (m_VirtualBlock)
-        m_VirtualBlock->Clear();
+    return false;
 }
 
 
 
 void RenderGraphResourceAllocator::Release(Device& inDevice)
 {
-    Clear();
-
     if (m_Allocation != nullptr)
     {
         m_RetiredHeaps.push_back(Heap
@@ -317,10 +303,8 @@ void RenderGraphResourceAllocator::Release(Device& inDevice)
     }
 
     m_Size = 0;
-    m_Offset = 0;
     m_Alignment = 0;
     m_Allocation = nullptr;
-    m_VirtualBlock = nullptr;
 }
 
 
@@ -338,20 +322,18 @@ void RenderGraphResourceAllocator::RetireHeaps(Device& inDevice)
 
 
 
-BufferID RenderGraphResourceAllocator::CreateBuffer(Device& inDevice, const Buffer::Desc& inDesc)
+BufferID RenderGraphResourceAllocator::CreateBuffer(Device& inDevice, const Buffer::Desc& inDesc, uint64_t inHeapOffset)
 {
     Buffer buffer = Buffer(inDesc);
     D3D12_RESOURCE_DESC resource_description = inDesc.ToResourceDesc();
-    D3D12MA::ALLOCATION_DESC allocation_description = inDesc.ToAllocationDesc();
 
     D3D12_CLEAR_VALUE clear_value = {};
     D3D12_CLEAR_VALUE* clear_value_ptr = nullptr;
 
     D3D12_RESOURCE_STATES initial_state = GetD3D12InitialResourceStates(inDesc.usage);
-    uint64_t resource_allocation_offset = Allocate(inDevice, resource_description);
 
     ID3D12Resource* resource = nullptr;
-    gThrowIfFailed(inDevice.GetAllocator()->CreateAliasingResource(m_Allocation.Get(), resource_allocation_offset, &resource_description, initial_state, clear_value_ptr, IID_PPV_ARGS(&resource)));
+    gThrowIfFailed(inDevice.GetAllocator()->CreateAliasingResource(m_Allocation.Get(), inHeapOffset, &resource_description, initial_state, clear_value_ptr, IID_PPV_ARGS(&resource)));
     
     buffer.SetD3D12Resource(resource);
     return inDevice.CreateBuffer(inDesc, buffer);
@@ -359,17 +341,30 @@ BufferID RenderGraphResourceAllocator::CreateBuffer(Device& inDevice, const Buff
 
 
 
-TextureID RenderGraphResourceAllocator::CreateTexture(Device& inDevice, const Texture::Desc& inDesc)
+D3D12_RESOURCE_STATES RenderGraphResourceAllocator::sGetInitialState(const Texture::Desc& inDesc)
+{
+    const D3D12_RESOURCE_FLAGS flags = inDesc.ToResourceDesc().Flags;
+
+    if (flags & D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET)
+        return D3D12_RESOURCE_STATE_RENDER_TARGET;
+
+    if (flags & D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL)
+        return D3D12_RESOURCE_STATE_DEPTH_WRITE;
+
+    return GetD3D12InitialResourceStates(inDesc.usage);
+}
+
+
+
+TextureID RenderGraphResourceAllocator::CreateTexture(Device& inDevice, const Texture::Desc& inDesc, uint64_t inHeapOffset)
 {
     Texture texture = Texture(inDesc);
     D3D12_RESOURCE_DESC resource_description = inDesc.ToResourceDesc();
-    D3D12MA::ALLOCATION_DESC allocation_description = inDesc.ToAllocationDesc();
 
     D3D12_CLEAR_VALUE clear_value = {};
     D3D12_CLEAR_VALUE* clear_value_ptr = nullptr;
 
-    D3D12_RESOURCE_STATES initial_state = GetD3D12InitialResourceStates(inDesc.usage);
-    uint64_t resource_allocation_offset = Allocate(inDevice, resource_description);
+    D3D12_RESOURCE_STATES initial_state = sGetInitialState(inDesc);
 
     if (inDesc.usage == Texture::DEPTH_STENCIL_TARGET)
     {
@@ -384,27 +379,10 @@ TextureID RenderGraphResourceAllocator::CreateTexture(Device& inDevice, const Te
     }
     
     ID3D12Resource* resource = nullptr;
-    gThrowIfFailed(inDevice.GetAllocator()->CreateAliasingResource(m_Allocation.Get(), resource_allocation_offset, &resource_description, initial_state, clear_value_ptr, IID_PPV_ARGS(&resource)));
+    gThrowIfFailed(inDevice.GetAllocator()->CreateAliasingResource(m_Allocation.Get(), inHeapOffset, &resource_description, initial_state, clear_value_ptr, IID_PPV_ARGS(&resource)));
 
     texture.SetD3D12Resource(resource);
     return inDevice.CreateTexture(inDesc, texture);
-}
-
-
-
-uint64_t RenderGraphResourceAllocator::Allocate(Device& inDevice, const D3D12_RESOURCE_DESC& inDesc)
-{
-    D3D12_RESOURCE_ALLOCATION_INFO resource_allocation_info = inDevice->GetResourceAllocationInfo(0, 1, &inDesc);
-
-    D3D12MA::VIRTUAL_ALLOCATION_DESC virtual_allocation_desc = {};
-    virtual_allocation_desc.Size = resource_allocation_info.SizeInBytes;
-    virtual_allocation_desc.Alignment = resource_allocation_info.Alignment;
-
-    uint64_t virtual_allocation_offset = 0u;
-    D3D12MA::VirtualAllocation virtual_allocation;
-    m_VirtualBlock->Allocate(&virtual_allocation_desc, &virtual_allocation, &virtual_allocation_offset);
-
-    return virtual_allocation_offset;
 }
 
 
@@ -418,16 +396,8 @@ void RenderGraphResources::Clear(Device& inDevice)
         if (resource.mImported)
             continue;
 
-        if (seen.contains(resource.mResourceID))
-            continue;
-
         seen.insert(resource.mResourceID);
-
-        if (resource.mResourceType == RESOURCE_TYPE_BUFFER)
-            inDevice.ReleaseBuffer(BufferID(resource.mResourceID));
-
-        if (resource.mResourceType == RESOURCE_TYPE_TEXTURE)
-            inDevice.ReleaseTexture(TextureID(resource.mResourceID));
+        m_CachedResources.push_back(resource);
     }
 
     for (const RenderGraphResource& resource : m_ResourceViews)
@@ -449,8 +419,22 @@ void RenderGraphResources::Clear(Device& inDevice)
 
     m_Resources.clear();
     m_ResourceViews.clear();
+}
 
-    m_Allocator.Clear();
+
+
+void RenderGraphResources::ReleaseCachedResources(Device& inDevice)
+{
+    for (const RenderGraphResource& resource : m_CachedResources)
+    {
+        if (resource.mResourceType == RESOURCE_TYPE_BUFFER)
+            inDevice.ReleaseBuffer(BufferID(resource.mResourceID));
+
+        if (resource.mResourceType == RESOURCE_TYPE_TEXTURE)
+            inDevice.ReleaseTexture(TextureID(resource.mResourceID));
+    }
+
+    m_CachedResources.clear();
 }
 
 
@@ -481,12 +465,34 @@ void RenderGraphResources::Compile(Device& inDevice, const RenderGraphBuilder& i
         }
     }
 
-    D3D12_RESOURCE_ALLOCATION_INFO allocation_info = inDevice->GetResourceAllocationInfo(0, resource_descriptions.size(), resource_descriptions.data());
+    Array<D3D12_RESOURCE_ALLOCATION_INFO1> resource_allocation_infos(resource_descriptions.size());
+    D3D12_RESOURCE_ALLOCATION_INFO allocation_info = inDevice->GetResourceAllocationInfo1(0, resource_descriptions.size(), resource_descriptions.data(), resource_allocation_infos.data());
 
-    m_Allocator.Reserve(inDevice, std::max(allocation_info.SizeInBytes, uint64_t(D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT)), std::max(allocation_info.Alignment, uint64_t(D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT)));
+    if (!m_Allocator.Reserve(inDevice, std::max(allocation_info.SizeInBytes, uint64_t(D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT)), std::max(allocation_info.Alignment, uint64_t(D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT))))
+        ReleaseCachedResources(inDevice);
 
-    // Allocate actual device buffers/textures
-    // TODO: aliasing
+    const auto IsSameDebugName = [](const char* inA, const char* inB) { return inA == inB || ( inA && inB && std::strcmp(inA, inB) == 0 ); };
+
+    const auto FindCachedResource = [&](const RenderGraphResourceDesc& inDesc, uint64_t inHeapOffset)
+    {
+        return std::find_if(m_CachedResources.begin(), m_CachedResources.end(), [&](const RenderGraphResource& inCached)
+        {
+            if (inCached.mResourceType != inDesc.mResourceType || inCached.mHeapOffset != inHeapOffset)
+                return false;
+
+            if (inDesc.mResourceType == RESOURCE_TYPE_BUFFER)
+            {
+                const Buffer::Desc& cached_desc = inDevice.GetBuffer(BufferID(inCached.mResourceID)).GetDesc();
+                return cached_desc == inDesc.mBufferDesc && IsSameDebugName(cached_desc.debugName, inDesc.mBufferDesc.debugName);
+            }
+
+            const Texture::Desc& cached_desc = inDevice.GetTexture(TextureID(inCached.mResourceID)).GetDesc();
+            return cached_desc == inDesc.mTextureDesc && IsSameDebugName(cached_desc.debugName, inDesc.mTextureDesc.debugName);
+        });
+    };
+
+    uint32_t placed_resource_index = 0;
+
     for (const RenderGraphResourceDesc& desc : inBuilder.m_ResourceDescriptions)
     {
         RenderGraphResource resource;
@@ -506,22 +512,43 @@ void RenderGraphResources::Compile(Device& inDevice, const RenderGraphBuilder& i
                 resource.mDescriptorID = inDevice.GetTexture(TextureID(resource.mResourceID)).GetDescriptor();
             }
         }
-        else if (desc.mResourceType == RESOURCE_TYPE_BUFFER)
+        else
         {
-            resource.mResourceID = m_Allocator.CreateBuffer(inDevice, desc.mBufferDesc);
-            resource.mDescriptorID = inDevice.GetBuffer(BufferID(resource.mResourceID)).GetDescriptor();
-        }
-        else if (desc.mResourceType == RESOURCE_TYPE_TEXTURE)
-        {
-            resource.mResourceID = m_Allocator.CreateTexture(inDevice, desc.mTextureDesc);
-            resource.mDescriptorID = inDevice.GetTexture(TextureID(resource.mResourceID)).GetDescriptor();
+            resource.mHeapOffset = resource_allocation_infos[placed_resource_index++].Offset;
+
+            if (auto cached = FindCachedResource(desc, resource.mHeapOffset); cached != m_CachedResources.end())
+            {
+                resource.mResourceID = cached->mResourceID;
+                resource.mState = cached->mState;
+                resource.mInitialized = cached->mInitialized;
+
+                *cached = m_CachedResources.back();
+                m_CachedResources.pop_back();
+            }
+            else if (desc.mResourceType == RESOURCE_TYPE_BUFFER)
+            {
+                resource.mResourceID = m_Allocator.CreateBuffer(inDevice, desc.mBufferDesc, resource.mHeapOffset);
+                resource.mState = GetD3D12InitialResourceStates(desc.mBufferDesc.usage);
+            }
+            else if (desc.mResourceType == RESOURCE_TYPE_TEXTURE)
+            {
+                resource.mResourceID = m_Allocator.CreateTexture(inDevice, desc.mTextureDesc, resource.mHeapOffset);
+                resource.mState = RenderGraphResourceAllocator::sGetInitialState(desc.mTextureDesc);
+            }
+
+            if (desc.mResourceType == RESOURCE_TYPE_BUFFER)
+                resource.mDescriptorID = inDevice.GetBuffer(BufferID(resource.mResourceID)).GetDescriptor();
+            else if (desc.mResourceType == RESOURCE_TYPE_TEXTURE)
+                resource.mDescriptorID = inDevice.GetTexture(TextureID(resource.mResourceID)).GetDescriptor();
         }
 
         m_Resources.push_back(resource);
 
         assert(resource.mResourceID.IsValid());
     }
-    
+
+    ReleaseCachedResources(inDevice);
+
     // Create buffer/texture resource views
     for (const RenderGraphResourceViewDesc& descriptor_desc : inBuilder.m_ResourceViewDescriptions)
     {
@@ -1013,22 +1040,6 @@ bool RenderGraph::Compile(Device& inDevice, const GlobalConstants& inGlobalConst
 
     for (const auto& [resource_id, resource] : graph)
     {
-        if (resource.mEdges.empty())
-            continue;
-
-        const RenderGraphResourceDesc& desc = m_RenderGraphBuilder.GetResourceDesc(resource_id);
-
-        if (desc.mResourceID.IsValid() || desc.mResourceType == RESOURCE_TYPE_BUFFER)
-            continue;
-
-        const D3D12_RESOURCE_STATES created_state = GetD3D12InitialResourceStates(desc.mTextureDesc.usage);
-
-        if (created_state != resource.mEdges[0].mState)
-            m_InitialBarriers.push_back(ResourceBarrier::Transition(resource_id, created_state, resource.mEdges[0].mState, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES));
-    }
-
-    for (const auto& [resource_id, resource] : graph)
-    {
         if (resource.mEdges.size() < 2)
             continue;
 
@@ -1105,30 +1116,49 @@ bool RenderGraph::Compile(Device& inDevice, const GlobalConstants& inGlobalConst
     }
 
     m_RenderGraphResources.Compile(inDevice, m_RenderGraphBuilder);
+
+    for (const auto& [resource_id, node] : graph)
+    {
+        const RenderGraphResource& resource = m_RenderGraphResources.m_Resources[resource_id];
+
+        if (node.mEdges.empty() || resource.mImported || resource.mResourceType == RESOURCE_TYPE_BUFFER)
+            continue;
+
+        if (resource.mState != node.mEdges[0].mState)
+            m_InitialBarriers.push_back(ResourceBarrier::Transition(resource_id, resource.mState, node.mEdges[0].mState, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES));
+    }
+
     m_ResourcesInitialized = false;
 
     return true;
 }
 
 
-void RenderGraph::InitializeResources(Device& inDevice, CommandList& inCmdList) const
+void RenderGraph::InitializeResources(Device& inDevice, CommandList& inCmdList)
 {
     const D3D12_RESOURCE_BARRIER aliasing_barrier = CD3DX12_RESOURCE_BARRIER::Aliasing(nullptr, nullptr);
     inCmdList->ResourceBarrier(1, &aliasing_barrier);
 
-    for (const RenderGraphResource& resource : m_RenderGraphResources.m_Resources)
+    for (RenderGraphResource& resource : m_RenderGraphResources.m_Resources)
     {
-        if (resource.mImported || resource.mResourceType != RESOURCE_TYPE_TEXTURE)
+        if (resource.mImported || resource.mInitialized)
             continue;
 
-        const TextureID texture = TextureID(resource.mResourceID);
-        const Texture::Usage usage = inDevice.GetTexture(texture).GetUsage();
+        resource.mInitialized = true;
 
-        if (usage == Texture::RENDER_TARGET || usage == Texture::DEPTH_STENCIL_TARGET)
-            inCmdList->DiscardResource(inDevice.GetD3D12Resource(texture), nullptr);
+        if (resource.mResourceType != RESOURCE_TYPE_TEXTURE)
+            continue;
+
+        ID3D12Resource* d3d12_resource = inDevice.GetD3D12Resource(TextureID(resource.mResourceID));
+
+        if (d3d12_resource->GetDesc().Flags & ( D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET | D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL ))
+            inCmdList->DiscardResource(d3d12_resource, nullptr);
     }
 
     FlushBarriers(inDevice, inCmdList, m_InitialBarriers);
+
+    for (const ResourceBarrier& barrier : m_InitialBarriers)
+        m_RenderGraphResources.m_Resources[barrier.mResource].mState = barrier.mBarrier.Transition.StateAfter;
 }
 
 
