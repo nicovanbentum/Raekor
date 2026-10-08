@@ -1160,7 +1160,7 @@ private:
 
         const float smoothing = 1.0f - glm::exp(-inDeltaTime * 8.0f);
 
-        Vec3 target_position = Vec3(m_PlayerX * 0.7f, m_PlayerY * 0.8f + 3.3f, m_PlayerZ - 6.8f);
+        Vec3 target_position = Vec3(m_PlayerX * 0.75f, m_PlayerY * 0.5f + 5.6f, m_PlayerZ - 6.2f);
 
         if (m_State == STATE_READY)
             target_position = Vec3(m_PlayerX + 2.5f * glm::sin(m_Time * 0.5f), 2.4f, m_PlayerZ - 5.5f);
@@ -1168,20 +1168,20 @@ private:
         m_CameraPosition.x = glm::mix(m_CameraPosition.x, target_position.x, smoothing);
         m_CameraPosition.y = glm::mix(m_CameraPosition.y, target_position.y, 1.0f - glm::exp(-inDeltaTime * 5.0f));
         m_CameraPosition.z = m_State == STATE_RUNNING ? target_position.z : glm::mix(m_CameraPosition.z, target_position.z, smoothing);
-        m_CameraLookY = glm::mix(m_CameraLookY, m_PlayerY * 0.6f + 1.2f, 1.0f - glm::exp(-inDeltaTime * 5.0f));
+        m_CameraLookY = glm::mix(m_CameraLookY, m_State == STATE_READY ? 1.2f : m_PlayerY * 0.5f + 0.4f, 1.0f - glm::exp(-inDeltaTime * 5.0f));
 
         m_Shake = glm::max(0.0f, m_Shake - inDeltaTime * 1.5f);
         const Vec3 shake = Vec3(RandomFloat(-1.0f, 1.0f), RandomFloat(-1.0f, 1.0f), 0.0f) * m_Shake * m_Shake * 0.5f;
 
         const Vec3 position = m_CameraPosition + shake;
-        const Vec3 look_at = Vec3(m_CameraPosition.x * 0.8f, m_CameraLookY, m_PlayerZ + 6.0f);
+        const Vec3 look_at = Vec3(m_CameraPosition.x * 0.8f, m_CameraLookY, m_PlayerZ + ( m_State == STATE_READY ? 6.0f : 4.5f ));
 
         transform->position = position;
         transform->rotation = glm::quatLookAtRH(glm::normalize(look_at - position), Camera::cUp);
         transform->Compose();
 
         if (Camera* camera = FindComponent<Camera>(m_CameraEntity))
-            camera->SetFov(58.0f + 10.0f * ( m_Speed - cStartSpeed ) / ( cMaxSpeed - cStartSpeed ));
+            camera->SetFov(56.0f + 8.0f * ( m_Speed - cStartSpeed ) / ( cMaxSpeed - cStartSpeed ));
     }
 
     void AddPopup(const String& inText, const Vec4& inColor)
