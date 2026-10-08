@@ -15,7 +15,7 @@ class DXApp : public Editor
 {
 public:
     DXApp();
-    ~DXApp();
+    virtual ~DXApp();
 
     virtual void OnUpdate(float inDeltaTime) override;
     virtual void OnEvent(const SDL_Event& inEvent) override;
