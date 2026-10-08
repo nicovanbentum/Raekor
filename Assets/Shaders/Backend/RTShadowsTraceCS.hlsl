@@ -7,6 +7,46 @@
 FRAME_CONSTANTS(fc)
 ROOT_CONSTANTS(ShadowMaskRootConstants, rc)
 
+#define SHADOW_RAY_MIN_BIAS 0.01f
+#define SHADOW_RAY_DISTANCE_BIAS 2e-4f
+
+
+float3 ReconstructNeighbourPosition(Texture2D<float> inDepthTexture, int2 inPixel, out float outDepth)
+{
+    const int2 pixel = clamp(inPixel, int2(0, 0), int2(rc.mDispatchSize) - 1);
+    outDepth = inDepthTexture[pixel];
+    return ReconstructWorldPosition((float2(pixel) + 0.5f) / float2(rc.mDispatchSize), outDepth, fc.mInvViewProjectionMatrix);
+}
+
+
+float3 ReconstructGeometricNormal(Texture2D<float> inDepthTexture, int2 inPixel, float inDepth, float3 inPosition, float3 inFallbackNormal)
+{
+    float left_depth, right_depth, up_depth, down_depth;
+    const float3 left = ReconstructNeighbourPosition(inDepthTexture, inPixel - int2(1, 0), left_depth);
+    const float3 right = ReconstructNeighbourPosition(inDepthTexture, inPixel + int2(1, 0), right_depth);
+    const float3 up = ReconstructNeighbourPosition(inDepthTexture, inPixel - int2(0, 1), up_depth);
+    const float3 down = ReconstructNeighbourPosition(inDepthTexture, inPixel + int2(0, 1), down_depth);
+
+    const bool use_left = abs(left_depth - inDepth) < abs(right_depth - inDepth);
+    const bool use_up = abs(up_depth - inDepth) < abs(down_depth - inDepth);
+
+    if (( use_left ? left_depth : right_depth ) >= 1.0f || ( use_up ? up_depth : down_depth ) >= 1.0f)
+        return inFallbackNormal;
+
+    const float3 tangent_x = use_left ? inPosition - left : right - inPosition;
+    const float3 tangent_y = use_up ? inPosition - up : down - inPosition;
+
+    float3 normal = cross(tangent_y, tangent_x);
+
+    if (dot(normal, normal) < 1e-12f)
+        return inFallbackNormal;
+
+    normal = normalize(normal);
+
+    return dot(normal, fc.mCameraPosition.xyz - inPosition) < 0.0f ? -normal : normal;
+}
+
+
 [numthreads(8, 8, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
@@ -31,16 +71,16 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         float4 blue_noise = SampleBlueNoise(dispatchThreadID.xy, fc.mFrameCounter);
         float3 ray_dir = SampleDirectionalLight(fc.mSunDirection.xyz, fc.mSunConeAngle, pcg_float2(rng));
         
-        float3 normal = UnpackNormal(asuint(gbuffer_texture[dispatchThreadID.xy]));
         float3 ws_pos = ReconstructWorldPosition(screen_uv, depth, fc.mInvViewProjectionMatrix);
-        float3 vs_pos = mul(fc.mViewMatrix, float4(ws_pos, 1.0)).xyz;
+        float3 shading_normal = UnpackNormal(asuint(gbuffer_texture[dispatchThreadID.xy]));
+        float3 normal = ReconstructGeometricNormal(gbuffer_depth_texture, int2(dispatchThreadID.xy), depth, ws_pos, shading_normal);
 
-        float bias = (-vs_pos.z + length(ws_pos.xyz)) * 1e-3;
+        const float view_distance = length(fc.mCameraPosition.xyz - ws_pos);
 
         RayDesc ray;
         ray.TMin = 0.0f;
         ray.TMax = 10000.0f;
-        ray.Origin = ws_pos + normal * 0.01f;
+        ray.Origin = ws_pos + normal * (SHADOW_RAY_MIN_BIAS + view_distance * SHADOW_RAY_DISTANCE_BIAS);
         ray.Direction = ray_dir;
 
         if (dot(normal, ray.Direction) > 0.0)
