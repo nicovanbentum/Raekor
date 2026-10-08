@@ -18,7 +18,6 @@
 #include "Engine/Renderer/RenderUtil.h"
 #include "Engine/Renderer/RayTracing.h"
 #include "Engine/Renderer/RenderGraph.h"
-#include "Engine/Renderer/GPUProfiler.h"
 
 namespace RK::DX12 {
 
@@ -314,8 +313,6 @@ void DeviceResourcesWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 void GPUProfileWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 {
-    DXApp* app = (DXApp*)m_Editor;
-
     ImGui::Begin(m_Title.c_str(), &m_Open);
     m_Visible = ImGui::IsWindowAppearing();
 
@@ -329,30 +326,27 @@ void GPUProfileWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
     ImGuiTextFilter filter = ImGuiTextFilter(m_FilterInputBuffer.c_str());
 
-    bool enabled = g_GPUProfiler->IsEnabled();
+    bool enabled = g_Profiler->IsEnabled();
     if (ImGui::Checkbox(enabled ? "Running" : "Paused", &enabled))
-        g_GPUProfiler->SetEnabled(enabled);
+        g_Profiler->SetEnabled(enabled);
 
     ImGui::SameLine();
 
     ImGui::SetNextItemWidth(100.0f);
     ImGui::SliderFloat("Zoom##profilerzoom", &m_Zoom, 1.0f, 10.0f, "%.1f");
 
-    uint64_t frequency = 0;
-    gThrowIfFailed(app->GetDevice().GetGraphicsQueue()->GetTimestampFrequency(&frequency));
-
     uint32_t max_depth = 0;
     uint64_t lowest_tick = UINT64_MAX;
     uint64_t highest_tick = 0;
 
-    for (const GPUProfileSection& section : g_GPUProfiler->GetGPUProfileSections())
+    for (const ProfileSection& section : g_Profiler->GetGPUSections())
     {
         max_depth = glm::max(max_depth, section.mDepth);
         lowest_tick = glm::min(lowest_tick, section.mStartTick);
         highest_tick = glm::max(highest_tick, section.mEndTick);
     }
 
-    float total_time = ( highest_tick - lowest_tick ) / (double)frequency;
+    float total_time = Timer::sGetTicksToSeconds(highest_tick - lowest_tick);
 
     ImVec2 start_pos = ImGui::GetCursorScreenPos();
     ImVec2 avail_size = ImGui::GetContentRegionAvail();
@@ -363,7 +357,7 @@ void GPUProfileWidget::Draw(Widgets* inWidgets, float inDeltaTime)
     float bar_height = ( avail_size.y / ( max_depth + 1 ) ) * m_Zoom;
     float pixels_per_tick = avail_size.x / ( highest_tick - lowest_tick );
 
-    for (const auto& [index, section] : gEnumerate(g_GPUProfiler->GetGPUProfileSections()))
+    for (const auto& [index, section] : gEnumerate(g_Profiler->GetGPUSections()))
     {
         // skip sections that took (almost) no GPU time
         if (section.mEndTick - section.mStartTick < 50)
@@ -378,7 +372,7 @@ void GPUProfileWidget::Draw(Widgets* inWidgets, float inDeltaTime)
         const ImVec2 pad = ImVec2(1.0f, 1.0f);
         const ImRect bbox = ImRect(ImVec2(start_pos_x, start_pos_y), ImVec2(end_pos_x, end_pos_y));
 
-        const float time = ( section.mEndTick - section.mStartTick ) / (double)frequency;
+        const float time = section.GetSeconds();
         const float time_pct = time / total_time;
 
         if (time_pct < 0.0001f)
@@ -460,7 +454,7 @@ void GPUProfileWidget::OnEvent(Widgets* inWidgets, const SDL_Event& inEvent)
         {
             case SDLK_SPACE:
             {
-                g_GPUProfiler->SetEnabled(!g_GPUProfiler->IsEnabled());
+                g_Profiler->SetEnabled(!g_Profiler->IsEnabled());
             } break;
         }
     }

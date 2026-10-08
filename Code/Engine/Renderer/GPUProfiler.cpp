@@ -29,120 +29,141 @@ GPUProfiler::GPUProfiler(Device& inDevice)
             });
     }
 
-    inDevice->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(m_TimestampFence.GetAddressOf()));
-    m_TimestampFence->SetName(L"TimestampFence");
-}
-
-void GPUProfiler::Reset(Device& inDevice)
-{
-    if (m_IsEnabled)
-    {
-        m_QueryCount = 0;
-        std::scoped_lock lock(m_SectionsMutex);
-        m_HistoryGPUSections[inDevice.GetFrameIndex()] = m_GPUSections;
-        m_GPUSections.clear();
-    }
+    gThrowIfFailed(inDevice.GetGraphicsQueue()->GetTimestampFrequency(&m_TimestampFrequency));
 }
 
 
 void GPUProfiler::Resolve(Device& inDevice, CommandList& inCmdList)
 {
-    if (!m_IsEnabled)
-        return;
+    std::scoped_lock lock(m_SectionsMutex);
 
-    if (m_QueryCount == 0)
-        return;
+    const uint32_t frame_index = inCmdList.GetFrameIndex();
 
-    BufferID timestamp_buffer = m_TimestampReadbackBuffers[inCmdList.GetFrameIndex()];
-    ComPtr<ID3D12QueryHeap> timestamp_heap = m_TimestampQueryHeaps[inCmdList.GetFrameIndex()];
+    if (m_QueryCount > 0)
+    {
+        ID3D12Resource* timestamp_resource = inDevice.GetD3D12Resource(m_TimestampReadbackBuffers[frame_index]);
+        inCmdList->ResolveQueryData(m_TimestampQueryHeaps[frame_index].Get(), D3D12_QUERY_TYPE_TIMESTAMP, 0, m_QueryCount, timestamp_resource, 0);
+    }
 
-    ID3D12Resource* timestamp_resource = inDevice.GetD3D12Resource(timestamp_buffer);
+    m_FrameSections[frame_index] = std::move(m_GPUSections);
+    m_GPUSections.clear();
 
-    inCmdList->ResolveQueryData(timestamp_heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 0, m_QueryCount, timestamp_resource, 0);
-    inDevice.GetGraphicsQueue()->Signal(m_TimestampFence.Get(), inDevice.GetFrameCounter());
+    m_Depth = 0;
+    m_QueryCount = 0;
 }
 
 
 void GPUProfiler::Readback(Device& inDevice, uint32_t inFrameIndex)
 {
-    if (!m_IsEnabled)
+    std::scoped_lock lock(m_SectionsMutex);
+
+    Array<GPUProfileSection>& sections = m_FrameSections[inFrameIndex];
+
+    if (sections.empty())
         return;
 
-    uint64_t fence_value = m_TimestampFence->GetCompletedValue();
-    uint64_t frame_value = inDevice.GetFrameCounter() - sFrameCount;
-
-    if (fence_value >= frame_value)
+    if (g_Profiler->IsEnabled())
     {
         Buffer& buffer = inDevice.GetBuffer(m_TimestampReadbackBuffers[inFrameIndex]);
-        m_GPUReadbackSections[inFrameIndex] = m_HistoryGPUSections[inFrameIndex];
-        Array<GPUProfileSection>& sections = m_GPUReadbackSections[inFrameIndex];
 
-        uint64_t* timestamps;
-        buffer->Map(0, nullptr, (void**)&timestamps);
+        uint32_t query_count = 0;
+        for (const GPUProfileSection& section : sections)
+            query_count = glm::max(query_count, section.mEndQueryIndex + 1);
 
-        for (GPUProfileSection& section : sections)
+        const D3D12_RANGE read_range = { 0, query_count * sizeof(uint64_t) };
+        const D3D12_RANGE write_range = { 0, 0 };
+
+        uint64_t* timestamps = nullptr;
+        gThrowIfFailed(buffer->Map(0, &read_range, (void**)&timestamps));
+
+        uint64_t base_timestamp = UINT64_MAX;
+        for (const GPUProfileSection& section : sections)
         {
-            section.mStartTick = timestamps[section.mBeginQueryIndex];
-            section.mEndTick = timestamps[section.mEndQueryIndex];
+            if (section.mEndQueryIndex != 0)
+                base_timestamp = glm::min(base_timestamp, timestamps[section.mBeginQueryIndex]);
         }
 
-        m_ReadbackIndex = inFrameIndex;
+        const double ticks_per_timestamp = double(Timer::sGetTickFrequency()) / double(m_TimestampFrequency);
+
+        m_ReadbackSections.clear();
+
+        for (const GPUProfileSection& section : sections)
+        {
+            if (section.mEndQueryIndex == 0)
+                continue;
+
+            const uint64_t begin_timestamp = timestamps[section.mBeginQueryIndex];
+            const uint64_t end_timestamp = glm::max(timestamps[section.mEndQueryIndex], begin_timestamp);
+
+            ProfileSection& readback_section = m_ReadbackSections.emplace_back();
+            readback_section.mName = section.mName;
+            readback_section.mDepth = section.mDepth;
+            readback_section.mStartTick = uint64_t(double(begin_timestamp - base_timestamp) * ticks_per_timestamp);
+            readback_section.mEndTick = uint64_t(double(end_timestamp - base_timestamp) * ticks_per_timestamp);
+        }
+
+        buffer->Unmap(0, &write_range);
+
+        g_Profiler->SetGPUSections(m_ReadbackSections);
     }
+
+    sections.clear();
 }
 
 
-void GPUProfiler::BeginQuery(GPUProfileSection& inSection, CommandList& inCmdList)
+int GPUProfiler::BeginSection(CommandList& inCmdList, const char* inName)
 {
-    inSection.mBeginQueryIndex = m_QueryCount++;
-    inCmdList->EndQuery(m_TimestampQueryHeaps[inCmdList.GetFrameIndex()].Get(), D3D12_QUERY_TYPE_TIMESTAMP, inSection.mBeginQueryIndex);
+    if (!IsEnabled())
+        return -1;
+
+    std::scoped_lock lock(m_SectionsMutex);
+
+    if (m_QueryCount + 2 > MAX_QUERIES)
+        return -1;
+
+    const int index = int(m_GPUSections.size());
+
+    GPUProfileSection& section = m_GPUSections.emplace_back();
+    section.mName = g_Profiler->InternName(inName);
+    section.mDepth = m_Depth++;
+    section.mBeginQueryIndex = m_QueryCount++;
+
+    inCmdList->EndQuery(m_TimestampQueryHeaps[inCmdList.GetFrameIndex()].Get(), D3D12_QUERY_TYPE_TIMESTAMP, section.mBeginQueryIndex);
+
+    return index;
 }
 
 
-void GPUProfiler::EndQuery(GPUProfileSection& inSection, CommandList& inCmdList)
-{
-    inSection.mEndQueryIndex = m_QueryCount++;
-    inCmdList->EndQuery(m_TimestampQueryHeaps[inCmdList.GetFrameIndex()].Get(), D3D12_QUERY_TYPE_TIMESTAMP, inSection.mEndQueryIndex);
-}
-
-
-int GPUProfiler::AllocateGPU()
+void GPUProfiler::EndSection(CommandList& inCmdList, int inIndex)
 {
     std::scoped_lock lock(m_SectionsMutex);
 
-    int index = m_GPUSections.size();
-    m_GPUSections.emplace_back();
+    if (inIndex < 0 || inIndex >= int(m_GPUSections.size()))
+        return;
 
-    assert(index < MAX_QUERIES);
-    return index;
+    GPUProfileSection& section = m_GPUSections[inIndex];
+    section.mEndQueryIndex = m_QueryCount++;
+
+    m_Depth = glm::max(m_Depth - 1, 0);
+
+    inCmdList->EndQuery(m_TimestampQueryHeaps[inCmdList.GetFrameIndex()].Get(), D3D12_QUERY_TYPE_TIMESTAMP, section.mEndQueryIndex);
 }
 
 
 GPUProfileSectionScoped::GPUProfileSectionScoped(CommandList& inCmdList, const char* inName) :
     m_CmdList(inCmdList)
 {
-    if (g_GPUProfiler->IsEnabled())
-    {
-        PIXBeginEvent(static_cast<ID3D12GraphicsCommandList*>( inCmdList ), PIX_COLOR(0, 255, 0), inName);
+    PIXBeginEvent(static_cast<ID3D12GraphicsCommandList*>( inCmdList ), PIX_COLOR(0, 255, 0), inName);
 
-        m_Index = g_GPUProfiler->AllocateGPU();
-        GPUProfileSection& section = g_GPUProfiler->GetSectionGPU(m_Index);
-
-        section.mName = inName;
-        section.mDepth = g_GPUProfiler->m_Depth++;
-        g_GPUProfiler->BeginQuery(section, inCmdList);
-    }
+    m_Index = g_GPUProfiler->BeginSection(inCmdList, inName);
 }
 
 
 GPUProfileSectionScoped::~GPUProfileSectionScoped()
 {
-    if (g_GPUProfiler->IsEnabled())
-    {
-        PIXEndEvent(static_cast<ID3D12GraphicsCommandList*>( m_CmdList));
+    g_GPUProfiler->EndSection(m_CmdList, m_Index);
 
-        g_GPUProfiler->m_Depth--;
-        g_GPUProfiler->EndQuery(g_GPUProfiler->GetSectionGPU(m_Index), m_CmdList);
-    }
+    PIXEndEvent(static_cast<ID3D12GraphicsCommandList*>( m_CmdList ));
 }
 
 

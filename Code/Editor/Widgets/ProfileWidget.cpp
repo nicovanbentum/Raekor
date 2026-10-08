@@ -19,11 +19,9 @@ void ProfileWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	ImGui::Begin(m_Title.c_str(), &m_Open);
 	m_Visible = ImGui::IsWindowAppearing();
 
-	for (const CPUProfileSection& section : g_Profiler->GetCPUProfileSections())
+	for (const ProfileSection& section : g_Profiler->GetCPUSections())
 	{
 		assert(section.mEndTick); // make sure we're displaying profiled sections have actually finished
-
-		const float time = Timer::sGetTicksToSeconds(section.mEndTick - section.mStartTick);
 
 		for (int depth = 0; depth < section.mDepth; depth++)
 		{

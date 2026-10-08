@@ -14,7 +14,7 @@ void Profiler::Reset()
 	{
 		m_HistoryCPUSections.clear();
 
-		for (const CPUProfileSection& section : m_CPUSections)
+		for (const ProfileSection& section : m_CPUSections)
 		{
 			if (section.mEndTick != 0)
 				m_HistoryCPUSections.push_back(section);
@@ -32,7 +32,7 @@ int Profiler::BeginCPU(const char* inName)
 	if (std::this_thread::get_id() != m_ThreadID || !m_IsEnabled)
 		return -1;
 
-	CPUProfileSection& section = m_CPUSections.emplace_back();
+	ProfileSection& section = m_CPUSections.emplace_back();
 	section.mName = inName;
 	section.mDepth = m_Depth++;
 	section.mStartTick = Timer::sGetCurrentTick();
@@ -48,6 +48,13 @@ void Profiler::EndCPU(int inIndex, uint64_t inFrame)
 
 	m_CPUSections[inIndex].mEndTick = Timer::sGetCurrentTick();
 	m_Depth = glm::max(m_Depth - 1, 0);
+}
+
+
+const char* Profiler::InternName(const char* inName)
+{
+	std::scoped_lock lock(m_NamesMutex);
+	return m_Names.emplace(inName).first->c_str();
 }
 
 

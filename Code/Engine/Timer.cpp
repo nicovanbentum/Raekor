@@ -3,7 +3,7 @@
 
 namespace RK {
 
-uint64_t GetCPUFrequency()
+uint64_t Timer::sGetTickFrequency()
 {
     static uint64_t frequency = SDL_GetPerformanceFrequency();
     return frequency;
@@ -25,7 +25,7 @@ float Timer::Restart()
 
 float Timer::GetElapsedTime()
 {
-	return (float)( ( SDL_GetPerformanceCounter() - m_StartTime ) / (float)GetCPUFrequency() );
+	return (float)( ( SDL_GetPerformanceCounter() - m_StartTime ) / (float)sGetTickFrequency() );
 }
 
 
@@ -37,14 +37,14 @@ uint64_t Timer::sGetCurrentTick()
 
 float Timer::sGetTicksToSeconds(uint64_t inTicks)
 {
-    static const uint64_t frequency = GetCPUFrequency();
+    static const uint64_t frequency = sGetTickFrequency();
 	return (float)( ( inTicks ) / (float)frequency );
 }
 
 
 std::string Timer::GetElapsedFormatted()
 {
-	return std::to_string((float)( ( SDL_GetPerformanceCounter() - m_StartTime ) / (float)GetCPUFrequency() ));
+	return std::to_string((float)( ( SDL_GetPerformanceCounter() - m_StartTime ) / (float)sGetTickFrequency() ));
 }
 
 } // raekor

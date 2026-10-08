@@ -179,8 +179,6 @@ void RenderSystem::OnRender(Application* inApp, const Scene& inScene, float inDe
     m_Renderer.OnRender(inApp, m_Device, inApp->GetViewport(), inScene, inDeltaTime);
 
     m_Device.OnUpdate();
-
-    g_GPUProfiler->Reset(m_Device);
 }
 
 

@@ -502,8 +502,6 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
 
     direct_cmd_list.Close();
 
-    // resolve any GPU queries
-
     // Run command list execution and present in a job so it can overlap a bit with the start of the next frame
     //m_PresentJobPtr = Async::sQueueJob([&inDevice, this]() 
     {
@@ -548,8 +546,6 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
 
 void Renderer::Recompile(Device& inDevice)
 {
-    g_GPUProfiler->SetEnabled(true);
-
     m_RenderGraph.Clear(inDevice);
 
     const DefaultTexturesData& default_textures = AddDefaultTexturesPass(m_RenderGraph, 

@@ -16,18 +16,13 @@ struct ProfileSection
 	uint64_t mStartTick = 0;
 	const char* mName = nullptr;
 
-	virtual float GetSeconds() const = 0;
+	float GetSeconds() const { return Timer::sGetTicksToSeconds(mEndTick - mStartTick); }
 };
 
-struct CPUProfileSection : public ProfileSection
-{
-	float GetSeconds() const final { return Timer::sGetTicksToSeconds(mEndTick - mStartTick); }
-};
 
 class Profiler
 {
 public:
-	friend class CPUProfileSection;
 	friend class CPUProfileSectionScoped;
 
 	void Reset();
@@ -38,8 +33,13 @@ public:
 	int BeginCPU(const char* inName);
 	void EndCPU(int inIndex, uint64_t inFrame);
 
+	const char* InternName(const char* inName);
+
+	void SetGPUSections(Slice<const ProfileSection> inSections) { m_GPUSections.assign(inSections.begin(), inSections.end()); }
+
 	uint64_t GetFrame() const { return m_Frame; }
-	const Array<CPUProfileSection>& GetCPUProfileSections() const { return m_HistoryCPUSections; }
+	const Array<ProfileSection>& GetCPUSections() const { return m_HistoryCPUSections; }
+	const Array<ProfileSection>& GetGPUSections() const { return m_GPUSections; }
 
 protected:
 	int m_Depth = 0;
@@ -47,8 +47,12 @@ protected:
 	uint64_t m_Frame = 0;
 	std::thread::id m_ThreadID = std::this_thread::get_id();
 
-	Array<CPUProfileSection> m_CPUSections;
-	Array<CPUProfileSection> m_HistoryCPUSections;
+	Array<ProfileSection> m_CPUSections;
+	Array<ProfileSection> m_HistoryCPUSections;
+	Array<ProfileSection> m_GPUSections;
+
+	Mutex m_NamesMutex;
+	HashSet<String> m_Names;
 };
 
 

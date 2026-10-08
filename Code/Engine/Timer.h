@@ -18,6 +18,7 @@ public:
 	std::string GetElapsedFormatted();
 
 	static uint64_t sGetCurrentTick();
+	static uint64_t sGetTickFrequency();
 	static float sGetTicksToSeconds(uint64_t inTicks);
 
 	static float sToMilliseconds(float inTime) { return inTime * 1000; }
