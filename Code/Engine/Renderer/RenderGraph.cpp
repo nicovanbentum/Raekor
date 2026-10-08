@@ -1013,10 +1013,10 @@ bool RenderGraph::Compile(Device& inDevice, const GlobalConstants& inGlobalConst
 
         const RenderGraphResourceDesc& desc = m_RenderGraphBuilder.GetResourceDesc(resource_id);
 
-        if (desc.mResourceID.IsValid())
+        if (desc.mResourceID.IsValid() || desc.mResourceType == RESOURCE_TYPE_BUFFER)
             continue;
 
-        const D3D12_RESOURCE_STATES created_state = desc.mResourceType == RESOURCE_TYPE_BUFFER ? GetD3D12InitialResourceStates(desc.mBufferDesc.usage) : GetD3D12InitialResourceStates(desc.mTextureDesc.usage);
+        const D3D12_RESOURCE_STATES created_state = GetD3D12InitialResourceStates(desc.mTextureDesc.usage);
 
         if (created_state != resource.mEdges[0].mState)
             m_InitialBarriers.push_back(ResourceBarrier::Transition(resource_id, created_state, resource.mEdges[0].mState, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES));
@@ -1066,7 +1066,7 @@ bool RenderGraph::Compile(Device& inDevice, const GlobalConstants& inGlobalConst
             old_state = new_state;
         }
 
-        if (m_RenderGraphBuilder.GetResourceDesc(resource_id).mResourceID.IsValid())
+        if (m_RenderGraphBuilder.GetResourceDesc(resource_id).mResourceID.IsValid() || resource.mResourceType == RESOURCE_TYPE_BUFFER)
             continue;
 
         const D3D12_RESOURCE_STATES initial_state = resource.mEdges[0].mState;
