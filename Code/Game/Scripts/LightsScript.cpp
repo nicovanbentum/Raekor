@@ -19,7 +19,7 @@ public:
             scene_bounds.Combine(mesh.bbox.Transformed(transform.worldTransform));
 
         constexpr float cPointLightRadius = 2.5f;
-        constexpr float cPointLightIntensity = 6.0f;
+        constexpr float cPointLightIntensity = 50000.0f;
 
         int point_light_count = 0;
 
