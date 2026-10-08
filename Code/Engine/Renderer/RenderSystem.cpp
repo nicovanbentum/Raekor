@@ -491,10 +491,7 @@ void RenderSystem::DrawDebugSettings(Application* inApp)
     {
         ImGui::SeparatorText("Settings");
 
-        if (ImGui::SliderInt("Bounces", (int*)&RenderSettings::mPathTraceBounces, 1, 8))
-            RenderSettings::mPathTraceReset = true;
-
-        if (ImGui::SliderInt("Alpha Bounces", (int*)&RenderSettings::mPathTraceAlphaBounces, 0, 64))
+        if (ImGui::SliderInt("Bounces", (int*)&RenderSettings::mPathTraceBounces, 1, 16))
             RenderSettings::mPathTraceReset = true;
 
         ImGui::EndMenu();

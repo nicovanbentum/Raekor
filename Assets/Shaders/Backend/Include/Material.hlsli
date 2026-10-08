@@ -128,7 +128,7 @@ float Smith_G1_GGX(float alpha, float NdotL, float alphaSquared, float NdotLSqua
 float3 ReconstructNormalBC5(float2 normal)
 {
     float2 xy = 2.0f * normal - 1.0f;
-    float z = sqrt(1 - dot(xy, xy));
+    float z = sqrt(saturate(1 - dot(xy, xy)));
     return float3(xy.x, xy.y, z);
 }
 
@@ -159,7 +159,7 @@ struct Surface
     
     
     /* Fills in the BRDF fields from a given vertex and its material. */
-    void FromHit(RTVertex inVertex, RTMaterial inMaterial) 
+    void FromHit(RTVertex inVertex, RTMaterial inMaterial, bool inApplyNormalMap = false)
     {
         Texture2D albedo_texture = ResourceDescriptorHeap[NonUniformResourceIndex(inMaterial.mAlbedoTexture)];
         Texture2D normals_texture = ResourceDescriptorHeap[NonUniformResourceIndex(inMaterial.mNormalsTexture)];
@@ -173,14 +173,20 @@ struct Surface
         float sampled_metallic = metallic_texture.Sample(SamplerPointWrapNoMips, inVertex.mTexCoord).r; // value swizzled across all channels, just get Red
         float sampled_roughness = roughness_texture.Sample(SamplerPointWrapNoMips, inVertex.mTexCoord).r; // value swizzled across all channels, just get Red
         
-        //sampled_normal = sampled_normal * 2.0 - 1.0;
         mNormal = inVertex.mNormal;
-        sampled_normal = ReconstructNormalBC5(sampled_normal.xy);
-        
-        float3 bitangent = normalize(cross(inVertex.mNormal, inVertex.mTangent));
-        float3x3 TBN = float3x3(inVertex.mTangent, bitangent, inVertex.mNormal);
-        //mNormal = normalize(mul(sampled_normal.xyz, TBN));
-        
+
+        if (inApplyNormalMap)
+        {
+            float3 tangent = inVertex.mTangent - dot(inVertex.mTangent, mNormal) * mNormal;
+
+            if (dot(tangent, tangent) > 1e-8)
+            {
+                tangent = normalize(tangent);
+                const float3 bitangent = cross(mNormal, tangent);
+                mNormal = normalize(mul(ReconstructNormalBC5(sampled_normal.xy), float3x3(tangent, bitangent, mNormal)));
+            }
+        }
+
         mAlbedo = inMaterial.mAlbedo * sampled_albedo;
         mEmissive = inMaterial.mEmissive.rgb * sampled_emissive;
         mMetallic = inMaterial.mMetallic * sampled_metallic;
@@ -256,28 +262,55 @@ struct Surface
     
     void SampleSpecular(float2 rand, float3 Wo, out float3 direction, out float3 weight)
     {
-        float3 Wh = mNormal;
-        
-        if (mRoughness > 0.0)
+        const float roughness = max(mRoughness, 0.045);
+        const float alpha = roughness * roughness;
+
+        const float3x3 basis = BuildOrthonormalBasis(mNormal);
+        float3 Wo_local = mul(Wo, basis);
+        Wo_local.z = max(Wo_local.z, 1e-4);
+
+        const float3 Wh = mul(basis, SampleSpecularGGXVNDF(normalize(Wo_local), alpha.xx, rand));
+        direction = reflect(-Wo, Wh);
+
+        const float NdotL = dot(mNormal, direction);
+
+        if (NdotL <= 0.0)
         {
-            Wh = SampleSpecularGGX(rand, mRoughness, mNormal);
-            //Wh = SampleSpecularGGXVNDF(Wo, float2(mRoughness, mRoughness), pcg_float2(rng));
+            weight = 0.0.xxx;
+            return;
         }
-        
-        direction = normalize(reflect(-Wo, Wh));
-        weight = SampleSpecularWeight(Wo, direction, Wh);
+
+        const float3 F = FresnelSchlick(saturate(dot(Wo, Wh)), GetF0(), 1.0);
+        weight = F * Smith_G1_GGX(alpha, NdotL, alpha * alpha, NdotL * NdotL) * mEnergyCompensation;
     }
-    
-    
-    void SampleBRDF(inout uint rng, float3 Wo, out float3 direction, out float3 weight) 
+
+
+    float GetSpecularSampleProbability(float3 Wo)
     {
-        if (mRoughness < 1.0 && pcg_float(rng) < 0.5)
+        const float3 F = FresnelSchlick(saturate(dot(mNormal, Wo)), GetF0(), 1.0);
+        const float specular = LuminanceLinear(F);
+        const float diffuse = LuminanceLinear((1.0 - mMetallic) * mAlbedo.rgb * (1.0 - F));
+
+        if (diffuse <= 0.0)
+            return 1.0;
+
+        return clamp(specular / (specular + diffuse), 0.1, 0.9);
+    }
+
+
+    void SampleBRDF(inout uint rng, float3 Wo, out float3 direction, out float3 weight)
+    {
+        const float specular_probability = GetSpecularSampleProbability(Wo);
+
+        if (specular_probability >= 1.0 || pcg_float(rng) < specular_probability)
         {
             SampleSpecular(pcg_float2(rng), Wo, direction, weight);
+            weight /= specular_probability;
         }
         else
         {
             SampleDiffuse(pcg_float2(rng), Wo, direction, weight);
+            weight /= 1.0 - specular_probability;
         }
     }
 };

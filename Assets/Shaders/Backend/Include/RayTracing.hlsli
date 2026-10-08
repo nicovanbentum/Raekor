@@ -34,6 +34,41 @@ RTVertex CalculateVertexFromGeometry(RTGeometry inGeometry, uint inPrimitiveInde
 }
 
 
+float3 CalculateGeometricNormal(RTGeometry inGeometry, uint inPrimitiveIndex)
+{
+    StructuredBuffer<uint3> index_buffer = ResourceDescriptorHeap[NonUniformResourceIndex(inGeometry.mIndexBuffer)];
+    StructuredBuffer<RTVertex> vertex_buffer = ResourceDescriptorHeap[NonUniformResourceIndex(inGeometry.mVertexBuffer)];
+
+    const uint3 indices = index_buffer[inPrimitiveIndex];
+    const float3 p0 = mul(inGeometry.mWorldTransform, float4(vertex_buffer[indices.x].mPos, 1.0)).xyz;
+    const float3 p1 = mul(inGeometry.mWorldTransform, float4(vertex_buffer[indices.y].mPos, 1.0)).xyz;
+    const float3 p2 = mul(inGeometry.mWorldTransform, float4(vertex_buffer[indices.z].mPos, 1.0)).xyz;
+
+    return normalize(cross(p1 - p0, p2 - p0));
+}
+
+
+// Source: "A Fast and Robust Method for Avoiding Self-Intersection", Ray Tracing Gems chapter 6
+float3 OffsetRay(float3 inPosition, float3 inNormal)
+{
+    const float origin = 1.0 / 32.0;
+    const float float_scale = 1.0 / 65536.0;
+    const float int_scale = 256.0;
+
+    const int3 offset_int = int3(int_scale * inNormal);
+
+    const float3 position_int = float3(
+        asfloat(asint(inPosition.x) + (inPosition.x < 0.0 ? -offset_int.x : offset_int.x)),
+        asfloat(asint(inPosition.y) + (inPosition.y < 0.0 ? -offset_int.y : offset_int.y)),
+        asfloat(asint(inPosition.z) + (inPosition.z < 0.0 ? -offset_int.z : offset_int.z)));
+
+    return float3(
+        abs(inPosition.x) < origin ? inPosition.x + float_scale * inNormal.x : position_int.x,
+        abs(inPosition.y) < origin ? inPosition.y + float_scale * inNormal.y : position_int.y,
+        abs(inPosition.z) < origin ? inPosition.z + float_scale * inNormal.z : position_int.z);
+}
+
+
 bool TraceShadowRay(RaytracingAccelerationStructure inTLAS, float3 inRayPos, float3 inRayDir, float inTMin, float inTMax)
 {
     RayDesc shadow_ray;

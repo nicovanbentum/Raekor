@@ -60,8 +60,7 @@ float RenderSettings::mRTAONormalBias = 0.01;
 uint32_t RenderSettings::mRTAOSampleCount = 1;
 
 bool RenderSettings::mPathTraceReset = false;
-uint32_t RenderSettings::mPathTraceBounces = 2u;
-uint32_t RenderSettings::mPathTraceAlphaBounces = 4u;
+uint32_t RenderSettings::mPathTraceBounces = 4u;
 
 bool RenderSettings::mDDGIUseChebyshev = true;
 bool RenderSettings::mDDGIUseMultibounce = true;

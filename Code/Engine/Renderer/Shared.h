@@ -361,16 +361,12 @@ struct PathTraceRootConstants
 {
     uint  mReset;
     uint  mBounces;
-    uint  mAlphaBounces;
     uint  mResultTexture;
     uint  mAccumulationTexture;
     uint  mSelectionTexture;
     uint  mDepthTexture;
     uint  mSkyCubeTexture;
     uint  mGBufferTexture;
-    uint  mPad0;
-    uint  mPad1;
-    uint  mPad2;
     uint2 mDispatchSize;
 };
 

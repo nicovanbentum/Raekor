@@ -257,7 +257,7 @@ void GPUScene::UploadTLASInstances(Device& inDevice, CommandList& inCmdList, con
         {
             .InstanceID = instance_index,
             .InstanceMask = 0xFF,
-            .Flags = D3D12_RAYTRACING_INSTANCE_FLAG_FORCE_OPAQUE,
+            .Flags = UINT(instance.mBlendMode == RENDER_BLEND_MODE_MASKED ? D3D12_RAYTRACING_INSTANCE_FLAG_FORCE_NON_OPAQUE : D3D12_RAYTRACING_INSTANCE_FLAG_FORCE_OPAQUE),
             .AccelerationStructure = inDevice.GetBuffer(instance.mBottomLevelAS)->GetGPUVirtualAddress(),
         };
 

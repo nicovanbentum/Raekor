@@ -117,6 +117,7 @@ private:
 
     uint64_t GetViewportKey(const Viewport& inViewport) const;
     uint64_t GetRenderGraphKey() const;
+    uint64_t GetPathTraceKey() const;
 
     void ResolveReadbacks(Device& inDevice);
     void RecordReadbacks(Device& inDevice, CommandList& inCmdList);
@@ -157,6 +158,7 @@ private:
     bool                        m_ShouldCaptureNextFrame = false;
     uint64_t                    m_ViewportKey = 0;
     uint64_t                    m_RenderGraphKey = 0;
+    uint64_t                    m_PathTraceKey = 0;
     BufferID                    m_DebugLinesVertexBuffer;
     BufferID                    m_DebugLinesIndirectArgsBuffer;
     Mesh                        m_ProbeDebugMesh;

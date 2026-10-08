@@ -408,7 +408,6 @@ const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevi
         {
             .mReset = RenderSettings::mPathTraceReset,
             .mBounces = RenderSettings::mPathTraceBounces,
-            .mAlphaBounces = RenderSettings::mPathTraceAlphaBounces,
             .mResultTexture = inDevice.GetBindlessHeapIndex(inResources.GetTexture(inData.mOutputTexture)),
             .mAccumulationTexture = inDevice.GetBindlessHeapIndex(inResources.GetTexture(inData.mAccumulationTexture)),
             .mSelectionTexture = inDevice.GetBindlessHeapIndex(inResources.GetTexture(inData.mSelectionTexture)),

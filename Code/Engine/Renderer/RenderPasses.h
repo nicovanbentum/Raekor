@@ -40,7 +40,6 @@ struct RenderSettings
 
     static RK_API bool mPathTraceReset;
     static RK_API uint32_t mPathTraceBounces;
-    static RK_API uint32_t mPathTraceAlphaBounces;
 
     static RK_API bool mDDGIUseChebyshev;
     static RK_API bool mDDGIUseMultibounce;

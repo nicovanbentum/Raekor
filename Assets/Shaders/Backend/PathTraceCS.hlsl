@@ -9,8 +9,91 @@
 FRAME_CONSTANTS(fc)
 ROOT_CONSTANTS(PathTraceRootConstants, rc)
 
+static const float cMaxIndirectLuminance = 10.0;
+
+
+bool PassesAlphaTest(uint inInstanceID, uint inPrimitiveIndex, float2 inBarycentrics)
+{
+    StructuredBuffer<RTGeometry> geometries = ResourceDescriptorHeap[fc.mInstancesBuffer];
+    StructuredBuffer<RTMaterial> materials = ResourceDescriptorHeap[fc.mMaterialsBuffer];
+
+    const RTGeometry geometry = geometries[inInstanceID];
+    const RTMaterial material = materials[geometry.mMaterialIndex];
+    const RTVertex vertex = CalculateVertexFromGeometry(geometry, inPrimitiveIndex, inBarycentrics);
+
+    Texture2D albedo_texture = ResourceDescriptorHeap[NonUniformResourceIndex(material.mAlbedoTexture)];
+    const float alpha = material.mAlbedo.a * albedo_texture.SampleLevel(SamplerPointWrapNoMips, vertex.mTexCoord, 0).a;
+
+    return alpha >= material.mAlphaCutoff;
+}
+
+
+bool IsOccluded(RaytracingAccelerationStructure inTLAS, float3 inOrigin, float3 inDirection, float inTMax)
+{
+    RayDesc ray;
+    ray.Origin = inOrigin;
+    ray.Direction = inDirection;
+    ray.TMin = 0.0;
+    ray.TMax = inTMax;
+
+    RayQuery<RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH> query;
+    query.TraceRayInline(inTLAS, RAY_FLAG_NONE, 0xFF, ray);
+
+    while (query.Proceed())
+    {
+        if (query.CandidateType() == CANDIDATE_NON_OPAQUE_TRIANGLE && PassesAlphaTest(query.CandidateInstanceID(), query.CandidatePrimitiveIndex(), query.CandidateTriangleBarycentrics()))
+            query.CommitNonOpaqueTriangleHit();
+    }
+
+    return query.CommittedStatus() == COMMITTED_TRIANGLE_HIT;
+}
+
+
+float3 SampleLight(Surface inSurface, float3 inPosition, float3 inGeometricNormal, float3 Wo, inout uint ioRNG)
+{
+    RaytracingAccelerationStructure TLAS = ResourceDescriptorHeap[fc.mTLAS];
+    RaytracingAccelerationStructure shadow_TLAS = ResourceDescriptorHeap[fc.mShadowTLAS];
+    StructuredBuffer<RTLight> lights = ResourceDescriptorHeap[fc.mLightsBuffer];
+
+    const float3 shadow_origin = OffsetRay(inPosition, inGeometricNormal);
+
+    float3 radiance = 0.0.xxx;
+
+    if (fc.mSunColor.a > 0.0)
+    {
+        const float3 Wi = SampleDirectionalLight(fc.mSunDirection.xyz, fc.mSunConeAngle, pcg_float2(ioRNG));
+
+        if (dot(inGeometricNormal, Wi) > 0.0 && dot(inSurface.mNormal, Wi) > 0.0 && !IsOccluded(shadow_TLAS, shadow_origin, Wi, 10000.0))
+            radiance += EvaluateDirectionalLight(inSurface, fc.mSunColor, Wi, Wo);
+    }
+
+    if (fc.mNrOfLights == 0)
+        return radiance;
+
+    const uint light_index = min(uint(pcg_float(ioRNG) * fc.mNrOfLights), fc.mNrOfLights - 1);
+    const RTLight light = lights[light_index];
+
+    if (light.mType != RT_LIGHT_TYPE_POINT && light.mType != RT_LIGHT_TYPE_SPOT)
+        return radiance;
+
+    const float3 to_light = light.mPosition.xyz - inPosition;
+    const float distance = length(to_light);
+    const float3 Wi = to_light / max(distance, 1e-4);
+
+    if (dot(inGeometricNormal, Wi) <= 0.0 || dot(inSurface.mNormal, Wi) <= 0.0)
+        return radiance;
+
+    if (IsOccluded(TLAS, shadow_origin, Wi, distance))
+        return radiance;
+
+    const float3 light_radiance = light.mType == RT_LIGHT_TYPE_POINT ? EvaluatePointLight(inSurface, light, Wi, Wo, distance) : EvaluateSpotLight(inSurface, light, Wi, Wo, distance);
+
+    return radiance + light_radiance * float(fc.mNrOfLights);
+}
+
+
 [numthreads(8,8,1)]
-void main(uint3 threadID : SV_DispatchThreadID) 
+void main(uint3 threadID : SV_DispatchThreadID)
 {
     if (any(threadID.xy >= rc.mDispatchSize.xy))
         return;
@@ -21,210 +104,129 @@ void main(uint3 threadID : SV_DispatchThreadID)
     TextureCube<float3> skycube_texture      = ResourceDescriptorHeap[rc.mSkyCubeTexture];
     RWTexture2D<uint> selection_texture      = ResourceDescriptorHeap[rc.mSelectionTexture];
     RWTexture2D<float4> accumulation_texture = ResourceDescriptorHeap[rc.mAccumulationTexture];
-    
+
     RaytracingAccelerationStructure TLAS        = ResourceDescriptorHeap[fc.mTLAS];
-    RaytracingAccelerationStructure shadowTLAS  = ResourceDescriptorHeap[fc.mShadowTLAS];
-    StructuredBuffer<RTLight> lights            = ResourceDescriptorHeap[fc.mLightsBuffer];
     StructuredBuffer<RTGeometry> geometries     = ResourceDescriptorHeap[fc.mInstancesBuffer];
     StructuredBuffer<RTMaterial> materials      = ResourceDescriptorHeap[fc.mMaterialsBuffer];
 
+    const bool is_first_sample = rc.mReset || fc.mFrameCounter < 2;
+
     uint rng = TeaHash(((threadID.y << 16) | threadID.x), fc.mFrameCounter + 1);
 
-    const float2 pixel_center = float2(threadID.xy) + float2(0.5, 0.5);
-    //pixel_center = pixel_center + pcg_float2(rng);
-    
-    const float2 screen_uv = pixel_center / rc.mDispatchSize;
-    
+    const float2 pixel_offset = is_first_sample ? 0.5.xx : pcg_float2(rng);
+    const float2 screen_uv = (float2(threadID.xy) + pixel_offset) / rc.mDispatchSize;
     const float2 clip = float2(screen_uv.x * 2.0 - 1.0, (1.0 - screen_uv.y) * 2.0 - 1.0);
-    float4 target = normalize(mul(fc.mInvViewProjectionMatrix, float4(clip.x, clip.y, 0.0, 1.0)));
-    target /= target.w;
+
+    const float4 target = mul(fc.mInvViewProjectionMatrix, float4(clip, 0.5, 1.0));
 
     RayDesc ray;
-    ray.TMin = 0.001;
+    ray.TMin = 0.0;
     ray.TMax = 10000.0;
     ray.Origin = fc.mCameraPosition.xyz;
-    ray.Direction = normalize(target.xyz - ray.Origin);
-    
+    ray.Direction = normalize(target.xyz / target.w - ray.Origin);
+
     uint entity = 0;
-    float depth = 1.0f;
+    float depth = 1.0;
     uint4 gbuffer = 0.xxxx;
-    
-    float3 total_irradiance = 0.0.xxx;
-    float3 total_throughput = 1.0.xxx;
-    
-    float opacity = 1.0;
-    int alpha_bounces = 0;
-    
-    bool write_gbuffer = true;
-    
-    for (int bounce = 0; bounce < rc.mBounces; bounce++)
+
+    float3 radiance = 0.0.xxx;
+    float3 throughput = 1.0.xxx;
+
+    for (uint bounce = 0; bounce < rc.mBounces; bounce++)
     {
-        uint ray_flags = RAY_FLAG_FORCE_OPAQUE;
-    
-        RayQuery < RAY_FLAG_FORCE_OPAQUE > query;
+        RayQuery<RAY_FLAG_NONE> query;
+        query.TraceRayInline(TLAS, RAY_FLAG_NONE, 0xFF, ray);
 
-        query.TraceRayInline(TLAS, ray_flags, 0xFF, ray);
-        while (query.Proceed()) {}
-        
-        float3 irradiance = 0.0.xxx;
-        float3 throughput = 1.0.xxx;
-    
-        // Handle hit case
-        if (query.CommittedStatus() == COMMITTED_TRIANGLE_HIT)
+        while (query.Proceed())
         {
-            // Calculate vertex and material from the hit info
-            RTGeometry geometry = geometries[query.CommittedInstanceID()];
-            RTVertex vertex = CalculateVertexFromGeometry(geometry, query.CommittedPrimitiveIndex(), query.CommittedTriangleBarycentrics());
-            RTMaterial material = materials[geometry.mMaterialIndex];
-
-            // Transform to world space
-            TransformToWorldSpace(vertex, geometry.mWorldTransform);
-            
-            // Setup the surface
-            Surface surface;
-            surface.FromHit(vertex, material);
-            
-            // Handle transparency
-            if (surface.mAlbedo.a < 0.5)
-            {
-                ray.Origin = vertex.mPos + ray.Direction * 0.001;
-                continue;
-            }
-            
-            // Store GBuffer values on first hit
-            if (write_gbuffer)
-            {
-                float4 pos = mul(fc.mViewProjectionMatrix, float4(vertex.mPos, 1.0));
-                depth = (pos.xyz / pos.w).z;
-                entity = geometry.mEntity;
-                PackGBuffer(surface.mAlbedo, surface.mNormal, surface.mEmissive, surface.mMetallic, surface.mRoughness, gbuffer);
-                
-                write_gbuffer = false;
-            }
-            
-            // Handle backfaces
-            if (!query.CommittedTriangleFrontFace())
-            {
-                surface.mNormal = -surface.mNormal;
-            }
-
-            // Handle emissive
-            irradiance = surface.mEmissive;
-            const float3 Wo = -ray.Direction;
-
-            // Next event estimation
-            // Handle sunlight
-            {
-                float3 Wi = SampleDirectionalLight(fc.mSunDirection.xyz, fc.mSunConeAngle, pcg_float2(rng));
-            
-                if (dot(surface.mNormal, Wi) > 0.0)
-                {
-                    bool hit = TraceShadowRay(shadowTLAS, vertex.mPos + vertex.mNormal * 0.01, Wi, 0.0f, 10000.0f);
-                
-                    if (!hit)
-                        irradiance += EvaluateDirectionalLight(surface, fc.mSunColor, Wi, Wo);
-                }
-            }
-            
-
-            // Handle point and spot lights 
-            // Randomly select 1 every frame
-
-            uint random_light_index = uint(round(float(fc.mNrOfLights - 1) * pcg_float(rng)));
-            RTLight light = lights[random_light_index];
-                
-            switch (light.mType)
-            {
-                case RT_LIGHT_TYPE_POINT:
-                {
-                        float3 Wi = SamplePointLight(light, vertex.mPos);
-                        
-                        float t_min = light.mAttributes.y;
-                        float t_max = length(light.mPosition.xyz - vertex.mPos);
-                            
-                        float point_radius = light.mAttributes.x * sqrt(pcg_float(rng));
-                        float point_angle = pcg_float(rng) * 2.0f * M_PI;
-                        float2 disk_point = float2(point_radius * cos(point_angle), point_radius * sin(point_angle));
-                    
-                        bool hit = TraceShadowRay(TLAS, vertex.mPos + vertex.mNormal * 0.01, Wi, t_min, t_max);
-                        
-                        if (!hit)
-                            irradiance += EvaluatePointLight(surface, light, Wi, Wo, t_max);
-                    }
-                    break;
-                    
-                case RT_LIGHT_TYPE_SPOT:
-                {
-                        float3 Wi = SampleSpotLight(light, vertex.mPos);
-                        float t_max = length(light.mPosition.xyz - vertex.mPos);
-
-                        float point_radius = 0.022f;
-                        float point_angle = pcg_float(rng) * 2.0f * M_PI;
-                        float2 disk_point = float2(point_radius * cos(point_angle), point_radius * sin(point_angle));
-                        
-                        float3 light_dir = float3(Wi.x + disk_point.x, Wi.y, Wi.z + disk_point.y);
-                                        
-                        bool hit = TraceShadowRay(TLAS, vertex.mPos + vertex.mNormal * 0.01, light_dir, 2.0f, t_max);
-                        
-                        if (!hit)
-                            irradiance += EvaluateSpotLight(surface, light, Wi, Wo, t_max);
-                    }
-                    break;
-            }
-
-            // Sample the BRDF to get new outgoing direction, update ray dir and pos
-            { 
-                ray.Origin = vertex.mPos + vertex.mNormal * 0.01;
-                surface.SampleBRDF(rng, Wo, ray.Direction, throughput);
-            }
-            
-            // Russian roulette
-            if (bounce > 3) 
-            {
-                const float r = pcg_float(rng);
-                const float p = max(surface.mAlbedo.r, max(surface.mAlbedo.g, surface.mAlbedo.b));
-                
-                if (r > p)
-                    break;
-                else
-                    throughput = (1.0 / p).xxx;
-            }
+            if (query.CandidateType() == CANDIDATE_NON_OPAQUE_TRIANGLE && PassesAlphaTest(query.CandidateInstanceID(), query.CandidatePrimitiveIndex(), query.CandidateTriangleBarycentrics()))
+                query.CommitNonOpaqueTriangleHit();
         }
-        else // Handle miss case 
+
+        float3 contribution = 0.0.xxx;
+
+        if (query.CommittedStatus() != COMMITTED_TRIANGLE_HIT)
         {
-            // Calculate sky
-            irradiance = skycube_texture.SampleLevel(SamplerLinearClamp, ray.Direction, 0);
-            irradiance = max(irradiance, 0.0.xxx) * fc.mSunColor.a;
-            
-            // Stop tracing
-            bounce = rc.mBounces + 1;
+            contribution = throughput * max(skycube_texture.SampleLevel(SamplerLinearClamp, ray.Direction, 0), 0.0.xxx) * fc.mSunColor.a;
+
+            if (bounce > 0)
+                contribution *= min(1.0, cMaxIndirectLuminance / max(LuminanceLinear(contribution), 1e-6));
+
+            radiance += contribution;
+            break;
         }
-      
-        // Prevent fireflies
-        irradiance = min(irradiance, 10.0.xxx);
-        
-        // Update irradiance and throughput
-        total_irradiance += irradiance * total_throughput;
-        total_throughput *= throughput;
+
+        const RTGeometry geometry = geometries[query.CommittedInstanceID()];
+        const RTMaterial material = materials[geometry.mMaterialIndex];
+
+        RTVertex vertex = CalculateVertexFromGeometry(geometry, query.CommittedPrimitiveIndex(), query.CommittedTriangleBarycentrics());
+        TransformToWorldSpace(vertex, geometry.mWorldTransform);
+
+        float3 geometric_normal = CalculateGeometricNormal(geometry, query.CommittedPrimitiveIndex());
+
+        if (dot(geometric_normal, ray.Direction) > 0.0)
+        {
+            geometric_normal = -geometric_normal;
+            vertex.mNormal = -vertex.mNormal;
+        }
+
+        Surface surface;
+        surface.FromHit(vertex, material, true);
+
+        if (bounce == 0 && is_first_sample)
+        {
+            const float4 clip_pos = mul(fc.mViewProjectionMatrix, float4(vertex.mPos, 1.0));
+            depth = clip_pos.z / clip_pos.w;
+            entity = geometry.mEntity;
+            PackGBuffer(surface.mAlbedo, surface.mNormal, surface.mEmissive, surface.mMetallic, surface.mRoughness, gbuffer);
+        }
+
+        const float3 Wo = -ray.Direction;
+
+        contribution = throughput * (surface.mEmissive + SampleLight(surface, vertex.mPos, geometric_normal, Wo, rng));
+
+        if (bounce > 0)
+            contribution *= min(1.0, cMaxIndirectLuminance / max(LuminanceLinear(contribution), 1e-6));
+
+        radiance += contribution;
+
+        float3 brdf_weight;
+        surface.SampleBRDF(rng, Wo, ray.Direction, brdf_weight);
+
+        if (dot(ray.Direction, geometric_normal) <= 0.0 || all(brdf_weight <= 0.0))
+            break;
+
+        throughput *= brdf_weight;
+        ray.Origin = OffsetRay(vertex.mPos, geometric_normal);
+
+        if (bounce >= 3)
+        {
+            const float survival_probability = min(max(throughput.r, max(throughput.g, throughput.b)), 0.95);
+
+            if (pcg_float(rng) >= survival_probability)
+                break;
+
+            throughput /= survival_probability;
+        }
     }
-    
-    // Output to textures
-    depth_texture[threadID.xy] = depth;
-    gbuffer_texture[threadID.xy] = gbuffer;
-    selection_texture[threadID.xy] = entity;
-    
-    
-    if (rc.mReset || fc.mFrameCounter < 2)
+
+    if (any(isnan(radiance)) || any(isinf(radiance)))
+        radiance = 0.0.xxx;
+
+    if (is_first_sample)
     {
-        result_texture[threadID.xy] = float4(total_irradiance, 1.0);
-        accumulation_texture[threadID.xy] = float4(total_irradiance, 1.0);
+        depth_texture[threadID.xy] = depth;
+        gbuffer_texture[threadID.xy] = gbuffer;
+        selection_texture[threadID.xy] = entity;
+
+        result_texture[threadID.xy] = float4(radiance, 1.0);
+        accumulation_texture[threadID.xy] = float4(radiance, 1.0);
     }
     else
     {
-        float4 acc = accumulation_texture[threadID.xy];
-        acc += float4(total_irradiance, 1.0);
-        
-        result_texture[threadID.xy] = float4(acc.rgb / acc.a, 1.0);
-        accumulation_texture[threadID.xy] = acc;
+        float4 accumulation = accumulation_texture[threadID.xy] + float4(radiance, 1.0);
+
+        result_texture[threadID.xy] = float4(accumulation.rgb / accumulation.a, 1.0);
+        accumulation_texture[threadID.xy] = accumulation;
     }
 }

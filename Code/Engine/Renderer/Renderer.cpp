@@ -369,6 +369,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
 
     bool enable_jitter = m_Settings.mEnableTAA || m_Upscaler.GetActiveUpscaler();
     enable_jitter &= m_Settings.mDebugTexture == DEBUG_TEXTURE_NONE;
+    enable_jitter &= !m_Settings.mDoPathTrace;
 
     const Mat4x4 final_proj_matrix = enable_jitter ? jitter_matrix * vp.GetProjection() : vp.GetProjection();
 
@@ -403,6 +404,16 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     // GPU driven debug line buffers, accessable from any shader
     m_FrameConstants.mDebugLinesVertexBuffer = inDevice.GetBindlessHeapIndex(m_DebugLinesVertexBuffer);
     m_FrameConstants.mDebugLinesIndirectArgsBuffer = inDevice.GetBindlessHeapIndex(m_DebugLinesIndirectArgsBuffer);
+
+    if (m_Settings.mDoPathTrace)
+    {
+        const uint64_t path_trace_key = GetPathTraceKey();
+
+        if (path_trace_key != m_PathTraceKey)
+            RenderSettings::mPathTraceReset = true;
+
+        m_PathTraceKey = path_trace_key;
+    }
 
 
 
@@ -787,6 +798,26 @@ uint64_t Renderer::GetRenderGraphKey() const
     };
 
     return gHashFNV1a((const char*)key_data.data(), sizeof(key_data[0]) * key_data.size());
+}
+
+
+
+uint64_t Renderer::GetPathTraceKey() const
+{
+    const auto HashSlice = []<typename T>(Slice<const T> inSlice, uint64_t inHash)
+    {
+        return gHashFNV1a((const char*)inSlice.data(), inSlice.size_bytes(), inHash);
+    };
+
+    uint64_t hash = gHashFNV1a((const char*)&m_FrameConstants.mViewProjectionMatrix, sizeof(m_FrameConstants.mViewProjectionMatrix));
+    hash = gHashFNV1a((const char*)&m_FrameConstants.mSunColor, sizeof(m_FrameConstants.mSunColor), hash);
+    hash = gHashFNV1a((const char*)&m_FrameConstants.mSunDirection, sizeof(m_FrameConstants.mSunDirection), hash);
+    hash = gHashFNV1a((const char*)&m_FrameConstants.mSunConeAngle, sizeof(m_FrameConstants.mSunConeAngle), hash);
+    hash = HashSlice(m_RenderWorld.GetGeometries(), hash);
+    hash = HashSlice(m_RenderWorld.GetMaterials(), hash);
+    hash = HashSlice(m_RenderWorld.GetLights(), hash);
+
+    return hash;
 }
 
 
