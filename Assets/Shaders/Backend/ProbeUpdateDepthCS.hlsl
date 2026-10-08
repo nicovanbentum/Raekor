@@ -60,7 +60,7 @@ void main(uint3 threadID : SV_DispatchThreadID,  uint3 groupThreadID : SV_GroupT
 
         float3 depth = 0.xxx;
 
-        for (uint ray_index = 0; ray_index < DDGI_RAYS_PER_PROBE; ray_index++)
+        for (uint ray_index = DDGI_FIXED_RAYS; ray_index < DDGI_RAYS_PER_PROBE; ray_index++)
         {
             float ray_depth = lds_ProbeDepthRays[ray_index];
             float weight = pow(saturate(dot(octahedral_dir, lds_ProbeRayDirections[ray_index])), 50.0f);

@@ -601,7 +601,9 @@ DDGIOutput AddDDGIPass(RenderGraph& inRenderGraph, Device& inDevice, const GPUSc
         ProbeUpdateRootConstants root_constants =
         {
             .mRandomRotationMatrix = trace_data.mRandomRotationMatrix,
-            .mDDGIData = RenderSettings::GetDDGIData()
+            .mDDGIData = RenderSettings::GetDDGIData(),
+            .mIrradianceHysteresis = RenderSettings::mDDGIIrradianceHysteresis,
+            .mRelocateAllProbes = RenderSettings::mDDGIRelocateAllProbes
         };
 
         root_constants.mDDGIData.mVolumesBuffer = inResources.GetBindlessHeapIndex(inData.mVolumesBufferSRV);

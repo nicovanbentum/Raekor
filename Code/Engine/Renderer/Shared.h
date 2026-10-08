@@ -43,7 +43,9 @@
 #define DDGI_IRRADIANCE_TEXELS_NO_BORDER 6  // Irradiance is stored as 6x6 FORMAT_R11G11B10F texels with a 1 pixel border
 #define DDGI_PROBES_PER_ROW 40              // Number of probes per row for the final probe texture
 #define DDGI_RAYS_PER_PROBE 192             // Basically wave size * rays per wave
-#define DDGI_RAYS_BACKFACE_THRESHOLD 128    // if exceeded the probe is probably inside of geometry
+#define DDGI_FIXED_RAYS 32
+#define DDGI_FIXED_RAYS_BACKFACE_THRESHOLD 21
+#define DDGI_RELOCATION_FRAMES 16
 #define DDGI_MAX_CASCADES 4
 #define DOF_TILE_SIZE 8
 
@@ -208,6 +210,7 @@ struct ProbeData
     float3 offset;
     int3 cell;
     uint reset;
+    uint age;
 };
 
 
@@ -485,6 +488,8 @@ struct ProbeUpdateRootConstants
 {
     float4x4 mRandomRotationMatrix;
     DDGIData mDDGIData;
+    float    mIrradianceHysteresis;
+    uint     mRelocateAllProbes;
 };
 
 

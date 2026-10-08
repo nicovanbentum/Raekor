@@ -30,7 +30,14 @@ void main(uint3 threadID : SV_DispatchThreadID)
         probe_data.offset = 0.xxx;
         probe_data.inactive = false;
         probe_data.cell = probe_cell;
+        probe_data.age = 0;
     }
+    else
+    {
+        probe_data.age = min(probe_data.age + 1, DDGI_RELOCATION_FRAMES);
+    }
+
+    const bool relocate = probe_data.age < DDGI_RELOCATION_FRAMES || rc.mRelocateAllProbes;
 
     uint backface_count = 0;
 
@@ -42,7 +49,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
     float closest_frontface_distance = 1e27f;
     float farthest_frontface_distance = 0.0f;
 
-    for (uint ray_index = 0; ray_index < DDGI_RAYS_PER_PROBE; ray_index++)
+    for (uint ray_index = 0; ray_index < DDGI_FIXED_RAYS; ray_index++)
     {
         float depth = rays_depth_texture[uint2(ray_index, probe_index)];
 
@@ -79,7 +86,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
 
     float3 full_offset = 1e27f.xxx;
 
-    if (closest_backface_index != -1 && float(backface_count) / DDGI_RAYS_PER_PROBE > 0.25f)
+    if (closest_backface_index != -1 && float(backface_count) / DDGI_FIXED_RAYS > 0.25f)
     {
         float3 closest_backface_dir = DDGIGetProbeRayDirection(closest_backface_index, rc.mRandomRotationMatrix);
         full_offset = probe_data.offset + closest_backface_dir * (closest_backface_distance + min_frontface_distance * 0.5f);
@@ -101,10 +108,10 @@ void main(uint3 threadID : SV_DispatchThreadID)
 
     float3 normalized_offset = full_offset / volume.mProbeSpacing;
 
-    if (all(abs(normalized_offset) <= 0.45f))
+    if (relocate && all(abs(normalized_offset) <= 0.45f))
         probe_data.offset = full_offset;
 
-    probe_data.inactive = backface_count >= DDGI_RAYS_BACKFACE_THRESHOLD;
+    probe_data.inactive = backface_count >= DDGI_FIXED_RAYS_BACKFACE_THRESHOLD;
 
     probe_buffer[probe_index] = probe_data;
 }

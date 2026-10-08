@@ -112,12 +112,17 @@ public:
     static constexpr DXGI_FORMAT sSwapchainFormat = DXGI_FORMAT_B8G8R8A8_UNORM;
 
 private:
+    static constexpr float sDDGIHysteresis = 0.97f;
+    static constexpr float sDDGIFastConvergeHysteresis = 0.85f;
+    static constexpr uint32_t sDDGIFastConvergeFrameCount = 30;
+
     void CreateProbeDebugMesh(Device& inDevice);
     void UpdateFontAtlas(Device& inDevice);
 
     uint64_t GetViewportKey(const Viewport& inViewport) const;
     uint64_t GetRenderGraphKey() const;
-    uint64_t GetPathTraceKey() const;
+    uint64_t GetLightingKey() const;
+    uint64_t GetPathTraceKey(uint64_t inLightingKey) const;
 
     void ResolveReadbacks(Device& inDevice);
     void RecordReadbacks(Device& inDevice, CommandList& inCmdList);
@@ -159,6 +164,10 @@ private:
     uint64_t                    m_ViewportKey = 0;
     uint64_t                    m_RenderGraphKey = 0;
     uint64_t                    m_PathTraceKey = 0;
+    uint64_t                    m_LightingKey = 0;
+    uint32_t                    m_DDGIFastConvergeFrames = 0;
+    uint32_t                    m_DDGIRelocationFrames = 0;
+    Array<RTGeometry>           m_PrevGeometries;
     BufferID                    m_DebugLinesVertexBuffer;
     BufferID                    m_DebugLinesIndirectArgsBuffer;
     Mesh                        m_ProbeDebugMesh;

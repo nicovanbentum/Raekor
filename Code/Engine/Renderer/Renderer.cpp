@@ -405,9 +405,31 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     m_FrameConstants.mDebugLinesVertexBuffer = inDevice.GetBindlessHeapIndex(m_DebugLinesVertexBuffer);
     m_FrameConstants.mDebugLinesIndirectArgsBuffer = inDevice.GetBindlessHeapIndex(m_DebugLinesIndirectArgsBuffer);
 
+    const uint64_t lighting_key = GetLightingKey();
+
+    if (lighting_key != m_LightingKey)
+        m_DDGIFastConvergeFrames = sDDGIFastConvergeFrameCount;
+    else if (m_DDGIFastConvergeFrames > 0)
+        m_DDGIFastConvergeFrames--;
+
+    m_LightingKey = lighting_key;
+    RenderSettings::mDDGIIrradianceHysteresis = m_DDGIFastConvergeFrames > 0 ? sDDGIFastConvergeHysteresis : sDDGIHysteresis;
+
+    Slice<const RTGeometry> geometries = m_RenderWorld.GetGeometries();
+
+    if (geometries.size() != m_PrevGeometries.size() || std::memcmp(geometries.data(), m_PrevGeometries.data(), geometries.size_bytes()) != 0)
+    {
+        m_PrevGeometries.assign(geometries.begin(), geometries.end());
+        m_DDGIRelocationFrames = DDGI_RELOCATION_FRAMES;
+    }
+    else if (m_DDGIRelocationFrames > 0)
+        m_DDGIRelocationFrames--;
+
+    RenderSettings::mDDGIRelocateAllProbes = m_DDGIRelocationFrames > 0;
+
     if (m_Settings.mDoPathTrace)
     {
-        const uint64_t path_trace_key = GetPathTraceKey();
+        const uint64_t path_trace_key = GetPathTraceKey(lighting_key);
 
         if (path_trace_key != m_PathTraceKey)
             RenderSettings::mPathTraceReset = true;
@@ -802,20 +824,28 @@ uint64_t Renderer::GetRenderGraphKey() const
 
 
 
-uint64_t Renderer::GetPathTraceKey() const
+uint64_t Renderer::GetLightingKey() const
 {
-    const auto HashSlice = []<typename T>(Slice<const T> inSlice, uint64_t inHash)
-    {
-        return gHashFNV1a((const char*)inSlice.data(), inSlice.size_bytes(), inHash);
-    };
+    Slice<const RTMaterial> materials = m_RenderWorld.GetMaterials();
+    Slice<const RTLight> lights = m_RenderWorld.GetLights();
 
-    uint64_t hash = gHashFNV1a((const char*)&m_FrameConstants.mViewProjectionMatrix, sizeof(m_FrameConstants.mViewProjectionMatrix));
-    hash = gHashFNV1a((const char*)&m_FrameConstants.mSunColor, sizeof(m_FrameConstants.mSunColor), hash);
+    uint64_t hash = gHashFNV1a((const char*)&m_FrameConstants.mSunColor, sizeof(m_FrameConstants.mSunColor));
     hash = gHashFNV1a((const char*)&m_FrameConstants.mSunDirection, sizeof(m_FrameConstants.mSunDirection), hash);
     hash = gHashFNV1a((const char*)&m_FrameConstants.mSunConeAngle, sizeof(m_FrameConstants.mSunConeAngle), hash);
-    hash = HashSlice(m_RenderWorld.GetGeometries(), hash);
-    hash = HashSlice(m_RenderWorld.GetMaterials(), hash);
-    hash = HashSlice(m_RenderWorld.GetLights(), hash);
+    hash = gHashFNV1a((const char*)materials.data(), materials.size_bytes(), hash);
+    hash = gHashFNV1a((const char*)lights.data(), lights.size_bytes(), hash);
+
+    return hash;
+}
+
+
+
+uint64_t Renderer::GetPathTraceKey(uint64_t inLightingKey) const
+{
+    Slice<const RTGeometry> geometries = m_RenderWorld.GetGeometries();
+
+    uint64_t hash = gHashFNV1a((const char*)&m_FrameConstants.mViewProjectionMatrix, sizeof(m_FrameConstants.mViewProjectionMatrix), inLightingKey);
+    hash = gHashFNV1a((const char*)geometries.data(), geometries.size_bytes(), hash);
 
     return hash;
 }

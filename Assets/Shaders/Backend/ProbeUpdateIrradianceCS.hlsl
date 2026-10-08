@@ -56,7 +56,7 @@ void main(uint3 threadID : SV_DispatchThreadID,  uint3 groupThreadID : SV_GroupT
 
         float4 irradiance = 0.xxxx;
 
-        for (uint ray_index = 0; ray_index < DDGI_RAYS_PER_PROBE; ray_index++)
+        for (uint ray_index = DDGI_FIXED_RAYS; ray_index < DDGI_RAYS_PER_PROBE; ray_index++)
         {
             if (lds_ProbeRayIsBackface[ray_index])
                 continue;
@@ -73,18 +73,7 @@ void main(uint3 threadID : SV_DispatchThreadID,  uint3 groupThreadID : SV_GroupT
 
         if (fc.mFrameCounter >= 2 && !probe_data.reset)
         {
-            float hysteresis = 0.97f;
-
-            float3 delta = irradiance.rgb - prev_irradiance;
-            float max_prev = max(max(prev_irradiance.r, prev_irradiance.g), prev_irradiance.b);
-            float max_delta = max(max(abs(delta.r), abs(delta.g)), abs(delta.b));
-
-            if (max_delta > 0.25f * max(max_prev, 1e-3f))
-                hysteresis = 0.85f;
-
-            if (probe_data.inactive)
-                hysteresis = 1.0f;
-
+            const float hysteresis = probe_data.inactive ? 1.0f : rc.mIrradianceHysteresis;
             final_irradiance = lerp(irradiance.rgb, prev_irradiance, hysteresis);
         }
 

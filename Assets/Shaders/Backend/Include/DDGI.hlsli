@@ -140,7 +140,10 @@ float3 DDGIGetRelocatedProbeWorldPos(uint inProbeIndex, DDGIData inData)
 
 float3 DDGIGetProbeRayDirection(uint inRayIndex, float4x4 inRandomRotationMatrix)
 {
-    return normalize(mul((float3x3)inRandomRotationMatrix, SphericalFibonnaci(inRayIndex, DDGI_RAYS_PER_PROBE)));
+    if (inRayIndex < DDGI_FIXED_RAYS)
+        return normalize(SphericalFibonnaci(inRayIndex, DDGI_FIXED_RAYS));
+
+    return normalize(mul((float3x3)inRandomRotationMatrix, SphericalFibonnaci(inRayIndex - DDGI_FIXED_RAYS, DDGI_RAYS_PER_PROBE - DDGI_FIXED_RAYS)));
 }
 
 

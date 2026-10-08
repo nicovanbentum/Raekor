@@ -50,6 +50,8 @@ struct RenderSettings
     static RK_API Vec3 mDDGICornerPosition;
     static RK_API bool mDDGIFollowCamera;
     static RK_API uint32_t mDDGICascadeCount;
+    static RK_API float mDDGIIrradianceHysteresis;
+    static RK_API bool mDDGIRelocateAllProbes;
     static RK_API StaticArray<DDGIVolume, DDGI_MAX_CASCADES> mDDGIVolumes;
 
     static float GetExposure() { return 1.0f / ( 1.2f * std::exp2(mEV100) ); }

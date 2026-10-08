@@ -71,6 +71,8 @@ Vec3 RenderSettings::mDDGIProbeSpacing = Vec3(6.4, 3.0, 2.8);
 Vec3 RenderSettings::mDDGICornerPosition = Vec3(-65, -1.4, -28.5);
 bool RenderSettings::mDDGIFollowCamera = false;
 uint32_t RenderSettings::mDDGICascadeCount = 1;
+float RenderSettings::mDDGIIrradianceHysteresis = 0.97f;
+bool RenderSettings::mDDGIRelocateAllProbes = false;
 StaticArray<DDGIVolume, DDGI_MAX_CASCADES> RenderSettings::mDDGIVolumes = {};
 
 
