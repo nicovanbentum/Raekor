@@ -57,6 +57,7 @@ RenderSystem::RenderSystem(Application* inApp) :
     CreateDefaultTextures();
 
     m_Renderer.SetDefaultTextures(m_DefaultBlackTexture, m_DefaultWhiteTexture);
+    m_Renderer.CreateDisplayTextureProxy(m_Device);
     m_Renderer.Recompile(m_Device);
 }
 

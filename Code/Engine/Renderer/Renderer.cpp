@@ -101,7 +101,12 @@ Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inW
 
     m_DebugLinesVertexBuffer = inDevice.CreateBuffer(Buffer::RWStructuredBuffer(sizeof(Vec4) * UINT16_MAX, sizeof(Vec4), "DebugLinesVertexBuffer"));
     m_DebugLinesIndirectArgsBuffer = inDevice.CreateBuffer(Buffer::RWByteAddressBuffer(sizeof(D3D12_DRAW_ARGUMENTS), "DebugLinesIndirectArgsBuffer"));
+}
 
+
+
+void Renderer::CreateDisplayTextureProxy(Device& inDevice)
+{
     const D3D12_SHADER_RESOURCE_VIEW_DESC display_texture_proxy_desc =
     {
         .Format = DXGI_FORMAT_R8G8B8A8_UNORM,

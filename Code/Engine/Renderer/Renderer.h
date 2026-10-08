@@ -86,6 +86,7 @@ public:
     void SetShouldCaptureNextFrame(bool inValue) { m_ShouldCaptureNextFrame = inValue; }
 
     void SetDefaultTextures(TextureID inBlackTexture, TextureID inWhiteTexture) { m_BlackTexture = inBlackTexture; m_WhiteTexture = inWhiteTexture; }
+    void CreateDisplayTextureProxy(Device& inDevice);
 
     GPUScene& GetGPUScene() { return m_GPUScene; }
     const RenderWorld& GetRenderWorld() const { return m_RenderWorld; }
