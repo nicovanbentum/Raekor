@@ -241,9 +241,18 @@ void RenderGraphBuilder::Clear()
 
 void RenderGraphResourceAllocator::Reserve(Device& inDevice, uint64_t inSize, uint64_t inAlignment)
 {
-    assert(m_Allocation == nullptr);
-
     m_Offset = 0;
+
+    if (m_Allocation != nullptr)
+    {
+        const bool fits = m_Allocation->GetSize() >= inSize && m_Alignment >= inAlignment;
+        const bool oversized = m_Allocation->GetSize() > inSize * 2;
+
+        if (fits && !oversized)
+            return;
+
+        Release(inDevice);
+    }
 
     for (const auto& [index, heap] : gEnumerate(m_RetiredHeaps))
     {
@@ -441,7 +450,7 @@ void RenderGraphResources::Clear(Device& inDevice)
     m_Resources.clear();
     m_ResourceViews.clear();
 
-    m_Allocator.Release(inDevice);
+    m_Allocator.Clear();
 }
 
 
@@ -819,10 +828,6 @@ void RenderGraph::Clear(Device& inDevice)
     m_FinalBarriers.clear();
     m_RenderGraphBuilder.Clear();
     m_RenderGraphResources.Clear(inDevice);
-
-    m_PerPassAllocator.DestroyBuffer(inDevice);
-    m_PerFrameAllocator.DestroyBuffer(inDevice);
-    m_ConstantsAllocator.DestroyBuffer(inDevice);
 }
 
 
@@ -1084,11 +1089,20 @@ bool RenderGraph::Compile(Device& inDevice, const GlobalConstants& inGlobalConst
     for (const auto& pass : m_RenderPasses)
         total_constants_size += pass->m_ConstantsSize;
 
-    m_PerPassAllocator.CreateBuffer(inDevice, std::max(total_constants_size, 1u), sByteAddressBufferAlignment, "PerPassAllocator");
-    m_PerFrameAllocator.CreateBuffer(inDevice, sizeof(FrameConstants), sConstantAddressBufferAlignment, "PerFrameAllocator");
+    if (m_PerPassAllocator.GetCapacity() < total_constants_size || m_PerPassAllocator.GetCapacity() == 0)
+    {
+        m_PerPassAllocator.DestroyBuffer(inDevice);
+        m_PerPassAllocator.CreateBuffer(inDevice, std::max(total_constants_size, 1u), sByteAddressBufferAlignment, "PerPassAllocator");
+    }
 
-    m_ConstantsAllocator.CreateBuffer(inDevice);
-    m_ConstantsAllocator.Copy(GlobalConstants {});
+    if (m_PerFrameAllocator.GetCapacity() == 0)
+        m_PerFrameAllocator.CreateBuffer(inDevice, sizeof(FrameConstants), sConstantAddressBufferAlignment, "PerFrameAllocator");
+
+    if (!m_ConstantsAllocator.GetBuffer().IsValid())
+    {
+        m_ConstantsAllocator.CreateBuffer(inDevice);
+        m_ConstantsAllocator.Copy(GlobalConstants {});
+    }
 
     m_RenderGraphResources.Compile(inDevice, m_RenderGraphBuilder);
     m_ResourcesInitialized = false;
@@ -1099,6 +1113,9 @@ bool RenderGraph::Compile(Device& inDevice, const GlobalConstants& inGlobalConst
 
 void RenderGraph::InitializeResources(Device& inDevice, CommandList& inCmdList) const
 {
+    const D3D12_RESOURCE_BARRIER aliasing_barrier = CD3DX12_RESOURCE_BARRIER::Aliasing(nullptr, nullptr);
+    inCmdList->ResourceBarrier(1, &aliasing_barrier);
+
     for (const RenderGraphResource& resource : m_RenderGraphResources.m_Resources)
     {
         if (resource.mImported || resource.mResourceType != RESOURCE_TYPE_TEXTURE)

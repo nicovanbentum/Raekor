@@ -1089,7 +1089,7 @@ void RingAllocator::CreateBuffer(Device& inDevice, uint32_t inCapacity, uint32_t
     {
         alloc.buffer = inDevice.CreateBuffer(Buffer::Desc
         {
-            .size = inCapacity,
+            .size = m_Capacity,
             .usage = Buffer::UPLOAD,
             .debugName = inName
         });
