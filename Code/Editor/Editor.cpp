@@ -952,12 +952,6 @@ void Editor::BeginImGuiDockSpace()
 	flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize |
 		ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
 
-	if (IWidget* widget = m_Widgets.GetWidget<MenubarWidget>())
-	{
-		if (widget->IsOpen())
-			flags |= ImGuiWindowFlags_MenuBar;
-	}
-
 	ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
 
 	ImGuiViewport* imgui_viewport = ImGui::GetMainViewport();
