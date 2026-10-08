@@ -20,6 +20,8 @@ static constexpr float cPowerUpDuration = 10.0f;
 static constexpr float cGuardDuration = 6.0f;
 static constexpr float cCrashDuration = 1.2f;
 
+static constexpr StaticArray<float, 4> cCheatSpeeds = { 0.0f, 30.0f, 45.0f, 60.0f };
+
 static constexpr float cTrainWidth = 2.3f;
 static constexpr float cTrainHeight = 3.0f;
 static constexpr float cRampLength = 9.0f;
@@ -148,6 +150,10 @@ public:
 
         m_RootEntity = m_Scene->CreateSpatialEntity(cRuntimeRootName);
 
+        m_GodMode = &g_CVariables->Create("rr_god", 0, true);
+        m_AutoStart = &g_CVariables->Create("rr_autostart", 0, true);
+        m_SpeedCheat = &g_CVariables->Create("rr_speed", 0.0f, true);
+
         CreateMaterials();
         CreateSegments();
         CreatePlayer();
@@ -175,6 +181,9 @@ public:
 
         m_Time += inDeltaTime;
 
+        if (m_State == STATE_READY && *m_AutoStart)
+            m_State = STATE_RUNNING;
+
         if (m_State == STATE_RUNNING)
         {
             m_RunTime += inDeltaTime;
@@ -201,6 +210,23 @@ public:
             return;
 
         const SDL_Keycode key = inEvent.key.key;
+
+        if (key == SDLK_F1)
+        {
+            *m_GodMode = !*m_GodMode;
+            AddPopup(*m_GodMode ? "GOD MODE ON" : "GOD MODE OFF", Vec4(0.6f, 0.9f, 1.0f, 1.0f));
+            return;
+        }
+
+        if (key == SDLK_F2)
+        {
+            const auto current = std::find(cCheatSpeeds.begin(), cCheatSpeeds.end(), *m_SpeedCheat);
+            const size_t next = current == cCheatSpeeds.end() ? 1 : ( size_t(current - cCheatSpeeds.begin()) + 1 ) % cCheatSpeeds.size();
+
+            *m_SpeedCheat = cCheatSpeeds[next];
+            AddPopup(*m_SpeedCheat > 0.0f ? std::format("SPEED {} M/S", int(*m_SpeedCheat)) : String("NORMAL SPEED"), Vec4(0.6f, 0.9f, 1.0f, 1.0f));
+            return;
+        }
 
         if (m_State == STATE_READY)
         {
@@ -680,7 +706,9 @@ private:
         if (target < 0 || target >= cLaneCount)
             return;
 
-        if (GetSurfaceHeight(target, m_PlayerZ) > m_PlayerY + cStepHeight || GetSurfaceHeight(target, m_PlayerZ + 1.0f) > m_PlayerY + cStepHeight)
+        const bool blocked = GetSurfaceHeight(target, m_PlayerZ) > m_PlayerY + cStepHeight || GetSurfaceHeight(target, m_PlayerZ + 1.0f) > m_PlayerY + cStepHeight;
+
+        if (blocked && !*m_GodMode)
         {
             Stumble(inDirection);
             return;
@@ -735,7 +763,7 @@ private:
 
     void UpdatePlayer(float inDeltaTime)
     {
-        m_Speed = glm::min(cMaxSpeed, cStartSpeed + m_RunTime * cAcceleration);
+        m_Speed = *m_SpeedCheat > 0.0f ? *m_SpeedCheat : glm::min(cMaxSpeed, cStartSpeed + m_RunTime * cAcceleration);
 
         const float previous_z = m_PlayerZ;
         m_PlayerZ += m_Speed * inDeltaTime;
@@ -759,7 +787,10 @@ private:
         m_PlayerY += m_VelocityY * inDeltaTime;
 
         const int lane = GetNearestLane(m_PlayerX);
-        const float ground = GetSurfaceHeight(lane, m_PlayerZ);
+        float ground = GetSurfaceHeight(lane, m_PlayerZ);
+
+        if (ground > previous_y + cStepHeight && *m_GodMode)
+            ground = glm::min(ground, previous_y);
 
         if (ground > previous_y + cStepHeight)
         {
@@ -788,6 +819,9 @@ private:
                 continue;
 
             if (obstacle.mType != OBSTACLE_LOW_BARRIER && obstacle.mType != OBSTACLE_HIGH_BARRIER)
+                continue;
+
+            if (*m_GodMode)
                 continue;
 
             if (obstacle.mZ + obstacle.mLength < previous_z - 0.3f || obstacle.mZ > m_PlayerZ + 0.3f)
@@ -1234,6 +1268,8 @@ private:
             }
         }
 
+        DrawCheats(display, scale, margin);
+
         if (m_State == STATE_READY)
         {
             DrawReady(display, scale);
@@ -1300,6 +1336,22 @@ private:
             DrawGameOver(display, scale);
     }
 
+    void DrawCheats(const Vec2& inDisplay, float inScale, float inMargin)
+    {
+        String text;
+
+        if (*m_GodMode)
+            text += "GOD MODE";
+
+        if (*m_SpeedCheat > 0.0f)
+            text += std::format("{}SPEED {} M/S", text.empty() ? "" : "   ", int(*m_SpeedCheat));
+
+        if (text.empty())
+            return;
+
+        DrawOutlinedText(Vec2(inDisplay.x - inMargin, inDisplay.y - inMargin - 26.0f * inScale), "CHEATS   " + text, 18.0f * inScale, Vec4(0.6f, 0.9f, 1.0f, 0.9f), UI_TEXT_ALIGN_RIGHT, inScale);
+    }
+
     void DrawReady(const Vec2& inDisplay, float inScale)
     {
         const float center = inDisplay.x * 0.5f;
@@ -1307,11 +1359,12 @@ private:
         DrawOutlinedText(Vec2(center, inDisplay.y * 0.16f), "RAIL RUSH", 96.0f * inScale, Vec4(1.0f, 0.85f, 0.25f, 1.0f), UI_TEXT_ALIGN_CENTER, inScale);
         DrawOutlinedText(Vec2(center, inDisplay.y * 0.16f + 110.0f * inScale), "Dodge the trains. Grab the coins. Don't get caught.", 24.0f * inScale, Vec4(1.0f), UI_TEXT_ALIGN_CENTER, inScale);
 
-        static constexpr std::array<std::pair<const char*, const char*>, 4> cControls =
+        static constexpr std::array<std::pair<const char*, const char*>, 5> cControls =
         {
             std::pair { "A / D",           "Switch lanes" },
             std::pair { "W / SPACE",       "Jump" },
             std::pair { "S",               "Slide, or slam down mid-air" },
+            std::pair { "F1 / F2",         "Cheats: god mode / speed" },
             std::pair { "ESC",             "Pause" },
         };
 
@@ -1430,6 +1483,10 @@ private:
     float m_DistanceSincePowerUp = 0.0f;
 
     Array<Popup> m_Popups;
+
+    int* m_GodMode = nullptr;
+    int* m_AutoStart = nullptr;
+    float* m_SpeedCheat = nullptr;
 
     Vec3 m_CameraPosition = Vec3(0.0f);
     float m_CameraLookY = 1.2f;
