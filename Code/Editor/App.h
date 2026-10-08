@@ -7,7 +7,6 @@
 #include "Engine/physics.h"
 #include "Engine/Renderer/RenderSystem.h"
 #include "Engine/Renderer/CommandList.h"
-#include "Editor/Widgets/ProfileWidget.h"
 
 namespace RK::DX12 {
 
@@ -44,21 +43,6 @@ private:
     uint16_t m_BufferUsageFilter = 0xFFFF;
     uint16_t m_TextureUsageFilter = 0xFFFF;
     HashSet<const ID3D12Resource*> m_SeenResources;
-};
-
-class GPUProfileWidget : public IWidget
-{
-public:
-    RTTI_DECLARE_VIRTUAL_TYPE(GPUProfileWidget);
-
-    GPUProfileWidget(Editor* inEditor) : IWidget(inEditor, "GPU Profiler ") {}
-    void Draw(Widgets* inWidgets, float inDeltaTime);
-    void OnEvent(Widgets* inWidgets, const SDL_Event& inEvent);
-
-private:
-    float m_Zoom = 1.2f;
-    String m_FilterInputBuffer;
-    int m_SelectedSectionIndex = -1;
 };
 
 } // namespace Raekor::DX12

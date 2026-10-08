@@ -999,11 +999,11 @@ void Editor::BeginImGuiDockSpace()
 		ImGui::DockBuilderDockWindow(m_Widgets.GetWidget<HierarchyWidget>()->GetTitle().c_str(), right_node);
 
 		ImGui::DockBuilderDockWindow(m_Widgets.GetWidget<InspectorWidget>()->GetTitle().c_str(), inspector_node);
-		ImGui::DockBuilderDockWindow(m_Widgets.GetWidget<ProfileWidget>()->GetTitle().c_str(), inspector_node);
 
 		ImGui::DockBuilderDockWindow(m_Widgets.GetWidget<ConsoleWidget>()->GetTitle().c_str(), bottom_node);
 		ImGui::DockBuilderDockWindow(m_Widgets.GetWidget<MaterialsWidget>()->GetTitle().c_str(), bottom_node);
 		ImGui::DockBuilderDockWindow(m_Widgets.GetWidget<SequenceWidget>()->GetTitle().c_str(), bottom_node);
+		ImGui::DockBuilderDockWindow(m_Widgets.GetWidget<ProfileWidget>()->GetTitle().c_str(), bottom_node);
 
 		ImGui::DockBuilderFinish(dockspace_id);
 	}

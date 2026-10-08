@@ -21,7 +21,6 @@
 
 namespace RK::DX12 {
 
-RTTI_DEFINE_TYPE_NO_FACTORY(GPUProfileWidget) {}
 RTTI_DEFINE_TYPE_NO_FACTORY(DeviceResourcesWidget) {}
 
 DXApp::DXApp() :
@@ -30,10 +29,8 @@ DXApp::DXApp() :
 {
     m_RenderSystem.InitImGui(m_Window);
 
-    m_Widgets.Register<GPUProfileWidget>(this);
     m_Widgets.Register<DeviceResourcesWidget>(this);
     
-    //m_Widgets.GetWidget<GPUProfileWidget>()->Hide();
     m_Widgets.GetWidget<DeviceResourcesWidget>()->Hide();
 
     const String scene_override = OS::sGetCommandLineValue("-scene");
@@ -309,155 +306,6 @@ void DeviceResourcesWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
     ImGui::PopStyleColor(2);
     ImGui::End();
-}
-
-void GPUProfileWidget::Draw(Widgets* inWidgets, float inDeltaTime)
-{
-    ImGui::Begin(m_Title.c_str(), &m_Open);
-    m_Visible = ImGui::IsWindowAppearing();
-
-    ImGui::AlignTextToFramePadding();
-    ImGui::Text("Filter:");
-    ImGui::SameLine();
-
-    ImGui::SetNextItemWidth(ImGui::CalcTextSize("RK::DX12::RenderGraph::Execute").x);
-    ImGui::InputText("##profilerfilterinput", &m_FilterInputBuffer);
-    ImGui::SameLine();
-
-    ImGuiTextFilter filter = ImGuiTextFilter(m_FilterInputBuffer.c_str());
-
-    bool enabled = g_Profiler->IsEnabled();
-    if (ImGui::Checkbox(enabled ? "Running" : "Paused", &enabled))
-        g_Profiler->SetEnabled(enabled);
-
-    ImGui::SameLine();
-
-    ImGui::SetNextItemWidth(100.0f);
-    ImGui::SliderFloat("Zoom##profilerzoom", &m_Zoom, 1.0f, 10.0f, "%.1f");
-
-    uint32_t max_depth = 0;
-    uint64_t lowest_tick = UINT64_MAX;
-    uint64_t highest_tick = 0;
-
-    for (const ProfileSection& section : g_Profiler->GetGPUSections())
-    {
-        max_depth = glm::max(max_depth, section.mDepth);
-        lowest_tick = glm::min(lowest_tick, section.mStartTick);
-        highest_tick = glm::max(highest_tick, section.mEndTick);
-    }
-
-    float total_time = Timer::sGetTicksToSeconds(highest_tick - lowest_tick);
-
-    ImVec2 start_pos = ImGui::GetCursorScreenPos();
-    ImVec2 avail_size = ImGui::GetContentRegionAvail();
-
-    avail_size.x = glm::max(avail_size.x, 1.0f);
-    avail_size.y = glm::max(avail_size.y, 1.0f);
-
-    float bar_height = ( avail_size.y / ( max_depth + 1 ) ) * m_Zoom;
-    float pixels_per_tick = avail_size.x / ( highest_tick - lowest_tick );
-
-    for (const auto& [index, section] : gEnumerate(g_Profiler->GetGPUSections()))
-    {
-        // skip sections that took (almost) no GPU time
-        if (section.mEndTick - section.mStartTick < 50)
-            continue;
-
-        const float end_pos_x = start_pos.x + ( section.mEndTick - lowest_tick ) * pixels_per_tick;
-        const float start_pos_x = start_pos.x + ( section.mStartTick - lowest_tick ) * pixels_per_tick;
-
-        const float end_pos_y = start_pos.y + ( section.mDepth + 1 ) * bar_height;
-        const float start_pos_y = start_pos.y + ( section.mDepth + 0 ) * bar_height;
-
-        const ImVec2 pad = ImVec2(1.0f, 1.0f);
-        const ImRect bbox = ImRect(ImVec2(start_pos_x, start_pos_y), ImVec2(end_pos_x, end_pos_y));
-
-        const float time = section.GetSeconds();
-        const float time_pct = time / total_time;
-
-        if (time_pct < 0.0001f)
-            continue;
-
-        char text_buffer[255];
-        ImFormatString(text_buffer, std::size(text_buffer), "%s (%.2f ms)", section.mName, time * 1'000);
-
-        ImGui::PushID(index);
-
-        ImGui::SetCursorScreenPos(bbox.Min);
-
-        ImGui::InvisibleButton(section.mName, bbox.GetSize(), ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight);
-
-        ImGui::PopID();
-
-        if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
-        {
-            m_SelectedSectionIndex = m_SelectedSectionIndex == index ? -1 : index;
-        }
-
-        //ImGui::DebugDrawItemRect();
-
-        bool is_hovered = ImGui::IsItemHovered();
-
-        if (is_hovered)
-            ImGui::SetTooltip(text_buffer);
-
-        float label_hash = float(gHash32Bit(section.mName)) / UINT32_MAX;
-
-        float v = 0.5f;
-        float upper_s = is_hovered ? 0.6f : 0.5f;
-        float lower_s = is_hovered ? 0.5f : 0.4f;
-
-        const bool passes_filter = filter.PassFilter(section.mName);
-
-        if (!passes_filter)
-        {
-            float v = 0.2f;
-            upper_s = 0.2f;
-            lower_s = 0.2f;
-        }
-
-        ImVec4 upper_hsv = ImVec4(0.0f, 0.0f, 0.0f, 1.0f);
-        ImVec4 lower_hsv = ImVec4(0.0f, 0.0f, 0.0f, 1.0f);
-        ImGui::ColorConvertHSVtoRGB(label_hash, 0.5f, upper_s, upper_hsv.x, upper_hsv.y, upper_hsv.z);
-        ImGui::ColorConvertHSVtoRGB(label_hash, 0.5f, lower_s, lower_hsv.x, lower_hsv.y, lower_hsv.z);
-
-        ImU32 upper_gradient = ImGui::ColorConvertFloat4ToU32(upper_hsv);
-        ImU32 lower_gradient = ImGui::ColorConvertFloat4ToU32(lower_hsv);
-            
-        ImGui::GetWindowDrawList()->AddRectFilled(bbox.Min, bbox.Max, m_SelectedSectionIndex == index ? IM_COL32_WHITE : IM_COL32_BLACK);
-        ImGui::GetWindowDrawList()->AddRectFilledMultiColor(bbox.Min + pad, bbox.Max - pad, upper_gradient, lower_gradient, lower_gradient, upper_gradient);
-            
-        // dont render labels for tiny bars
-        if (time_pct > 0.01f)
-        {
-            const ImVec2 label_size = ImGui::CalcTextSize(text_buffer, NULL, true);
-            const ImRect text_clip_rect = ImRect(bbox.Min + pad, bbox.Max - pad * 2.0f);
-            const ImColor text_color = passes_filter ? ImGui::GetStyleColorVec4(ImGuiCol_Text) : ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled);
-            
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(text_color));
-            
-            ImGui::RenderTextClipped(bbox.Min + pad * 2.0f, bbox.Max - pad * 2.0f, text_buffer, NULL, &label_size, ImGui::GetStyle().ButtonTextAlign, &text_clip_rect);
-            
-            ImGui::PopStyleColor();
-        }
-    }
-
-    ImGui::End();
-}
-
-
-void GPUProfileWidget::OnEvent(Widgets* inWidgets, const SDL_Event& inEvent)
-{
-    if (inEvent.type == SDL_EVENT_KEY_DOWN && !inEvent.key.repeat)
-    {
-        switch (inEvent.key.key)
-        {
-            case SDLK_SPACE:
-            {
-                g_Profiler->SetEnabled(!g_Profiler->IsEnabled());
-            } break;
-        }
-    }
 }
 
 } // namespace::Raekor
