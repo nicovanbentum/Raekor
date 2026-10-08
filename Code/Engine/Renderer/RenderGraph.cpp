@@ -653,16 +653,6 @@ bool IRenderPass::IsCreated(RenderGraphResourceID inResource) const
 
 
 
-bool IRenderPass::IsDiscarded(RenderGraphResourceID inResource) const
-{
-    for (const Discard& discard : m_DiscardedResources)
-        if (discard.mResource == inResource)
-            return true;
-    return false;
-}
-
-
-
 bool IRenderPass::IsRead(RenderGraphResourceViewID inResource) const
 {
     for (RenderGraphResourceViewID resource : m_ReadResources)
@@ -683,7 +673,7 @@ bool IRenderPass::IsWritten(RenderGraphResourceViewID inResource) const
 
 
 
-void RenderGraph::FlushBarriers(Device& inDevice, CommandList& inCmdList, const Slice<ResourceBarrier>& inBarriers) const
+void RenderGraph::FlushBarriers(Device& inDevice, CommandList& inCmdList, Slice<const ResourceBarrier> inBarriers) const
 {
     if (inBarriers.empty())
         return;
@@ -825,6 +815,7 @@ RenderGraph::RenderGraph(Device& inDevice, const Viewport& inViewport, uint32_t 
 void RenderGraph::Clear(Device& inDevice)
 {
     m_RenderPasses.clear();
+    m_InitialBarriers.clear();
     m_FinalBarriers.clear();
     m_RenderGraphBuilder.Clear();
     m_RenderGraphResources.Clear(inDevice);
@@ -1017,6 +1008,22 @@ bool RenderGraph::Compile(Device& inDevice, const GlobalConstants& inGlobalConst
 
     for (const auto& [resource_id, resource] : graph)
     {
+        if (resource.mEdges.empty())
+            continue;
+
+        const RenderGraphResourceDesc& desc = m_RenderGraphBuilder.GetResourceDesc(resource_id);
+
+        if (desc.mResourceID.IsValid())
+            continue;
+
+        const D3D12_RESOURCE_STATES created_state = desc.mResourceType == RESOURCE_TYPE_BUFFER ? GetD3D12InitialResourceStates(desc.mBufferDesc.usage) : GetD3D12InitialResourceStates(desc.mTextureDesc.usage);
+
+        if (created_state != resource.mEdges[0].mState)
+            m_InitialBarriers.push_back(ResourceBarrier::Transition(resource_id, created_state, resource.mEdges[0].mState, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES));
+    }
+
+    for (const auto& [resource_id, resource] : graph)
+    {
         if (resource.mEdges.size() < 2)
             continue;
 
@@ -1024,7 +1031,6 @@ bool RenderGraph::Compile(Device& inDevice, const GlobalConstants& inGlobalConst
         uint32_t previous_renderpass_index = resource.mEdges[0].mRenderPassIndex;
 
         bool uav_barrier_added = false;
-        bool discard_barrier_added = false;
 
         for (int edge_index = 1; edge_index < resource.mEdges.size(); edge_index++)
         {
@@ -1035,7 +1041,6 @@ bool RenderGraph::Compile(Device& inDevice, const GlobalConstants& inGlobalConst
             {
                 previous_renderpass_index = prev_edge.mRenderPassIndex;
                 uav_barrier_added = false; // for a given resource (GraphNode), we can only ever add 1 UAV barrier per renderpass, so everytime the renderpass changes we reset the flag
-                discard_barrier_added = false; // for a given resource (GraphNode), we can only ever add 1 discard per renderpass, so everytime the renderpass changes we reset the flag
             }
 
             auto& prev_pass = m_RenderPasses[previous_renderpass_index];
@@ -1061,48 +1066,17 @@ bool RenderGraph::Compile(Device& inDevice, const GlobalConstants& inGlobalConst
             old_state = new_state;
         }
 
-        for (const GraphEdge& edge : resource.mEdges)
-        {
-            auto& pass = m_RenderPasses[edge.mRenderPassIndex];
-
-            if (!pass->IsCreated(resource_id))
-                continue;
-
-            D3D12_RESOURCE_STATES old_state = tracked_state.mSubResourceStates[edge.mSubResource];
-            D3D12_RESOURCE_STATES new_state = edge.mState;
-            
-            if (old_state == new_state)
-                continue;
-
-            m_FinalBarriers.push_back(ResourceBarrier::Transition(resource_id, old_state, new_state, edge.mSubResource));
-        }
-    }
-
-    // track first write for discards
-    for (const auto& [resource_id, resource] : graph)
-    {
-        if (resource.mEdges.empty())
+        if (m_RenderGraphBuilder.GetResourceDesc(resource_id).mResourceID.IsValid())
             continue;
 
-        const RenderGraphResourceDesc& desc = m_RenderGraphBuilder.GetResourceDesc(resource_id);
+        const D3D12_RESOURCE_STATES initial_state = resource.mEdges[0].mState;
 
-        // skip imported resources
-        if (desc.mResourceID.IsValid())
-            continue;
-
-        uint32_t lowest_write_pass_index = UINT32_MAX;
-
-        for (const GraphEdge& edge : resource.mEdges)
+        for (uint32_t subresource = 0; subresource < resource.mSubResourceCount; subresource++)
         {
-            if (edge.mState & D3D12_RESOURCE_STATE_RENDER_TARGET || edge.mRenderPassIndex & D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
-            {
-                lowest_write_pass_index = std::min(lowest_write_pass_index, edge.mRenderPassIndex);
-            }
-        }
+            const D3D12_RESOURCE_STATES final_state = tracked_state.mSubResourceStates[subresource];
 
-        if (lowest_write_pass_index != UINT32_MAX)
-        {
-            m_RenderPasses[lowest_write_pass_index]->AddDiscard(Discard{ .mResource = resource_id });
+            if (final_state != initial_state)
+                m_FinalBarriers.push_back(ResourceBarrier::Transition(resource_id, final_state, initial_state, subresource));
         }
     }
 
@@ -1117,9 +1091,29 @@ bool RenderGraph::Compile(Device& inDevice, const GlobalConstants& inGlobalConst
     m_ConstantsAllocator.Copy(GlobalConstants {});
 
     m_RenderGraphResources.Compile(inDevice, m_RenderGraphBuilder);
+    m_ResourcesInitialized = false;
 
     return true;
 }
+
+
+void RenderGraph::InitializeResources(Device& inDevice, CommandList& inCmdList) const
+{
+    for (const RenderGraphResource& resource : m_RenderGraphResources.m_Resources)
+    {
+        if (resource.mImported || resource.mResourceType != RESOURCE_TYPE_TEXTURE)
+            continue;
+
+        const TextureID texture = TextureID(resource.mResourceID);
+        const Texture::Usage usage = inDevice.GetTexture(texture).GetUsage();
+
+        if (usage == Texture::RENDER_TARGET || usage == Texture::DEPTH_STENCIL_TARGET)
+            inCmdList->DiscardResource(inDevice.GetD3D12Resource(texture), nullptr);
+    }
+
+    FlushBarriers(inDevice, inCmdList, m_InitialBarriers);
+}
+
 
 
 void RenderGraph::Execute(Device& inDevice, const FrameConstants& inFrameConstants, CommandList& inCmdList)
@@ -1135,6 +1129,12 @@ void RenderGraph::Execute(Device& inDevice, const FrameConstants& inFrameConstan
     inCmdList.BindToSlot(inDevice.GetBuffer(m_ConstantsAllocator.GetBuffer()), EBindSlot::CBV0);
     inCmdList.BindToSlot(inDevice.GetBuffer(m_PerFrameAllocator.GetBuffer()), EBindSlot::CBV1, m_PerFrameAllocator.AllocAndCopy(inFrameConstants));
     inCmdList.BindToSlot(inDevice.GetBuffer(m_PerPassAllocator.GetBuffer()), EBindSlot::SRV1);
+
+    if (!m_ResourcesInitialized)
+    {
+        InitializeResources(inDevice, inCmdList);
+        m_ResourcesInitialized = true;
+    }
 
     for (const auto& [index, renderpass] : gEnumerate(m_RenderPasses))
     {

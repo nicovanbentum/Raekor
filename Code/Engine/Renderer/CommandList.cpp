@@ -51,15 +51,6 @@ void CommandList::PopMarker()
 }
 
 
-void CommandList::DiscardTexture(Device& inDevice, TextureID inTexture)
-{
-#if 0
-    ID3D12Resource* resource_ptr = inDevice.GetD3D12Resource(inTexture);
-    m_CommandList->DiscardResource(resource_ptr, nullptr);
-#endif
-}
-
-
 void CommandList::ClearRenderTarget(Device& inDevice, TextureID inTexture, Vec4 inColorValue)
 {
     RK_ASSERT(!gIsDepthFormat(inDevice.GetTexture(inTexture).GetFormat()));

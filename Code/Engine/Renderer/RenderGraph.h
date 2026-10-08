@@ -191,13 +191,6 @@ struct ResourceBarrier
 };
 
 
-struct Discard
-{
-    RenderGraphResourceID mResource;
-    D3D12_DISCARD_REGION mRegion;
-};
-
-
 class IRenderPass
 {
 public:
@@ -222,7 +215,6 @@ public:
     const String& GetName() const { return m_Name; }
 
     bool IsCreated(RenderGraphResourceID inResource) const;
-    bool IsDiscarded(RenderGraphResourceID inResource) const;
 
     bool IsRead(RenderGraphResourceViewID inResource) const;
     bool IsWritten(RenderGraphResourceViewID inResource) const;
@@ -241,7 +233,6 @@ public:
     D3D12_RESOURCE_TRANSITION_BARRIER::StateAfter could be overwritten by the graph if it finds a better match during graph compilation. */
     void AddExitBarrier(const ResourceBarrier& inBarrier) { m_ExitBarriers.push_back(inBarrier); }
 
-    void AddDiscard(const Discard& inDiscard) { m_DiscardedResources.push_back(inDiscard); }
 
     D3D12_COMPUTE_PIPELINE_STATE_DESC  CreatePipelineStateDesc(Device& inDevice, const ComputeProgram& inShaderProgram);
     D3D12_GRAPHICS_PIPELINE_STATE_DESC CreatePipelineStateDesc(Device& inDevice, const GraphicsProgram& inShaderProgram);
@@ -258,7 +249,6 @@ protected:
     Array<DXGI_FORMAT> m_RenderTargetFormats;
     DXGI_FORMAT m_DepthStencilFormat = DXGI_FORMAT_UNKNOWN;
 
-    Array<Discard> m_DiscardedResources;
     Array<ResourceBarrier> m_ExitBarriers;
 };
 
@@ -348,10 +338,12 @@ public:
     void UpdateFrameConstants(const FrameConstants& inFrameConstants);
 
     /* Flush barriers at the end of a pass */
-    void FlushBarriers(Device& inDevice, CommandList& inCmdList, const Slice<ResourceBarrier>& inBarriers) const;
+    void FlushBarriers(Device& inDevice, CommandList& inCmdList, Slice<const ResourceBarrier> inBarriers) const;
 
     /* Set render targets before the start of a pass */
     void SetRenderTargets(Device& inDevice, IRenderPass* inRenderPass, CommandList& inCmdList) const;
+
+    void InitializeResources(Device& inDevice, CommandList& inCmdList) const;
 
     /* Dump the entire graph to GraphViz text, can be written directly to a file and opened using the VS Code extension. */
     String	ToGraphVizText(const Device& inDevice, TextureID inBackBuffer) const;
@@ -365,6 +357,7 @@ public:
 
 private:
     bool m_IsCompiled = false;
+    bool m_ResourcesInitialized = false;
     const Viewport& m_Viewport;
     const uint32_t m_FrameCount;
     
@@ -375,6 +368,7 @@ private:
     RenderGraphBuilder m_RenderGraphBuilder;
     RenderGraphResources m_RenderGraphResources;
     Array<UniquePtr<IRenderPass>> m_RenderPasses;
+    Array<ResourceBarrier> m_InitialBarriers;
     Array<ResourceBarrier> m_FinalBarriers;
 };
 

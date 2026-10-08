@@ -987,7 +987,6 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
 
     [&inRenderGraph, &inDevice, &inLightCullData](LightingData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
-        inCmdList.DiscardTexture(inDevice, inResources.GetTexture(inData.mOutputTexture));
         //constexpr Vec4 clear_color = Vec4(0.0f, 0.0f, 0.0f, 0.0f);
         //inCmdList->ClearRenderTargetView(inDevice.GetCPUDescriptorHandle(inResources.GetTexture(inData.mOutputTexture)), glm::value_ptr(clear_color), 0, nullptr);
 
@@ -1059,7 +1058,6 @@ const TAAResolveData& AddTAAResolvePass(RenderGraph& inRenderGraph, Device& inDe
 
     [&inRenderGraph, &inDevice](TAAResolveData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
-        inCmdList.DiscardTexture(inDevice, inResources.GetTexture(inData.mOutputTexture));
 
         inCmdList->SetPipelineState(inData.mPipeline.Get());
         inCmdList.SetViewportAndScissor(inRenderGraph.GetViewport());
@@ -1117,7 +1115,6 @@ const TAAResolveData& AddTAAResolvePass(RenderGraph& inRenderGraph, Device& inDe
 
     [&inRenderGraph, &inDevice](CopyTextureGraphicsData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
-        inCmdList.DiscardTexture(inDevice, inResources.GetTexture(inData.mDstTextureRTV));
 
         inCmdList->SetPipelineState(inData.mPipeline.Get());
         inCmdList.SetViewportAndScissor(inDevice.GetTexture(inResources.GetTextureView(inData.mDstTextureRTV)));

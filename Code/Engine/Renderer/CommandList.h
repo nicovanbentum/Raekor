@@ -38,7 +38,6 @@ public:
     void SetViewportAndScissor(const Viewport& inViewport);
 
 
-    void DiscardTexture(Device& inDevice, TextureID inTexture);
 
     void ClearRenderTarget(Device& inDevice, TextureID inTexture, Vec4 inColorValue);
     void ClearDepthStencilTarget(Device& inDevice, TextureID inTexture, const float* inDepthValue, const uint8_t* inStencilValue);
