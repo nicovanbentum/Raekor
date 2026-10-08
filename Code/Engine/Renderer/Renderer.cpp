@@ -101,6 +101,16 @@ Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inW
 
     m_DebugLinesVertexBuffer = inDevice.CreateBuffer(Buffer::RWStructuredBuffer(sizeof(Vec4) * UINT16_MAX, sizeof(Vec4), "DebugLinesVertexBuffer"));
     m_DebugLinesIndirectArgsBuffer = inDevice.CreateBuffer(Buffer::RWByteAddressBuffer(sizeof(D3D12_DRAW_ARGUMENTS), "DebugLinesIndirectArgsBuffer"));
+
+    const D3D12_SHADER_RESOURCE_VIEW_DESC display_texture_proxy_desc =
+    {
+        .Format = DXGI_FORMAT_R8G8B8A8_UNORM,
+        .ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D,
+        .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
+        .Texture2D = D3D12_TEX2D_SRV { .MipLevels = 1 }
+    };
+
+    m_DisplayTextureProxy = inDevice.CreateShaderResourceView(nullptr, &display_texture_proxy_desc);
 }
 
 
@@ -493,6 +503,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
         if (inApp->GetConfigSettings().mShowUI)
         {
             PROFILE_SCOPE_GPU(direct_cmd_list, "ImGui");
+            ResolveImGuiDisplayTexture(inDevice);
             RenderImGui(m_RenderGraph, inDevice, direct_cmd_list, GetBackBufferData().mBackBuffer);
         }
 
@@ -858,6 +869,29 @@ TextureID Renderer::GetEntityTexture() const
 TextureID Renderer::GetDisplayTexture() const
 {
     return m_RenderGraph.GetResources().GetTextureView(m_DisplayTexture);
+}
+
+
+
+void Renderer::ResolveImGuiDisplayTexture(Device& inDevice)
+{
+    ImDrawData* draw_data = ImGui::GetDrawData();
+
+    if (draw_data == nullptr)
+        return;
+
+    const DescriptorHeap& descriptor_heap = inDevice.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    const ImTextureID proxy_texture_id = (ImTextureID)descriptor_heap.GetGPUDescriptorHandle(m_DisplayTextureProxy).ptr;
+    const ImTextureID display_texture_id = (ImTextureID)inDevice.GetGPUDescriptorHandle(GetDisplayTexture()).ptr;
+
+    for (ImDrawList* cmd_list : draw_data->CmdLists)
+    {
+        for (ImDrawCmd& cmd : cmd_list->CmdBuffer)
+        {
+            if (cmd.TextureId == proxy_texture_id)
+                cmd.TextureId = display_texture_id;
+        }
+    }
 }
 
 

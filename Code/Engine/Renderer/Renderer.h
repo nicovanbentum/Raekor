@@ -92,6 +92,7 @@ public:
 
     TextureID GetEntityTexture() const;
     TextureID GetDisplayTexture() const;
+    DescriptorID GetDisplayTextureProxy() const { return m_DisplayTextureProxy; }
 
     uint64_t RequestEntityPick(UVec2 inPixel);
     bool GetEntityPickResult(uint64_t inRequestID, Entity& outEntity) const;
@@ -118,6 +119,7 @@ private:
 
     void CreateProbeDebugMesh(Device& inDevice);
     void UpdateFontAtlas(Device& inDevice);
+    void ResolveImGuiDisplayTexture(Device& inDevice);
 
     uint64_t GetViewportKey(const Viewport& inViewport) const;
     uint64_t GetRenderGraphKey() const;
@@ -142,6 +144,7 @@ private:
     RenderGraphResourceID       m_EntityTexture;
     RenderGraphResourceID       m_DisplayResource;
     RenderGraphResourceViewID   m_DisplayTexture;
+    DescriptorID                m_DisplayTextureProxy;
     UVec2                       m_PendingEntityPickPixel;
     uint64_t                    m_PendingEntityPickID = 0;
     uint64_t                    m_EntityPickRequestCounter = 0;

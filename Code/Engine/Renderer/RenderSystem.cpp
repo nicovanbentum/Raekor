@@ -198,7 +198,7 @@ void RenderSystem::UpdateGPUStats()
 
 uint64_t RenderSystem::GetDisplayTexture()
 {
-    return m_Device.GetGPUDescriptorHandle(m_Renderer.GetDisplayTexture()).ptr;
+    return m_Device.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).GetGPUDescriptorHandle(m_Renderer.GetDisplayTextureProxy()).ptr;
 }
 
 
