@@ -874,7 +874,7 @@ void Renderer::ResolveReadbacks(Device& inDevice)
     if (screenshot_readback.mBuffer.IsValid())
     {
         const uint8_t* mapped_ptr = nullptr;
-        const CD3DX12_RANGE read_range = CD3DX12_RANGE(0, screenshot_readback.mRowPitch * screenshot_readback.mSize.y);
+        const CD3DX12_RANGE read_range = CD3DX12_RANGE(0, inDevice.GetBuffer(screenshot_readback.mBuffer).GetSize());
 
         gThrowIfFailed(inDevice.GetBuffer(screenshot_readback.mBuffer)->Map(0, &read_range, (void**)&mapped_ptr));
 
