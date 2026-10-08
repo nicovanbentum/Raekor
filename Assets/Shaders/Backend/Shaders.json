@@ -241,6 +241,19 @@
             }
         },
 
+        "Wireframe Shader":
+        {
+            "Vertex Shader": 
+            {
+                "File Path": "Assets/Shaders/Backend/WireframeVS.hlsl"
+            },
+
+            "Pixel Shader": 
+            {
+                "File Path":"Assets/Shaders/Backend/WireframePS.hlsl"
+            }
+        },
+
         "Transparent Forward Shader":
         {
             "Vertex Shader":

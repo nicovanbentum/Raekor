@@ -434,6 +434,20 @@ void ViewportWidget::DrawToolbar()
 			ImGui::EndCombo();
 		}
 
+		static int& wireframe_mode = g_CVariables->GetValue<int>("r_wireframe");
+		static constexpr std::array cWireframeModeNames = { "Wireframe Off", "Wireframe Overlay", "Wireframe X-Ray" };
+
+		if (ImGui::BeginCombo("##WireframeMode", cWireframeModeNames[glm::clamp(wireframe_mode, 0, int(cWireframeModeNames.size()) - 1)]))
+		{
+			for (int mode = 0; mode < int(cWireframeModeNames.size()); mode++)
+			{
+				if (ImGui::Selectable(cWireframeModeNames[mode], wireframe_mode == mode))
+					wireframe_mode = mode;
+			}
+
+			ImGui::EndCombo();
+		}
+
 		m_Editor->GetRenderInterface()->DrawDebugSettings(m_Editor);
 
 		ImGui::SeparatorText("Physics");

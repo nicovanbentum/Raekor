@@ -65,6 +65,7 @@ private:
         float& mSunConeAngle     = g_CVariables->Create("r_sun_cone_angle",       0.0f, true);
         float& mJitterScale      = g_CVariables->Create("r_jitter_scale",         1.0f, true);
         int& mDebugTexture       = g_CVariables->Create("r_debug_texture",        0,   true);
+        int& mWireframe          = g_CVariables->Create("r_wireframe",            0,   true);
     } m_Settings;
 
 public:

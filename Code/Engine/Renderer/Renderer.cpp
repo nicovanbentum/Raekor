@@ -718,6 +718,15 @@ void Renderer::Recompile(Device& inDevice)
 
     RenderGraphResourceID final_output = compose_data.mOutputTexture;
 
+    const bool has_gbuffer_depth = !m_Settings.mDoPathTrace;
+    const bool wireframe_depth_test = m_Settings.mWireframe == WIREFRAME_MODE_OVERLAY && has_gbuffer_depth;
+
+    if (m_Settings.mWireframe != WIREFRAME_MODE_OFF && debug_texture == DEBUG_TEXTURE_NONE)
+    {
+        const bool matches_render_size = m_RenderGraph.GetViewport().GetRenderSize() == m_RenderGraph.GetViewport().GetDisplaySize();
+        AddWireframePass(m_RenderGraph, inDevice, m_RenderWorld, final_output, gbuffer_output.mDepthTexture, wireframe_depth_test && matches_render_size);
+    }
+
     // Render UI on top
     const SDFUIData& sdfui_data = AddSDFUIPass(m_RenderGraph, inDevice, final_output, m_FontAtlasTexture);
 
@@ -748,6 +757,9 @@ void Renderer::Recompile(Device& inDevice)
             final_output = AddGBufferDebugPass(m_RenderGraph, inDevice, gbuffer_output, debug_texture).mOutputTexture;
             break;
     }
+
+    if (m_Settings.mWireframe != WIREFRAME_MODE_OFF && debug_texture != DEBUG_TEXTURE_NONE)
+        AddWireframePass(m_RenderGraph, inDevice, m_RenderWorld, final_output, gbuffer_output.mDepthTexture, wireframe_depth_test);
 
     m_EntityTexture = gbuffer_output.mSelectionTexture;
     m_DisplayResource = final_output;
@@ -823,6 +835,7 @@ uint64_t Renderer::GetRenderGraphKey() const
         uint64_t(m_Settings.mDoPathTrace),
         uint64_t(m_Upscaler.GetActiveUpscaler()),
         uint64_t(m_Settings.mDebugTexture),
+        uint64_t(m_Settings.mWireframe),
         uint64_t(RenderSettings::mDDGIProbeCount.x),
         uint64_t(RenderSettings::mDDGIProbeCount.y),
         uint64_t(RenderSettings::mDDGIProbeCount.z),

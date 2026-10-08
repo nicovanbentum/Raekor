@@ -170,6 +170,13 @@ struct DebugPrimitivesRootConstants
 };
 
 
+struct WireframeRootConstants
+{
+    uint mInstanceIndex;
+    uint mColor;
+};
+
+
 struct GPULinesRootConstants
 {
     uint mVertexBuffer;

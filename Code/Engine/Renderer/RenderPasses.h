@@ -86,6 +86,15 @@ enum EDebugTexture
 };
 
 
+enum EWireframeMode
+{
+    WIREFRAME_MODE_OFF = 0,
+    WIREFRAME_MODE_OVERLAY,
+    WIREFRAME_MODE_XRAY,
+    WIREFRAME_MODE_COUNT
+};
+
+
 ////////////////////////////////////////
 /// Defaults Pass
 ////////////////////////////////////////
@@ -508,6 +517,25 @@ struct DebugPrimitivesData
 const DebugPrimitivesData& AddDebugOverlayPass(RenderGraph& inRenderGraph, Device& inDevice,
     RenderGraphResourceID inRenderTarget,
     RenderGraphResourceID inDepthTarget
+);
+
+
+////////////////////////////////////////
+/// Wireframe debug graphics pass
+////////////////////////////////////////
+struct WireframeData
+{
+    RenderGraphResourceViewID mRenderTarget;
+    RenderGraphResourceViewID mDepthTarget;
+
+    ComPtr<ID3D12PipelineState> mPipeline;
+};
+
+
+const WireframeData& AddWireframePass(RenderGraph& inRenderGraph, Device& inDevice, const RenderWorld& inWorld,
+    RenderGraphResourceID inRenderTarget,
+    RenderGraphResourceID inDepthTarget,
+    bool inDepthTest
 );
 
 

@@ -1453,6 +1453,85 @@ const DebugPrimitivesData& AddDebugOverlayPass(RenderGraph& inRenderGraph, Devic
 
 
 
+static uint32_t sGetWireframeColor(Entity inEntity)
+{
+    uint32_t hash = uint32_t(inEntity) * 2654435761u;
+    hash ^= hash >> 16;
+
+    const float hue = float(hash & 0xFFFF) / 65535.0f * 6.0f;
+    const float x = 1.0f - glm::abs(glm::mod(hue, 2.0f) - 1.0f);
+
+    Vec3 rgb = Vec3(1.0f, x, 0.0f);
+
+    switch (int(hue) % 6)
+    {
+        case 1: rgb = Vec3(x, 1.0f, 0.0f); break;
+        case 2: rgb = Vec3(0.0f, 1.0f, x); break;
+        case 3: rgb = Vec3(0.0f, x, 1.0f); break;
+        case 4: rgb = Vec3(x, 0.0f, 1.0f); break;
+        case 5: rgb = Vec3(1.0f, 0.0f, x); break;
+    }
+
+    rgb = glm::mix(Vec3(1.0f), rgb, 0.7f);
+
+    const UVec3 bytes = UVec3(glm::round(rgb * 255.0f));
+    return bytes.r | ( bytes.g << 8 ) | ( bytes.b << 16 ) | ( 230u << 24 );
+}
+
+
+
+const WireframeData& AddWireframePass(RenderGraph& inRenderGraph, Device& inDevice, const RenderWorld& inWorld, RenderGraphResourceID inRenderTarget, RenderGraphResourceID inDepthTarget, bool inDepthTest)
+{
+    return inRenderGraph.AddGraphicsPass<WireframeData>("Wireframe",
+    [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, WireframeData& inData)
+    {
+        inData.mRenderTarget = ioRGBuilder.RenderTarget(inRenderTarget);
+
+        if (inDepthTest)
+            inData.mDepthTarget = ioRGBuilder.DepthStencilTarget(inDepthTarget);
+
+        D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inRenderPass->CreatePipelineStateDesc(inDevice, g_SystemShaders.mWireframeShader);
+        pso_state.InputLayout = {};
+        pso_state.BlendState.RenderTarget[0].BlendEnable = true;
+        pso_state.BlendState.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
+        pso_state.BlendState.RenderTarget[0].DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
+        pso_state.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
+        pso_state.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+        pso_state.RasterizerState.DepthBias = -64;
+        pso_state.RasterizerState.SlopeScaledDepthBias = -2.0f;
+        pso_state.DepthStencilState.DepthEnable = inDepthTest;
+        pso_state.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
+        pso_state.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
+
+        inData.mPipeline = inDevice.CreateGraphicsPipeline(pso_state);
+        inData.mPipeline->SetName(L"PSO_WIREFRAME");
+    },
+
+    [&inRenderGraph, &inDevice, &inWorld](WireframeData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+    {
+        inCmdList->SetPipelineState(inData.mPipeline.Get());
+        inCmdList.SetViewportAndScissor(inDevice.GetTexture(inResources.GetTextureView(inData.mRenderTarget)));
+
+        Slice<const RenderInstance> instances = inWorld.GetInstances();
+
+        for (uint32_t instance_index = 0; instance_index < instances.size(); instance_index++)
+        {
+            const RenderInstance& instance = instances[instance_index];
+
+            inCmdList.PushGraphicsConstants(WireframeRootConstants
+            {
+                .mInstanceIndex = instance_index,
+                .mColor = sGetWireframeColor(instance.mEntity)
+            });
+
+            inCmdList.BindIndexBuffer(inDevice.GetBuffer(instance.mIndexBuffer));
+            inCmdList.DrawIndexed(instance.mIndexCount, 1, 0, 0, 0);
+        }
+    });
+}
+
+
+
 const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inBloomTexture, RenderGraphResourceID inInputTexture)
 {
     return inRenderGraph.AddGraphicsPass<ComposeData>("Compose",
