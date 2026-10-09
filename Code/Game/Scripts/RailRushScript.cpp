@@ -117,6 +117,7 @@ public:
         Entity mEntity = Entity::Null;
         bool mActive = false;
         bool mAttracted = false;
+        float mSpinPhase = 0.0f;
         Vec3 mPosition = Vec3(0.0f);
     };
 
@@ -211,14 +212,14 @@ public:
 
         const SDL_Keycode key = inEvent.key.key;
 
-        if (key == SDLK_F1)
+        if (key == SDLK_G)
         {
             *m_GodMode = !*m_GodMode;
             AddPopup(*m_GodMode ? "GOD MODE ON" : "GOD MODE OFF", Vec4(0.6f, 0.9f, 1.0f, 1.0f));
             return;
         }
 
-        if (key == SDLK_F2)
+        if (key == SDLK_F)
         {
             const auto current = std::find(cCheatSpeeds.begin(), cCheatSpeeds.end(), *m_SpeedCheat);
             const size_t next = current == cCheatSpeeds.end() ? 1 : ( size_t(current - cCheatSpeeds.begin()) + 1 ) % cCheatSpeeds.size();
@@ -468,8 +469,6 @@ private:
                 SetTransform(window, Vec3(inner_x - side * 0.02f, band_y, z), Vec3(0.06f, 1.4f, building_length - 2.5f));
             }
         }
-
-        SetTransform(inSegment.mRoot, Vec3(0.0f, 0.0f, inSegment.mZ));
     }
 
     void CreatePlayer()
@@ -490,7 +489,7 @@ private:
             m_LegPivots[side] = CreateEntity("Leg Pivot", m_BodyPivot);
             SetTransform(m_LegPivots[side], Vec3(x, 0.8f, 0.0f));
             CreateShape("Leg", false, m_PantsMaterial, Vec3(0.0f, -0.38f, 0.0f), Vec3(0.2f, 0.72f, 0.22f), m_LegPivots[side]);
-            m_Sneakers[side] = CreateShape("Sneaker", false, m_SneakerMaterial, Vec3(0.0f, -0.75f, 0.06f), Vec3(0.22f, 0.12f, 0.34f), m_LegPivots[side]);
+            m_Sneakers[side] = CreateShape("Sneaker", false, m_SneakerMaterial, Vec3(0.0f, -0.75f, 0.05f), Vec3(0.22f, 0.12f, 0.34f), m_LegPivots[side]);
 
             const float arm_x = side == 0 ? 0.36f : -0.36f;
 
@@ -651,7 +650,8 @@ private:
         m_State = STATE_READY;
         m_RunTime = 0.0f;
         m_Speed = cStartSpeed;
-        m_PlayerZ = 0.0f;
+        m_Distance = 0.0f;
+        m_TrackOffset = 0.0f;
         m_PlayerX = GetLaneX(1);
         m_PlayerY = 0.0f;
         m_VelocityY = 0.0f;
@@ -706,7 +706,7 @@ private:
         if (target < 0 || target >= cLaneCount)
             return;
 
-        const bool blocked = GetSurfaceHeight(target, m_PlayerZ) > m_PlayerY + cStepHeight || GetSurfaceHeight(target, m_PlayerZ + 1.0f) > m_PlayerY + cStepHeight;
+        const bool blocked = GetSurfaceHeight(target, 0.0f) > m_PlayerY + cStepHeight || GetSurfaceHeight(target, 1.0f) > m_PlayerY + cStepHeight;
 
         if (blocked && !*m_GodMode)
         {
@@ -761,12 +761,41 @@ private:
         m_BestScore = glm::max(m_BestScore, int(m_Score));
     }
 
+    void ScrollWorld(float inDistance)
+    {
+        m_Distance += inDistance;
+        m_TrackOffset -= inDistance;
+
+        while (m_TrackOffset <= -cSegmentLength)
+        {
+            m_TrackOffset += cSegmentLength;
+
+            for (Segment& segment : m_Segments)
+                segment.mZ -= cSegmentLength;
+        }
+
+        for (Obstacle& obstacle : m_Obstacles)
+            obstacle.mZ -= inDistance;
+
+        for (Coin& coin : m_Coins)
+            coin.mPosition.z -= inDistance;
+
+        for (PowerUpPickup& pickup : m_PowerUpPickups)
+            pickup.mPosition.z -= inDistance;
+
+        for (float& blocked_until : m_LaneBlockedUntil)
+            blocked_until -= inDistance;
+
+        m_NextRowZ -= inDistance;
+    }
+
     void UpdatePlayer(float inDeltaTime)
     {
         m_Speed = *m_SpeedCheat > 0.0f ? *m_SpeedCheat : glm::min(cMaxSpeed, cStartSpeed + m_RunTime * cAcceleration);
 
-        const float previous_z = m_PlayerZ;
-        m_PlayerZ += m_Speed * inDeltaTime;
+        const float step = m_Speed * inDeltaTime;
+        const float previous_z = -step;
+        ScrollWorld(step);
 
         const float multiplier = m_PowerUpTimers[POWER_UP_MULTIPLIER] > 0.0f ? 2.0f : 1.0f;
         m_Score += m_Speed * inDeltaTime * multiplier;
@@ -787,7 +816,7 @@ private:
         m_PlayerY += m_VelocityY * inDeltaTime;
 
         const int lane = GetNearestLane(m_PlayerX);
-        float ground = GetSurfaceHeight(lane, m_PlayerZ);
+        float ground = GetSurfaceHeight(lane, 0.0f);
 
         if (ground > previous_y + cStepHeight && *m_GodMode)
             ground = glm::min(ground, previous_y);
@@ -795,7 +824,7 @@ private:
         if (ground > previous_y + cStepHeight)
         {
             Crash("HIT A TRAIN");
-            m_PlayerZ = previous_z;
+            ScrollWorld(-step);
             m_PlayerY = previous_y;
             return;
         }
@@ -824,7 +853,7 @@ private:
             if (*m_GodMode)
                 continue;
 
-            if (obstacle.mZ + obstacle.mLength < previous_z - 0.3f || obstacle.mZ > m_PlayerZ + 0.3f)
+            if (obstacle.mZ + obstacle.mLength < previous_z - 0.3f || obstacle.mZ > 0.3f)
                 continue;
 
             const float top = m_PlayerY + ( sliding ? cSlideHeight : cPlayerHeight );
@@ -850,10 +879,10 @@ private:
             if (!obstacle.mActive)
                 continue;
 
-            if (obstacle.mMoving && obstacle.mZ - m_PlayerZ < cActivationDistance)
+            if (obstacle.mMoving && obstacle.mZ < cActivationDistance)
                 obstacle.mZ -= cOncomingSpeed * inDeltaTime;
 
-            if (obstacle.mZ + obstacle.mLength < m_PlayerZ - cRecycleDistance)
+            if (obstacle.mZ + obstacle.mLength < -cRecycleDistance)
             {
                 obstacle.mActive = false;
                 Park(obstacle.mEntity);
@@ -863,7 +892,7 @@ private:
 
     void UpdatePickups(float inDeltaTime)
     {
-        const Vec3 player_center = Vec3(m_PlayerX, m_PlayerY + ( m_SlideTimer > 0.0f ? 0.4f : 0.9f ), m_PlayerZ);
+        const Vec3 player_center = Vec3(m_PlayerX, m_PlayerY + ( m_SlideTimer > 0.0f ? 0.4f : 0.9f ), 0.0f);
         const bool magnet = m_PowerUpTimers[POWER_UP_MAGNET] > 0.0f;
         const float multiplier = m_PowerUpTimers[POWER_UP_MULTIPLIER] > 0.0f ? 2.0f : 1.0f;
 
@@ -872,7 +901,7 @@ private:
             if (!coin.mActive)
                 continue;
 
-            if (magnet && !coin.mAttracted && coin.mPosition.z - m_PlayerZ < 14.0f && coin.mPosition.z > m_PlayerZ - 1.0f)
+            if (magnet && !coin.mAttracted && coin.mPosition.z < 14.0f && coin.mPosition.z > -1.0f)
                 coin.mAttracted = true;
 
             if (coin.mAttracted)
@@ -892,7 +921,7 @@ private:
                 m_CoinCount++;
                 m_Score += 10.0f * multiplier;
             }
-            else if (coin.mPosition.z < m_PlayerZ - cRecycleDistance)
+            else if (coin.mPosition.z < -cRecycleDistance)
             {
                 coin.mActive = false;
                 Park(coin.mEntity);
@@ -915,7 +944,7 @@ private:
                 m_PowerUpTimers[index] = cPowerUpDuration;
                 AddPopup(cPowerUps[index].mName, Vec4(cPowerUps[index].mColor, 1.0f));
             }
-            else if (pickup.mPosition.z < m_PlayerZ - cRecycleDistance)
+            else if (pickup.mPosition.z < -cRecycleDistance)
             {
                 pickup.mActive = false;
                 Park(pickup.mEntity);
@@ -1012,6 +1041,7 @@ private:
 
             coin.mActive = true;
             coin.mAttracted = false;
+            coin.mSpinPhase = ( m_Distance + inPosition.z ) * 0.3f;
             coin.mPosition = inPosition;
             return;
         }
@@ -1100,7 +1130,7 @@ private:
 
     void UpdateGeneration()
     {
-        while (m_NextRowZ < m_PlayerZ + cGenerateDistance)
+        while (m_NextRowZ < cGenerateDistance)
         {
             GenerateRow(m_NextRowZ);
             m_NextRowZ += glm::clamp(m_Speed * 1.15f, 15.0f, 30.0f) + RandomFloat(0.0f, 6.0f);
@@ -1111,11 +1141,13 @@ private:
     {
         for (Segment& segment : m_Segments)
         {
-            if (segment.mZ + cSegmentLength < m_PlayerZ - 20.0f)
+            if (segment.mZ + m_TrackOffset + cSegmentLength < -20.0f)
             {
                 segment.mZ += cSegmentCount * cSegmentLength;
                 RandomizeSegment(segment);
             }
+
+            SetTransform(segment.mRoot, Vec3(0.0f, 0.0f, segment.mZ + m_TrackOffset));
         }
     }
 
@@ -1136,7 +1168,7 @@ private:
         if (m_State == STATE_CRASHED || m_State == STATE_GAME_OVER)
             pitch = -glm::min(( m_Time - m_CrashTime ) * 6.0f, 1.45f);
 
-        SetTransform(m_PlayerEntity, Vec3(m_PlayerX - bounce, m_PlayerY + bob, m_PlayerZ), Vec3(1.0f), Quat(Vec3(pitch, 0.0f, 0.0f)));
+        SetTransform(m_PlayerEntity, Vec3(m_PlayerX - bounce, m_PlayerY + bob, 0.0f),Vec3(1.0f), Quat(Vec3(pitch, 0.0f, 0.0f)));
         SetTransform(m_BodyPivot, Vec3(0.0f, sliding ? 0.25f : 0.0f, 0.0f), Vec3(1.0f), Quat(Vec3(sliding ? -1.2f : 0.0f, 0.0f, 0.0f)));
 
         for (int side = 0; side < 2; side++)
@@ -1175,7 +1207,7 @@ private:
         for (const Coin& coin : m_Coins)
         {
             if (coin.mActive)
-                SetTransform(coin.mEntity, coin.mPosition, Vec3(0.6f, 0.6f, 0.14f), Quat(Vec3(0.0f, m_Time * 4.0f + coin.mPosition.z * 0.3f, 0.0f)));
+                SetTransform(coin.mEntity, coin.mPosition, Vec3(0.6f, 0.6f, 0.14f), Quat(Vec3(0.0f, m_Time * 4.0f + coin.mSpinPhase, 0.0f)));
         }
 
         for (const PowerUpPickup& pickup : m_PowerUpPickups)
@@ -1194,10 +1226,10 @@ private:
 
         const float smoothing = 1.0f - glm::exp(-inDeltaTime * 8.0f);
 
-        Vec3 target_position = Vec3(m_PlayerX * 0.75f, m_PlayerY * 0.5f + 5.6f, m_PlayerZ - 6.2f);
+        Vec3 target_position = Vec3(m_PlayerX * 0.75f, m_PlayerY * 0.5f + 5.6f, -6.2f);
 
         if (m_State == STATE_READY)
-            target_position = Vec3(m_PlayerX + 2.5f * glm::sin(m_Time * 0.5f), 2.4f, m_PlayerZ - 5.5f);
+            target_position = Vec3(m_PlayerX + 2.5f * glm::sin(m_Time * 0.5f), 2.4f, -5.5f);
 
         m_CameraPosition.x = glm::mix(m_CameraPosition.x, target_position.x, smoothing);
         m_CameraPosition.y = glm::mix(m_CameraPosition.y, target_position.y, 1.0f - glm::exp(-inDeltaTime * 5.0f));
@@ -1208,7 +1240,7 @@ private:
         const Vec3 shake = Vec3(RandomFloat(-1.0f, 1.0f), RandomFloat(-1.0f, 1.0f), 0.0f) * m_Shake * m_Shake * 0.5f;
 
         const Vec3 position = m_CameraPosition + shake;
-        const Vec3 look_at = Vec3(m_CameraPosition.x * 0.8f, m_CameraLookY, m_PlayerZ + ( m_State == STATE_READY ? 6.0f : 4.5f ));
+        const Vec3 look_at = Vec3(m_CameraPosition.x * 0.8f, m_CameraLookY, m_State == STATE_READY ? 6.0f : 4.5f);
 
         transform->position = position;
         transform->rotation = glm::quatLookAtRH(glm::normalize(look_at - position), Camera::cUp);
@@ -1284,7 +1316,7 @@ private:
         g_UIRenderer.AddCircleFilled(score_pos + Vec2(150.0f, 96.0f) * scale, 9.0f * scale, Vec4(1.0f, 0.78f, 0.2f, 1.0f));
         g_UIRenderer.AddText(score_pos + Vec2(240.0f, 84.0f) * scale, std::format("{}", m_CoinCount), 22.0f * scale, Vec4(1.0f, 0.85f, 0.4f, 1.0f), UI_TEXT_ALIGN_RIGHT);
 
-        g_UIRenderer.AddText(Vec2(margin, margin), std::format("{} m", int(m_PlayerZ)), 30.0f * scale, Vec4(1.0f, 1.0f, 1.0f, 0.9f));
+        g_UIRenderer.AddText(Vec2(margin, margin), std::format("{} m", int(m_Distance)), 30.0f * scale, Vec4(1.0f, 1.0f, 1.0f, 0.9f));
 
         if (m_PowerUpTimers[POWER_UP_MULTIPLIER] > 0.0f)
             DrawOutlinedText(Vec2(margin, margin + 40.0f * scale), "2X SCORE", 22.0f * scale, Vec4(1.0f, 0.8f, 0.2f, 1.0f), UI_TEXT_ALIGN_LEFT, scale);
@@ -1403,7 +1435,7 @@ private:
         const float center = inDisplay.x * 0.5f;
         g_UIRenderer.AddText(Vec2(center, pos.y + 24.0f * inScale), m_CrashReason, 40.0f * inScale, Vec4(1.0f, 0.45f, 0.35f, alpha), UI_TEXT_ALIGN_CENTER);
         g_UIRenderer.AddText(Vec2(center, pos.y + 86.0f * inScale), std::format("{}", int(m_Score)), 64.0f * inScale, Vec4(1.0f, 1.0f, 1.0f, alpha), UI_TEXT_ALIGN_CENTER);
-        g_UIRenderer.AddText(Vec2(center, pos.y + 170.0f * inScale), std::format("{} m   {} coins   best {}", int(m_PlayerZ), m_CoinCount, m_BestScore), 22.0f * inScale, Vec4(1.0f, 0.85f, 0.5f, alpha), UI_TEXT_ALIGN_CENTER);
+        g_UIRenderer.AddText(Vec2(center, pos.y + 170.0f * inScale), std::format("{} m   {} coins   best {}", int(m_Distance), m_CoinCount, m_BestScore), 22.0f * inScale, Vec4(1.0f, 0.85f, 0.5f, alpha), UI_TEXT_ALIGN_CENTER);
 
         const float blink = 0.6f + 0.4f * glm::sin(m_Time * 4.0f);
         g_UIRenderer.AddText(Vec2(center, pos.y + 232.0f * inScale), "Press SPACE to run again", 22.0f * inScale, Vec4(1.0f, 0.85f, 0.4f, alpha * blink), UI_TEXT_ALIGN_CENTER);
@@ -1457,7 +1489,8 @@ private:
     StaticArray<PowerUpPickup, POWER_UP_COUNT> m_PowerUpPickups;
 
     float m_Speed = cStartSpeed;
-    float m_PlayerZ = 0.0f;
+    float m_Distance = 0.0f;
+    float m_TrackOffset = 0.0f;
     float m_PlayerX = 0.0f;
     float m_PlayerY = 0.0f;
     float m_VelocityY = 0.0f;
