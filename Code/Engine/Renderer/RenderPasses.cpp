@@ -463,15 +463,16 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
         inCmdList.SetViewportAndScissor(inDevice.GetTexture(render_texture));
 
         Slice<const RenderInstance> instances = inWorld.GetInstances();
+        Slice<const RenderBatch> batches = inWorld.GetBatches();
 
         auto DrawInstances = [&](ERenderBlendMode inBlendMode, ID3D12PipelineState* inDefaultPipeline)
         {
             ID3D12PipelineState* bound_pipeline = inDefaultPipeline;
             inCmdList->SetPipelineState(bound_pipeline);
 
-            for (uint32_t instance_index = 0; instance_index < instances.size(); instance_index++)
+            for (const RenderBatch& batch : batches)
             {
-                const RenderInstance& instance = instances[instance_index];
+                const RenderInstance& instance = instances[batch.mFirstInstance];
 
                 if (instance.mBlendMode != inBlendMode)
                     continue;
@@ -497,11 +498,11 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
                 inCmdList.PushGraphicsConstants(GbufferRootConstants
                 {
                     .mEntity = uint32_t(instance.mEntity),
-                    .mInstanceIndex = instance_index,
+                    .mInstanceIndex = batch.mFirstInstance,
                 });
 
                 inCmdList.BindIndexBuffer(inDevice.GetBuffer(instance.mIndexBuffer));
-                inCmdList.DrawIndexed(instance.mIndexCount, 1, 0, 0, 0);
+                inCmdList.DrawIndexed(instance.mIndexCount, batch.mInstanceCount, 0, 0, 0);
             }
         };
 

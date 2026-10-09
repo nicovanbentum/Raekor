@@ -47,6 +47,7 @@ public:
 
     void UploadMeshBuffers(Entity inEntity, Mesh& inMesh) override;
     void DestroyMeshBuffers(Entity inEntity, Mesh& inMesh) override;
+    void ShareMeshBuffers(Entity inEntity, const Mesh& inSource, Mesh& ioMesh) override;
 
     void UploadSkeletonBuffers(Entity inEntity, Skeleton& inSkeleton, Mesh& inMesh) override;
     void DestroySkeletonBuffers(Entity inEntity, Skeleton& inSkeleton) override;
@@ -74,6 +75,9 @@ private:
     TextureID m_LightTexture;
     TextureID m_CameraTexture;
     TextureID m_ImGuiFontTexture;
+
+    Mutex m_SharedMeshBuffersMutex;
+    HashMap<uint32_t, uint32_t> m_SharedMeshBufferRefCounts;
 };
 
 } // namespace RK::DX12

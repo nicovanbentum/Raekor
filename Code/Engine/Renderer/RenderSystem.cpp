@@ -303,6 +303,22 @@ void RenderSystem::UploadMeshBuffers(Entity inEntity, Mesh& inMesh)
 
 void RenderSystem::DestroyMeshBuffers(Entity inEntity, Mesh& inMesh)
 {
+    if (inMesh.vertexBuffer != 0)
+    {
+        std::scoped_lock lock(m_SharedMeshBuffersMutex);
+
+        if (auto shared = m_SharedMeshBufferRefCounts.find(inMesh.vertexBuffer); shared != m_SharedMeshBufferRefCounts.end())
+        {
+            if (--shared->second <= 1)
+                m_SharedMeshBufferRefCounts.erase(shared);
+
+            inMesh.indexBuffer = 0;
+            inMesh.vertexBuffer = 0;
+            inMesh.BottomLevelAS = 0;
+            return;
+        }
+    }
+
     m_Renderer.GetGPUScene().ReleaseBottomLevelAS(m_Device, gToBufferID(inMesh.BottomLevelAS));
 
     for (uint32_t buffer : { inMesh.indexBuffer, inMesh.vertexBuffer })
@@ -314,6 +330,29 @@ void RenderSystem::DestroyMeshBuffers(Entity inEntity, Mesh& inMesh)
     inMesh.indexBuffer = 0;
     inMesh.vertexBuffer = 0;
     inMesh.BottomLevelAS = 0;
+}
+
+
+void RenderSystem::ShareMeshBuffers(Entity inEntity, const Mesh& inSource, Mesh& ioMesh)
+{
+    if (&inSource == &ioMesh)
+        return;
+
+    DestroyMeshBuffers(inEntity, ioMesh);
+
+    if (inSource.vertexBuffer == 0 || inSource.indexBuffer == 0)
+        return;
+
+    {
+        std::scoped_lock lock(m_SharedMeshBuffersMutex);
+
+        auto [shared, inserted] = m_SharedMeshBufferRefCounts.try_emplace(inSource.vertexBuffer, 1);
+        shared->second++;
+    }
+
+    ioMesh.indexBuffer = inSource.indexBuffer;
+    ioMesh.vertexBuffer = inSource.vertexBuffer;
+    ioMesh.BottomLevelAS = inSource.BottomLevelAS;
 }
 
 

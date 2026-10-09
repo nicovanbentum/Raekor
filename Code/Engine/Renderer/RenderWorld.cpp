@@ -56,6 +56,7 @@ void RenderWorld::Extract(const Scene& inScene, const Device& inDevice, float in
     PROFILE_FUNCTION_CPU();
 
     m_Instances.clear();
+    m_Batches.clear();
     m_SkinnedMeshes.clear();
     m_BoneMatrices.clear();
     m_Geometries.clear();
@@ -104,16 +105,47 @@ void RenderWorld::Extract(const Scene& inScene, const Device& inDevice, float in
         instance.mBoundsCenter = mesh.bbox.Transformed(transform->worldTransform).GetCenter();
         instance.mWorldTransform = transform->worldTransform;
         instance.mPrevWorldTransform = transform->prevWorldTransform;
+    }
+
+    const auto GetBatchKey = [](const RenderInstance& inInstance)
+    {
+        return std::make_tuple(inInstance.mBlendMode, inInstance.mVertexShader, inInstance.mPixelShader, inInstance.mIndexBuffer.GetValue(), inInstance.mVertexBuffer.GetValue(), uint32_t(inInstance.mEntity));
+    };
+
+    std::sort(m_Instances.begin(), m_Instances.end(), [&](const RenderInstance& inLeft, const RenderInstance& inRight) { return GetBatchKey(inLeft) < GetBatchKey(inRight); });
+
+    for (uint32_t instance_index = 0; instance_index < m_Instances.size(); instance_index++)
+    {
+        const RenderInstance& instance = m_Instances[instance_index];
 
         m_Geometries.push_back(RTGeometry
         {
-            .mEntity             = entity,
+            .mEntity             = instance.mEntity,
             .mIndexBuffer        = inDevice.GetBindlessHeapIndex(instance.mIndexBuffer),
             .mVertexBuffer       = inDevice.GetBindlessHeapIndex(instance.mVertexBuffer),
             .mMaterialIndex      = instance.mMaterialIndex,
             .mWorldTransform     = instance.mWorldTransform,
             .mPrevWorldTransform = instance.mPrevWorldTransform
         });
+
+        if (!m_Batches.empty())
+        {
+            const RenderInstance& first = m_Instances[m_Batches.back().mFirstInstance];
+
+            const bool can_batch = !instance.HasCustomShaders() && !first.HasCustomShaders() &&
+                instance.mBlendMode == first.mBlendMode &&
+                instance.mIndexBuffer == first.mIndexBuffer &&
+                instance.mVertexBuffer == first.mVertexBuffer &&
+                instance.mIndexCount == first.mIndexCount;
+
+            if (can_batch)
+            {
+                m_Batches.back().mInstanceCount++;
+                continue;
+            }
+        }
+
+        m_Batches.push_back(RenderBatch { .mFirstInstance = instance_index, .mInstanceCount = 1 });
     }
 
     for (const auto& [entity, mesh, skeleton] : inScene.Each<Mesh, Skeleton>())

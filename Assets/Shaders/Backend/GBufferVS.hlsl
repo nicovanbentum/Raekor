@@ -8,15 +8,18 @@ struct VS_OUTPUT {
     float3 normal           : NORMAL;
     float3 tangent          : TANGENT;
     float3 bitangent        : BINORMAL;
+    nointerpolation uint instance_index : INSTANCE;
 };
 
 FRAME_CONSTANTS(fc)
 ROOT_CONSTANTS(GbufferRootConstants, rc)
 
-VS_OUTPUT main(in uint inVertexID : SV_VertexID)
+VS_OUTPUT main(in uint inVertexID : SV_VertexID, in uint inInstanceID : SV_InstanceID)
 {
+    const uint instance_index = rc.mInstanceIndex + inInstanceID;
+
     StructuredBuffer<RTGeometry> geometries = ResourceDescriptorHeap[fc.mInstancesBuffer];
-    RTGeometry geometry = geometries[rc.mInstanceIndex];
+    RTGeometry geometry = geometries[instance_index];
     
     StructuredBuffer<RTVertex> vertex_buffer = ResourceDescriptorHeap[geometry.mVertexBuffer];
 
@@ -32,7 +35,8 @@ VS_OUTPUT main(in uint inVertexID : SV_VertexID)
     output.tangent = normalize(output.tangent - dot(output.tangent, output.normal) * output.normal);
     output.bitangent = normalize(cross(output.normal, output.tangent));
     output.texcoord = vertex.mTexCoord;
-    
+    output.instance_index = instance_index;
+
     // TODO: prev world transform
     output.curr_position = mul(fc.mViewProjectionMatrix, curr_pos_ws);
     output.prev_position = mul(fc.mPrevViewProjectionMatrix, prev_pos_ws);

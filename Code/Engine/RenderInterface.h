@@ -64,6 +64,7 @@ public:
 
 	virtual void UploadMeshBuffers(Entity inEntity, Mesh& inMesh) = 0;
 	virtual void DestroyMeshBuffers(Entity inEntity, Mesh& inMesh) = 0;
+	virtual void ShareMeshBuffers(Entity inEntity, const Mesh& inSource, Mesh& ioMesh) = 0;
 
 	virtual void UploadSkeletonBuffers(Entity inEntity, Skeleton& inSkeleton, Mesh& inMesh) = 0;
 	virtual void DestroySkeletonBuffers(Entity inEntity, Skeleton& inSkeleton) = 0;
