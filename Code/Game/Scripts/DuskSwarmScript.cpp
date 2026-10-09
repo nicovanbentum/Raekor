@@ -1,5 +1,6 @@
 #define RAEKOR_SCRIPT
 #include "../Engine/Raekor.h"
+#include "../Engine/GLTF.h"
 
 namespace RK {
 
@@ -30,6 +31,7 @@ static constexpr int cChoiceCount = 3;
 static constexpr Vec3 cParkedPosition = Vec3(0.0f, -60.0f, 0.0f);
 
 static constexpr const char* cRuntimeRootName = "DuskSwarm Runtime";
+static constexpr const char* cModelFile = "Assets/DuskSwarm/DuskSwarm.glb";
 
 
 enum EEnemyType
@@ -50,18 +52,16 @@ struct EnemyArchetype
     float mHealth;
     float mDamage;
     int mGemValue;
-    float mHeight;
-    bool mIsSphere;
-    Vec3 mScale;
-    Vec3 mColor;
+    float mHover;
+    float mTop;
 };
 
 
 static const StaticArray<EnemyArchetype, ENEMY_TYPE_COUNT> cEnemyArchetypes =
 {
-    EnemyArchetype { "Ghoul", 150, 0.45f, 2.6f, 4.0f,  8.0f,  1, 0.55f, false, Vec3(0.75f, 1.1f, 0.6f), Vec3(0.30f, 0.42f, 0.28f) },
-    EnemyArchetype { "Bat",   80,  0.35f, 4.4f, 2.0f,  5.0f,  1, 1.10f, true,  Vec3(1.0f),             Vec3(0.42f, 0.22f, 0.55f) },
-    EnemyArchetype { "Brute", 12,  0.95f, 1.8f, 60.0f, 14.0f, 5, 1.00f, false, Vec3(1.7f, 2.0f, 1.4f), Vec3(0.55f, 0.12f, 0.10f) },
+    EnemyArchetype { "Ghoul", 150, 0.45f, 2.6f, 4.0f,  8.0f,  1, 0.0f, 1.3f },
+    EnemyArchetype { "Bat",   80,  0.35f, 4.4f, 2.0f,  5.0f,  1, 1.1f, 1.4f },
+    EnemyArchetype { "Brute", 12,  0.95f, 1.8f, 60.0f, 14.0f, 5, 0.0f, 2.4f },
 };
 
 
@@ -118,9 +118,28 @@ public:
         STATE_VICTORY
     };
 
-    struct Enemy
+    struct ModelPart
     {
         Entity mEntity = Entity::Null;
+        Entity mMaterial = Entity::Null;
+    };
+
+    struct Model
+    {
+        Entity mRoot = Entity::Null;
+        Array<ModelPart> mParts;
+    };
+
+    struct MeshTemplate
+    {
+        Mesh mMesh;
+        String mMaterial;
+    };
+
+    struct Enemy
+    {
+        Model mModel;
+        StaticArray<Entity, 2> mWings = { Entity::Null, Entity::Null };
         int mType = ENEMY_GHOUL;
         bool mActive = false;
         bool mDying = false;
@@ -148,7 +167,7 @@ public:
 
     struct Gem
     {
-        Entity mEntity = Entity::Null;
+        Model mModel;
         bool mActive = false;
         bool mAttracted = false;
         Vec2 mPosition = Vec2(0.0f);
@@ -185,6 +204,7 @@ public:
 
         m_RootEntity = m_Scene->CreateSpatialEntity(cRuntimeRootName);
 
+        LoadModels();
         CreateMaterials();
         CreateArena();
         CreatePlayer();
@@ -338,6 +358,86 @@ private:
             mesh->material = inMaterial;
     }
 
+    void SetModelMaterial(const Model& inModel, Entity inMaterial)
+    {
+        for (const ModelPart& part : inModel.mParts)
+            SetMaterial(part.mEntity, inMaterial);
+    }
+
+    void RestoreModelMaterials(const Model& inModel)
+    {
+        for (const ModelPart& part : inModel.mParts)
+            SetMaterial(part.mEntity, part.mMaterial);
+    }
+
+    void ReleaseModels()
+    {
+        for (auto& [name, templates] : m_MeshTemplates)
+        {
+            for (MeshTemplate& part : templates)
+                m_App->GetRenderInterface()->DestroyMeshBuffers(Entity::Null, part.mMesh);
+        }
+
+        m_MeshTemplates.clear();
+    }
+
+    void LoadModels()
+    {
+        ReleaseModels();
+
+        Scene scene(nullptr);
+        GltfImporter importer(scene, nullptr);
+
+        if (!importer.LoadFromFile(cModelFile, nullptr))
+        {
+            Log(std::format("Failed to load {}", cModelFile));
+            return;
+        }
+
+        for (const auto& [entity, mesh] : scene.Each<Mesh>())
+        {
+            const String& name = scene.Get<Name>(entity).name;
+            const String material = mesh.material != Entity::Null ? scene.Get<Name>(mesh.material).name : String();
+
+            MeshTemplate& part = m_MeshTemplates[name.substr(0, name.find('-'))].emplace_back(MeshTemplate { .mMesh = mesh, .mMaterial = material });
+            m_App->GetRenderInterface()->UploadMeshBuffers(Entity::Null, part.mMesh);
+        }
+    }
+
+    Model CreateModel(const String& inName, Entity inParent = Entity::Null)
+    {
+        Model model;
+        model.mRoot = CreateEntity(inName, inParent);
+
+        const auto templates = m_MeshTemplates.find(inName);
+
+        if (templates == m_MeshTemplates.end())
+        {
+            const Entity fallback = CreateShape(inName, false, m_StoneMaterial, Vec3(0.0f, 0.5f, 0.0f), Vec3(0.6f), model.mRoot);
+            model.mParts.push_back(ModelPart { .mEntity = fallback, .mMaterial = m_StoneMaterial });
+            return model;
+        }
+
+        for (const MeshTemplate& part : templates->second)
+        {
+            const Entity entity = CreateEntity(part.mMaterial, model.mRoot);
+            const auto material = m_ModelMaterials.find(part.mMaterial);
+
+            Mesh& mesh = m_Scene->Add<Mesh>(entity);
+            mesh = part.mMesh;
+            mesh.material = material != m_ModelMaterials.end() ? material->second : m_StoneMaterial;
+            mesh.indexBuffer = 0;
+            mesh.vertexBuffer = 0;
+            mesh.BottomLevelAS = 0;
+
+            m_App->GetRenderInterface()->ShareMeshBuffers(entity, part.mMesh, mesh);
+
+            model.mParts.push_back(ModelPart { .mEntity = entity, .mMaterial = mesh.material });
+        }
+
+        return model;
+    }
+
     float RandomFloat(float inMin, float inMax)
     {
         return std::uniform_real_distribution<float>(inMin, inMax)(m_Random);
@@ -365,9 +465,6 @@ private:
 
     void CreateMaterials()
     {
-        for (int type = 0; type < ENEMY_TYPE_COUNT; type++)
-            m_EnemyMaterials[type] = CreateMaterial(cEnemyArchetypes[type].mColor, Vec3(0.0f), 0.7f);
-
         m_FlashMaterial = CreateMaterial(Vec3(1.0f), Vec3(1.0f, 0.95f, 0.9f) * 40000.0f, 0.3f);
         m_GroundMaterial = CreateMaterial(Vec3(0.16f, 0.20f, 0.12f), Vec3(0.0f), 0.95f);
         m_DirtMaterial = CreateMaterial(Vec3(0.20f, 0.15f, 0.10f), Vec3(0.0f), 1.0f);
@@ -383,6 +480,33 @@ private:
         m_NovaMaterial = CreateMaterial(Vec3(0.75f, 0.45f, 1.0f), Vec3(0.75f, 0.45f, 1.0f) * 6000.0f, 0.2f, 0.0f, 0.4f);
         m_SmallGemMaterial = CreateMaterial(Vec3(0.3f, 1.0f, 0.5f), Vec3(0.3f, 1.0f, 0.5f) * 8000.0f, 0.2f);
         m_LargeGemMaterial = CreateMaterial(Vec3(0.3f, 0.6f, 1.0f), Vec3(0.3f, 0.6f, 1.0f) * 12000.0f, 0.2f);
+
+        m_ModelMaterials =
+        {
+            { "Cloak",     m_PlayerBodyMaterial },
+            { "Skin",      m_PlayerHeadMaterial },
+            { "Visor",     m_VisorMaterial },
+            { "Trim",      CreateMaterial(Vec3(0.90f, 0.68f, 0.25f), Vec3(0.0f), 0.35f, 1.0f) },
+            { "Boot",      CreateMaterial(Vec3(0.10f, 0.08f, 0.07f), Vec3(0.0f), 0.8f) },
+            { "Wood",      m_WoodMaterial },
+            { "GhoulSkin", CreateMaterial(Vec3(0.30f, 0.42f, 0.28f), Vec3(0.0f), 0.7f) },
+            { "Rags",      CreateMaterial(Vec3(0.18f, 0.15f, 0.12f), Vec3(0.0f), 0.95f) },
+            { "GhoulEyes", CreateMaterial(Vec3(0.7f, 1.0f, 0.3f), Vec3(0.7f, 1.0f, 0.3f) * 15000.0f, 0.3f) },
+            { "BatFur",    CreateMaterial(Vec3(0.42f, 0.22f, 0.55f), Vec3(0.0f), 0.8f) },
+            { "Membrane",  CreateMaterial(Vec3(0.22f, 0.10f, 0.28f), Vec3(0.0f), 0.6f) },
+            { "BatEyes",   CreateMaterial(Vec3(1.0f, 0.2f, 0.15f), Vec3(1.0f, 0.2f, 0.15f) * 15000.0f, 0.3f) },
+            { "BruteSkin", CreateMaterial(Vec3(0.55f, 0.12f, 0.10f), Vec3(0.0f), 0.7f) },
+            { "Hide",      CreateMaterial(Vec3(0.35f, 0.24f, 0.14f), Vec3(0.0f), 0.9f) },
+            { "Horn",      CreateMaterial(Vec3(0.85f, 0.80f, 0.65f), Vec3(0.0f), 0.5f) },
+            { "BruteEyes", CreateMaterial(Vec3(1.0f, 0.85f, 0.2f), Vec3(1.0f, 0.85f, 0.2f) * 15000.0f, 0.3f) },
+            { "Stone",     m_StoneMaterial },
+            { "StoneDark", CreateMaterial(Vec3(0.20f, 0.21f, 0.23f), Vec3(0.0f), 0.9f) },
+            { "Iron",      CreateMaterial(Vec3(0.10f, 0.10f, 0.11f), Vec3(0.0f), 0.5f, 0.8f) },
+            { "Flame",     m_LanternMaterial },
+            { "Gem",       m_SmallGemMaterial },
+            { "Blade",     m_BladeMaterial },
+            { "Bolt",      m_BoltMaterial },
+        };
     }
 
     void CreateArena()
@@ -408,10 +532,7 @@ private:
         for (float offset = -cArenaHalfSize; offset <= cArenaHalfSize; offset += 10.0f)
         {
             for (const Vec2& position : { Vec2(offset, -cArenaHalfSize - 0.5f), Vec2(offset, cArenaHalfSize + 0.5f), Vec2(-cArenaHalfSize - 0.5f, offset), Vec2(cArenaHalfSize + 0.5f, offset) })
-            {
-                CreateShape("Lantern Post", false, m_WoodMaterial, ToWorld(position, 1.1f), Vec3(0.25f, 2.2f, 0.25f));
-                CreateShape("Lantern", false, m_LanternMaterial, ToWorld(position, 2.3f), Vec3(0.4f));
-            }
+                SetTransform(CreateModel("LanternPost").mRoot, ToWorld(position, 0.0f), Vec3(1.0f), Quat(Vec3(0.0f, RandomFloat(-0.2f, 0.2f), 0.0f)));
         }
 
         m_Obstacles.clear();
@@ -445,14 +566,21 @@ private:
 
         for (int index = 0; index < 30; index++)
         {
-            if (PlaceObstacle(0.45f, position))
-                CreateShape("Gravestone", false, m_StoneMaterial, ToWorld(position, 0.5f), Vec3(0.7f, 1.0f, 0.25f), Entity::Null, Quat(Vec3(RandomFloat(-0.12f, 0.12f), RandomFloat(-0.4f, 0.4f), RandomFloat(-0.1f, 0.1f))));
+            if (!PlaceObstacle(0.45f, position))
+                continue;
+
+            const Model grave = CreateModel(RandomInt(0, 2) == 0 ? "GraveCross" : "Gravestone");
+            SetTransform(grave.mRoot, ToWorld(position, 0.0f), Vec3(RandomFloat(0.9f, 1.1f)), Quat(Vec3(RandomFloat(-0.08f, 0.08f), RandomFloat(-0.4f, 0.4f), RandomFloat(-0.06f, 0.06f))));
         }
 
         for (int index = 0; index < 18; index++)
         {
-            if (PlaceObstacle(0.75f, position))
-                CreateShape("Rock", true, m_StoneMaterial, ToWorld(position, 0.2f), Vec3(RandomFloat(1.2f, 1.8f), RandomFloat(0.7f, 1.1f), RandomFloat(1.2f, 1.8f)), Entity::Null, Quat(Vec3(0.0f, RandomFloat(0.0f, glm::pi<float>()), 0.0f)));
+            if (!PlaceObstacle(0.75f, position))
+                continue;
+
+            const float size = RandomFloat(0.85f, 1.15f);
+            const Model rock = CreateModel(std::format("Rock{}", RandomInt(0, 2)));
+            SetTransform(rock.mRoot, ToWorld(position, 0.0f), Vec3(size, size * RandomFloat(0.8f, 1.2f), size), Quat(Vec3(0.0f, RandomFloat(0.0f, glm::two_pi<float>()), 0.0f)));
         }
 
         for (int index = 0; index < 12; index++)
@@ -460,25 +588,15 @@ private:
             if (!PlaceObstacle(0.4f, position))
                 continue;
 
-            const float height = RandomFloat(2.6f, 3.6f);
-            const float yaw = RandomFloat(0.0f, glm::two_pi<float>());
-
-            const Entity tree = CreateEntity("Dead Tree");
-            SetTransform(tree, ToWorld(position, 0.0f), Vec3(1.0f), Quat(Vec3(0.0f, yaw, 0.0f)));
-
-            CreateShape("Trunk", false, m_WoodMaterial, Vec3(0.0f, height * 0.5f, 0.0f), Vec3(0.35f, height, 0.35f), tree);
-            CreateShape("Branch", false, m_WoodMaterial, Vec3(0.45f, height * 0.7f, 0.0f), Vec3(1.1f, 0.16f, 0.16f), tree, Quat(Vec3(0.0f, 0.0f, 0.6f)));
-            CreateShape("Branch", false, m_WoodMaterial, Vec3(-0.35f, height * 0.85f, 0.1f), Vec3(0.9f, 0.14f, 0.14f), tree, Quat(Vec3(0.0f, 0.3f, -0.7f)));
+            const Model tree = CreateModel(std::format("DeadTree{}", RandomInt(0, 1)));
+            SetTransform(tree.mRoot, ToWorld(position, 0.0f), Vec3(RandomFloat(0.85f, 1.2f)), Quat(Vec3(0.0f, RandomFloat(0.0f, glm::two_pi<float>()), 0.0f)));
         }
     }
 
     void CreatePlayer()
     {
         m_PlayerEntity = CreateEntity("Player");
-
-        CreateShape("Body", false, m_PlayerBodyMaterial, Vec3(0.0f, 0.6f, 0.0f), Vec3(0.7f, 1.0f, 0.5f), m_PlayerEntity);
-        m_PlayerHeadEntity = CreateShape("Head", true, m_PlayerHeadMaterial, Vec3(0.0f, 1.38f, 0.0f), Vec3(0.55f), m_PlayerEntity);
-        CreateShape("Visor", false, m_VisorMaterial, Vec3(0.0f, 1.42f, -0.24f), Vec3(0.36f, 0.1f, 0.12f), m_PlayerEntity);
+        m_PlayerModel = CreateModel("Hero", m_PlayerEntity);
 
         const Entity torch = CreateEntity("Torch", m_PlayerEntity);
         SetTransform(torch, Vec3(0.0f, 3.0f, 0.0f), Vec3(1.0f));
@@ -502,20 +620,43 @@ private:
             {
                 Enemy& enemy = m_Enemies.emplace_back();
                 enemy.mType = type;
-                enemy.mEntity = CreateShape(archetype.mName, archetype.mIsSphere, m_EnemyMaterials[type], cParkedPosition, Vec3(0.1f));
+                enemy.mModel = CreateModel(archetype.mName);
+
+                if (type == ENEMY_BAT)
+                {
+                    for (int side = 0; side < 2; side++)
+                    {
+                        enemy.mWings[side] = CreateEntity("Wing Pivot", enemy.mModel.mRoot);
+                        SetTransform(enemy.mWings[side], Vec3(side == 0 ? -0.12f : 0.12f, 0.0f, 0.0f), Vec3(1.0f));
+
+                        const Model wing = CreateModel(side == 0 ? "BatWingL" : "BatWingR", enemy.mWings[side]);
+                        enemy.mModel.mParts.insert(enemy.mModel.mParts.end(), wing.mParts.begin(), wing.mParts.end());
+                    }
+                }
+
+                Park(enemy.mModel.mRoot);
             }
         }
 
         m_Projectiles.resize(cProjectilePoolSize);
         for (Projectile& projectile : m_Projectiles)
-            projectile.mEntity = CreateShape("Bolt", true, m_BoltMaterial, cParkedPosition, Vec3(0.1f));
+        {
+            projectile.mEntity = CreateModel("Bolt").mRoot;
+            Park(projectile.mEntity);
+        }
 
         m_Gems.resize(cGemPoolSize);
         for (Gem& gem : m_Gems)
-            gem.mEntity = CreateShape("Gem", false, m_SmallGemMaterial, cParkedPosition, Vec3(0.1f));
+        {
+            gem.mModel = CreateModel("Gem");
+            Park(gem.mModel.mRoot);
+        }
 
         for (Entity& blade : m_Blades)
-            blade = CreateShape("Blade", true, m_BladeMaterial, cParkedPosition, Vec3(0.1f));
+        {
+            blade = CreateModel("Blade").mRoot;
+            Park(blade);
+        }
 
         m_NovaEntity = CreateShape("Nova", true, m_NovaMaterial, cParkedPosition, Vec3(0.1f));
     }
@@ -549,7 +690,7 @@ private:
         m_RootEntity = Entity::Null;
         m_CameraEntity = Entity::Null;
         m_PlayerEntity = Entity::Null;
-        m_PlayerHeadEntity = Entity::Null;
+        m_PlayerModel = Model();
         m_NovaEntity = Entity::Null;
         m_Blades.fill(Entity::Null);
         m_Enemies.clear();
@@ -559,6 +700,8 @@ private:
 
         for (Array<int>& free_list : m_FreeEnemies)
             free_list.clear();
+
+        ReleaseModels();
     }
 
     void NewGame()
@@ -567,8 +710,8 @@ private:
         {
             enemy.mActive = false;
             enemy.mDying = false;
-            SetMaterial(enemy.mEntity, m_EnemyMaterials[enemy.mType]);
-            Park(enemy.mEntity);
+            RestoreModelMaterials(enemy.mModel);
+            Park(enemy.mModel.mRoot);
         }
 
         for (int type = 0; type < ENEMY_TYPE_COUNT; type++)
@@ -591,7 +734,7 @@ private:
         for (Gem& gem : m_Gems)
         {
             gem.mActive = false;
-            Park(gem.mEntity);
+            Park(gem.mModel.mRoot);
         }
 
         for (Entity blade : m_Blades)
@@ -788,7 +931,7 @@ private:
         enemy.mPhase = RandomFloat(0.0f, glm::two_pi<float>());
         enemy.mYaw = GetYaw(m_PlayerPosition - inPosition);
 
-        SetMaterial(enemy.mEntity, m_EnemyMaterials[inType]);
+        RestoreModelMaterials(enemy.mModel);
     }
 
     void BuildGrid()
@@ -917,11 +1060,15 @@ private:
             if (distance > 0.0001f)
                 enemy.mYaw = GetYaw(to_player);
 
-            enemy.mFlashTimer = glm::max(0.0f, enemy.mFlashTimer - inDeltaTime);
             enemy.mBladeCooldown = glm::max(0.0f, enemy.mBladeCooldown - inDeltaTime);
 
-            if (enemy.mFlashTimer <= 0.0f)
-                SetMaterial(enemy.mEntity, m_EnemyMaterials[enemy.mType]);
+            if (enemy.mFlashTimer > 0.0f)
+            {
+                enemy.mFlashTimer = glm::max(0.0f, enemy.mFlashTimer - inDeltaTime);
+
+                if (enemy.mFlashTimer <= 0.0f)
+                    RestoreModelMaterials(enemy.mModel);
+            }
 
             if (glm::distance(enemy.mPosition, m_PlayerPosition) < archetype.mRadius + cPlayerRadius)
                 DamagePlayer(archetype.mDamage);
@@ -936,7 +1083,7 @@ private:
         Enemy& enemy = m_Enemies[inIndex];
         enemy.mActive = false;
         enemy.mDying = false;
-        Park(enemy.mEntity);
+        Park(enemy.mModel.mRoot);
         m_FreeEnemies[enemy.mType].push_back(inIndex);
     }
 
@@ -952,9 +1099,9 @@ private:
         enemy.mHealth -= inDamage;
         enemy.mKnockback += inKnockback * knockback_scale;
         enemy.mFlashTimer = cFlashDuration;
-        SetMaterial(enemy.mEntity, m_FlashMaterial);
+        SetModelMaterial(enemy.mModel, m_FlashMaterial);
 
-        AddDamageNumber(ToWorld(enemy.mPosition, cEnemyArchetypes[enemy.mType].mHeight + 0.8f), int(glm::ceil(inDamage)));
+        AddDamageNumber(ToWorld(enemy.mPosition, cEnemyArchetypes[enemy.mType].mTop + 0.3f), int(glm::ceil(inDamage)));
 
         if (enemy.mHealth <= 0.0f)
         {
@@ -1180,7 +1327,7 @@ private:
         target->mPhase = RandomFloat(0.0f, glm::two_pi<float>());
         target->mValue = inValue;
 
-        SetMaterial(target->mEntity, inValue > 1 ? m_LargeGemMaterial : m_SmallGemMaterial);
+        SetModelMaterial(target->mModel, inValue > 1 ? m_LargeGemMaterial : m_SmallGemMaterial);
     }
 
     void UpdateGems(float inDeltaTime)
@@ -1207,7 +1354,7 @@ private:
             if (glm::distance(gem.mPosition, m_PlayerPosition) < 0.6f)
             {
                 gem.mActive = false;
-                Park(gem.mEntity);
+                Park(gem.mModel.mRoot);
                 AddExperience(gem.mValue);
             }
         }
@@ -1310,7 +1457,10 @@ private:
         SetTransform(m_PlayerEntity, ToWorld(m_PlayerPosition, bob), Vec3(1.0f), Quat(Vec3(0.0f, m_PlayerYaw, 0.0f)));
 
         const bool player_flash = m_InvulnerableTimer > 0.0f && glm::fract(m_Time * 12.0f) < 0.5f;
-        SetMaterial(m_PlayerHeadEntity, player_flash ? m_FlashMaterial : m_PlayerHeadMaterial);
+        if (player_flash)
+            SetModelMaterial(m_PlayerModel, m_FlashMaterial);
+        else
+            RestoreModelMaterials(m_PlayerModel);
 
         for (const Enemy& enemy : m_Enemies)
         {
@@ -1319,25 +1469,33 @@ private:
 
             const EnemyArchetype& archetype = cEnemyArchetypes[enemy.mType];
 
-            Vec3 scale = archetype.mScale * archetype.mRadius * 2.0f / glm::max(archetype.mScale.x, archetype.mScale.z);
-            float height = archetype.mHeight;
+            Vec3 scale = Vec3(1.0f);
+            float height = archetype.mHover;
+            float roll = 0.0f;
 
             switch (enemy.mType)
             {
                 case ENEMY_GHOUL:
+                {
                     height += glm::abs(glm::sin(m_Time * 7.0f + enemy.mPhase)) * 0.12f;
-                    break;
-                case ENEMY_BAT:
-                    height += glm::sin(m_Time * 5.0f + enemy.mPhase) * 0.2f;
-                    scale *= Vec3(1.6f + 0.6f * glm::sin(m_Time * 28.0f + enemy.mPhase), 0.55f, 0.9f);
-                    break;
-                case ENEMY_BRUTE:
-                    scale *= Vec3(1.0f, 1.0f + 0.05f * glm::sin(m_Time * 4.0f + enemy.mPhase), 1.0f);
-                    break;
-            }
+                    roll = glm::sin(m_Time * 7.0f + enemy.mPhase) * 0.1f;
+                } break;
 
-            if (!archetype.mIsSphere)
-                height = glm::max(height, scale.y * 0.5f);
+                case ENEMY_BAT:
+                {
+                    height += glm::sin(m_Time * 5.0f + enemy.mPhase) * 0.2f;
+
+                    const float flap = glm::sin(m_Time * 22.0f + enemy.mPhase) * 0.7f;
+                    SetTransform(enemy.mWings[0], Vec3(-0.12f, 0.0f, 0.0f), Vec3(1.0f), Quat(Vec3(0.0f, 0.0f, -flap)));
+                    SetTransform(enemy.mWings[1], Vec3(0.12f, 0.0f, 0.0f), Vec3(1.0f), Quat(Vec3(0.0f, 0.0f, flap)));
+                } break;
+
+                case ENEMY_BRUTE:
+                {
+                    scale *= Vec3(1.0f, 1.0f + 0.04f * glm::sin(m_Time * 4.0f + enemy.mPhase), 1.0f);
+                    roll = glm::sin(m_Time * 3.0f + enemy.mPhase) * 0.05f;
+                } break;
+            }
 
             if (enemy.mDying)
             {
@@ -1346,22 +1504,22 @@ private:
                 height *= 1.0f - t * 0.5f;
             }
 
-            SetTransform(enemy.mEntity, ToWorld(enemy.mPosition, height), scale, Quat(Vec3(0.0f, enemy.mYaw, 0.0f)));
+            SetTransform(enemy.mModel.mRoot, ToWorld(enemy.mPosition, height), scale, Quat(Vec3(0.0f, enemy.mYaw, roll)));
         }
 
         for (const Projectile& projectile : m_Projectiles)
         {
             if (projectile.mActive)
-                SetTransform(projectile.mEntity, ToWorld(projectile.mPosition, 0.9f), Vec3(0.32f, 0.32f, 0.7f), Quat(Vec3(0.0f, GetYaw(projectile.mVelocity), 0.0f)));
+                SetTransform(projectile.mEntity, ToWorld(projectile.mPosition, 0.9f), Vec3(1.0f), Quat(Vec3(0.0f, GetYaw(projectile.mVelocity), 0.0f)));
         }
 
         for (const Gem& gem : m_Gems)
         {
             if (gem.mActive)
             {
-                const float size = gem.mValue > 1 ? 0.42f : 0.28f;
-                const float height = 0.35f + 0.08f * glm::sin(m_Time * 4.0f + gem.mPhase);
-                SetTransform(gem.mEntity, ToWorld(gem.mPosition, height), Vec3(size, size * 1.4f, size), Quat(Vec3(0.0f, m_Time * 2.0f + gem.mPhase, glm::quarter_pi<float>())));
+                const float size = gem.mValue > 1 ? 0.6f : 0.42f;
+                const float height = 0.45f + 0.08f * glm::sin(m_Time * 4.0f + gem.mPhase);
+                SetTransform(gem.mModel.mRoot, ToWorld(gem.mPosition, height), Vec3(size), Quat(Vec3(0.0f, m_Time * 2.0f + gem.mPhase, 0.0f)));
             }
         }
 
@@ -1379,7 +1537,7 @@ private:
 
             const float angle = m_BladeAngle + glm::two_pi<float>() * float(blade) / float(blade_count);
             const Vec2 position = m_PlayerPosition + Vec2(glm::cos(angle), glm::sin(angle)) * blade_radius;
-            SetTransform(m_Blades[blade], ToWorld(position, 0.8f), Vec3(0.75f, 0.12f, 0.3f), Quat(Vec3(0.0f, -angle, 0.0f)));
+            SetTransform(m_Blades[blade], ToWorld(position, 0.8f), Vec3(1.0f), Quat(Vec3(0.0f, -angle, 0.0f)));
         }
 
         const float nova_duration = 0.35f;
@@ -1679,11 +1837,13 @@ private:
     Entity m_RootEntity = Entity::Null;
     Entity m_CameraEntity = Entity::Null;
     Entity m_PlayerEntity = Entity::Null;
-    Entity m_PlayerHeadEntity = Entity::Null;
+    Model m_PlayerModel;
     Entity m_NovaEntity = Entity::Null;
     StaticArray<Entity, cMaxBlades> m_Blades;
 
-    StaticArray<Entity, ENEMY_TYPE_COUNT> m_EnemyMaterials;
+    HashMap<String, Array<MeshTemplate>> m_MeshTemplates;
+    HashMap<String, Entity> m_ModelMaterials;
+
     Entity m_FlashMaterial = Entity::Null;
     Entity m_GroundMaterial = Entity::Null;
     Entity m_DirtMaterial = Entity::Null;
@@ -1751,7 +1911,6 @@ public:
     DuskSwarmScript()
     {
         m_Blades.fill(Entity::Null);
-        m_EnemyMaterials.fill(Entity::Null);
     }
 };
 
