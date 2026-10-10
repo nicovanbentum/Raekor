@@ -1,5 +1,6 @@
 #define RAEKOR_SCRIPT
 #include "../Engine/Raekor.h"
+#include "../Engine/GLTF.h"
 
 namespace RK {
 
@@ -34,22 +35,34 @@ static constexpr float cActivationDistance = 80.0f;
 
 static constexpr float cSegmentLength = 30.0f;
 static constexpr int   cSegmentCount = 9;
-static constexpr int   cTiesPerSegment = 20;
 static constexpr int   cBuildingsPerSide = 2;
-static constexpr int   cWindowBandsPerBuilding = 4;
+static constexpr int   cPropsPerSide = 2;
+static constexpr float cTrackHalfWidth = ( cLaneCount * cLaneWidth + 1.0f ) * 0.5f;
+static constexpr float cPlatformTop = 0.85f;
 static constexpr float cGenerateDistance = 220.0f;
 static constexpr float cRecycleDistance = 15.0f;
 
-static constexpr int cTrainPoolSize = 18;
-static constexpr int cRampPoolSize = 8;
-static constexpr int cBarrierPoolSize = 14;
-static constexpr int cCoinPoolSize = 180;
-static constexpr int cTrainColorCount = 4;
-static constexpr int cBuildingColorCount = 5;
+static constexpr int   cTrainPoolSize = 18;
+static constexpr int   cRampPoolSize = 8;
+static constexpr int   cBarrierPoolSize = 14;
+static constexpr int   cCoinPoolSize = 180;
+static constexpr int   cMaxTrainUnits = 4;
+static constexpr float cTrainUnitLength = 6.0f;
+
+static constexpr float cGuardHiddenZ = -16.0f;
+static constexpr float cGuardChaseZ = -2.1f;
+static constexpr float cGuardSideOffset = 0.5f;
 
 static constexpr Vec3 cParkedPosition = Vec3(0.0f, -60.0f, 0.0f);
 
 static constexpr const char* cRuntimeRootName = "RailRush Runtime";
+static constexpr const char* cModelFile = "Assets/RailRush/RailRush.glb";
+static constexpr const char* cPaletteFile = "Assets/RailRush/Palette.png";
+static constexpr const char* cPaletteEmissiveFile = "Assets/RailRush/PaletteEmissive.png";
+
+static constexpr StaticArray<const char*, 4> cTrainColors = { "Blue", "Red", "Green", "Silver" };
+static constexpr StaticArray<const char*, 7> cBuildingNames = { "Apartment", "Tower", "ShopRed", "ShopGreen", "Warehouse", "Office", "Brownstone" };
+static constexpr StaticArray<const char*, 5> cPropNames = { "Bench", "TrashCan", "Vending", "Sign", "Planter" };
 
 
 enum EObstacleType
@@ -75,15 +88,16 @@ struct PowerUpInfo
 {
     const char* mName;
     const char* mLabel;
+    const char* mModel;
     Vec3 mColor;
 };
 
 
 static const StaticArray<PowerUpInfo, POWER_UP_COUNT> cPowerUps =
 {
-    PowerUpInfo { "MAGNET",         "M",  Vec3(1.0f, 0.25f, 0.25f) },
-    PowerUpInfo { "SUPER SNEAKERS", "S",  Vec3(0.3f, 1.0f, 0.45f) },
-    PowerUpInfo { "2X SCORE",       "2X", Vec3(1.0f, 0.8f, 0.2f) },
+    PowerUpInfo { "MAGNET",         "M",  "Magnet",     Vec3(1.0f, 0.25f, 0.25f) },
+    PowerUpInfo { "SUPER SNEAKERS", "S",  "Sneaker",    Vec3(0.3f, 1.0f, 0.45f) },
+    PowerUpInfo { "2X SCORE",       "2X", "Multiplier", Vec3(1.0f, 0.8f, 0.2f) },
 };
 
 
@@ -100,10 +114,31 @@ public:
         STATE_GAME_OVER
     };
 
+    struct ModelPart
+    {
+        String mName;
+        Entity mEntity = Entity::Null;
+        Vec3 mRest = Vec3(0.0f);
+    };
+
+    struct Model
+    {
+        Entity mRoot = Entity::Null;
+        Array<ModelPart> mParts;
+    };
+
+    struct PartTemplate
+    {
+        String mName;
+        Vec3 mJoint = Vec3(0.0f);
+        Mesh mMesh;
+    };
+
     struct Obstacle
     {
         Entity mEntity = Entity::Null;
-        StaticArray<Entity, 5> mParts;
+        StaticArray<Model, cMaxTrainUnits> mUnits;
+        Entity mLights = Entity::Null;
         int mType = OBSTACLE_TRAIN;
         bool mActive = false;
         bool mMoving = false;
@@ -133,7 +168,7 @@ public:
         float mZ = 0.0f;
         Entity mRoot = Entity::Null;
         StaticArray<Entity, cBuildingsPerSide * 2> mBuildings;
-        StaticArray<Entity, cBuildingsPerSide * 2 * cWindowBandsPerBuilding> mWindows;
+        StaticArray<Entity, cPropsPerSide * 2> mProps;
     };
 
     struct Popup
@@ -155,9 +190,12 @@ public:
         m_AutoStart = &g_CVariables->Create("rr_autostart", 0, true);
         m_SpeedCheat = &g_CVariables->Create("rr_speed", 0.0f, true);
 
+        LoadTextures();
+        LoadModels();
         CreateMaterials();
         CreateSegments();
         CreatePlayer();
+        CreateGuard();
         CreatePools();
         CreateCamera();
 
@@ -286,23 +324,13 @@ private:
         return entity;
     }
 
-    Entity CreateShape(StringView inName, bool inIsSphere, Entity inMaterial, Vec3 inPosition, Vec3 inScale, Entity inParent = Entity::Null, Quat inRotation = Quat(Vec3(0.0f)))
+    Entity CreateShape(StringView inName, Entity inMaterial, Vec3 inPosition, Vec3 inScale, Entity inParent = Entity::Null)
     {
         const Entity entity = CreateEntity(inName, inParent);
-
-        Transform& transform = m_Scene->Get<Transform>(entity);
-        transform.position = inPosition;
-        transform.rotation = inRotation;
-        transform.scale = inScale;
-        transform.Compose();
+        SetTransform(entity, inPosition, inScale);
 
         Mesh& mesh = m_Scene->Add<Mesh>(entity);
-
-        if (inIsSphere)
-            Mesh::CreateSphere(mesh, 0.5f, 16, 12);
-        else
-            Mesh::CreateCube(mesh, 1.0f);
-
+        Mesh::CreateCube(mesh, 1.0f);
         mesh.material = inMaterial;
 
         m_App->GetRenderInterface()->UploadMeshBuffers(entity, mesh);
@@ -352,122 +380,206 @@ private:
         return glm::clamp(int(glm::round(1.0f - inX / cLaneWidth)), 0, cLaneCount - 1);
     }
 
+    uint32_t LoadTexture(const char* inFile, bool inSRGB)
+    {
+        if (!fs::exists(inFile))
+            return 0;
+
+        const String cached = TextureAsset::GetCachedPath(inFile);
+
+        if (!fs::exists(cached) || fs::last_write_time(cached) < fs::last_write_time(inFile))
+            TextureAsset::Convert(inFile);
+
+        Assets* assets = m_App->GetAssets();
+        TextureAsset::Ptr asset = assets ? assets->GetAsset<TextureAsset>(cached) : nullptr;
+
+        return asset ? m_App->GetRenderInterface()->UploadTextureFromAsset(asset, inSRGB) : 0;
+    }
+
+    void LoadTextures()
+    {
+        if (m_PaletteTexture == 0)
+            m_PaletteTexture = LoadTexture(cPaletteFile, true);
+
+        if (m_PaletteEmissiveTexture == 0)
+            m_PaletteEmissiveTexture = LoadTexture(cPaletteEmissiveFile, false);
+    }
+
+    void ReleaseModels()
+    {
+        for (auto& [name, templates] : m_MeshTemplates)
+        {
+            for (PartTemplate& part : templates)
+                m_App->GetRenderInterface()->DestroyMeshBuffers(Entity::Null, part.mMesh);
+        }
+
+        m_MeshTemplates.clear();
+    }
+
+    void LoadModels()
+    {
+        ReleaseModels();
+
+        Scene scene(nullptr);
+        GltfImporter importer(scene, nullptr);
+
+        if (!importer.LoadFromFile(cModelFile, nullptr))
+        {
+            Log(std::format("Failed to load {}", cModelFile));
+            return;
+        }
+
+        for (const auto& [entity, mesh] : scene.Each<Mesh>())
+        {
+            const String& name = scene.Get<Name>(entity).name;
+            const size_t split = name.find('_');
+
+            PartTemplate& part = m_MeshTemplates[name.substr(0, split)].emplace_back();
+            part.mName = split != String::npos ? name.substr(split + 1) : String("Main");
+            part.mJoint = scene.Get<Transform>(entity).position;
+            part.mMesh = mesh;
+
+            m_App->GetRenderInterface()->UploadMeshBuffers(Entity::Null, part.mMesh);
+        }
+    }
+
+    const PartTemplate* FindTemplate(const String& inName) const
+    {
+        const auto templates = m_MeshTemplates.find(inName);
+        return templates != m_MeshTemplates.end() && !templates->second.empty() ? &templates->second.front() : nullptr;
+    }
+
+    void SetMesh(Entity inEntity, const PartTemplate* inTemplate)
+    {
+        Mesh* mesh = FindComponent<Mesh>(inEntity);
+
+        if (mesh == nullptr || inTemplate == nullptr)
+            return;
+
+        const Entity material = mesh->material;
+
+        m_App->GetRenderInterface()->DestroyMeshBuffers(inEntity, *mesh);
+
+        *mesh = inTemplate->mMesh;
+        mesh->material = material;
+        mesh->indexBuffer = 0;
+        mesh->vertexBuffer = 0;
+        mesh->BottomLevelAS = 0;
+
+        m_App->GetRenderInterface()->ShareMeshBuffers(inEntity, inTemplate->mMesh, *mesh);
+    }
+
+    Entity CreateMeshEntity(StringView inName, const PartTemplate* inTemplate, Entity inParent)
+    {
+        const Entity entity = CreateEntity(inName, inParent);
+        m_Scene->Add<Mesh>(entity).material = m_PaletteMaterial;
+        SetMesh(entity, inTemplate);
+        return entity;
+    }
+
+    Model CreateModel(const String& inName, Entity inParent = Entity::Null)
+    {
+        Model model;
+        model.mRoot = CreateEntity(inName, inParent);
+
+        const auto templates = m_MeshTemplates.find(inName);
+
+        if (templates == m_MeshTemplates.end())
+        {
+            const Entity fallback = CreateShape(inName, m_PaletteMaterial, Vec3(0.0f, 0.5f, 0.0f), Vec3(1.0f), model.mRoot);
+            model.mParts.push_back(ModelPart { .mName = "Main", .mEntity = fallback, .mRest = Vec3(0.0f, 0.5f, 0.0f) });
+            return model;
+        }
+
+        for (const PartTemplate& part : templates->second)
+        {
+            const Entity entity = CreateMeshEntity(part.mName, &part, model.mRoot);
+            SetTransform(entity, part.mJoint);
+            model.mParts.push_back(ModelPart { .mName = part.mName, .mEntity = entity, .mRest = part.mJoint });
+        }
+
+        return model;
+    }
+
+    static ModelPart FindPart(const Model& inModel, StringView inName)
+    {
+        for (const ModelPart& part : inModel.mParts)
+        {
+            if (part.mName == inName)
+                return part;
+        }
+
+        return ModelPart();
+    }
+
     void CreateMaterials()
     {
-        static constexpr StaticArray<Vec3, cTrainColorCount> cTrainColors =
+        m_PaletteMaterial = CreateMaterial(Vec3(1.0f), Vec3(0.0f), 0.85f);
+
+        if (Material* palette = FindComponent<Material>(m_PaletteMaterial))
         {
-            Vec3(0.15f, 0.35f, 0.75f), Vec3(0.75f, 0.15f, 0.12f), Vec3(0.15f, 0.55f, 0.30f), Vec3(0.70f, 0.72f, 0.75f)
-        };
+            palette->gpuAlbedoMap = m_PaletteTexture;
+            palette->gpuEmissiveMap = m_PaletteEmissiveTexture;
+            palette->emissive = m_PaletteEmissiveTexture != 0 ? Vec3(20000.0f) : Vec3(0.0f);
+        }
 
-        static constexpr StaticArray<Vec3, cBuildingColorCount> cBuildingColors =
-        {
-            Vec3(0.55f, 0.28f, 0.20f), Vec3(0.78f, 0.70f, 0.55f), Vec3(0.30f, 0.50f, 0.52f), Vec3(0.62f, 0.60f, 0.62f), Vec3(0.80f, 0.55f, 0.35f)
-        };
-
-        for (int index = 0; index < cTrainColorCount; index++)
-            m_TrainMaterials[index] = CreateMaterial(cTrainColors[index], Vec3(0.0f), 0.35f, index == cTrainColorCount - 1 ? 0.8f : 0.2f);
-
-        for (int index = 0; index < cBuildingColorCount; index++)
-            m_BuildingMaterials[index] = CreateMaterial(cBuildingColors[index], Vec3(0.0f), 0.85f);
-
-        m_GravelMaterial = CreateMaterial(Vec3(0.32f, 0.30f, 0.28f), Vec3(0.0f), 0.95f);
-        m_ConcreteMaterial = CreateMaterial(Vec3(0.55f, 0.55f, 0.53f), Vec3(0.0f), 0.9f);
-        m_TieMaterial = CreateMaterial(Vec3(0.25f, 0.17f, 0.11f), Vec3(0.0f), 0.9f);
-        m_RailMaterial = CreateMaterial(Vec3(0.75f, 0.75f, 0.78f), Vec3(0.0f), 0.25f, 1.0f);
-        m_WindowMaterial = CreateMaterial(Vec3(0.95f, 0.9f, 0.7f), Vec3(1.0f, 0.9f, 0.65f) * 2500.0f, 0.2f);
-        m_GlassMaterial = CreateMaterial(Vec3(0.12f, 0.18f, 0.25f), Vec3(0.0f), 0.08f, 0.9f);
-        m_LampMaterial = CreateMaterial(Vec3(1.0f, 0.95f, 0.8f), Vec3(1.0f, 0.92f, 0.75f) * 20000.0f, 0.3f);
-        m_PostMaterial = CreateMaterial(Vec3(0.12f, 0.13f, 0.15f), Vec3(0.0f), 0.5f, 0.8f);
-        m_TrainWindowMaterial = CreateMaterial(Vec3(0.6f, 0.8f, 0.9f), Vec3(0.7f, 0.85f, 1.0f) * 1500.0f, 0.1f);
         m_HeadlightMaterial = CreateMaterial(Vec3(1.0f, 0.95f, 0.8f), Vec3(1.0f, 0.95f, 0.8f) * 60000.0f, 0.2f);
         m_DarkLightMaterial = CreateMaterial(Vec3(0.2f, 0.2f, 0.2f), Vec3(0.0f), 0.3f);
-        m_RampMaterial = CreateMaterial(Vec3(0.45f, 0.42f, 0.38f), Vec3(0.0f), 0.6f, 0.6f);
-        m_BarrierMaterial = CreateMaterial(Vec3(0.85f, 0.15f, 0.12f), Vec3(0.0f), 0.5f);
-        m_StripeMaterial = CreateMaterial(Vec3(0.95f, 0.95f, 0.95f), Vec3(0.0f), 0.5f);
-        m_HighBarrierMaterial = CreateMaterial(Vec3(0.95f, 0.75f, 0.1f), Vec3(0.0f), 0.5f);
-        m_CoinMaterial = CreateMaterial(Vec3(1.0f, 0.78f, 0.2f), Vec3(1.0f, 0.7f, 0.15f) * 3000.0f, 0.2f, 1.0f);
-        m_HoodieMaterial = CreateMaterial(Vec3(0.85f, 0.25f, 0.45f), Vec3(0.0f), 0.7f);
-        m_PantsMaterial = CreateMaterial(Vec3(0.15f, 0.20f, 0.35f), Vec3(0.0f), 0.8f);
-        m_SkinMaterial = CreateMaterial(Vec3(0.85f, 0.65f, 0.50f), Vec3(0.0f), 0.6f);
-        m_CapMaterial = CreateMaterial(Vec3(0.15f, 0.55f, 0.95f), Vec3(0.0f), 0.6f);
-        m_BackpackMaterial = CreateMaterial(Vec3(0.95f, 0.65f, 0.15f), Vec3(0.0f), 0.7f);
-        m_SneakerMaterial = CreateMaterial(Vec3(0.95f, 0.95f, 0.95f), Vec3(0.0f), 0.5f);
         m_GlowingSneakerMaterial = CreateMaterial(Vec3(0.3f, 1.0f, 0.45f), Vec3(0.3f, 1.0f, 0.45f) * 8000.0f, 0.3f);
-
-        for (int index = 0; index < POWER_UP_COUNT; index++)
-            m_PowerUpMaterials[index] = CreateMaterial(cPowerUps[index].mColor, cPowerUps[index].mColor * 12000.0f, 0.2f);
     }
 
     void CreateSegments()
     {
-        const float track_width = cLaneCount * cLaneWidth + 1.0f;
-
         for (Segment& segment : m_Segments)
         {
             segment.mRoot = CreateEntity("Track Segment");
 
-            const Vec3 half_offset = Vec3(0.0f, 0.0f, cSegmentLength * 0.5f);
+            CreateModel("Track", segment.mRoot);
+            CreateModel("PlatformL", segment.mRoot);
+            CreateModel("PlatformR", segment.mRoot);
 
-            CreateShape("Gravel", false, m_GravelMaterial, Vec3(0.0f, -0.25f, 0.0f) + half_offset, Vec3(track_width, 0.5f, cSegmentLength), segment.mRoot);
-
-            for (const float side : { -1.0f, 1.0f })
-            {
-                CreateShape("Platform", false, m_ConcreteMaterial, Vec3(side * ( track_width * 0.5f + 2.0f ), 0.3f, 0.0f) + half_offset, Vec3(4.0f, 1.1f, cSegmentLength), segment.mRoot);
-                CreateShape("Lamp Post", false, m_PostMaterial, Vec3(side * ( track_width * 0.5f + 1.2f ), 3.0f, 4.0f), Vec3(0.18f, 5.4f, 0.18f), segment.mRoot);
-                CreateShape("Lamp Arm", false, m_PostMaterial, Vec3(side * ( track_width * 0.5f + 0.6f ), 5.6f, 4.0f), Vec3(1.2f, 0.12f, 0.12f), segment.mRoot);
-                CreateShape("Lamp", false, m_LampMaterial, Vec3(side * ( track_width * 0.5f + 0.1f ), 5.45f, 4.0f), Vec3(0.45f, 0.15f, 0.3f), segment.mRoot);
-            }
-
-            for (int tie = 0; tie < cTiesPerSegment; tie++)
-            {
-                const float z = ( float(tie) + 0.5f ) * cSegmentLength / float(cTiesPerSegment);
-                CreateShape("Tie", false, m_TieMaterial, Vec3(0.0f, 0.03f, z), Vec3(track_width - 0.6f, 0.1f, 0.35f), segment.mRoot);
-            }
-
-            for (int lane = 0; lane < cLaneCount; lane++)
-            {
-                for (const float side : { -1.0f, 1.0f })
-                    CreateShape("Rail", false, m_RailMaterial, Vec3(GetLaneX(lane) + side * 0.72f, 0.14f, 0.0f) + half_offset, Vec3(0.1f, 0.14f, cSegmentLength), segment.mRoot);
-            }
+            SetTransform(CreateModel("LampPostL", segment.mRoot).mRoot, Vec3(cTrackHalfWidth + 1.2f, cPlatformTop, 4.0f));
+            SetTransform(CreateModel("LampPostR", segment.mRoot).mRoot, Vec3(-cTrackHalfWidth - 1.2f, cPlatformTop, 19.0f));
 
             for (Entity& building : segment.mBuildings)
-                building = CreateShape("Building", false, m_BuildingMaterials[0], Vec3(0.0f), Vec3(1.0f), segment.mRoot);
+                building = CreateMeshEntity("Building", nullptr, segment.mRoot);
 
-            for (Entity& window : segment.mWindows)
-                window = CreateShape("Windows", false, m_WindowMaterial, Vec3(0.0f), Vec3(1.0f), segment.mRoot);
+            for (Entity& prop : segment.mProps)
+                prop = CreateMeshEntity("Prop", nullptr, segment.mRoot);
         }
     }
 
     void RandomizeSegment(Segment& inSegment)
     {
-        const float track_width = cLaneCount * cLaneWidth + 1.0f;
         const float building_length = cSegmentLength / cBuildingsPerSide;
 
         for (int index = 0; index < cBuildingsPerSide * 2; index++)
         {
-            const float side = index < cBuildingsPerSide ? -1.0f : 1.0f;
-            const float height = RandomFloat(7.0f, 22.0f);
-            const float depth = RandomFloat(5.0f, 8.0f);
-            const float inner_x = side * ( track_width * 0.5f + 4.2f );
+            const bool left = index < cBuildingsPerSide;
+            const float side = left ? 1.0f : -1.0f;
             const float z = ( float(index % cBuildingsPerSide) + 0.5f ) * building_length;
+            const String name = String(cBuildingNames[RandomInt(0, int(cBuildingNames.size()) - 1)]) + ( left ? "L" : "R" );
 
-            SetMaterial(inSegment.mBuildings[index], m_BuildingMaterials[RandomInt(0, cBuildingColorCount - 1)]);
-            SetTransform(inSegment.mBuildings[index], Vec3(inner_x + side * depth * 0.5f, height * 0.5f, z), Vec3(depth, height, building_length - 0.6f));
+            SetMesh(inSegment.mBuildings[index], FindTemplate(name));
+            SetTransform(inSegment.mBuildings[index], Vec3(side * ( cTrackHalfWidth + 4.2f ), 0.0f, z));
+        }
 
-            for (int band = 0; band < cWindowBandsPerBuilding; band++)
+        for (int index = 0; index < cPropsPerSide * 2; index++)
+        {
+            const Entity prop = inSegment.mProps[index];
+            const float side = index < cPropsPerSide ? 1.0f : -1.0f;
+
+            if (RandomFloat(0.0f, 1.0f) < 0.25f)
             {
-                const Entity window = inSegment.mWindows[index * cWindowBandsPerBuilding + band];
-                const float band_y = 3.0f + band * 4.0f;
-
-                if (band_y + 1.5f > height)
-                {
-                    Park(window);
-                    continue;
-                }
-
-                SetMaterial(window, RandomFloat(0.0f, 1.0f) < 0.6f ? m_WindowMaterial : m_GlassMaterial);
-                SetTransform(window, Vec3(inner_x - side * 0.02f, band_y, z), Vec3(0.06f, 1.4f, building_length - 2.5f));
+                Park(prop);
+                continue;
             }
+
+            const float slot_length = cSegmentLength / cPropsPerSide;
+            const float z = ( float(index % cPropsPerSide) + RandomFloat(0.25f, 0.75f) ) * slot_length;
+
+            SetMesh(prop, FindTemplate(cPropNames[RandomInt(0, int(cPropNames.size()) - 1)]));
+            SetTransform(prop, Vec3(side * ( cTrackHalfWidth + RandomFloat(2.6f, 3.2f) ), cPlatformTop, z), Vec3(1.0f), Quat(Vec3(0.0f, -side * glm::half_pi<float>(), 0.0f)));
         }
     }
 
@@ -475,78 +587,54 @@ private:
     {
         m_PlayerEntity = CreateEntity("Runner");
         m_BodyPivot = CreateEntity("Body", m_PlayerEntity);
+        m_Runner = CreateModel("Runner", m_BodyPivot);
 
-        CreateShape("Torso", false, m_HoodieMaterial, Vec3(0.0f, 1.12f, 0.0f), Vec3(0.56f, 0.66f, 0.34f), m_BodyPivot);
-        CreateShape("Head", true, m_SkinMaterial, Vec3(0.0f, 1.66f, 0.0f), Vec3(0.42f), m_BodyPivot);
-        CreateShape("Cap", false, m_CapMaterial, Vec3(0.0f, 1.83f, 0.04f), Vec3(0.44f, 0.12f, 0.46f), m_BodyPivot);
-        CreateShape("Cap Brim", false, m_CapMaterial, Vec3(0.0f, 1.79f, 0.3f), Vec3(0.36f, 0.04f, 0.22f), m_BodyPivot);
-        CreateShape("Backpack", false, m_BackpackMaterial, Vec3(0.0f, 1.15f, -0.27f), Vec3(0.44f, 0.5f, 0.22f), m_BodyPivot);
-
-        for (int side = 0; side < 2; side++)
-        {
-            const float x = side == 0 ? 0.15f : -0.15f;
-
-            m_LegPivots[side] = CreateEntity("Leg Pivot", m_BodyPivot);
-            SetTransform(m_LegPivots[side], Vec3(x, 0.8f, 0.0f));
-            CreateShape("Leg", false, m_PantsMaterial, Vec3(0.0f, -0.38f, 0.0f), Vec3(0.2f, 0.72f, 0.22f), m_LegPivots[side]);
-            m_Sneakers[side] = CreateShape("Sneaker", false, m_SneakerMaterial, Vec3(0.0f, -0.75f, 0.05f), Vec3(0.22f, 0.12f, 0.34f), m_LegPivots[side]);
-
-            const float arm_x = side == 0 ? 0.36f : -0.36f;
-
-            m_ArmPivots[side] = CreateEntity("Arm Pivot", m_BodyPivot);
-            SetTransform(m_ArmPivots[side], Vec3(arm_x, 1.38f, 0.0f));
-            CreateShape("Arm", false, m_HoodieMaterial, Vec3(0.0f, -0.28f, 0.0f), Vec3(0.15f, 0.58f, 0.17f), m_ArmPivots[side]);
-            CreateShape("Hand", true, m_SkinMaterial, Vec3(0.0f, -0.6f, 0.0f), Vec3(0.15f), m_ArmPivots[side]);
-        }
+        m_Legs = { FindPart(m_Runner, "LegL"), FindPart(m_Runner, "LegR") };
+        m_Arms = { FindPart(m_Runner, "ArmL"), FindPart(m_Runner, "ArmR") };
+        m_Shoes = { FindPart(m_Runner, "ShoeL"), FindPart(m_Runner, "ShoeR") };
     }
 
-    Obstacle CreateObstacle(int inType)
+    void CreateGuard()
+    {
+        m_Guard = CreateModel("Guard");
+        Park(m_Guard.mRoot);
+    }
+
+    Obstacle CreateObstacle(int inType, int inIndex)
     {
         Obstacle obstacle;
         obstacle.mType = inType;
-        obstacle.mParts.fill(Entity::Null);
 
         switch (inType)
         {
             case OBSTACLE_TRAIN:
             {
+                const String color = cTrainColors[inIndex % cTrainColors.size()];
+
                 obstacle.mEntity = CreateEntity("Train");
-                obstacle.mParts[0] = CreateShape("Train Body", false, m_TrainMaterials[0], Vec3(0.0f), Vec3(1.0f), obstacle.mEntity);
-                obstacle.mParts[1] = CreateShape("Train Windows", false, m_TrainWindowMaterial, Vec3(0.0f), Vec3(1.0f), obstacle.mEntity);
-                obstacle.mParts[2] = CreateShape("Train Roof", false, m_RailMaterial, Vec3(0.0f), Vec3(1.0f), obstacle.mEntity);
-                obstacle.mParts[3] = CreateShape("Headlight", true, m_DarkLightMaterial, Vec3(0.7f, 0.9f, -0.02f), Vec3(0.4f, 0.4f, 0.1f), obstacle.mEntity);
-                obstacle.mParts[4] = CreateShape("Headlight", true, m_DarkLightMaterial, Vec3(-0.7f, 0.9f, -0.02f), Vec3(0.4f, 0.4f, 0.1f), obstacle.mEntity);
+
+                for (int unit = 0; unit < cMaxTrainUnits; unit++)
+                    obstacle.mUnits[unit] = CreateModel(( unit == 0 ? "TrainFront" : "TrainCar" ) + color, obstacle.mEntity);
+
+                obstacle.mLights = FindPart(obstacle.mUnits[0], "Lights").mEntity;
             } break;
 
             case OBSTACLE_RAMP:
             {
-                const float slope_length = glm::sqrt(cRampLength * cRampLength + cTrainHeight * cTrainHeight);
-                const float angle = glm::atan(cTrainHeight, cRampLength);
-
                 obstacle.mLength = cRampLength;
-                obstacle.mEntity = CreateEntity("Ramp");
-                obstacle.mParts[0] = CreateShape("Ramp Surface", false, m_RampMaterial, Vec3(0.0f, cTrainHeight * 0.5f - 0.15f, cRampLength * 0.5f), Vec3(cTrainWidth, 0.3f, slope_length), obstacle.mEntity, Quat(Vec3(-angle, 0.0f, 0.0f)));
-                obstacle.mParts[1] = CreateShape("Ramp Support", false, m_PostMaterial, Vec3(0.0f, cTrainHeight * 0.5f, cRampLength - 0.3f), Vec3(cTrainWidth - 0.4f, cTrainHeight, 0.3f), obstacle.mEntity);
+                obstacle.mEntity = CreateModel("Ramp").mRoot;
             } break;
 
             case OBSTACLE_LOW_BARRIER:
             {
                 obstacle.mLength = cBarrierDepth;
-                obstacle.mEntity = CreateEntity("Low Barrier");
-                obstacle.mParts[0] = CreateShape("Barrier", false, m_BarrierMaterial, Vec3(0.0f, cLowBarrierHeight * 0.5f, cBarrierDepth * 0.5f), Vec3(cTrainWidth, cLowBarrierHeight, cBarrierDepth), obstacle.mEntity);
-                obstacle.mParts[1] = CreateShape("Stripe", false, m_StripeMaterial, Vec3(0.0f, cLowBarrierHeight * 0.7f, -0.01f), Vec3(cTrainWidth, 0.18f, 0.02f), obstacle.mEntity);
+                obstacle.mEntity = CreateModel("LowBarrier").mRoot;
             } break;
 
             case OBSTACLE_HIGH_BARRIER:
             {
-                const float bar_height = cHighBarrierTop - cHighBarrierBottom;
-
                 obstacle.mLength = cBarrierDepth;
-                obstacle.mEntity = CreateEntity("High Barrier");
-                obstacle.mParts[0] = CreateShape("Post", false, m_PostMaterial, Vec3(cTrainWidth * 0.5f, cHighBarrierTop * 0.5f, cBarrierDepth * 0.5f), Vec3(0.14f, cHighBarrierTop, 0.14f), obstacle.mEntity);
-                obstacle.mParts[1] = CreateShape("Post", false, m_PostMaterial, Vec3(-cTrainWidth * 0.5f, cHighBarrierTop * 0.5f, cBarrierDepth * 0.5f), Vec3(0.14f, cHighBarrierTop, 0.14f), obstacle.mEntity);
-                obstacle.mParts[2] = CreateShape("Bar", false, m_HighBarrierMaterial, Vec3(0.0f, cHighBarrierBottom + bar_height * 0.5f, cBarrierDepth * 0.5f), Vec3(cTrainWidth, bar_height, 0.16f), obstacle.mEntity);
-                obstacle.mParts[3] = CreateShape("Stripe", false, m_PostMaterial, Vec3(0.0f, cHighBarrierBottom + bar_height * 0.5f, -0.01f), Vec3(cTrainWidth, bar_height * 0.3f, 0.02f), obstacle.mEntity);
+                obstacle.mEntity = CreateModel("HighBarrier").mRoot;
             } break;
         }
 
@@ -559,23 +647,29 @@ private:
         m_Obstacles.clear();
 
         for (int index = 0; index < cTrainPoolSize; index++)
-            m_Obstacles.push_back(CreateObstacle(OBSTACLE_TRAIN));
+            m_Obstacles.push_back(CreateObstacle(OBSTACLE_TRAIN, index));
 
         for (int index = 0; index < cRampPoolSize; index++)
-            m_Obstacles.push_back(CreateObstacle(OBSTACLE_RAMP));
+            m_Obstacles.push_back(CreateObstacle(OBSTACLE_RAMP, index));
 
         for (int index = 0; index < cBarrierPoolSize; index++)
-            m_Obstacles.push_back(CreateObstacle(OBSTACLE_LOW_BARRIER));
+            m_Obstacles.push_back(CreateObstacle(OBSTACLE_LOW_BARRIER, index));
 
         for (int index = 0; index < cBarrierPoolSize; index++)
-            m_Obstacles.push_back(CreateObstacle(OBSTACLE_HIGH_BARRIER));
+            m_Obstacles.push_back(CreateObstacle(OBSTACLE_HIGH_BARRIER, index));
 
         m_Coins.resize(cCoinPoolSize);
         for (Coin& coin : m_Coins)
-            coin.mEntity = CreateShape("Coin", true, m_CoinMaterial, cParkedPosition, Vec3(0.1f));
+        {
+            coin.mEntity = CreateModel("Coin").mRoot;
+            Park(coin.mEntity);
+        }
 
         for (int index = 0; index < POWER_UP_COUNT; index++)
-            m_PowerUpPickups[index].mEntity = CreateShape(cPowerUps[index].mName, true, m_PowerUpMaterials[index], cParkedPosition, Vec3(0.1f));
+        {
+            m_PowerUpPickups[index].mEntity = CreateModel(cPowerUps[index].mModel).mRoot;
+            Park(m_PowerUpPickups[index].mEntity);
+        }
     }
 
     void CreateCamera()
@@ -608,9 +702,11 @@ private:
         m_CameraEntity = Entity::Null;
         m_PlayerEntity = Entity::Null;
         m_BodyPivot = Entity::Null;
-        m_LegPivots.fill(Entity::Null);
-        m_ArmPivots.fill(Entity::Null);
-        m_Sneakers.fill(Entity::Null);
+        m_Runner = Model();
+        m_Guard = Model();
+        m_Legs.fill(ModelPart());
+        m_Arms.fill(ModelPart());
+        m_Shoes.fill(ModelPart());
         m_Obstacles.clear();
         m_Coins.clear();
 
@@ -619,6 +715,8 @@ private:
 
         for (PowerUpPickup& pickup : m_PowerUpPickups)
             pickup = PowerUpPickup();
+
+        ReleaseModels();
     }
 
     void NewGame()
@@ -674,6 +772,9 @@ private:
         m_CameraPosition = Vec3(GetLaneX(1), 3.2f, -6.5f);
         m_CameraLookY = 1.2f;
         m_Shake = 0.0f;
+        m_CaughtByGuard = false;
+        m_GuardPosition = Vec3(GetLaneX(1), 0.0f, cGuardHiddenZ);
+        m_GuardPhase = 0.0f;
 
         UpdateGeneration();
     }
@@ -726,6 +827,7 @@ private:
 
         if (m_GuardTimer > 0.0f)
         {
+            m_CaughtByGuard = true;
             Crash("CAUGHT BY THE GUARD");
             return;
         }
@@ -954,13 +1056,15 @@ private:
 
     Obstacle* AcquireObstacle(int inType)
     {
+        Array<Obstacle*> candidates;
+
         for (Obstacle& obstacle : m_Obstacles)
         {
             if (obstacle.mType == inType && !obstacle.mActive)
-                return &obstacle;
+                candidates.push_back(&obstacle);
         }
 
-        return nullptr;
+        return candidates.empty() ? nullptr : candidates[RandomInt(0, int(candidates.size()) - 1)];
     }
 
     bool PlaceTrain(int inLane, float inZ, bool inWithRamp, bool inMoving)
@@ -971,7 +1075,8 @@ private:
         if (train == nullptr || ( inWithRamp && ramp == nullptr ))
             return false;
 
-        const float length = float(RandomInt(2, 4)) * 6.0f;
+        const int unit_count = RandomInt(2, cMaxTrainUnits);
+        const float length = float(unit_count) * cTrainUnitLength;
         const float front = inWithRamp ? inZ + cRampLength : inZ;
 
         train->mActive = true;
@@ -980,12 +1085,15 @@ private:
         train->mZ = front;
         train->mLength = length;
 
-        SetMaterial(train->mParts[0], m_TrainMaterials[RandomInt(0, cTrainColorCount - 1)]);
-        SetTransform(train->mParts[0], Vec3(0.0f, cTrainHeight * 0.5f + 0.1f, length * 0.5f), Vec3(cTrainWidth, cTrainHeight - 0.2f, length - 0.1f));
-        SetTransform(train->mParts[1], Vec3(0.0f, cTrainHeight * 0.62f, length * 0.5f), Vec3(cTrainWidth + 0.04f, 0.7f, length - 1.2f));
-        SetTransform(train->mParts[2], Vec3(0.0f, cTrainHeight + 0.02f, length * 0.5f), Vec3(cTrainWidth - 0.3f, 0.08f, length - 0.6f));
-        SetMaterial(train->mParts[3], inMoving ? m_HeadlightMaterial : m_DarkLightMaterial);
-        SetMaterial(train->mParts[4], inMoving ? m_HeadlightMaterial : m_DarkLightMaterial);
+        for (int unit = 0; unit < cMaxTrainUnits; unit++)
+        {
+            if (unit < unit_count)
+                SetTransform(train->mUnits[unit].mRoot, Vec3(0.0f, 0.0f, float(unit) * cTrainUnitLength));
+            else
+                Park(train->mUnits[unit].mRoot);
+        }
+
+        SetMaterial(train->mLights, inMoving ? m_HeadlightMaterial : m_DarkLightMaterial);
 
         if (ramp != nullptr)
         {
@@ -1193,10 +1301,13 @@ private:
                 arm = -swing * 0.8f * direction;
             }
 
-            SetTransform(m_LegPivots[side], Vec3(side == 0 ? 0.15f : -0.15f, 0.8f, 0.0f), Vec3(1.0f), Quat(Vec3(leg, 0.0f, 0.0f)));
-            SetTransform(m_ArmPivots[side], Vec3(side == 0 ? 0.36f : -0.36f, 1.38f, 0.0f), Vec3(1.0f), Quat(Vec3(arm, 0.0f, side == 0 ? 0.12f : -0.12f)));
-            SetMaterial(m_Sneakers[side], m_PowerUpTimers[POWER_UP_SNEAKERS] > 0.0f ? m_GlowingSneakerMaterial : m_SneakerMaterial);
+            SetTransform(m_Legs[side].mEntity, m_Legs[side].mRest, Vec3(1.0f), Quat(Vec3(leg, 0.0f, 0.0f)));
+            SetTransform(m_Shoes[side].mEntity, m_Shoes[side].mRest, Vec3(1.0f), Quat(Vec3(leg, 0.0f, 0.0f)));
+            SetTransform(m_Arms[side].mEntity, m_Arms[side].mRest, Vec3(1.0f), Quat(Vec3(arm, 0.0f, side == 0 ? 0.12f : -0.12f)));
+            SetMaterial(m_Shoes[side].mEntity, m_PowerUpTimers[POWER_UP_SNEAKERS] > 0.0f ? m_GlowingSneakerMaterial : m_PaletteMaterial);
         }
+
+        UpdateGuard(inDeltaTime);
 
         for (const Obstacle& obstacle : m_Obstacles)
         {
@@ -1207,13 +1318,51 @@ private:
         for (const Coin& coin : m_Coins)
         {
             if (coin.mActive)
-                SetTransform(coin.mEntity, coin.mPosition, Vec3(0.6f, 0.6f, 0.14f), Quat(Vec3(0.0f, m_Time * 4.0f + coin.mSpinPhase, 0.0f)));
+                SetTransform(coin.mEntity, coin.mPosition, Vec3(1.0f), Quat(Vec3(0.0f, m_Time * 4.0f + coin.mSpinPhase, 0.0f)));
         }
 
         for (const PowerUpPickup& pickup : m_PowerUpPickups)
         {
             if (pickup.mActive)
-                SetTransform(pickup.mEntity, pickup.mPosition + Vec3(0.0f, 0.15f * glm::sin(m_Time * 3.0f), 0.0f), Vec3(0.8f), Quat(Vec3(0.0f, m_Time * 2.0f, 0.0f)));
+                SetTransform(pickup.mEntity, pickup.mPosition + Vec3(0.0f, 0.15f * glm::sin(m_Time * 3.0f), 0.0f), Vec3(1.1f), Quat(Vec3(0.0f, m_Time * 2.0f, 0.0f)));
+        }
+    }
+
+    void UpdateGuard(float inDeltaTime)
+    {
+        const bool caught = m_CaughtByGuard && ( m_State == STATE_CRASHED || m_State == STATE_GAME_OVER );
+        const bool chasing = m_State == STATE_RUNNING && m_GuardTimer > cGuardDuration * 0.2f;
+
+        const float target_z = caught ? -1.1f : chasing ? cGuardChaseZ : cGuardHiddenZ;
+        const float approach = target_z > m_GuardPosition.z ? 4.0f : 1.2f;
+
+        m_GuardPosition.z = glm::mix(m_GuardPosition.z, target_z, 1.0f - glm::exp(-inDeltaTime * approach));
+        m_GuardPosition.x = glm::mix(m_GuardPosition.x, m_PlayerX + ( caught ? 0.0f : cGuardSideOffset ), 1.0f - glm::exp(-inDeltaTime * 4.0f));
+        m_GuardPosition.y = glm::mix(m_GuardPosition.y, m_PlayerY, 1.0f - glm::exp(-inDeltaTime * 6.0f));
+
+        if (m_GuardPosition.z < cGuardHiddenZ + 1.0f)
+        {
+            Park(m_Guard.mRoot);
+            return;
+        }
+
+        if (m_State == STATE_RUNNING)
+            m_GuardPhase += inDeltaTime * ( 6.0f + m_Speed * 0.35f );
+
+        SetTransform(m_Guard.mRoot, m_GuardPosition);
+
+        const float swing = m_State == STATE_RUNNING ? glm::sin(m_GuardPhase) : 0.0f;
+
+        for (int side = 0; side < 2; side++)
+        {
+            const float direction = side == 0 ? 1.0f : -1.0f;
+            const ModelPart leg = FindPart(m_Guard, side == 0 ? "LegL" : "LegR");
+            const ModelPart arm = FindPart(m_Guard, side == 0 ? "ArmL" : "ArmR");
+
+            const float arm_angle = caught ? -1.5f : -swing * 0.9f * direction;
+
+            SetTransform(leg.mEntity, leg.mRest, Vec3(1.0f), Quat(Vec3(swing * 0.8f * direction, 0.0f, 0.0f)));
+            SetTransform(arm.mEntity, arm.mRest, Vec3(1.0f), Quat(Vec3(arm_angle, 0.0f, side == 0 ? 0.1f : -0.1f)));
         }
     }
 
@@ -1452,35 +1601,23 @@ private:
     Entity m_CameraEntity = Entity::Null;
     Entity m_PlayerEntity = Entity::Null;
     Entity m_BodyPivot = Entity::Null;
-    StaticArray<Entity, 2> m_LegPivots;
-    StaticArray<Entity, 2> m_ArmPivots;
-    StaticArray<Entity, 2> m_Sneakers;
+    Model m_Runner;
+    StaticArray<ModelPart, 2> m_Legs;
+    StaticArray<ModelPart, 2> m_Arms;
+    StaticArray<ModelPart, 2> m_Shoes;
 
-    StaticArray<Entity, cTrainColorCount> m_TrainMaterials;
-    StaticArray<Entity, cBuildingColorCount> m_BuildingMaterials;
-    StaticArray<Entity, POWER_UP_COUNT> m_PowerUpMaterials;
-    Entity m_GravelMaterial = Entity::Null;
-    Entity m_ConcreteMaterial = Entity::Null;
-    Entity m_TieMaterial = Entity::Null;
-    Entity m_RailMaterial = Entity::Null;
-    Entity m_WindowMaterial = Entity::Null;
-    Entity m_GlassMaterial = Entity::Null;
-    Entity m_LampMaterial = Entity::Null;
-    Entity m_PostMaterial = Entity::Null;
-    Entity m_TrainWindowMaterial = Entity::Null;
+    Model m_Guard;
+    Vec3 m_GuardPosition = Vec3(0.0f, 0.0f, cGuardHiddenZ);
+    float m_GuardPhase = 0.0f;
+    bool m_CaughtByGuard = false;
+
+    HashMap<String, Array<PartTemplate>> m_MeshTemplates;
+    uint32_t m_PaletteTexture = 0;
+    uint32_t m_PaletteEmissiveTexture = 0;
+
+    Entity m_PaletteMaterial = Entity::Null;
     Entity m_HeadlightMaterial = Entity::Null;
     Entity m_DarkLightMaterial = Entity::Null;
-    Entity m_RampMaterial = Entity::Null;
-    Entity m_BarrierMaterial = Entity::Null;
-    Entity m_StripeMaterial = Entity::Null;
-    Entity m_HighBarrierMaterial = Entity::Null;
-    Entity m_CoinMaterial = Entity::Null;
-    Entity m_HoodieMaterial = Entity::Null;
-    Entity m_PantsMaterial = Entity::Null;
-    Entity m_SkinMaterial = Entity::Null;
-    Entity m_CapMaterial = Entity::Null;
-    Entity m_BackpackMaterial = Entity::Null;
-    Entity m_SneakerMaterial = Entity::Null;
     Entity m_GlowingSneakerMaterial = Entity::Null;
 
     StaticArray<Segment, cSegmentCount> m_Segments;
@@ -1526,15 +1663,7 @@ private:
     float m_Shake = 0.0f;
 
 public:
-    RailRushScript()
-    {
-        m_LegPivots.fill(Entity::Null);
-        m_ArmPivots.fill(Entity::Null);
-        m_Sneakers.fill(Entity::Null);
-        m_TrainMaterials.fill(Entity::Null);
-        m_BuildingMaterials.fill(Entity::Null);
-        m_PowerUpMaterials.fill(Entity::Null);
-    }
+    RailRushScript() = default;
 };
 
 
