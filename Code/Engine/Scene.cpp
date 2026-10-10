@@ -66,6 +66,8 @@ const DirectionalLight* Scene::GetSunLight() const
 
 void Scene::UpdateLights()
 {
+	PROFILE_FUNCTION_CPU();
+
 	for (auto [entity, light, transform] : Each<DirectionalLight, Transform>())
 		light.direction = Vec4(glm::normalize(transform.GetRotationWorldSpace() * DirectionalLight::cDefaultDirection), 0.0f);
 
@@ -125,6 +127,8 @@ void Scene::TraverseDepthFirst(Entity inEntity, TraverseFunction inFunction, voi
 
 void Scene::UpdateCameras()
 {
+	PROFILE_FUNCTION_CPU();
+
 	for (const auto& [entity, transform, camera] : Each<Transform, Camera>())
 	{
 		Quat q = transform.rotation;
