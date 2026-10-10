@@ -12,56 +12,120 @@ static constexpr float cPlayerInvulnerability = 0.6f;
 static constexpr float cBaseMagnetRadius = 2.5f;
 static constexpr float cSpawnDistance = 26.0f;
 static constexpr float cMinSpawnDistance = 15.0f;
-static constexpr float cDeathDuration = 0.18f;
 static constexpr float cFlashDuration = 0.08f;
 static constexpr float cVictoryTime = 600.0f;
 static constexpr float cSwarmInterval = 90.0f;
 static constexpr float cBruteInterval = 60.0f;
+static constexpr float cDashSpeed = 26.0f;
+static constexpr float cDashDuration = 0.2f;
+static constexpr float cDashCooldown = 2.2f;
+static constexpr float cMaxEnemyRadius = 1.3f;
+static constexpr float cEliteChance = 0.035f;
+static constexpr float cStreakWindow = 2.5f;
+
+static constexpr StaticArray<float, 2> cBossTimes = { 270.0f, 540.0f };
 
 static constexpr float cGridCellSize = 2.0f;
 static constexpr int   cGridDim = int(( cArenaHalfSize * 2.0f + 4.0f ) / cGridCellSize) + 1;
 
 static constexpr int cProjectilePoolSize = 80;
-static constexpr int cGemPoolSize = 250;
+static constexpr int cFireballPoolSize = 16;
+static constexpr int cArrowPoolSize = 60;
+static constexpr int cOrbPoolSize = 140;
+static constexpr int cGemPoolSize = 300;
+static constexpr int cMeteorPoolSize = 12;
+static constexpr int cRingPoolSize = 40;
+static constexpr int cTelegraphPoolSize = 24;
+static constexpr int cBeamPoolSize = 120;
+static constexpr int cLightPoolSize = 6;
+static constexpr int cEliteAuraPoolSize = 8;
+static constexpr int cPickupsPerType = 4;
 static constexpr int cMaxBlades = 6;
 static constexpr int cMaxUpgradeLevel = 5;
-static constexpr int cMaxDamageNumbers = 64;
+static constexpr int cMaxDamageNumbers = 80;
 static constexpr int cChoiceCount = 3;
 
 static constexpr Vec3 cParkedPosition = Vec3(0.0f, -60.0f, 0.0f);
 
 static constexpr const char* cRuntimeRootName = "DuskSwarm Runtime";
 static constexpr const char* cModelFile = "Assets/DuskSwarm/DuskSwarm.glb";
+static constexpr const char* cPaletteFile = "Assets/DuskSwarm/Palette.png";
+static constexpr const char* cPaletteEmissiveFile = "Assets/DuskSwarm/PaletteEmissive.png";
 
 
 enum EEnemyType
 {
     ENEMY_GHOUL,
     ENEMY_BAT,
+    ENEMY_SKELETON,
+    ENEMY_BLOATER,
+    ENEMY_WRAITH,
     ENEMY_BRUTE,
+    ENEMY_LICH,
     ENEMY_TYPE_COUNT
+};
+
+
+enum ESpawnStyle
+{
+    SPAWN_RISE,
+    SPAWN_SWOOP,
+    SPAWN_FADE
+};
+
+
+enum EDeathStyle
+{
+    DEATH_FALL,
+    DEATH_SHATTER,
+    DEATH_SPIN,
+    DEATH_POP,
+    DEATH_DISSIPATE,
+    DEATH_BOSS
+};
+
+
+enum EEnemyAction
+{
+    ACTION_NONE,
+    ACTION_AIM,
+    ACTION_SLAM,
+    ACTION_FUSE,
+    ACTION_DASH_WINDUP,
+    ACTION_DASH,
+    ACTION_CAST
 };
 
 
 struct EnemyArchetype
 {
     const char* mName;
-    int mPoolSize;
+    int   mPoolSize;
     float mRadius;
     float mSpeed;
     float mHealth;
     float mDamage;
-    int mGemValue;
+    int   mGemValue;
     float mHover;
     float mTop;
+    float mKnockback;
+    float mSpawnDuration;
+    float mDeathDuration;
+    ESpawnStyle mSpawnStyle;
+    EDeathStyle mDeathStyle;
+    bool  mFlying;
 };
 
 
 static const StaticArray<EnemyArchetype, ENEMY_TYPE_COUNT> cEnemyArchetypes =
 {
-    EnemyArchetype { "Ghoul", 150, 0.45f, 2.6f, 4.0f,  8.0f,  1, 0.0f, 1.3f },
-    EnemyArchetype { "Bat",   80,  0.35f, 4.4f, 2.0f,  5.0f,  1, 1.1f, 1.4f },
-    EnemyArchetype { "Brute", 12,  0.95f, 1.8f, 60.0f, 14.0f, 5, 0.0f, 2.4f },
+    EnemyArchetype { "Ghoul",    160, 0.45f, 2.6f, 5.0f,    8.0f,  1,  0.0f,  1.3f, 1.0f,  0.8f, 0.9f,  SPAWN_RISE,  DEATH_FALL,      false },
+    EnemyArchetype { "Bat",      90,  0.35f, 4.6f, 3.0f,    5.0f,  1,  1.2f,  1.5f, 1.2f,  0.7f, 0.7f,  SPAWN_SWOOP, DEATH_SPIN,      true  },
+    EnemyArchetype { "Skeleton", 50,  0.4f,  2.4f, 7.0f,    6.0f,  2,  0.0f,  1.5f, 1.0f,  0.8f, 1.1f,  SPAWN_RISE,  DEATH_SHATTER,   false },
+    EnemyArchetype { "Bloater",  30,  0.7f,  1.7f, 14.0f,   10.0f, 2,  0.0f,  1.5f, 0.5f,  0.8f, 0.18f, SPAWN_RISE,  DEATH_POP,       false },
+    EnemyArchetype { "Wraith",   40,  0.4f,  3.9f, 9.0f,    9.0f,  2,  0.25f, 1.9f, 0.8f,  0.6f, 0.7f,  SPAWN_FADE,  DEATH_DISSIPATE, true  },
+    EnemyArchetype { "Brute",    14,  0.95f, 1.8f, 70.0f,   16.0f, 5,  0.0f,  2.6f, 0.15f, 1.0f, 1.2f,  SPAWN_RISE,  DEATH_FALL,      false },
+    EnemyArchetype { "Lich",     1,   1.2f,  1.6f, 2600.0f, 20.0f, 25, 0.35f, 3.6f, 0.0f,  2.0f, 2.4f,  SPAWN_RISE,  DEATH_BOSS,      true  },
 };
 
 
@@ -70,12 +134,16 @@ enum EUpgrade
     UPGRADE_BOLT,
     UPGRADE_BLADES,
     UPGRADE_NOVA,
+    UPGRADE_FIREBALL,
+    UPGRADE_LIGHTNING,
+    UPGRADE_METEOR,
     UPGRADE_BOOTS,
     UPGRADE_VITALITY,
     UPGRADE_MAGNET,
     UPGRADE_REGEN,
     UPGRADE_POWER,
     UPGRADE_HASTE,
+    UPGRADE_AREA,
     UPGRADE_COUNT,
     UPGRADE_FEAST = UPGRADE_COUNT
 };
@@ -92,16 +160,93 @@ struct UpgradeInfo
 
 static const StaticArray<UpgradeInfo, UPGRADE_COUNT + 1> cUpgrades =
 {
-    UpgradeInfo { "Arcane Bolt",    "Fires homing bolts at the nearest foe",       true,  Vec3(0.35f, 0.85f, 1.0f) },
-    UpgradeInfo { "Orbiting Blades", "Blades that circle you and cut through foes", true,  Vec3(1.0f, 0.60f, 0.20f) },
-    UpgradeInfo { "Nova",           "Periodic shockwave that knocks foes back",    true,  Vec3(0.75f, 0.45f, 1.0f) },
-    UpgradeInfo { "Swift Boots",    "+12% movement speed",                         false, Vec3(0.45f, 1.0f, 0.60f) },
-    UpgradeInfo { "Vitality",       "+25 max health and heal 25",                  false, Vec3(1.0f, 0.35f, 0.35f) },
-    UpgradeInfo { "Magnet",         "+40% pickup range",                           false, Vec3(0.35f, 1.0f, 0.85f) },
-    UpgradeInfo { "Regeneration",   "+0.6 health per second",                      false, Vec3(1.0f, 0.55f, 0.65f) },
-    UpgradeInfo { "Power",          "+15% damage for all weapons",                 false, Vec3(1.0f, 0.85f, 0.35f) },
-    UpgradeInfo { "Haste",          "-8% weapon cooldowns",                        false, Vec3(0.55f, 0.75f, 1.0f) },
-    UpgradeInfo { "Feast",          "Heal 30% of your max health",                 false, Vec3(1.0f, 0.75f, 0.45f) },
+    UpgradeInfo { "Arcane Bolt",     "Homing bolts seek the\nnearest foe",           true,  Vec3(0.35f, 0.85f, 1.0f) },
+    UpgradeInfo { "Orbiting Blades", "Blades circle you and\ncut through foes",      true,  Vec3(1.0f, 0.62f, 0.2f) },
+    UpgradeInfo { "Nova",            "A shockwave that hurls\nfoes away",            true,  Vec3(0.78f, 0.45f, 1.0f) },
+    UpgradeInfo { "Fireball",        "Lobs fireballs that\nexplode on impact",       true,  Vec3(1.0f, 0.5f, 0.15f) },
+    UpgradeInfo { "Chain Lightning", "Lightning arcs between\nnearby foes",          true,  Vec3(0.72f, 0.88f, 1.0f) },
+    UpgradeInfo { "Meteor Storm",    "Calls meteors down\nfrom the sky",             true,  Vec3(1.0f, 0.32f, 0.18f) },
+    UpgradeInfo { "Swift Boots",     "+12% movement speed",                          false, Vec3(0.45f, 1.0f, 0.6f) },
+    UpgradeInfo { "Vitality",        "+25 max health\nand heal 25",                  false, Vec3(1.0f, 0.35f, 0.4f) },
+    UpgradeInfo { "Magnet",          "+40% pickup range",                            false, Vec3(0.35f, 1.0f, 0.85f) },
+    UpgradeInfo { "Regeneration",    "+0.6 health per second",                       false, Vec3(1.0f, 0.55f, 0.7f) },
+    UpgradeInfo { "Power",           "+15% damage and\n+3% critical chance",         false, Vec3(1.0f, 0.82f, 0.3f) },
+    UpgradeInfo { "Haste",           "-8% weapon cooldowns",                         false, Vec3(0.55f, 0.75f, 1.0f) },
+    UpgradeInfo { "Area",            "+12% size of all\nareas of effect",            false, Vec3(0.9f, 0.6f, 1.0f) },
+    UpgradeInfo { "Feast",           "Heal 30% of your\nmax health",                 false, Vec3(1.0f, 0.75f, 0.45f) },
+};
+
+
+enum EPickup
+{
+    PICKUP_POTION,
+    PICKUP_MAGNET,
+    PICKUP_BOMB,
+    PICKUP_CHEST,
+    PICKUP_COUNT
+};
+
+
+static constexpr StaticArray<const char*, PICKUP_COUNT> cPickupModels = { "Potion", "Magnet", "Bomb", "Chest" };
+static const StaticArray<Vec3, PICKUP_COUNT> cPickupColors = { Vec3(1.0f, 0.3f, 0.3f), Vec3(0.4f, 0.8f, 1.0f), Vec3(1.0f, 0.6f, 0.2f), Vec3(1.0f, 0.82f, 0.3f) };
+
+
+enum EExplosion
+{
+    EXPLOSION_FIRE,
+    EXPLOSION_POISON,
+    EXPLOSION_ARCANE,
+    EXPLOSION_HOLY,
+    EXPLOSION_METEOR,
+    EXPLOSION_DUST
+};
+
+
+enum EFXMaterial
+{
+    FX_FIRE,
+    FX_EMBER,
+    FX_SPARK,
+    FX_ARCANE,
+    FX_PURPLE,
+    FX_POISON,
+    FX_GOLD,
+    FX_DANGER,
+    FX_HEAL,
+    FX_WHITE,
+    FX_SMOKE,
+    FX_DIRT,
+    FX_BONE,
+    FX_GOO,
+    FX_FLESH,
+    FX_MATERIAL_COUNT
+};
+
+
+enum EParticleMesh
+{
+    PARTICLE_SPARK,
+    PARTICLE_CHUNK,
+    PARTICLE_PUFF,
+    PARTICLE_MESH_COUNT
+};
+
+
+static constexpr StaticArray<int, PARTICLE_MESH_COUNT> cParticlePoolSizes = { 320, 160, 220 };
+static constexpr StaticArray<const char*, PARTICLE_MESH_COUNT> cParticleModels = { "Spark", "Chunk", "Puff" };
+
+
+enum ERigPart
+{
+    RIG_BODY,
+    RIG_HEAD,
+    RIG_ARM_L,
+    RIG_ARM_R,
+    RIG_LEG_L,
+    RIG_LEG_R,
+    RIG_WING_L,
+    RIG_WING_R,
+    RIG_PART_COUNT
 };
 
 
@@ -118,7 +263,13 @@ public:
         STATE_VICTORY
     };
 
-    struct ModelPart
+    struct RigPart
+    {
+        Entity mEntity = Entity::Null;
+        Vec3 mRest = Vec3(0.0f);
+    };
+
+    struct ModelMesh
     {
         Entity mEntity = Entity::Null;
         Entity mMaterial = Entity::Null;
@@ -127,30 +278,47 @@ public:
     struct Model
     {
         Entity mRoot = Entity::Null;
-        Array<ModelPart> mParts;
+        StaticArray<RigPart, RIG_PART_COUNT> mParts;
+        Array<ModelMesh> mMeshes;
     };
 
-    struct MeshTemplate
+    struct PartTemplate
     {
+        String mName;
+        Vec3 mJoint = Vec3(0.0f);
         Mesh mMesh;
-        String mMaterial;
     };
 
     struct Enemy
     {
         Model mModel;
-        StaticArray<Entity, 2> mWings = { Entity::Null, Entity::Null };
         int mType = ENEMY_GHOUL;
         bool mActive = false;
         bool mDying = false;
+        bool mElite = false;
         Vec2 mPosition = Vec2(0.0f);
+        Vec2 mVelocity = Vec2(0.0f);
         Vec2 mKnockback = Vec2(0.0f);
+        Vec2 mDashDirection = Vec2(0.0f);
         float mHealth = 0.0f;
+        float mMaxHealth = 0.0f;
         float mFlashTimer = 0.0f;
+        float mHitPunch = 0.0f;
         float mDeathTimer = 0.0f;
+        float mSpawnTimer = 0.0f;
         float mBladeCooldown = 0.0f;
+        float mAttackTimer = 0.0f;
+        float mActionTimer = 0.0f;
+        int mAction = ACTION_NONE;
+        int mTelegraph = -1;
+        int mAura = -1;
         float mPhase = 0.0f;
         float mYaw = 0.0f;
+        float mWalkPhase = 0.0f;
+        float mDeathSpin = 0.0f;
+        bool mDeathImpact = false;
+        StaticArray<Vec3, RIG_PART_COUNT> mShatterVelocity;
+        StaticArray<Vec3, RIG_PART_COUNT> mShatterAxis;
     };
 
     struct Projectile
@@ -165,6 +333,43 @@ public:
         int mLastHit = -1;
     };
 
+    struct Fireball
+    {
+        Entity mEntity = Entity::Null;
+        bool mActive = false;
+        Vec3 mStart = Vec3(0.0f);
+        Vec3 mTarget = Vec3(0.0f);
+        Vec3 mPosition = Vec3(0.0f);
+        float mTime = 0.0f;
+        float mDuration = 0.0f;
+        float mDamage = 0.0f;
+        float mRadius = 0.0f;
+    };
+
+    struct EnemyProjectile
+    {
+        Entity mEntity = Entity::Null;
+        bool mActive = false;
+        Vec3 mPosition = Vec3(0.0f);
+        Vec3 mVelocity = Vec3(0.0f);
+        float mLife = 0.0f;
+        float mDamage = 0.0f;
+        float mRadius = 0.3f;
+    };
+
+    struct Meteor
+    {
+        Entity mEntity = Entity::Null;
+        bool mActive = false;
+        Vec3 mStart = Vec3(0.0f);
+        Vec3 mTarget = Vec3(0.0f);
+        float mTime = 0.0f;
+        float mDuration = 1.0f;
+        float mDamage = 0.0f;
+        float mRadius = 0.0f;
+        int mTelegraph = -1;
+    };
+
     struct Gem
     {
         Model mModel;
@@ -174,6 +379,110 @@ public:
         float mSpeed = 0.0f;
         float mPhase = 0.0f;
         int mValue = 1;
+    };
+
+    struct Pickup
+    {
+        Model mModel;
+        Entity mGlow = Entity::Null;
+        int mType = PICKUP_POTION;
+        bool mActive = false;
+        bool mOpening = false;
+        Vec2 mPosition = Vec2(0.0f);
+        float mPhase = 0.0f;
+        float mTime = 0.0f;
+        float mOpenTimer = 0.0f;
+    };
+
+    struct Particle
+    {
+        Entity mEntity = Entity::Null;
+        Entity mMaterial = Entity::Null;
+        bool mActive = false;
+        bool mStretch = false;
+        bool mBounce = false;
+        Vec3 mPosition = Vec3(0.0f);
+        Vec3 mVelocity = Vec3(0.0f);
+        Vec3 mAxis = Vec3(0.0f, 1.0f, 0.0f);
+        float mAngle = 0.0f;
+        float mSpin = 0.0f;
+        float mLife = 0.0f;
+        float mMaxLife = 1.0f;
+        float mSize = 0.1f;
+        float mEndSize = 0.0f;
+        float mGravity = 0.0f;
+        float mDrag = 0.0f;
+    };
+
+    struct ParticleDesc
+    {
+        int    mMesh = PARTICLE_SPARK;
+        int    mMaterial = FX_SPARK;
+        int    mCount = 8;
+        float  mSpeedMin = 2.0f;
+        float  mSpeedMax = 6.0f;
+        float  mLifeMin = 0.3f;
+        float  mLifeMax = 0.6f;
+        float  mSizeMin = 0.1f;
+        float  mSizeMax = 0.2f;
+        float  mEndSize = 0.0f;
+        float  mGravity = 0.0f;
+        float  mDrag = 2.0f;
+        float  mUpBias = 0.0f;
+        float  mSpread = 0.0f;
+        bool   mFlat = false;
+        Vec3   mBaseVelocity = Vec3(0.0f);
+    };
+
+    struct Ring
+    {
+        Entity mEntity = Entity::Null;
+        Entity mMaterial = Entity::Null;
+        bool mActive = false;
+        Vec3 mPosition = Vec3(0.0f);
+        float mStartRadius = 0.0f;
+        float mEndRadius = 1.0f;
+        float mThickness = 1.0f;
+        float mLife = 0.0f;
+        float mMaxLife = 0.5f;
+    };
+
+    struct Telegraph
+    {
+        Entity mDisc = Entity::Null;
+        Entity mRing = Entity::Null;
+        bool mActive = false;
+        Vec3 mPosition = Vec3(0.0f);
+        float mRadius = 1.0f;
+        float mTime = 0.0f;
+        float mDuration = 1.0f;
+    };
+
+    struct Beam
+    {
+        Entity mEntity = Entity::Null;
+        bool mActive = false;
+        Vec3 mStart = Vec3(0.0f);
+        Vec3 mEnd = Vec3(0.0f);
+        float mWidth = 1.0f;
+        float mLife = 0.0f;
+        float mMaxLife = 0.15f;
+    };
+
+    struct FlashLight
+    {
+        Entity mEntity = Entity::Null;
+        bool mActive = false;
+        Vec3 mColor = Vec3(1.0f);
+        float mIntensity = 0.0f;
+        float mLife = 0.0f;
+        float mMaxLife = 0.3f;
+    };
+
+    struct EliteAura
+    {
+        Entity mEntity = Entity::Null;
+        bool mActive = false;
     };
 
     struct Obstacle
@@ -187,13 +496,17 @@ public:
         Vec3 mPosition = Vec3(0.0f);
         float mTime = 0.0f;
         int mValue = 0;
+        bool mCrit = false;
     };
 
     struct Popup
     {
         String mText;
+        String mSubText;
         float mTime = 0.0f;
+        float mDuration = 2.2f;
         Vec4 mColor = Vec4(1.0f);
+        bool mBig = false;
     };
 
     void OnStart() override
@@ -204,6 +517,12 @@ public:
 
         m_RootEntity = m_Scene->CreateSpatialEntity(cRuntimeRootName);
 
+        m_GodMode = &g_CVariables->Create("ds_god", 0, true);
+        m_AutoPick = &g_CVariables->Create("ds_autopick", 0, true);
+        m_StartTime = &g_CVariables->Create("ds_start_time", 0.0f, true);
+        m_StartWeapons = &g_CVariables->Create("ds_weapons", 0, true);
+
+        LoadTextures();
         LoadModels();
         CreateMaterials();
         CreateArena();
@@ -228,26 +547,53 @@ public:
         if (!m_Started)
             OnStart();
 
-        inDeltaTime = glm::min(inDeltaTime, 0.05f);
+        float delta_time = glm::min(inDeltaTime, 0.05f);
 
-        m_Time += inDeltaTime;
+        m_Time += delta_time;
+
+        if (m_HitStop > 0.0f)
+        {
+            m_HitStop -= delta_time;
+            delta_time *= 0.08f;
+        }
+
+        if (m_State == STATE_LEVEL_UP && *m_AutoPick && m_Time - m_LevelUpTime > 1.5f)
+            ChooseUpgrade(RandomInt(0, m_ChoiceCount - 1));
 
         if (m_State == STATE_PLAYING)
         {
-            m_RunTime += inDeltaTime;
+            m_RunTime += delta_time;
 
-            UpdatePlayer(inDeltaTime);
-            UpdateSpawning(inDeltaTime);
+            UpdatePlayer(delta_time);
+            UpdateSpawning(delta_time);
             BuildGrid();
-            UpdateEnemies(inDeltaTime);
-            UpdateWeapons(inDeltaTime);
-            UpdateProjectiles(inDeltaTime);
-            UpdateGems(inDeltaTime);
+            UpdateEnemies(delta_time);
+            UpdateWeapons(delta_time);
+            UpdateProjectiles(delta_time);
+            UpdateFireballs(delta_time);
+            UpdateMeteors(delta_time);
+            UpdateEnemyProjectiles(delta_time);
+            UpdateGems(delta_time);
+            UpdatePickups(delta_time);
             UpdateProgress();
         }
+        else if (m_State == STATE_GAME_OVER || m_State == STATE_VICTORY)
+        {
+            m_PlayerDeathTimer += delta_time;
+            BuildGrid();
+        }
 
-        UpdateDying(inDeltaTime);
-        UpdateVisuals(inDeltaTime);
+        if (m_State != STATE_LEVEL_UP)
+        {
+            UpdateDying(delta_time);
+            UpdateParticles(delta_time);
+            UpdateRings(delta_time);
+            UpdateTelegraphs(delta_time);
+            UpdateBeams(delta_time);
+            UpdateLights(delta_time);
+            UpdateVisuals(delta_time);
+        }
+
         UpdateCamera(inDeltaTime);
         DrawHUD(inDeltaTime);
     }
@@ -267,13 +613,21 @@ public:
 
         if (m_State == STATE_GAME_OVER || m_State == STATE_VICTORY)
         {
-            if (key == SDLK_RETURN)
+            if (key == SDLK_RETURN && m_PlayerDeathTimer > 1.0f)
                 NewGame();
 
             return;
         }
 
-        if (m_State != STATE_LEVEL_UP || m_ChoiceCount == 0)
+        if (m_State == STATE_PLAYING)
+        {
+            if (key == SDLK_SPACE || key == SDLK_LSHIFT)
+                TryDash();
+
+            return;
+        }
+
+        if (m_State != STATE_LEVEL_UP || m_ChoiceCount == 0 || m_Time - m_LevelUpTime < 0.35f)
             return;
 
         switch (key)
@@ -298,37 +652,26 @@ private:
         return entity;
     }
 
-    Entity CreateMaterial(Vec3 inAlbedo, Vec3 inEmissive, float inRoughness, float inMetallic = 0.0f, float inAlpha = 1.0f)
+    Entity CreateMaterial(Vec3 inAlbedo, Vec3 inEmissive, float inRoughness, float inMetallic = 0.0f)
     {
         const Entity entity = CreateEntity("Material");
 
         Material& material = m_Scene->Add<Material>(entity);
-        material.albedo = Vec4(inAlbedo, inAlpha);
+        material.albedo = Vec4(inAlbedo, 1.0f);
         material.emissive = inEmissive;
         material.roughness = inRoughness;
         material.metallic = inMetallic;
-        material.blendMode = inAlpha < 1.0f ? MATERIAL_BLEND_MODE_BLENDED : MATERIAL_BLEND_MODE_OPAQUE;
 
         return entity;
     }
 
-    Entity CreateShape(StringView inName, bool inIsSphere, Entity inMaterial, Vec3 inPosition, Vec3 inScale, Entity inParent = Entity::Null, Quat inRotation = Quat(Vec3(0.0f)))
+    Entity CreateShape(StringView inName, Entity inMaterial, Vec3 inPosition, Vec3 inScale, Entity inParent)
     {
         const Entity entity = CreateEntity(inName, inParent);
-
-        Transform& transform = m_Scene->Get<Transform>(entity);
-        transform.position = inPosition;
-        transform.rotation = inRotation;
-        transform.scale = inScale;
-        transform.Compose();
+        SetTransform(entity, inPosition, inScale);
 
         Mesh& mesh = m_Scene->Add<Mesh>(entity);
-
-        if (inIsSphere)
-            Mesh::CreateSphere(mesh, 0.5f, 16, 12);
-        else
-            Mesh::CreateCube(mesh, 1.0f);
-
+        Mesh::CreateCube(mesh, 1.0f);
         mesh.material = inMaterial;
 
         m_App->GetRenderInterface()->UploadMeshBuffers(entity, mesh);
@@ -336,7 +679,7 @@ private:
         return entity;
     }
 
-    void SetTransform(Entity inEntity, const Vec3& inPosition, const Vec3& inScale, const Quat& inRotation = Quat(Vec3(0.0f)))
+    void SetTransform(Entity inEntity, const Vec3& inPosition, const Vec3& inScale, const Quat& inRotation = Quat(1.0f, 0.0f, 0.0f, 0.0f))
     {
         if (Transform* transform = FindComponent<Transform>(inEntity))
         {
@@ -349,7 +692,7 @@ private:
 
     void Park(Entity inEntity)
     {
-        SetTransform(inEntity, cParkedPosition, Vec3(0.1f));
+        SetTransform(inEntity, cParkedPosition, Vec3(0.01f));
     }
 
     void SetMaterial(Entity inEntity, Entity inMaterial)
@@ -360,21 +703,135 @@ private:
 
     void SetModelMaterial(const Model& inModel, Entity inMaterial)
     {
-        for (const ModelPart& part : inModel.mParts)
-            SetMaterial(part.mEntity, inMaterial);
+        for (const ModelMesh& mesh : inModel.mMeshes)
+            SetMaterial(mesh.mEntity, inMaterial);
     }
 
     void RestoreModelMaterials(const Model& inModel)
     {
-        for (const ModelPart& part : inModel.mParts)
-            SetMaterial(part.mEntity, part.mMaterial);
+        for (const ModelMesh& mesh : inModel.mMeshes)
+            SetMaterial(mesh.mEntity, mesh.mMaterial);
+    }
+
+    void Pose(const Model& inModel, int inPart, const Vec3& inOffset, const Vec3& inEuler, float inScale = 1.0f)
+    {
+        const RigPart& part = inModel.mParts[inPart];
+
+        if (part.mEntity != Entity::Null)
+            SetTransform(part.mEntity, part.mRest + inOffset, Vec3(inScale), Quat(inEuler));
+    }
+
+    float RandomFloat(float inMin, float inMax)
+    {
+        return std::uniform_real_distribution<float>(inMin, inMax)(m_Random);
+    }
+
+    int RandomInt(int inMin, int inMax)
+    {
+        return std::uniform_int_distribution<int>(inMin, inMax)(m_Random);
+    }
+
+    Vec3 RandomDirection()
+    {
+        const float z = RandomFloat(-1.0f, 1.0f);
+        const float angle = RandomFloat(0.0f, glm::two_pi<float>());
+        const float r = glm::sqrt(glm::max(0.0f, 1.0f - z * z));
+        return Vec3(glm::cos(angle) * r, z, glm::sin(angle) * r);
+    }
+
+    Vec2 RandomCircle()
+    {
+        const float angle = RandomFloat(0.0f, glm::two_pi<float>());
+        return Vec2(glm::cos(angle), glm::sin(angle));
+    }
+
+    static Vec3 ToWorld(const Vec2& inPosition, float inHeight)
+    {
+        return Vec3(inPosition.x, inHeight, inPosition.y);
+    }
+
+    static float GetYaw(const Vec2& inDirection)
+    {
+        return glm::atan(-inDirection.x, -inDirection.y);
+    }
+
+    static float LerpAngle(float inFrom, float inTo, float inT)
+    {
+        const float delta = glm::mod(inTo - inFrom + glm::pi<float>(), glm::two_pi<float>()) - glm::pi<float>();
+        return inFrom + delta * inT;
+    }
+
+    static Quat LookRotation(const Vec3& inDirection)
+    {
+        const float length = glm::length(inDirection);
+
+        if (length < 1e-5f)
+            return Quat(1.0f, 0.0f, 0.0f, 0.0f);
+
+        const Vec3 direction = inDirection / length;
+        const Vec3 up = glm::abs(direction.y) > 0.98f ? Vec3(1.0f, 0.0f, 0.0f) : Vec3(0.0f, 1.0f, 0.0f);
+        return glm::quatLookAtRH(direction, up);
+    }
+
+    static float EaseOutCubic(float inT)
+    {
+        const float t = 1.0f - glm::clamp(inT, 0.0f, 1.0f);
+        return 1.0f - t * t * t;
+    }
+
+    static float EaseOutBack(float inT)
+    {
+        const float t = glm::clamp(inT, 0.0f, 1.0f) - 1.0f;
+        return 1.0f + 2.7f * t * t * t + 1.7f * t * t;
+    }
+
+    static Vec2 ClampToArena(const Vec2& inPosition, float inRadius)
+    {
+        return glm::clamp(inPosition, Vec2(-cArenaHalfSize + inRadius), Vec2(cArenaHalfSize - inRadius));
+    }
+
+    static int GetRigPart(const String& inName)
+    {
+        static const HashMap<String, int> cParts =
+        {
+            { "Body", RIG_BODY }, { "Main", RIG_BODY }, { "Base", RIG_BODY }, { "Head", RIG_HEAD }, { "Lid", RIG_HEAD },
+            { "ArmL", RIG_ARM_L }, { "ArmR", RIG_ARM_R }, { "LegL", RIG_LEG_L }, { "LegR", RIG_LEG_R }, { "WingL", RIG_WING_L }, { "WingR", RIG_WING_R },
+        };
+
+        const auto part = cParts.find(inName);
+        return part != cParts.end() ? part->second : -1;
+    }
+
+    uint32_t LoadTexture(const char* inFile, bool inSRGB)
+    {
+        if (!fs::exists(inFile))
+            return 0;
+
+        const String cached = TextureAsset::GetCachedPath(inFile);
+
+        if (!fs::exists(cached) || fs::last_write_time(cached) < fs::last_write_time(inFile))
+            TextureAsset::Convert(inFile);
+
+        Assets* assets = m_App->GetAssets();
+        TextureAsset::Ptr asset = assets ? assets->GetAsset<TextureAsset>(cached) : nullptr;
+
+        return asset ? m_App->GetRenderInterface()->UploadTextureFromAsset(asset, inSRGB) : 0;
+    }
+
+    void LoadTextures()
+    {
+        if (m_PaletteTexture == 0)
+            m_PaletteTexture = LoadTexture(cPaletteFile, true);
+
+        if (m_PaletteEmissiveTexture == 0)
+            m_PaletteEmissiveTexture = LoadTexture(cPaletteEmissiveFile, false);
     }
 
     void ReleaseModels()
     {
         for (auto& [name, templates] : m_MeshTemplates)
         {
-            for (MeshTemplate& part : templates)
+            for (PartTemplate& part : templates)
                 m_App->GetRenderInterface()->DestroyMeshBuffers(Entity::Null, part.mMesh);
         }
 
@@ -397,143 +854,153 @@ private:
         for (const auto& [entity, mesh] : scene.Each<Mesh>())
         {
             const String& name = scene.Get<Name>(entity).name;
-            const String material = mesh.material != Entity::Null ? scene.Get<Name>(mesh.material).name : String();
+            const size_t split = name.find('_');
 
-            MeshTemplate& part = m_MeshTemplates[name.substr(0, name.find('-'))].emplace_back(MeshTemplate { .mMesh = mesh, .mMaterial = material });
-            m_App->GetRenderInterface()->UploadMeshBuffers(Entity::Null, part.mMesh);
+            const String asset = name.substr(0, split);
+            const String part = split != String::npos ? name.substr(split + 1) : String("Main");
+
+            PartTemplate& part_template = m_MeshTemplates[asset].emplace_back();
+            part_template.mName = part;
+            part_template.mJoint = scene.Get<Transform>(entity).position;
+            part_template.mMesh = mesh;
+
+            m_App->GetRenderInterface()->UploadMeshBuffers(Entity::Null, part_template.mMesh);
         }
     }
 
-    Model CreateModel(const String& inName, Entity inParent = Entity::Null)
+    Array<Model> CreateModels(const String& inName, int inCount, Entity inMaterial = Entity::Null, Entity inParent = Entity::Null)
     {
-        Model model;
-        model.mRoot = CreateEntity(inName, inParent);
+        Array<Model> models(inCount);
+        const Entity material = inMaterial != Entity::Null ? inMaterial : m_PaletteMaterial;
+
+        for (Model& model : models)
+            model.mRoot = CreateEntity(inName, inParent);
 
         const auto templates = m_MeshTemplates.find(inName);
 
         if (templates == m_MeshTemplates.end())
         {
-            const Entity fallback = CreateShape(inName, false, m_StoneMaterial, Vec3(0.0f, 0.5f, 0.0f), Vec3(0.6f), model.mRoot);
-            model.mParts.push_back(ModelPart { .mEntity = fallback, .mMaterial = m_StoneMaterial });
-            return model;
+            for (Model& model : models)
+            {
+                const Entity fallback = CreateShape(inName, material, Vec3(0.0f, 0.5f, 0.0f), Vec3(0.6f), model.mRoot);
+                model.mParts[RIG_BODY] = RigPart { .mEntity = fallback, .mRest = Vec3(0.0f, 0.5f, 0.0f) };
+                model.mMeshes.push_back(ModelMesh { .mEntity = fallback, .mMaterial = material });
+            }
+
+            return models;
         }
 
-        for (const MeshTemplate& part : templates->second)
+        for (const PartTemplate& part : templates->second)
         {
-            const Entity entity = CreateEntity(part.mMaterial, model.mRoot);
-            const auto material = m_ModelMaterials.find(part.mMaterial);
+            const int role = GetRigPart(part.mName);
 
-            Mesh& mesh = m_Scene->Add<Mesh>(entity);
-            mesh = part.mMesh;
-            mesh.material = material != m_ModelMaterials.end() ? material->second : m_StoneMaterial;
-            mesh.indexBuffer = 0;
-            mesh.vertexBuffer = 0;
-            mesh.BottomLevelAS = 0;
+            for (Model& model : models)
+            {
+                const Entity entity = CreateEntity(part.mName, model.mRoot);
+                SetTransform(entity, part.mJoint, Vec3(1.0f));
 
-            m_App->GetRenderInterface()->ShareMeshBuffers(entity, part.mMesh, mesh);
+                Mesh& mesh = m_Scene->Add<Mesh>(entity);
+                mesh = part.mMesh;
+                mesh.material = material;
+                mesh.indexBuffer = 0;
+                mesh.vertexBuffer = 0;
+                mesh.BottomLevelAS = 0;
 
-            model.mParts.push_back(ModelPart { .mEntity = entity, .mMaterial = mesh.material });
+                m_App->GetRenderInterface()->ShareMeshBuffers(entity, part.mMesh, mesh);
+
+                if (role >= 0 && model.mParts[role].mEntity == Entity::Null)
+                    model.mParts[role] = RigPart { .mEntity = entity, .mRest = part.mJoint };
+
+                model.mMeshes.push_back(ModelMesh { .mEntity = entity, .mMaterial = material });
+            }
         }
 
-        return model;
+        return models;
     }
 
-    float RandomFloat(float inMin, float inMax)
+    Model CreateModel(const String& inName, Entity inMaterial = Entity::Null, Entity inParent = Entity::Null)
     {
-        return std::uniform_real_distribution<float>(inMin, inMax)(m_Random);
-    }
-
-    int RandomInt(int inMin, int inMax)
-    {
-        return std::uniform_int_distribution<int>(inMin, inMax)(m_Random);
-    }
-
-    static Vec3 ToWorld(const Vec2& inPosition, float inHeight)
-    {
-        return Vec3(inPosition.x, inHeight, inPosition.y);
-    }
-
-    static float GetYaw(const Vec2& inDirection)
-    {
-        return glm::atan(-inDirection.x, -inDirection.y);
-    }
-
-    static Vec2 ClampToArena(const Vec2& inPosition, float inRadius)
-    {
-        return glm::clamp(inPosition, Vec2(-cArenaHalfSize + inRadius), Vec2(cArenaHalfSize - inRadius));
+        return CreateModels(inName, 1, inMaterial, inParent)[0];
     }
 
     void CreateMaterials()
     {
-        m_FlashMaterial = CreateMaterial(Vec3(1.0f), Vec3(1.0f, 0.95f, 0.9f) * 40000.0f, 0.3f);
-        m_GroundMaterial = CreateMaterial(Vec3(0.16f, 0.20f, 0.12f), Vec3(0.0f), 0.95f);
-        m_DirtMaterial = CreateMaterial(Vec3(0.20f, 0.15f, 0.10f), Vec3(0.0f), 1.0f);
-        m_StoneMaterial = CreateMaterial(Vec3(0.42f, 0.44f, 0.48f), Vec3(0.0f), 0.8f);
-        m_WallMaterial = CreateMaterial(Vec3(0.30f, 0.29f, 0.30f), Vec3(0.0f), 0.9f);
-        m_WoodMaterial = CreateMaterial(Vec3(0.18f, 0.12f, 0.08f), Vec3(0.0f), 0.9f);
-        m_LanternMaterial = CreateMaterial(Vec3(1.0f, 0.6f, 0.25f), Vec3(1.0f, 0.55f, 0.2f) * 30000.0f, 0.4f);
-        m_PlayerBodyMaterial = CreateMaterial(Vec3(0.12f, 0.18f, 0.40f), Vec3(0.0f), 0.5f);
-        m_PlayerHeadMaterial = CreateMaterial(Vec3(0.85f, 0.70f, 0.58f), Vec3(0.0f), 0.6f);
-        m_VisorMaterial = CreateMaterial(Vec3(0.35f, 0.85f, 1.0f), Vec3(0.35f, 0.85f, 1.0f) * 20000.0f, 0.2f);
-        m_BoltMaterial = CreateMaterial(Vec3(0.35f, 0.85f, 1.0f), Vec3(0.35f, 0.85f, 1.0f) * 25000.0f, 0.2f);
-        m_BladeMaterial = CreateMaterial(Vec3(1.0f, 0.6f, 0.2f), Vec3(1.0f, 0.55f, 0.15f) * 20000.0f, 0.2f, 0.8f);
-        m_NovaMaterial = CreateMaterial(Vec3(0.75f, 0.45f, 1.0f), Vec3(0.75f, 0.45f, 1.0f) * 6000.0f, 0.2f, 0.0f, 0.4f);
-        m_SmallGemMaterial = CreateMaterial(Vec3(0.3f, 1.0f, 0.5f), Vec3(0.3f, 1.0f, 0.5f) * 8000.0f, 0.2f);
-        m_LargeGemMaterial = CreateMaterial(Vec3(0.3f, 0.6f, 1.0f), Vec3(0.3f, 0.6f, 1.0f) * 12000.0f, 0.2f);
+        m_PaletteMaterial = CreateMaterial(Vec3(1.0f), Vec3(0.0f), 0.85f);
 
-        m_ModelMaterials =
+        if (Material* palette = FindComponent<Material>(m_PaletteMaterial))
         {
-            { "Cloak",     m_PlayerBodyMaterial },
-            { "Skin",      m_PlayerHeadMaterial },
-            { "Visor",     m_VisorMaterial },
-            { "Trim",      CreateMaterial(Vec3(0.90f, 0.68f, 0.25f), Vec3(0.0f), 0.35f, 1.0f) },
-            { "Boot",      CreateMaterial(Vec3(0.10f, 0.08f, 0.07f), Vec3(0.0f), 0.8f) },
-            { "Wood",      m_WoodMaterial },
-            { "GhoulSkin", CreateMaterial(Vec3(0.30f, 0.42f, 0.28f), Vec3(0.0f), 0.7f) },
-            { "Rags",      CreateMaterial(Vec3(0.18f, 0.15f, 0.12f), Vec3(0.0f), 0.95f) },
-            { "GhoulEyes", CreateMaterial(Vec3(0.7f, 1.0f, 0.3f), Vec3(0.7f, 1.0f, 0.3f) * 15000.0f, 0.3f) },
-            { "BatFur",    CreateMaterial(Vec3(0.42f, 0.22f, 0.55f), Vec3(0.0f), 0.8f) },
-            { "Membrane",  CreateMaterial(Vec3(0.22f, 0.10f, 0.28f), Vec3(0.0f), 0.6f) },
-            { "BatEyes",   CreateMaterial(Vec3(1.0f, 0.2f, 0.15f), Vec3(1.0f, 0.2f, 0.15f) * 15000.0f, 0.3f) },
-            { "BruteSkin", CreateMaterial(Vec3(0.55f, 0.12f, 0.10f), Vec3(0.0f), 0.7f) },
-            { "Hide",      CreateMaterial(Vec3(0.35f, 0.24f, 0.14f), Vec3(0.0f), 0.9f) },
-            { "Horn",      CreateMaterial(Vec3(0.85f, 0.80f, 0.65f), Vec3(0.0f), 0.5f) },
-            { "BruteEyes", CreateMaterial(Vec3(1.0f, 0.85f, 0.2f), Vec3(1.0f, 0.85f, 0.2f) * 15000.0f, 0.3f) },
-            { "Stone",     m_StoneMaterial },
-            { "StoneDark", CreateMaterial(Vec3(0.20f, 0.21f, 0.23f), Vec3(0.0f), 0.9f) },
-            { "Iron",      CreateMaterial(Vec3(0.10f, 0.10f, 0.11f), Vec3(0.0f), 0.5f, 0.8f) },
-            { "Flame",     m_LanternMaterial },
-            { "Gem",       m_SmallGemMaterial },
-            { "Blade",     m_BladeMaterial },
-            { "Bolt",      m_BoltMaterial },
-        };
+            palette->gpuAlbedoMap = m_PaletteTexture;
+            palette->gpuEmissiveMap = m_PaletteEmissiveTexture;
+            palette->emissive = m_PaletteEmissiveTexture != 0 ? Vec3(16000.0f) : Vec3(0.0f);
+        }
+
+        m_FlashMaterial = CreateMaterial(Vec3(1.0f), Vec3(1.0f, 0.9f, 0.85f) * 5000.0f, 0.3f);
+        m_EliteFlashMaterial = CreateMaterial(Vec3(1.0f, 0.85f, 0.4f), Vec3(1.0f, 0.75f, 0.3f) * 5000.0f, 0.3f);
+        m_BoltMaterial = CreateMaterial(Vec3(0.35f, 0.85f, 1.0f), Vec3(0.35f, 0.85f, 1.0f) * 12000.0f, 0.2f);
+        m_BladeMaterial = CreateMaterial(Vec3(1.0f, 0.6f, 0.2f), Vec3(1.0f, 0.55f, 0.15f) * 10000.0f, 0.2f);
+        m_GemMaterials[0] = CreateMaterial(Vec3(0.3f, 1.0f, 0.5f), Vec3(0.3f, 1.0f, 0.5f) * 6000.0f, 0.2f);
+        m_GemMaterials[1] = CreateMaterial(Vec3(0.3f, 0.6f, 1.0f), Vec3(0.3f, 0.6f, 1.0f) * 8000.0f, 0.2f);
+        m_GemMaterials[2] = CreateMaterial(Vec3(1.0f, 0.3f, 0.3f), Vec3(1.0f, 0.25f, 0.2f) * 10000.0f, 0.2f);
+        m_DangerMaterial = CreateMaterial(Vec3(0.35f, 0.04f, 0.03f), Vec3(1.0f, 0.12f, 0.08f) * 900.0f, 0.6f);
+        m_TargetMaterial = CreateMaterial(Vec3(1.0f, 0.7f, 0.25f), Vec3(1.0f, 0.65f, 0.2f) * 2500.0f, 0.5f);
+        m_PoisonTelegraphMaterial = CreateMaterial(Vec3(0.15f, 0.3f, 0.05f), Vec3(0.45f, 1.0f, 0.2f) * 900.0f, 0.6f);
+
+        const auto Emissive = [this](Vec3 inColor, float inStrength) { return CreateMaterial(inColor, inColor * inStrength, 0.3f); };
+
+        m_FXMaterials[FX_FIRE]   = Emissive(Vec3(1.0f, 0.4f, 0.1f), 3500.0f);
+        m_FXMaterials[FX_EMBER]  = Emissive(Vec3(1.0f, 0.62f, 0.25f), 7000.0f);
+        m_FXMaterials[FX_SPARK]  = Emissive(Vec3(1.0f, 0.92f, 0.75f), 8000.0f);
+        m_FXMaterials[FX_ARCANE] = Emissive(Vec3(0.3f, 0.8f, 1.0f), 5000.0f);
+        m_FXMaterials[FX_PURPLE] = Emissive(Vec3(0.7f, 0.3f, 1.0f), 4500.0f);
+        m_FXMaterials[FX_POISON] = Emissive(Vec3(0.5f, 1.0f, 0.25f), 3500.0f);
+        m_FXMaterials[FX_GOLD]   = Emissive(Vec3(1.0f, 0.75f, 0.25f), 5000.0f);
+        m_FXMaterials[FX_DANGER] = Emissive(Vec3(1.0f, 0.15f, 0.1f), 4000.0f);
+        m_FXMaterials[FX_HEAL]   = Emissive(Vec3(0.4f, 1.0f, 0.5f), 4000.0f);
+        m_FXMaterials[FX_WHITE]  = Emissive(Vec3(0.9f, 0.95f, 1.0f), 9000.0f);
+        m_FXMaterials[FX_SMOKE]  = CreateMaterial(Vec3(0.07f, 0.07f, 0.08f), Vec3(0.0f), 1.0f);
+        m_FXMaterials[FX_DIRT]   = CreateMaterial(Vec3(0.25f, 0.18f, 0.12f), Vec3(0.0f), 1.0f);
+        m_FXMaterials[FX_BONE]   = CreateMaterial(Vec3(0.8f, 0.76f, 0.66f), Vec3(0.0f), 0.8f);
+        m_FXMaterials[FX_GOO]    = CreateMaterial(Vec3(0.35f, 0.45f, 0.15f), Vec3(0.2f, 0.4f, 0.05f) * 800.0f, 0.4f);
+        m_FXMaterials[FX_FLESH]  = CreateMaterial(Vec3(0.3f, 0.05f, 0.05f), Vec3(0.0f), 0.6f);
     }
 
     void CreateArena()
     {
-        const float ground_size = cArenaHalfSize * 2.0f + 10.0f;
-        CreateShape("Ground", false, m_GroundMaterial, Vec3(0.0f, -0.5f, 0.0f), Vec3(ground_size, 1.0f, ground_size));
+        SetTransform(CreateModel("Ground").mRoot, Vec3(0.0f), Vec3(1.0f));
 
-        for (int index = 0; index < 30; index++)
+        const float wall_offset = cArenaHalfSize + 0.5f;
+
+        Array<Model> walls = CreateModels("WallSegment", 80);
+
+        for (int index = 0; index < 80; index++)
         {
-            const Vec2 position = Vec2(RandomFloat(-cArenaHalfSize, cArenaHalfSize), RandomFloat(-cArenaHalfSize, cArenaHalfSize));
-            const Vec3 scale = Vec3(RandomFloat(2.0f, 6.0f), 0.02f, RandomFloat(2.0f, 6.0f));
-            CreateShape("Dirt", true, m_DirtMaterial, ToWorld(position, 0.0f), scale, Entity::Null, Quat(Vec3(0.0f, RandomFloat(0.0f, glm::pi<float>()), 0.0f)));
+            const int side = index / 20;
+            const float along = -cArenaHalfSize + 2.0f + float(index % 20) * 4.0f;
+
+            Vec3 position = Vec3(along, 0.0f, side == 0 ? -wall_offset : wall_offset);
+            float yaw = 0.0f;
+
+            if (side >= 2)
+            {
+                position = Vec3(side == 2 ? -wall_offset : wall_offset, 0.0f, along);
+                yaw = glm::half_pi<float>();
+            }
+
+            SetTransform(walls[index].mRoot, position, Vec3(1.0f, RandomFloat(0.9f, 1.15f), 1.0f), Quat(Vec3(0.0f, yaw + ( index % 2 ? glm::pi<float>() : 0.0f ), 0.0f)));
         }
 
-        const float wall_height = 0.9f;
-        const float wall_length = cArenaHalfSize * 2.0f + 1.0f;
+        Array<Vec2> lantern_positions;
 
-        CreateShape("Wall", false, m_WallMaterial, Vec3(0.0f, wall_height * 0.5f, -cArenaHalfSize - 0.5f), Vec3(wall_length, wall_height, 1.0f));
-        CreateShape("Wall", false, m_WallMaterial, Vec3(0.0f, wall_height * 0.5f, cArenaHalfSize + 0.5f), Vec3(wall_length, wall_height, 1.0f));
-        CreateShape("Wall", false, m_WallMaterial, Vec3(-cArenaHalfSize - 0.5f, wall_height * 0.5f, 0.0f), Vec3(1.0f, wall_height, wall_length));
-        CreateShape("Wall", false, m_WallMaterial, Vec3(cArenaHalfSize + 0.5f, wall_height * 0.5f, 0.0f), Vec3(1.0f, wall_height, wall_length));
-
-        for (float offset = -cArenaHalfSize; offset <= cArenaHalfSize; offset += 10.0f)
+        for (float offset = -cArenaHalfSize + 5.0f; offset <= cArenaHalfSize - 5.0f; offset += 10.0f)
         {
-            for (const Vec2& position : { Vec2(offset, -cArenaHalfSize - 0.5f), Vec2(offset, cArenaHalfSize + 0.5f), Vec2(-cArenaHalfSize - 0.5f, offset), Vec2(cArenaHalfSize + 0.5f, offset) })
-                SetTransform(CreateModel("LanternPost").mRoot, ToWorld(position, 0.0f), Vec3(1.0f), Quat(Vec3(0.0f, RandomFloat(-0.2f, 0.2f), 0.0f)));
+            for (const Vec2& position : { Vec2(offset, -wall_offset + 1.0f), Vec2(offset, wall_offset - 1.0f), Vec2(-wall_offset + 1.0f, offset), Vec2(wall_offset - 1.0f, offset) })
+                lantern_positions.push_back(position);
         }
+
+        Array<Model> lanterns = CreateModels("LanternPost", int(lantern_positions.size()));
+
+        for (size_t index = 0; index < lanterns.size(); index++)
+            SetTransform(lanterns[index].mRoot, ToWorld(lantern_positions[index], 0.0f), Vec3(1.0f), Quat(Vec3(0.0f, RandomFloat(-0.2f, 0.2f), 0.0f)));
 
         m_Obstacles.clear();
 
@@ -562,41 +1029,56 @@ private:
             return false;
         };
 
-        Vec2 position;
-
-        for (int index = 0; index < 30; index++)
+        const auto PlaceGroup = [&](const char* inModel, int inCount, float inRadius, float inScaleMin, float inScaleMax, float inTilt)
         {
-            if (!PlaceObstacle(0.45f, position))
-                continue;
+            Array<Vec2> positions;
+            Vec2 position;
 
-            const Model grave = CreateModel(RandomInt(0, 2) == 0 ? "GraveCross" : "Gravestone");
-            SetTransform(grave.mRoot, ToWorld(position, 0.0f), Vec3(RandomFloat(0.9f, 1.1f)), Quat(Vec3(RandomFloat(-0.08f, 0.08f), RandomFloat(-0.4f, 0.4f), RandomFloat(-0.06f, 0.06f))));
-        }
+            for (int index = 0; index < inCount; index++)
+            {
+                if (PlaceObstacle(inRadius, position))
+                    positions.push_back(position);
+            }
 
-        for (int index = 0; index < 18; index++)
+            Array<Model> models = CreateModels(inModel, int(positions.size()));
+
+            for (size_t index = 0; index < models.size(); index++)
+            {
+                const float scale = RandomFloat(inScaleMin, inScaleMax);
+                const Quat rotation = Quat(Vec3(RandomFloat(-inTilt, inTilt), RandomFloat(0.0f, glm::two_pi<float>()), RandomFloat(-inTilt, inTilt)));
+                SetTransform(models[index].mRoot, ToWorld(positions[index], 0.0f), Vec3(scale), rotation);
+            }
+        };
+
+        PlaceGroup("Gravestone", 20, 0.45f, 0.9f, 1.1f, 0.08f);
+        PlaceGroup("GraveCross", 12, 0.4f, 0.9f, 1.15f, 0.08f);
+        PlaceGroup("Rock0", 6, 0.75f, 0.85f, 1.15f, 0.0f);
+        PlaceGroup("Rock1", 6, 0.75f, 0.85f, 1.15f, 0.0f);
+        PlaceGroup("Rock2", 6, 0.75f, 0.85f, 1.15f, 0.0f);
+        PlaceGroup("DeadTree0", 7, 0.4f, 0.85f, 1.25f, 0.04f);
+        PlaceGroup("DeadTree1", 7, 0.4f, 0.85f, 1.25f, 0.04f);
+        PlaceGroup("Pillar", 8, 0.5f, 0.9f, 1.15f, 0.03f);
+
+        const auto Scatter = [&](const char* inModel, int inCount, float inScaleMin, float inScaleMax)
         {
-            if (!PlaceObstacle(0.75f, position))
-                continue;
+            Array<Model> models = CreateModels(inModel, inCount);
 
-            const float size = RandomFloat(0.85f, 1.15f);
-            const Model rock = CreateModel(std::format("Rock{}", RandomInt(0, 2)));
-            SetTransform(rock.mRoot, ToWorld(position, 0.0f), Vec3(size, size * RandomFloat(0.8f, 1.2f), size), Quat(Vec3(0.0f, RandomFloat(0.0f, glm::two_pi<float>()), 0.0f)));
-        }
+            for (Model& model : models)
+            {
+                const Vec2 position = Vec2(RandomFloat(-cArenaHalfSize + 1.0f, cArenaHalfSize - 1.0f), RandomFloat(-cArenaHalfSize + 1.0f, cArenaHalfSize - 1.0f));
+                SetTransform(model.mRoot, ToWorld(position, 0.0f), Vec3(RandomFloat(inScaleMin, inScaleMax)), Quat(Vec3(0.0f, RandomFloat(0.0f, glm::two_pi<float>()), 0.0f)));
+            }
+        };
 
-        for (int index = 0; index < 12; index++)
-        {
-            if (!PlaceObstacle(0.4f, position))
-                continue;
-
-            const Model tree = CreateModel(std::format("DeadTree{}", RandomInt(0, 1)));
-            SetTransform(tree.mRoot, ToWorld(position, 0.0f), Vec3(RandomFloat(0.85f, 1.2f)), Quat(Vec3(0.0f, RandomFloat(0.0f, glm::two_pi<float>()), 0.0f)));
-        }
+        Scatter("GrassTuft", 180, 0.8f, 1.4f);
+        Scatter("Mushrooms", 30, 0.8f, 1.3f);
+        Scatter("Bones", 18, 0.9f, 1.2f);
     }
 
     void CreatePlayer()
     {
         m_PlayerEntity = CreateEntity("Player");
-        m_PlayerModel = CreateModel("Hero", m_PlayerEntity);
+        m_PlayerModel = CreateModel("Hero", Entity::Null, m_PlayerEntity);
 
         const Entity torch = CreateEntity("Torch", m_PlayerEntity);
         SetTransform(torch, Vec3(0.0f, 3.0f, 0.0f), Vec3(1.0f));
@@ -614,51 +1096,172 @@ private:
         for (int type = 0; type < ENEMY_TYPE_COUNT; type++)
         {
             const EnemyArchetype& archetype = cEnemyArchetypes[type];
-            m_FreeEnemies[type].clear();
+            Array<Model> models = CreateModels(archetype.mName, archetype.mPoolSize);
 
-            for (int index = 0; index < archetype.mPoolSize; index++)
+            for (Model& model : models)
             {
                 Enemy& enemy = m_Enemies.emplace_back();
                 enemy.mType = type;
-                enemy.mModel = CreateModel(archetype.mName);
-
-                if (type == ENEMY_BAT)
-                {
-                    for (int side = 0; side < 2; side++)
-                    {
-                        enemy.mWings[side] = CreateEntity("Wing Pivot", enemy.mModel.mRoot);
-                        SetTransform(enemy.mWings[side], Vec3(side == 0 ? -0.12f : 0.12f, 0.0f, 0.0f), Vec3(1.0f));
-
-                        const Model wing = CreateModel(side == 0 ? "BatWingL" : "BatWingR", enemy.mWings[side]);
-                        enemy.mModel.mParts.insert(enemy.mModel.mParts.end(), wing.mParts.begin(), wing.mParts.end());
-                    }
-                }
-
-                Park(enemy.mModel.mRoot);
+                enemy.mModel = model;
+                Park(model.mRoot);
             }
         }
 
         m_Projectiles.resize(cProjectilePoolSize);
-        for (Projectile& projectile : m_Projectiles)
+        Array<Model> bolts = CreateModels("Bolt", cProjectilePoolSize, m_BoltMaterial);
+
+        for (int index = 0; index < cProjectilePoolSize; index++)
         {
-            projectile.mEntity = CreateModel("Bolt").mRoot;
-            Park(projectile.mEntity);
+            m_Projectiles[index].mEntity = bolts[index].mRoot;
+            Park(bolts[index].mRoot);
+        }
+
+        m_Fireballs.resize(cFireballPoolSize);
+        Array<Model> fireballs = CreateModels("Fireball", cFireballPoolSize);
+
+        for (int index = 0; index < cFireballPoolSize; index++)
+        {
+            m_Fireballs[index].mEntity = fireballs[index].mRoot;
+            Park(fireballs[index].mRoot);
+        }
+
+        m_Arrows.resize(cArrowPoolSize);
+        Array<Model> arrows = CreateModels("Arrow", cArrowPoolSize);
+
+        for (int index = 0; index < cArrowPoolSize; index++)
+        {
+            m_Arrows[index].mEntity = arrows[index].mRoot;
+            m_Arrows[index].mRadius = 0.25f;
+            Park(arrows[index].mRoot);
+        }
+
+        m_Orbs.resize(cOrbPoolSize);
+        Array<Model> orbs = CreateModels("Orb", cOrbPoolSize);
+
+        for (int index = 0; index < cOrbPoolSize; index++)
+        {
+            m_Orbs[index].mEntity = orbs[index].mRoot;
+            m_Orbs[index].mRadius = 0.35f;
+            Park(orbs[index].mRoot);
+        }
+
+        m_Meteors.resize(cMeteorPoolSize);
+        Array<Model> meteors = CreateModels("Meteor", cMeteorPoolSize);
+
+        for (int index = 0; index < cMeteorPoolSize; index++)
+        {
+            m_Meteors[index].mEntity = meteors[index].mRoot;
+            Park(meteors[index].mRoot);
         }
 
         m_Gems.resize(cGemPoolSize);
-        for (Gem& gem : m_Gems)
+        Array<Model> gems = CreateModels("Gem", cGemPoolSize, m_GemMaterials[0]);
+
+        for (int index = 0; index < cGemPoolSize; index++)
         {
-            gem.mModel = CreateModel("Gem");
-            Park(gem.mModel.mRoot);
+            m_Gems[index].mModel = gems[index];
+            Park(gems[index].mRoot);
         }
 
-        for (Entity& blade : m_Blades)
+        Array<Model> blades = CreateModels("Blade", cMaxBlades, m_BladeMaterial);
+
+        for (int index = 0; index < cMaxBlades; index++)
         {
-            blade = CreateModel("Blade").mRoot;
-            Park(blade);
+            m_Blades[index] = blades[index].mRoot;
+            Park(m_Blades[index]);
         }
 
-        m_NovaEntity = CreateShape("Nova", true, m_NovaMaterial, cParkedPosition, Vec3(0.1f));
+        m_Pickups.clear();
+
+        for (int type = 0; type < PICKUP_COUNT; type++)
+        {
+            Array<Model> models = CreateModels(cPickupModels[type], cPickupsPerType);
+
+            for (Model& model : models)
+            {
+                Pickup& pickup = m_Pickups.emplace_back();
+                pickup.mType = type;
+                pickup.mModel = model;
+                Park(model.mRoot);
+            }
+        }
+
+        Array<Model> pickup_glows = CreateModels("Ring", int(m_Pickups.size()), m_FXMaterials[FX_GOLD]);
+
+        for (size_t index = 0; index < m_Pickups.size(); index++)
+        {
+            m_Pickups[index].mGlow = pickup_glows[index].mRoot;
+            Park(pickup_glows[index].mRoot);
+        }
+
+        for (int mesh = 0; mesh < PARTICLE_MESH_COUNT; mesh++)
+        {
+            m_Particles[mesh].clear();
+            m_ParticleCursor[mesh] = 0;
+
+            Array<Model> models = CreateModels(cParticleModels[mesh], cParticlePoolSizes[mesh], m_FXMaterials[FX_SPARK]);
+
+            for (Model& model : models)
+            {
+                Particle& particle = m_Particles[mesh].emplace_back();
+                particle.mEntity = model.mRoot;
+                particle.mMaterial = m_FXMaterials[FX_SPARK];
+                Park(model.mRoot);
+            }
+        }
+
+        m_Rings.resize(cRingPoolSize);
+        Array<Model> rings = CreateModels("Ring", cRingPoolSize, m_FXMaterials[FX_WHITE]);
+
+        for (int index = 0; index < cRingPoolSize; index++)
+        {
+            m_Rings[index].mEntity = rings[index].mRoot;
+            m_Rings[index].mMaterial = m_FXMaterials[FX_WHITE];
+            Park(rings[index].mRoot);
+        }
+
+        m_Telegraphs.resize(cTelegraphPoolSize);
+        Array<Model> discs = CreateModels("Disc", cTelegraphPoolSize, m_DangerMaterial);
+        Array<Model> telegraph_rings = CreateModels("Ring", cTelegraphPoolSize, m_DangerMaterial);
+
+        for (int index = 0; index < cTelegraphPoolSize; index++)
+        {
+            m_Telegraphs[index].mDisc = discs[index].mRoot;
+            m_Telegraphs[index].mRing = telegraph_rings[index].mRoot;
+            Park(discs[index].mRoot);
+            Park(telegraph_rings[index].mRoot);
+        }
+
+        m_Beams.resize(cBeamPoolSize);
+        Array<Model> beams = CreateModels("Beam", cBeamPoolSize, m_FXMaterials[FX_WHITE]);
+
+        for (int index = 0; index < cBeamPoolSize; index++)
+        {
+            m_Beams[index].mEntity = beams[index].mRoot;
+            Park(beams[index].mRoot);
+        }
+
+        m_EliteAuras.resize(cEliteAuraPoolSize);
+        Array<Model> auras = CreateModels("Ring", cEliteAuraPoolSize, m_FXMaterials[FX_GOLD]);
+
+        for (int index = 0; index < cEliteAuraPoolSize; index++)
+        {
+            m_EliteAuras[index].mEntity = auras[index].mRoot;
+            Park(auras[index].mRoot);
+        }
+
+        m_Lights.resize(cLightPoolSize);
+
+        for (FlashLight& flash : m_Lights)
+        {
+            flash.mEntity = CreateEntity("Flash Light");
+            SetTransform(flash.mEntity, cParkedPosition, Vec3(1.0f));
+
+            Light& light = m_Scene->Add<Light>(flash.mEntity);
+            light.type = LIGHT_TYPE_POINT;
+            light.color = Vec4(1.0f, 1.0f, 1.0f, 0.0f);
+            light.attributes.x = 10.0f;
+        }
     }
 
     void CreateCamera()
@@ -691,15 +1294,24 @@ private:
         m_CameraEntity = Entity::Null;
         m_PlayerEntity = Entity::Null;
         m_PlayerModel = Model();
-        m_NovaEntity = Entity::Null;
         m_Blades.fill(Entity::Null);
         m_Enemies.clear();
         m_Projectiles.clear();
+        m_Fireballs.clear();
+        m_Arrows.clear();
+        m_Orbs.clear();
+        m_Meteors.clear();
         m_Gems.clear();
+        m_Pickups.clear();
+        m_Rings.clear();
+        m_Telegraphs.clear();
+        m_Beams.clear();
+        m_Lights.clear();
+        m_EliteAuras.clear();
         m_Obstacles.clear();
 
-        for (Array<int>& free_list : m_FreeEnemies)
-            free_list.clear();
+        for (Array<Particle>& particles : m_Particles)
+            particles.clear();
 
         ReleaseModels();
     }
@@ -710,8 +1322,88 @@ private:
         {
             enemy.mActive = false;
             enemy.mDying = false;
+            enemy.mAura = -1;
+            enemy.mTelegraph = -1;
             RestoreModelMaterials(enemy.mModel);
             Park(enemy.mModel.mRoot);
+        }
+
+        for (Projectile& projectile : m_Projectiles)
+        {
+            projectile.mActive = false;
+            Park(projectile.mEntity);
+        }
+
+        for (Fireball& fireball : m_Fireballs)
+        {
+            fireball.mActive = false;
+            Park(fireball.mEntity);
+        }
+
+        for (Array<EnemyProjectile>* pool : { &m_Arrows, &m_Orbs })
+        {
+            for (EnemyProjectile& projectile : *pool)
+            {
+                projectile.mActive = false;
+                Park(projectile.mEntity);
+            }
+        }
+
+        for (Meteor& meteor : m_Meteors)
+        {
+            meteor.mActive = false;
+            Park(meteor.mEntity);
+        }
+
+        for (Gem& gem : m_Gems)
+        {
+            gem.mActive = false;
+            Park(gem.mModel.mRoot);
+        }
+
+        for (Pickup& pickup : m_Pickups)
+        {
+            pickup.mActive = false;
+            Park(pickup.mModel.mRoot);
+            Park(pickup.mGlow);
+        }
+
+        for (Array<Particle>& particles : m_Particles)
+        {
+            for (Particle& particle : particles)
+            {
+                particle.mActive = false;
+                Park(particle.mEntity);
+            }
+        }
+
+        for (Ring& ring : m_Rings)
+        {
+            ring.mActive = false;
+            Park(ring.mEntity);
+        }
+
+        for (Telegraph& telegraph : m_Telegraphs)
+            ReleaseTelegraph(telegraph);
+
+        for (Beam& beam : m_Beams)
+        {
+            beam.mActive = false;
+            Park(beam.mEntity);
+        }
+
+        for (EliteAura& aura : m_EliteAuras)
+        {
+            aura.mActive = false;
+            Park(aura.mEntity);
+        }
+
+        for (FlashLight& flash : m_Lights)
+        {
+            flash.mActive = false;
+
+            if (Light* light = FindComponent<Light>(flash.mEntity))
+                light->color.a = 0.0f;
         }
 
         for (int type = 0; type < ENEMY_TYPE_COUNT; type++)
@@ -725,22 +1417,8 @@ private:
             }
         }
 
-        for (Projectile& projectile : m_Projectiles)
-        {
-            projectile.mActive = false;
-            Park(projectile.mEntity);
-        }
-
-        for (Gem& gem : m_Gems)
-        {
-            gem.mActive = false;
-            Park(gem.mModel.mRoot);
-        }
-
         for (Entity blade : m_Blades)
             Park(blade);
-
-        Park(m_NovaEntity);
 
         m_UpgradeLevels.fill(0);
         m_UpgradeLevels[UPGRADE_BOLT] = 1;
@@ -750,36 +1428,82 @@ private:
         m_PlayerPosition = Vec2(0.0f);
         m_PlayerVelocity = Vec2(0.0f);
         m_PlayerYaw = 0.0f;
+        m_PlayerWalkPhase = 0.0f;
+        m_PlayerDeathTimer = 0.0f;
         m_Health = cPlayerBaseHealth;
+        m_HealthTrail = cPlayerBaseHealth;
         m_InvulnerableTimer = 0.0f;
+        m_DashTimer = -1.0f;
+        m_DashCooldownTimer = 0.0f;
+        m_CastTimer = 0.0f;
         m_HitFlash = 0.0f;
-        m_Shake = 0.0f;
+        m_ScreenFlash = 0.0f;
+        m_Trauma = 0.0f;
+        m_HitStop = 0.0f;
+        m_CameraKick = 0.0f;
         m_Level = 1;
         m_Experience = 0;
         m_PendingLevelUps = 0;
         m_Kills = 0;
+        m_EliteKills = 0;
+        m_BossKills = 0;
+        m_Streak = 0;
+        m_BestStreak = 0;
+        m_StreakTimer = 0.0f;
+        m_DamageDealt = 0.0f;
         m_SpawnAccumulator = 0.0f;
         m_NextSwarmTime = cSwarmInterval;
         m_NextBruteTime = cBruteInterval;
+        m_NextBoss = 0;
+        m_BossEnemy = -1;
+        m_BossPattern = 0;
+        m_BossHealthTrail = 0.0f;
         m_BoltTimer = 0.5f;
         m_NovaTimer = 2.0f;
-        m_NovaAge = -1.0f;
+        m_FireballTimer = 1.0f;
+        m_LightningTimer = 1.0f;
+        m_MeteorTimer = 2.0f;
         m_BladeAngle = 0.0f;
         m_EndTime = 0.0f;
         m_ChoiceCount = 0;
         m_DamageNumbers.clear();
         m_Popups.clear();
         m_CameraTarget = Vec3(0.0f);
+        m_FacingDirection = Vec2(0.0f, -1.0f);
+
+        if (*m_StartWeapons > 0)
+        {
+            for (int upgrade = UPGRADE_BOLT; upgrade <= UPGRADE_METEOR; upgrade++)
+                m_UpgradeLevels[upgrade] = glm::clamp(*m_StartWeapons, 1, cMaxUpgradeLevel);
+        }
+
+        if (*m_StartTime > 0.0f)
+        {
+            m_RunTime = *m_StartTime;
+
+            while (m_NextSwarmTime <= m_RunTime)
+                m_NextSwarmTime += cSwarmInterval;
+
+            while (m_NextBruteTime <= m_RunTime)
+                m_NextBruteTime += cBruteInterval;
+
+            while (m_NextBoss < int(cBossTimes.size()) && cBossTimes[m_NextBoss] < m_RunTime)
+                m_NextBoss++;
+        }
     }
 
     float GetMaxHealth() const { return cPlayerBaseHealth + 25.0f * m_UpgradeLevels[UPGRADE_VITALITY]; }
     float GetMoveSpeed() const { return cPlayerBaseSpeed * ( 1.0f + 0.12f * m_UpgradeLevels[UPGRADE_BOOTS] ); }
     float GetMagnetRadius() const { return cBaseMagnetRadius * ( 1.0f + 0.4f * m_UpgradeLevels[UPGRADE_MAGNET] ); }
     float GetDamageMultiplier() const { return 1.0f + 0.15f * m_UpgradeLevels[UPGRADE_POWER]; }
+    float GetCritChance() const { return 0.06f + 0.03f * m_UpgradeLevels[UPGRADE_POWER]; }
     float GetCooldownMultiplier() const { return glm::pow(0.92f, float(m_UpgradeLevels[UPGRADE_HASTE])); }
+    float GetAreaMultiplier() const { return 1.0f + 0.12f * m_UpgradeLevels[UPGRADE_AREA]; }
     int   GetExperienceToNextLevel() const { return 5 + ( m_Level - 1 ) * 4 + ( m_Level - 1 ) * ( m_Level - 1 ) / 3; }
+    Vec3  GetPlayerCenter() const { return ToWorld(m_PlayerPosition, 0.9f); }
+    Vec3  GetStaffTip() const { return ToWorld(m_PlayerPosition, 1.75f) + Vec3(glm::cos(m_PlayerYaw) * 0.38f, 0.0f, -glm::sin(m_PlayerYaw) * 0.38f); }
 
-    void UpdatePlayer(float inDeltaTime)
+    Vec2 GetInputDirection() const
     {
         Vec2 input = Vec2(0.0f);
 
@@ -788,11 +1512,41 @@ private:
         if (m_Input->IsKeyDown(Key::A) || m_Input->IsKeyDown(Key::LEFT))  input.x -= 1.0f;
         if (m_Input->IsKeyDown(Key::D) || m_Input->IsKeyDown(Key::RIGHT)) input.x += 1.0f;
 
-        if (glm::length(input) > 0.0f)
-            input = glm::normalize(input);
+        return glm::length(input) > 0.0f ? glm::normalize(input) : input;
+    }
 
-        const Vec2 target_velocity = input * GetMoveSpeed();
-        m_PlayerVelocity = glm::mix(m_PlayerVelocity, target_velocity, 1.0f - glm::exp(-inDeltaTime * 18.0f));
+    void TryDash()
+    {
+        if (m_DashCooldownTimer > 0.0f)
+            return;
+
+        const Vec2 input = GetInputDirection();
+        m_DashDirection = glm::length(input) > 0.0f ? input : m_FacingDirection;
+        m_DashTimer = cDashDuration;
+        m_DashCooldownTimer = cDashCooldown;
+
+        SpawnRing(GetPlayerCenter() - Vec3(0.0f, 0.8f, 0.0f), 0.3f, 2.2f, 0.25f, m_FXMaterials[FX_ARCANE], 0.6f);
+        Emit(GetPlayerCenter(), ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = FX_ARCANE, .mCount = 14, .mSpeedMin = 3.0f, .mSpeedMax = 8.0f, .mLifeMin = 0.2f, .mLifeMax = 0.4f, .mSizeMin = 0.2f, .mSizeMax = 0.35f, .mDrag = 4.0f, .mFlat = true });
+    }
+
+    void UpdatePlayer(float inDeltaTime)
+    {
+        const Vec2 input = GetInputDirection();
+
+        if (m_DashTimer > 0.0f)
+        {
+            m_PlayerVelocity = m_DashDirection * cDashSpeed;
+
+            Emit(GetPlayerCenter(), ParticleDesc { .mMesh = PARTICLE_PUFF, .mMaterial = FX_ARCANE, .mCount = 2, .mSpeedMin = 0.2f, .mSpeedMax = 0.8f, .mLifeMin = 0.2f, .mLifeMax = 0.35f, .mSizeMin = 0.35f, .mSizeMax = 0.55f, .mDrag = 2.0f, .mSpread = 0.4f });
+        }
+        else
+        {
+            const Vec2 target_velocity = input * GetMoveSpeed();
+            m_PlayerVelocity = glm::mix(m_PlayerVelocity, target_velocity, 1.0f - glm::exp(-inDeltaTime * 18.0f));
+        }
+
+        m_DashTimer = glm::max(m_DashTimer - inDeltaTime, -1.0f);
+        m_DashCooldownTimer = glm::max(0.0f, m_DashCooldownTimer - inDeltaTime);
 
         m_PlayerPosition += m_PlayerVelocity * inDeltaTime;
         m_PlayerPosition = ResolveObstacles(m_PlayerPosition, cPlayerRadius);
@@ -805,6 +1559,12 @@ private:
         m_Health = glm::min(max_health, m_Health + 0.6f * m_UpgradeLevels[UPGRADE_REGEN] * inDeltaTime);
 
         m_InvulnerableTimer = glm::max(0.0f, m_InvulnerableTimer - inDeltaTime);
+        m_CastTimer = glm::max(0.0f, m_CastTimer - inDeltaTime);
+
+        m_StreakTimer -= inDeltaTime;
+
+        if (m_StreakTimer <= 0.0f)
+            m_Streak = 0;
     }
 
     Vec2 ResolveObstacles(Vec2 inPosition, float inRadius) const
@@ -824,36 +1584,83 @@ private:
 
     void DamagePlayer(float inDamage)
     {
-        if (m_InvulnerableTimer > 0.0f || m_State != STATE_PLAYING)
+        if (m_InvulnerableTimer > 0.0f || m_DashTimer > -0.12f || m_State != STATE_PLAYING || *m_GodMode)
             return;
 
         m_Health -= inDamage;
         m_InvulnerableTimer = cPlayerInvulnerability;
         m_HitFlash = 1.0f;
-        m_Shake = glm::max(m_Shake, 0.35f);
+        AddTrauma(0.3f);
+
+        Emit(GetPlayerCenter(), ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = FX_DANGER, .mCount = 12, .mSpeedMin = 3.0f, .mSpeedMax = 7.0f, .mLifeMin = 0.2f, .mLifeMax = 0.4f, .mSizeMin = 0.2f, .mSizeMax = 0.3f, .mGravity = 8.0f, .mDrag = 2.0f, .mUpBias = 0.4f });
 
         if (m_Health <= 0.0f)
         {
             m_Health = 0.0f;
             m_State = STATE_GAME_OVER;
             m_EndTime = m_Time;
+            m_PlayerDeathTimer = 0.0f;
             m_BestTime = glm::max(m_BestTime, m_RunTime);
+            m_HitStop = 0.2f;
+            AddTrauma(0.8f);
+
+            Emit(GetPlayerCenter(), ParticleDesc { .mMesh = PARTICLE_PUFF, .mMaterial = FX_ARCANE, .mCount = 24, .mSpeedMin = 1.0f, .mSpeedMax = 4.0f, .mLifeMin = 0.6f, .mLifeMax = 1.2f, .mSizeMin = 0.3f, .mSizeMax = 0.6f, .mGravity = -1.5f, .mDrag = 1.5f, .mUpBias = 0.6f });
+            SpawnRing(GetPlayerCenter() - Vec3(0.0f, 0.8f, 0.0f), 0.5f, 6.0f, 0.5f, m_FXMaterials[FX_ARCANE], 1.0f);
+            SpawnLight(GetPlayerCenter(), Vec3(0.35f, 0.85f, 1.0f), 2000000.0f, 14.0f, 0.6f);
         }
+    }
+
+    void AddTrauma(float inAmount)
+    {
+        m_Trauma = glm::min(1.0f, m_Trauma + inAmount);
+    }
+
+    void AddTraumaAt(const Vec3& inPosition, float inAmount)
+    {
+        const float distance = glm::distance(Vec2(inPosition.x, inPosition.z), m_PlayerPosition);
+        AddTrauma(inAmount * glm::clamp(1.0f - distance / 30.0f, 0.15f, 1.0f));
     }
 
     void UpdateSpawning(float inDeltaTime)
     {
         const float minutes = m_RunTime / 60.0f;
-        const float spawn_rate = 1.2f + minutes * 1.6f + minutes * minutes * 0.25f;
+        float spawn_rate = 1.2f + minutes * 1.7f + minutes * minutes * 0.3f;
+
+        if (m_BossEnemy >= 0)
+            spawn_rate *= 0.5f;
 
         m_SpawnAccumulator += spawn_rate * inDeltaTime;
+
+        const StaticArray<float, 5> weights =
+        {
+            1.0f,
+            m_RunTime > 45.0f ? 0.6f * glm::min(( m_RunTime - 45.0f ) / 120.0f, 1.0f) : 0.0f,
+            m_RunTime > 90.0f ? 0.4f * glm::min(( m_RunTime - 90.0f ) / 120.0f, 1.0f) : 0.0f,
+            m_RunTime > 135.0f ? 0.18f : 0.0f,
+            m_RunTime > 180.0f ? 0.3f * glm::min(( m_RunTime - 180.0f ) / 120.0f, 1.0f) : 0.0f,
+        };
+
+        const float total_weight = weights[0] + weights[1] + weights[2] + weights[3] + weights[4];
 
         while (m_SpawnAccumulator >= 1.0f)
         {
             m_SpawnAccumulator -= 1.0f;
 
-            const float bat_chance = glm::clamp(( m_RunTime - 45.0f ) / 240.0f, 0.0f, 0.4f);
-            SpawnEnemy(RandomFloat(0.0f, 1.0f) < bat_chance ? ENEMY_BAT : ENEMY_GHOUL, GetSpawnPosition());
+            float roll = RandomFloat(0.0f, total_weight);
+            int type = ENEMY_GHOUL;
+
+            for (int index = 0; index < 5; index++)
+            {
+                if (roll < weights[index])
+                {
+                    type = index;
+                    break;
+                }
+
+                roll -= weights[index];
+            }
+
+            SpawnEnemy(type, GetSpawnPosition(), m_RunTime > 90.0f && RandomFloat(0.0f, 1.0f) < cEliteChance);
         }
 
         if (m_RunTime >= m_NextSwarmTime)
@@ -868,7 +1675,7 @@ private:
                 SpawnEnemy(ENEMY_BAT, ClampToArena(m_PlayerPosition + Vec2(glm::cos(angle), glm::sin(angle)) * 17.0f, 1.0f));
             }
 
-            AddPopup("THE SWARM DESCENDS", Vec4(0.8f, 0.55f, 1.0f, 1.0f));
+            AddPopup("THE SWARM DESCENDS", "Bats close in from every side", Vec4(0.8f, 0.55f, 1.0f, 1.0f), true);
         }
 
         if (m_RunTime >= m_NextBruteTime)
@@ -878,9 +1685,28 @@ private:
             const int count = 1 + int(minutes / 3.0f);
 
             for (int index = 0; index < count; index++)
-                SpawnEnemy(ENEMY_BRUTE, GetSpawnPosition());
+                SpawnEnemy(ENEMY_BRUTE, GetSpawnPosition(), m_RunTime > 180.0f && index == 0);
 
-            AddPopup(count > 1 ? "BRUTES APPROACH" : "A BRUTE APPROACHES", Vec4(1.0f, 0.45f, 0.35f, 1.0f));
+            AddPopup(count > 1 ? "BRUTES APPROACH" : "A BRUTE APPROACHES", "", Vec4(1.0f, 0.45f, 0.35f, 1.0f), false);
+        }
+
+        if (m_NextBoss < int(cBossTimes.size()) && m_RunTime >= cBossTimes[m_NextBoss] && m_BossEnemy < 0)
+        {
+            m_NextBoss++;
+
+            const Vec2 position = ClampToArena(m_PlayerPosition + RandomCircle() * 12.0f, 4.0f);
+            const int index = SpawnEnemy(ENEMY_LICH, position);
+
+            if (index >= 0)
+            {
+                m_BossEnemy = index;
+                m_BossHealthTrail = 1.0f;
+                AddPopup("THE LICH RISES", "Destroy it before it destroys you", Vec4(0.8f, 0.4f, 1.0f, 1.0f), true);
+                AddTrauma(0.6f);
+                SpawnRing(ToWorld(position, 0.1f), 1.0f, 12.0f, 0.9f, m_FXMaterials[FX_PURPLE], 1.5f);
+                SpawnLight(ToWorld(position, 2.0f), Vec3(0.75f, 0.35f, 1.0f), 4000000.0f, 18.0f, 1.2f);
+                Emit(ToWorld(position, 0.5f), ParticleDesc { .mMesh = PARTICLE_CHUNK, .mMaterial = FX_DIRT, .mCount = 30, .mSpeedMin = 4.0f, .mSpeedMax = 10.0f, .mLifeMin = 0.8f, .mLifeMax = 1.4f, .mSizeMin = 0.15f, .mSizeMax = 0.35f, .mEndSize = 0.6f, .mGravity = 20.0f, .mDrag = 0.5f, .mUpBias = 1.2f, .mSpread = 1.0f });
+            }
         }
     }
 
@@ -891,8 +1717,7 @@ private:
 
         for (int attempt = 0; attempt < 8; attempt++)
         {
-            const float angle = RandomFloat(0.0f, glm::two_pi<float>());
-            const Vec2 position = ClampToArena(m_PlayerPosition + Vec2(glm::cos(angle), glm::sin(angle)) * RandomFloat(cSpawnDistance, cSpawnDistance + 4.0f), 1.0f);
+            const Vec2 position = ClampToArena(m_PlayerPosition + RandomCircle() * RandomFloat(cSpawnDistance, cSpawnDistance + 4.0f), 1.0f);
             const float distance = glm::distance(position, m_PlayerPosition);
 
             if (distance >= cMinSpawnDistance)
@@ -908,30 +1733,65 @@ private:
         return best;
     }
 
-    void SpawnEnemy(int inType, const Vec2& inPosition)
+    int SpawnEnemy(int inType, const Vec2& inPosition, bool inElite = false)
     {
         Array<int>& free_list = m_FreeEnemies[inType];
 
         if (free_list.empty())
-            return;
+            return -1;
 
-        Enemy& enemy = m_Enemies[free_list.back()];
+        const int index = free_list.back();
         free_list.pop_back();
+
+        Enemy& enemy = m_Enemies[index];
+        const EnemyArchetype& archetype = cEnemyArchetypes[inType];
 
         const float health_scale = 1.0f + m_RunTime / 150.0f;
 
         enemy.mActive = true;
         enemy.mDying = false;
+        enemy.mElite = inElite;
         enemy.mPosition = inPosition;
+        enemy.mVelocity = Vec2(0.0f);
         enemy.mKnockback = Vec2(0.0f);
-        enemy.mHealth = cEnemyArchetypes[inType].mHealth * health_scale;
+        enemy.mMaxHealth = archetype.mHealth * health_scale * ( inElite ? 6.0f : 1.0f );
+        enemy.mHealth = enemy.mMaxHealth;
         enemy.mFlashTimer = 0.0f;
+        enemy.mHitPunch = 0.0f;
         enemy.mDeathTimer = 0.0f;
+        enemy.mSpawnTimer = archetype.mSpawnDuration;
         enemy.mBladeCooldown = 0.0f;
+        enemy.mAttackTimer = RandomFloat(1.0f, 2.5f);
+        enemy.mActionTimer = 0.0f;
+        enemy.mAction = ACTION_NONE;
+        enemy.mTelegraph = -1;
+        enemy.mAura = -1;
         enemy.mPhase = RandomFloat(0.0f, glm::two_pi<float>());
+        enemy.mWalkPhase = enemy.mPhase;
         enemy.mYaw = GetYaw(m_PlayerPosition - inPosition);
+        enemy.mDeathImpact = false;
 
         RestoreModelMaterials(enemy.mModel);
+
+        if (inElite)
+        {
+            for (int aura = 0; aura < cEliteAuraPoolSize; aura++)
+            {
+                if (!m_EliteAuras[aura].mActive)
+                {
+                    m_EliteAuras[aura].mActive = true;
+                    enemy.mAura = aura;
+                    break;
+                }
+            }
+        }
+
+        if (archetype.mSpawnStyle == SPAWN_RISE && glm::distance(inPosition, m_PlayerPosition) < 30.0f)
+        {
+            Emit(ToWorld(inPosition, 0.1f), ParticleDesc { .mMesh = PARTICLE_CHUNK, .mMaterial = FX_DIRT, .mCount = inType == ENEMY_LICH ? 20 : 6, .mSpeedMin = 2.0f, .mSpeedMax = 4.5f, .mLifeMin = 0.5f, .mLifeMax = 0.9f, .mSizeMin = 0.08f, .mSizeMax = 0.18f, .mEndSize = 0.5f, .mGravity = 16.0f, .mDrag = 0.5f, .mUpBias = 1.5f, .mSpread = 0.4f });
+        }
+
+        return index;
     }
 
     void BuildGrid()
@@ -976,8 +1836,8 @@ private:
     template<typename Fn>
     void ForEachEnemyNear(const Vec2& inPosition, float inRadius, Fn&& inFunction)
     {
-        const IVec2 min_coord = GetGridCoord(inPosition - Vec2(inRadius));
-        const IVec2 max_coord = GetGridCoord(inPosition + Vec2(inRadius));
+        const IVec2 min_coord = GetGridCoord(inPosition - Vec2(inRadius + cMaxEnemyRadius));
+        const IVec2 max_coord = GetGridCoord(inPosition + Vec2(inRadius + cMaxEnemyRadius));
 
         for (int y = min_coord.y; y <= max_coord.y; y++)
         {
@@ -1000,6 +1860,33 @@ private:
         }
     }
 
+    int FindNearestEnemy(const Vec2& inPosition, float inMaxDistance, int inExclude = -1, const Array<int>* inIgnore = nullptr)
+    {
+        int nearest = -1;
+        float nearest_distance = inMaxDistance;
+
+        for (size_t index = 0; index < m_Enemies.size(); index++)
+        {
+            const Enemy& enemy = m_Enemies[index];
+
+            if (!enemy.mActive || enemy.mDying || int(index) == inExclude)
+                continue;
+
+            if (inIgnore && std::find(inIgnore->begin(), inIgnore->end(), int(index)) != inIgnore->end())
+                continue;
+
+            const float distance = glm::distance(enemy.mPosition, inPosition);
+
+            if (distance < nearest_distance)
+            {
+                nearest = int(index);
+                nearest_distance = distance;
+            }
+        }
+
+        return nearest;
+    }
+
     void UpdateEnemies(float inDeltaTime)
     {
         m_Pushes.assign(m_Enemies.size(), Vec2(0.0f));
@@ -1020,13 +1907,13 @@ private:
 
                 const Vec2 delta = enemy.mPosition - inOtherEnemy.mPosition;
                 const float distance = glm::length(delta);
-                const float min_distance = radius + cEnemyArchetypes[inOtherEnemy.mType].mRadius;
+                const float other_radius = cEnemyArchetypes[inOtherEnemy.mType].mRadius;
+                const float min_distance = radius + other_radius;
 
                 if (distance < min_distance)
                 {
                     const Vec2 direction = distance > 0.0001f ? delta / distance : Vec2(glm::cos(enemy.mPhase), glm::sin(enemy.mPhase));
-                    const float weight = cEnemyArchetypes[inOtherEnemy.mType].mRadius / ( radius + cEnemyArchetypes[inOtherEnemy.mType].mRadius );
-                    m_Pushes[index] += direction * ( min_distance - distance ) * weight;
+                    m_Pushes[index] += direction * ( min_distance - distance ) * ( other_radius / min_distance );
                 }
             });
         }
@@ -1040,26 +1927,7 @@ private:
 
             const EnemyArchetype& archetype = cEnemyArchetypes[enemy.mType];
 
-            Vec2 to_player = m_PlayerPosition - enemy.mPosition;
-            const float distance = glm::length(to_player);
-            to_player = distance > 0.0001f ? to_player / distance : Vec2(0.0f);
-
-            Vec2 velocity = to_player * archetype.mSpeed;
-
-            if (enemy.mType == ENEMY_BAT)
-                velocity += Vec2(-to_player.y, to_player.x) * glm::sin(m_RunTime * 3.0f + enemy.mPhase) * 1.5f;
-
-            enemy.mPosition += ( velocity + enemy.mKnockback ) * inDeltaTime + m_Pushes[index] * 0.5f;
-            enemy.mKnockback *= glm::exp(-inDeltaTime * 8.0f);
-
-            if (enemy.mType != ENEMY_BAT)
-                enemy.mPosition = ResolveObstacles(enemy.mPosition, archetype.mRadius);
-
-            enemy.mPosition = ClampToArena(enemy.mPosition, archetype.mRadius);
-
-            if (distance > 0.0001f)
-                enemy.mYaw = GetYaw(to_player);
-
+            enemy.mHitPunch = glm::max(0.0f, enemy.mHitPunch - inDeltaTime * 6.0f);
             enemy.mBladeCooldown = glm::max(0.0f, enemy.mBladeCooldown - inDeltaTime);
 
             if (enemy.mFlashTimer > 0.0f)
@@ -1070,56 +1938,454 @@ private:
                     RestoreModelMaterials(enemy.mModel);
             }
 
-            if (glm::distance(enemy.mPosition, m_PlayerPosition) < archetype.mRadius + cPlayerRadius)
-                DamagePlayer(archetype.mDamage);
+            if (enemy.mSpawnTimer > 0.0f)
+            {
+                enemy.mSpawnTimer -= inDeltaTime;
+                enemy.mVelocity = Vec2(0.0f);
+                continue;
+            }
 
-            if (distance > 60.0f)
+            Vec2 to_player = m_PlayerPosition - enemy.mPosition;
+            const float distance = glm::length(to_player);
+            to_player = distance > 0.0001f ? to_player / distance : Vec2(0.0f);
+            const Vec2 side = Vec2(-to_player.y, to_player.x);
+
+            const float speed = archetype.mSpeed * ( enemy.mElite ? 0.9f : 1.0f );
+            Vec2 desired = to_player * speed;
+            Vec2 facing = to_player;
+
+            switch (enemy.mType)
+            {
+                case ENEMY_BAT:
+                {
+                    desired += side * glm::sin(m_RunTime * 3.0f + enemy.mPhase) * 1.5f;
+                } break;
+
+                case ENEMY_SKELETON:
+                {
+                    if (enemy.mAction == ACTION_AIM)
+                    {
+                        desired = Vec2(0.0f);
+                        enemy.mActionTimer -= inDeltaTime;
+
+                        if (enemy.mActionTimer <= 0.0f)
+                        {
+                            const Vec2 lead = m_PlayerPosition + m_PlayerVelocity * glm::min(distance / 13.0f, 0.8f) * 0.6f;
+                            const Vec2 aim = glm::normalize(lead - enemy.mPosition + Vec2(0.0001f));
+                            FireEnemyProjectile(m_Arrows, ToWorld(enemy.mPosition + aim * 0.5f, 1.1f), Vec3(aim.x, 0.0f, aim.y) * 13.0f, 7.0f * ( enemy.mElite ? 1.5f : 1.0f ), 3.0f);
+                            enemy.mAction = ACTION_NONE;
+                            enemy.mAttackTimer = RandomFloat(2.2f, 3.2f);
+                        }
+                    }
+                    else
+                    {
+                        if (distance > 10.0f)
+                            desired = to_player * speed;
+                        else if (distance < 6.5f)
+                            desired = -to_player * speed * 0.8f;
+                        else
+                            desired = side * speed * 0.5f * ( glm::sin(enemy.mPhase) > 0.0f ? 1.0f : -1.0f );
+
+                        enemy.mAttackTimer -= inDeltaTime;
+
+                        if (enemy.mAttackTimer <= 0.0f && distance < 15.0f)
+                        {
+                            enemy.mAction = ACTION_AIM;
+                            enemy.mActionTimer = 0.6f;
+                        }
+                    }
+                } break;
+
+                case ENEMY_BLOATER:
+                {
+                    if (enemy.mAction == ACTION_FUSE)
+                    {
+                        desired = Vec2(0.0f);
+                        enemy.mActionTimer -= inDeltaTime;
+
+                        if (glm::fract(enemy.mActionTimer * 6.0f) < 0.5f)
+                            SetModelMaterial(enemy.mModel, m_FXMaterials[FX_POISON]);
+                        else
+                            RestoreModelMaterials(enemy.mModel);
+
+                        if (enemy.mActionTimer <= 0.0f)
+                        {
+                            BloaterBurst(int(index));
+                            continue;
+                        }
+                    }
+                    else if (distance < 2.2f)
+                    {
+                        enemy.mAction = ACTION_FUSE;
+                        enemy.mActionTimer = 0.9f;
+                        enemy.mTelegraph = SpawnTelegraph(ToWorld(enemy.mPosition, 0.0f), 2.8f, 0.9f, m_PoisonTelegraphMaterial);
+                    }
+                } break;
+
+                case ENEMY_WRAITH:
+                {
+                    if (enemy.mAction == ACTION_DASH_WINDUP)
+                    {
+                        desired = Vec2(0.0f);
+                        enemy.mActionTimer -= inDeltaTime;
+
+                        if (enemy.mActionTimer <= 0.0f)
+                        {
+                            enemy.mAction = ACTION_DASH;
+                            enemy.mActionTimer = 0.45f;
+                            enemy.mDashDirection = to_player;
+                        }
+                    }
+                    else if (enemy.mAction == ACTION_DASH)
+                    {
+                        desired = enemy.mDashDirection * speed * 3.2f;
+                        facing = enemy.mDashDirection;
+                        enemy.mActionTimer -= inDeltaTime;
+
+                        Emit(ToWorld(enemy.mPosition, 1.1f), ParticleDesc { .mMesh = PARTICLE_PUFF, .mMaterial = FX_ARCANE, .mCount = 1, .mSpeedMin = 0.1f, .mSpeedMax = 0.5f, .mLifeMin = 0.25f, .mLifeMax = 0.4f, .mSizeMin = 0.25f, .mSizeMax = 0.4f, .mGravity = -1.0f, .mSpread = 0.3f });
+
+                        if (enemy.mActionTimer <= 0.0f)
+                        {
+                            enemy.mAction = ACTION_NONE;
+                            enemy.mAttackTimer = RandomFloat(3.0f, 4.5f);
+                        }
+                    }
+                    else
+                    {
+                        enemy.mAttackTimer -= inDeltaTime;
+
+                        if (enemy.mAttackTimer <= 0.0f && distance < 9.0f)
+                        {
+                            enemy.mAction = ACTION_DASH_WINDUP;
+                            enemy.mActionTimer = 0.45f;
+                        }
+                    }
+                } break;
+
+                case ENEMY_BRUTE:
+                {
+                    if (enemy.mAction == ACTION_SLAM)
+                    {
+                        desired = Vec2(0.0f);
+                        facing = enemy.mDashDirection;
+                        enemy.mActionTimer -= inDeltaTime;
+
+                        if (enemy.mActionTimer <= 0.0f)
+                        {
+                            BruteSlam(enemy);
+                            enemy.mAction = ACTION_NONE;
+                            enemy.mAttackTimer = RandomFloat(2.5f, 3.5f);
+                        }
+                    }
+                    else
+                    {
+                        enemy.mAttackTimer -= inDeltaTime;
+
+                        if (enemy.mAttackTimer <= 0.0f && distance < 3.4f)
+                        {
+                            enemy.mAction = ACTION_SLAM;
+                            enemy.mActionTimer = 0.8f;
+                            enemy.mDashDirection = to_player;
+                            enemy.mTelegraph = SpawnTelegraph(ToWorld(enemy.mPosition + to_player * 1.4f, 0.0f), 3.0f * ( enemy.mElite ? 1.3f : 1.0f ), 0.8f, m_DangerMaterial);
+                        }
+                    }
+                } break;
+
+                case ENEMY_LICH:
+                {
+                    UpdateLich(enemy, distance, to_player, side, desired, inDeltaTime);
+                } break;
+            }
+
+            enemy.mPosition += ( desired + enemy.mKnockback ) * inDeltaTime + m_Pushes[index] * 0.5f;
+            enemy.mVelocity = desired;
+            enemy.mKnockback *= glm::exp(-inDeltaTime * 8.0f);
+
+            if (!archetype.mFlying)
+                enemy.mPosition = ResolveObstacles(enemy.mPosition, archetype.mRadius);
+
+            enemy.mPosition = ClampToArena(enemy.mPosition, archetype.mRadius);
+
+            if (glm::length(facing) > 0.0001f)
+                enemy.mYaw = LerpAngle(enemy.mYaw, GetYaw(facing), 1.0f - glm::exp(-inDeltaTime * 10.0f));
+
+            const float contact_radius = archetype.mRadius * ( enemy.mElite ? 1.25f : 1.0f ) + cPlayerRadius;
+
+            if (glm::distance(enemy.mPosition, m_PlayerPosition) < contact_radius)
+                DamagePlayer(archetype.mDamage * ( enemy.mElite ? 1.5f : 1.0f ));
+
+            if (distance > 60.0f && enemy.mType != ENEMY_LICH)
                 Despawn(int(index));
         }
+    }
+
+    void UpdateLich(Enemy& ioEnemy, float inDistance, const Vec2& inToPlayer, const Vec2& inSide, Vec2& outDesired, float inDeltaTime)
+    {
+        const float speed = cEnemyArchetypes[ENEMY_LICH].mSpeed;
+        const bool enraged = ioEnemy.mHealth < ioEnemy.mMaxHealth * 0.5f;
+
+        if (inDistance > 9.0f)
+            outDesired = inToPlayer * speed;
+        else if (inDistance < 6.0f)
+            outDesired = -inToPlayer * speed * 0.6f;
+        else
+            outDesired = inSide * speed * 0.5f;
+
+        if (ioEnemy.mAction == ACTION_CAST)
+        {
+            outDesired *= 0.2f;
+            ioEnemy.mActionTimer -= inDeltaTime;
+
+            const Vec3 hand = ToWorld(ioEnemy.mPosition, 1.6f);
+            Emit(hand + RandomDirection() * 1.5f, ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = FX_PURPLE, .mCount = 2, .mSpeedMin = 0.5f, .mSpeedMax = 1.0f, .mLifeMin = 0.2f, .mLifeMax = 0.35f, .mSizeMin = 0.15f, .mSizeMax = 0.25f, .mDrag = 1.0f });
+
+            if (ioEnemy.mActionTimer > 0.0f)
+                return;
+
+            ioEnemy.mAction = ACTION_NONE;
+            ioEnemy.mAttackTimer = enraged ? 1.8f : 2.6f;
+
+            const Vec3 origin = ToWorld(ioEnemy.mPosition, 1.4f);
+
+            switch (m_BossPattern)
+            {
+                case 0:
+                {
+                    const int count = enraged ? 26 : 18;
+                    const float offset = RandomFloat(0.0f, glm::two_pi<float>());
+
+                    for (int orb = 0; orb < count; orb++)
+                    {
+                        const float angle = offset + glm::two_pi<float>() * float(orb) / float(count);
+                        const Vec3 direction = Vec3(glm::cos(angle), 0.0f, glm::sin(angle));
+                        FireEnemyProjectile(m_Orbs, origin + direction * 1.2f, direction * 6.0f, 12.0f, 5.0f);
+                    }
+                } break;
+
+                case 1:
+                {
+                    const int count = enraged ? 7 : 5;
+                    const float base = glm::atan(inToPlayer.y, inToPlayer.x);
+
+                    for (int orb = 0; orb < count; orb++)
+                    {
+                        const float angle = base + ( float(orb) - float(count - 1) * 0.5f ) * 0.14f;
+                        const Vec3 direction = Vec3(glm::cos(angle), 0.0f, glm::sin(angle));
+                        FireEnemyProjectile(m_Orbs, origin + direction * 1.2f, direction * 9.5f, 12.0f, 4.0f);
+                    }
+                } break;
+
+                case 2:
+                {
+                    const int count = enraged ? 8 : 5;
+
+                    for (int minion = 0; minion < count; minion++)
+                    {
+                        const Vec2 position = ClampToArena(m_PlayerPosition + RandomCircle() * RandomFloat(6.0f, 8.0f), 1.0f);
+                        SpawnEnemy(minion % 3 == 2 ? ENEMY_GHOUL : ENEMY_SKELETON, position);
+                    }
+
+                    AddPopup("THE DEAD ANSWER", "", Vec4(0.8f, 0.5f, 1.0f, 1.0f), false);
+                } break;
+            }
+
+            m_BossPattern = ( m_BossPattern + 1 ) % 3;
+            SpawnRing(ToWorld(ioEnemy.mPosition, 0.1f), 0.5f, 4.0f, 0.4f, m_FXMaterials[FX_PURPLE], 0.8f);
+            SpawnLight(origin, Vec3(0.75f, 0.35f, 1.0f), 1500000.0f, 10.0f, 0.4f);
+            AddTraumaAt(origin, 0.12f);
+            return;
+        }
+
+        ioEnemy.mAttackTimer -= inDeltaTime;
+
+        if (ioEnemy.mAttackTimer <= 0.0f)
+        {
+            ioEnemy.mAction = ACTION_CAST;
+            ioEnemy.mActionTimer = 0.7f;
+        }
+
+        if (RandomFloat(0.0f, 1.0f) < 0.4f)
+            Emit(ToWorld(ioEnemy.mPosition, 0.4f), ParticleDesc { .mMesh = PARTICLE_PUFF, .mMaterial = FX_PURPLE, .mCount = 1, .mSpeedMin = 0.2f, .mSpeedMax = 0.6f, .mLifeMin = 0.5f, .mLifeMax = 0.9f, .mSizeMin = 0.2f, .mSizeMax = 0.4f, .mGravity = -1.0f, .mSpread = 0.8f });
+    }
+
+    void BruteSlam(Enemy& ioEnemy)
+    {
+        const float radius = 3.0f * ( ioEnemy.mElite ? 1.3f : 1.0f );
+        const Vec2 center = ioEnemy.mPosition + ioEnemy.mDashDirection * 1.4f;
+
+        ReleaseTelegraph(ioEnemy.mTelegraph);
+        ioEnemy.mTelegraph = -1;
+
+        if (glm::distance(center, m_PlayerPosition) < radius + cPlayerRadius)
+            DamagePlayer(22.0f * ( ioEnemy.mElite ? 1.5f : 1.0f ));
+
+        Explode(ToWorld(center, 0.1f), radius, 0.0f, EXPLOSION_DUST, false, 0.0f);
+    }
+
+    void BloaterBurst(int inIndex)
+    {
+        Enemy& enemy = m_Enemies[inIndex];
+
+        ReleaseTelegraph(enemy.mTelegraph);
+        enemy.mTelegraph = -1;
+
+        Explode(ToWorld(enemy.mPosition, 0.6f), 2.8f, 25.0f, EXPLOSION_POISON, true, 18.0f * ( enemy.mElite ? 1.5f : 1.0f ));
+        ReleaseAura(enemy);
+        Despawn(inIndex);
     }
 
     void Despawn(int inIndex)
     {
         Enemy& enemy = m_Enemies[inIndex];
+
+        ReleaseTelegraph(enemy.mTelegraph);
+        enemy.mTelegraph = -1;
+        ReleaseAura(enemy);
+
         enemy.mActive = false;
         enemy.mDying = false;
+        RestoreModelMaterials(enemy.mModel);
         Park(enemy.mModel.mRoot);
         m_FreeEnemies[enemy.mType].push_back(inIndex);
+
+        if (inIndex == m_BossEnemy)
+            m_BossEnemy = -1;
     }
 
-    void DamageEnemy(int inIndex, float inDamage, const Vec2& inKnockback)
+    void ReleaseAura(Enemy& ioEnemy)
+    {
+        if (ioEnemy.mAura >= 0)
+        {
+            m_EliteAuras[ioEnemy.mAura].mActive = false;
+            Park(m_EliteAuras[ioEnemy.mAura].mEntity);
+            ioEnemy.mAura = -1;
+        }
+    }
+
+    bool DamageEnemy(int inIndex, float inDamage, const Vec2& inKnockback, bool inCanCrit = true)
     {
         Enemy& enemy = m_Enemies[inIndex];
 
         if (!enemy.mActive || enemy.mDying)
-            return;
+            return false;
 
-        const float knockback_scale = enemy.mType == ENEMY_BRUTE ? 0.15f : 1.0f;
+        const bool crit = inCanCrit && RandomFloat(0.0f, 1.0f) < GetCritChance();
+        const float damage = crit ? inDamage * 2.0f : inDamage;
 
-        enemy.mHealth -= inDamage;
-        enemy.mKnockback += inKnockback * knockback_scale;
+        enemy.mHealth -= damage;
+        enemy.mKnockback += inKnockback * cEnemyArchetypes[enemy.mType].mKnockback * ( enemy.mElite ? 0.4f : 1.0f );
         enemy.mFlashTimer = cFlashDuration;
-        SetModelMaterial(enemy.mModel, m_FlashMaterial);
+        enemy.mHitPunch = 1.0f;
+        m_DamageDealt += damage;
 
-        AddDamageNumber(ToWorld(enemy.mPosition, cEnemyArchetypes[enemy.mType].mTop + 0.3f), int(glm::ceil(inDamage)));
+        if (enemy.mAction != ACTION_FUSE)
+            SetModelMaterial(enemy.mModel, enemy.mElite ? m_EliteFlashMaterial : m_FlashMaterial);
+
+        AddDamageNumber(ToWorld(enemy.mPosition, cEnemyArchetypes[enemy.mType].mTop * ( enemy.mElite ? 1.35f : 1.0f ) + 0.3f), int(glm::ceil(damage)), crit);
 
         if (enemy.mHealth <= 0.0f)
         {
-            enemy.mDying = true;
-            enemy.mDeathTimer = 0.0f;
-            m_Kills++;
+            KillEnemy(inIndex);
+            return true;
+        }
 
-            const int value = cEnemyArchetypes[enemy.mType].mGemValue;
+        return false;
+    }
 
-            if (enemy.mType == ENEMY_BRUTE)
+    void KillEnemy(int inIndex)
+    {
+        Enemy& enemy = m_Enemies[inIndex];
+        const EnemyArchetype& archetype = cEnemyArchetypes[enemy.mType];
+
+        enemy.mDying = true;
+        enemy.mDeathTimer = 0.0f;
+        enemy.mDeathSpin = RandomFloat(-1.0f, 1.0f);
+        enemy.mDeathImpact = false;
+
+        ReleaseTelegraph(enemy.mTelegraph);
+        enemy.mTelegraph = -1;
+
+        m_Kills++;
+        m_Streak++;
+        m_BestStreak = glm::max(m_BestStreak, m_Streak);
+        m_StreakTimer = cStreakWindow;
+
+        if (m_Streak > 0 && m_Streak % 50 == 0)
+            AddPopup(std::format("{} KILL STREAK", m_Streak), "", Vec4(1.0f, 0.8f, 0.3f, 1.0f), false);
+
+        const Vec3 center = ToWorld(enemy.mPosition, archetype.mTop * 0.5f);
+
+        switch (archetype.mDeathStyle)
+        {
+            case DEATH_FALL:
             {
-                for (int gem = 0; gem < 4; gem++)
-                    SpawnGem(enemy.mPosition + Vec2(RandomFloat(-1.0f, 1.0f), RandomFloat(-1.0f, 1.0f)), value);
-            }
-            else
+                Emit(ToWorld(enemy.mPosition, 0.2f), ParticleDesc { .mMesh = PARTICLE_CHUNK, .mMaterial = enemy.mType == ENEMY_BRUTE ? FX_FLESH : FX_GOO, .mCount = enemy.mType == ENEMY_BRUTE ? 10 : 5, .mSpeedMin = 2.0f, .mSpeedMax = 5.0f, .mLifeMin = 0.5f, .mLifeMax = 0.9f, .mSizeMin = 0.08f, .mSizeMax = 0.16f, .mEndSize = 0.4f, .mGravity = 16.0f, .mDrag = 0.5f, .mUpBias = 1.2f, .mSpread = 0.3f });
+                Emit(center, ParticleDesc { .mMesh = PARTICLE_PUFF, .mMaterial = FX_PURPLE, .mCount = 2, .mSpeedMin = 0.3f, .mSpeedMax = 0.8f, .mLifeMin = 0.8f, .mLifeMax = 1.2f, .mSizeMin = 0.15f, .mSizeMax = 0.3f, .mGravity = -2.5f, .mDrag = 1.0f });
+            } break;
+
+            case DEATH_SHATTER:
             {
-                SpawnGem(enemy.mPosition, value);
-            }
+                for (int part = 0; part < RIG_PART_COUNT; part++)
+                {
+                    const Vec2 out = RandomCircle();
+                    enemy.mShatterVelocity[part] = Vec3(out.x * RandomFloat(1.5f, 4.0f), RandomFloat(3.0f, 6.0f), out.y * RandomFloat(1.5f, 4.0f));
+                    enemy.mShatterAxis[part] = RandomDirection();
+                }
+
+                Emit(center, ParticleDesc { .mMesh = PARTICLE_CHUNK, .mMaterial = FX_BONE, .mCount = 8, .mSpeedMin = 2.0f, .mSpeedMax = 5.0f, .mLifeMin = 0.6f, .mLifeMax = 1.0f, .mSizeMin = 0.06f, .mSizeMax = 0.12f, .mEndSize = 0.5f, .mGravity = 16.0f, .mDrag = 0.4f, .mUpBias = 0.8f });
+                Emit(ToWorld(enemy.mPosition, 1.3f), ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = FX_DANGER, .mCount = 6, .mSpeedMin = 1.0f, .mSpeedMax = 3.0f, .mLifeMin = 0.3f, .mLifeMax = 0.5f, .mSizeMin = 0.12f, .mSizeMax = 0.2f, .mDrag = 2.0f });
+            } break;
+
+            case DEATH_SPIN:
+            {
+                Emit(center, ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = FX_PURPLE, .mCount = 6, .mSpeedMin = 1.5f, .mSpeedMax = 4.0f, .mLifeMin = 0.3f, .mLifeMax = 0.5f, .mSizeMin = 0.12f, .mSizeMax = 0.2f, .mGravity = 4.0f, .mDrag = 2.0f });
+            } break;
+
+            case DEATH_DISSIPATE:
+            {
+                Emit(center, ParticleDesc { .mMesh = PARTICLE_PUFF, .mMaterial = FX_ARCANE, .mCount = 6, .mSpeedMin = 0.5f, .mSpeedMax = 1.5f, .mLifeMin = 0.6f, .mLifeMax = 1.0f, .mSizeMin = 0.2f, .mSizeMax = 0.4f, .mGravity = -2.0f, .mDrag = 1.5f, .mSpread = 0.4f });
+            } break;
+
+            case DEATH_BOSS:
+            {
+                m_HitStop = 0.15f;
+                AddTrauma(0.6f);
+                AddPopup("THE LICH IS SLAIN", "Its treasure is yours", Vec4(1.0f, 0.82f, 0.35f, 1.0f), true);
+                m_BossKills++;
+            } break;
+
+            default:
+                break;
+        }
+
+        if (enemy.mElite)
+        {
+            m_EliteKills++;
+            SpawnPickup(PICKUP_CHEST, enemy.mPosition);
+            SpawnRing(ToWorld(enemy.mPosition, 0.1f), 0.5f, 5.0f, 0.5f, m_FXMaterials[FX_GOLD], 1.0f);
+            SpawnLight(center, Vec3(1.0f, 0.8f, 0.3f), 1500000.0f, 10.0f, 0.5f);
+            AddTraumaAt(center, 0.2f);
+        }
+
+        if (enemy.mType == ENEMY_LICH)
+        {
+            SpawnPickup(PICKUP_CHEST, enemy.mPosition);
+
+            for (int gem = 0; gem < 6; gem++)
+                SpawnGem(enemy.mPosition + RandomCircle() * RandomFloat(1.0f, 2.5f), archetype.mGemValue);
+        }
+        else
+        {
+            SpawnGem(enemy.mPosition, archetype.mGemValue * ( enemy.mElite ? 5 : 1 ));
+
+            const float roll = RandomFloat(0.0f, 1.0f);
+
+            if (roll < 0.01f)
+                SpawnPickup(PICKUP_POTION, enemy.mPosition);
+            else if (roll < 0.015f)
+                SpawnPickup(PICKUP_MAGNET, enemy.mPosition);
+            else if (roll < 0.019f)
+                SpawnPickup(PICKUP_BOMB, enemy.mPosition);
         }
     }
 
@@ -1132,10 +2398,112 @@ private:
             if (!enemy.mActive || !enemy.mDying)
                 continue;
 
+            const EnemyArchetype& archetype = cEnemyArchetypes[enemy.mType];
             enemy.mDeathTimer += inDeltaTime;
 
-            if (enemy.mDeathTimer >= cDeathDuration)
+            const float t = enemy.mDeathTimer / archetype.mDeathDuration;
+
+            if (archetype.mDeathStyle == DEATH_FALL && !enemy.mDeathImpact && t > 0.35f)
+            {
+                enemy.mDeathImpact = true;
+                Emit(ToWorld(enemy.mPosition, 0.1f), ParticleDesc { .mMesh = PARTICLE_PUFF, .mMaterial = FX_DIRT, .mCount = enemy.mType == ENEMY_BRUTE ? 8 : 3, .mSpeedMin = 1.0f, .mSpeedMax = 2.5f, .mLifeMin = 0.4f, .mLifeMax = 0.8f, .mSizeMin = 0.2f, .mSizeMax = 0.4f, .mGravity = -0.5f, .mDrag = 3.0f, .mSpread = 0.6f, .mFlat = true });
+
+                if (enemy.mType == ENEMY_BRUTE)
+                    AddTraumaAt(ToWorld(enemy.mPosition, 0.0f), 0.2f);
+            }
+
+            if (archetype.mDeathStyle == DEATH_DISSIPATE && RandomFloat(0.0f, 1.0f) < 0.5f)
+                Emit(ToWorld(enemy.mPosition, 1.2f), ParticleDesc { .mMesh = PARTICLE_PUFF, .mMaterial = FX_ARCANE, .mCount = 1, .mSpeedMin = 0.2f, .mSpeedMax = 0.6f, .mLifeMin = 0.4f, .mLifeMax = 0.7f, .mSizeMin = 0.15f, .mSizeMax = 0.3f, .mGravity = -2.0f, .mSpread = 0.4f });
+
+            if (archetype.mDeathStyle == DEATH_BOSS && glm::fract(enemy.mDeathTimer * 5.5f) < glm::fract(( enemy.mDeathTimer - inDeltaTime ) * 5.5f))
+            {
+                const Vec3 offset = Vec3(RandomFloat(-1.2f, 1.2f), RandomFloat(0.5f, 3.0f), RandomFloat(-1.2f, 1.2f));
+                Explode(ToWorld(enemy.mPosition, 0.0f) + offset, 1.6f, 0.0f, EXPLOSION_ARCANE, false, 0.0f);
+            }
+
+            if (enemy.mDeathTimer >= archetype.mDeathDuration)
+            {
+                if (archetype.mDeathStyle == DEATH_POP)
+                    Explode(ToWorld(enemy.mPosition, 0.6f), 2.8f, 25.0f, EXPLOSION_POISON, false, 0.0f);
+
+                if (archetype.mDeathStyle == DEATH_BOSS)
+                {
+                    Explode(ToWorld(enemy.mPosition, 1.5f), 6.0f, 0.0f, EXPLOSION_HOLY, false, 0.0f);
+                    m_ScreenFlash = 0.8f;
+                    m_HitStop = 0.12f;
+                }
+
                 Despawn(int(index));
+            }
+        }
+    }
+
+    void FireEnemyProjectile(Array<EnemyProjectile>& ioPool, const Vec3& inPosition, const Vec3& inVelocity, float inDamage, float inLife)
+    {
+        for (EnemyProjectile& projectile : ioPool)
+        {
+            if (projectile.mActive)
+                continue;
+
+            projectile.mActive = true;
+            projectile.mPosition = inPosition;
+            projectile.mVelocity = inVelocity;
+            projectile.mDamage = inDamage;
+            projectile.mLife = inLife;
+            return;
+        }
+    }
+
+    void UpdateEnemyProjectiles(float inDeltaTime)
+    {
+        const Vec3 player = GetPlayerCenter();
+
+        for (Array<EnemyProjectile>* pool : { &m_Arrows, &m_Orbs })
+        {
+            const bool orbs = pool == &m_Orbs;
+
+            for (EnemyProjectile& projectile : *pool)
+            {
+                if (!projectile.mActive)
+                    continue;
+
+                projectile.mPosition += projectile.mVelocity * inDeltaTime;
+                projectile.mLife -= inDeltaTime;
+
+                if (orbs && RandomFloat(0.0f, 1.0f) < 0.3f)
+                    Emit(projectile.mPosition, ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = FX_PURPLE, .mCount = 1, .mSpeedMin = 0.2f, .mSpeedMax = 0.6f, .mLifeMin = 0.15f, .mLifeMax = 0.3f, .mSizeMin = 0.1f, .mSizeMax = 0.18f });
+
+                const Vec2 flat = Vec2(projectile.mPosition.x, projectile.mPosition.z);
+                bool hit = false;
+
+                if (glm::distance(flat, m_PlayerPosition) < projectile.mRadius + cPlayerRadius && glm::abs(projectile.mPosition.y - player.y) < 1.2f)
+                {
+                    const bool dodged = m_DashTimer > -0.12f;
+
+                    if (!dodged)
+                    {
+                        DamagePlayer(projectile.mDamage);
+                        hit = true;
+                    }
+                }
+
+                const bool outside = glm::any(glm::greaterThan(glm::abs(flat), Vec2(cArenaHalfSize)));
+
+                if (hit || outside || projectile.mLife <= 0.0f)
+                {
+                    projectile.mActive = false;
+                    Park(projectile.mEntity);
+
+                    if (hit || orbs)
+                        Emit(projectile.mPosition, ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = orbs ? FX_PURPLE : FX_SPARK, .mCount = 6, .mSpeedMin = 1.5f, .mSpeedMax = 4.0f, .mLifeMin = 0.15f, .mLifeMax = 0.3f, .mSizeMin = 0.12f, .mSizeMax = 0.2f, .mDrag = 3.0f });
+
+                    continue;
+                }
+
+                const float spin = orbs ? m_Time * 6.0f : 0.0f;
+                const Quat rotation = LookRotation(projectile.mVelocity) * Quat(Vec3(0.0f, 0.0f, spin));
+                SetTransform(projectile.mEntity, projectile.mPosition, Vec3(orbs ? 1.0f + 0.15f * glm::sin(m_Time * 20.0f) : 1.0f), rotation);
+            }
         }
     }
 
@@ -1143,6 +2511,7 @@ private:
     {
         const float damage_multiplier = GetDamageMultiplier();
         const float cooldown_multiplier = GetCooldownMultiplier();
+        const float area = GetAreaMultiplier();
 
         if (const int level = m_UpgradeLevels[UPGRADE_BOLT]; level > 0)
         {
@@ -1160,7 +2529,7 @@ private:
             m_BladeAngle += inDeltaTime * ( 2.6f + 0.25f * level );
 
             const int count = glm::min(1 + level, cMaxBlades);
-            const float radius = 2.0f + 0.2f * level;
+            const float radius = ( 2.0f + 0.2f * level ) * glm::sqrt(area);
             const float damage = ( 2.0f + 0.75f * level ) * damage_multiplier;
 
             for (int blade = 0; blade < count; blade++)
@@ -1168,7 +2537,7 @@ private:
                 const float angle = m_BladeAngle + glm::two_pi<float>() * float(blade) / float(count);
                 const Vec2 position = m_PlayerPosition + Vec2(glm::cos(angle), glm::sin(angle)) * radius;
 
-                ForEachEnemyNear(position, 0.35f, [&](int inIndex, Enemy& inEnemy)
+                ForEachEnemyNear(position, 0.4f, [&](int inIndex, Enemy& inEnemy)
                 {
                     if (inEnemy.mBladeCooldown > 0.0f)
                         return;
@@ -1177,6 +2546,7 @@ private:
 
                     const Vec2 away = inEnemy.mPosition - m_PlayerPosition;
                     DamageEnemy(inIndex, damage, glm::length(away) > 0.0001f ? glm::normalize(away) * 6.0f : Vec2(0.0f));
+                    Emit(ToWorld(position, 0.8f), ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = FX_EMBER, .mCount = 4, .mSpeedMin = 2.0f, .mSpeedMax = 5.0f, .mLifeMin = 0.15f, .mLifeMax = 0.3f, .mSizeMin = 0.12f, .mSizeMax = 0.2f, .mGravity = 6.0f, .mDrag = 2.0f });
                 });
             }
         }
@@ -1188,46 +2558,70 @@ private:
             if (m_NovaTimer <= 0.0f)
             {
                 m_NovaTimer = ( 3.6f - 0.35f * ( level - 1 ) ) * cooldown_multiplier;
-                m_NovaAge = 0.0f;
-                m_NovaRadius = 3.5f + 0.6f * level;
 
+                const float radius = ( 3.5f + 0.6f * level ) * area;
                 const float damage = ( 4.0f + 1.5f * level ) * damage_multiplier;
 
-                ForEachEnemyNear(m_PlayerPosition, m_NovaRadius, [&](int inIndex, Enemy& inEnemy)
+                ForEachEnemyNear(m_PlayerPosition, radius, [&](int inIndex, Enemy& inEnemy)
                 {
                     const Vec2 away = inEnemy.mPosition - m_PlayerPosition;
                     DamageEnemy(inIndex, damage, glm::length(away) > 0.0001f ? glm::normalize(away) * 14.0f : Vec2(0.0f));
                 });
 
-                m_Shake = glm::max(m_Shake, 0.15f);
+                const Vec3 ground = ToWorld(m_PlayerPosition, 0.15f);
+                SpawnRing(ground, 0.5f, radius * 1.05f, 0.4f, m_FXMaterials[FX_PURPLE], 1.6f);
+                SpawnRing(ground + Vec3(0.0f, 0.4f, 0.0f), 0.3f, radius * 0.7f, 0.3f, m_FXMaterials[FX_ARCANE], 0.8f);
+                Emit(ground + Vec3(0.0f, 0.3f, 0.0f), ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = FX_PURPLE, .mCount = 28, .mSpeedMin = radius * 2.0f, .mSpeedMax = radius * 3.0f, .mLifeMin = 0.25f, .mLifeMax = 0.4f, .mSizeMin = 0.25f, .mSizeMax = 0.4f, .mDrag = 4.0f, .mFlat = true });
+                SpawnLight(ground + Vec3(0.0f, 1.0f, 0.0f), Vec3(0.75f, 0.45f, 1.0f), 1500000.0f, radius * 2.5f, 0.35f);
+                AddTrauma(0.12f);
             }
         }
 
-        if (m_NovaAge >= 0.0f)
-            m_NovaAge += inDeltaTime;
+        if (const int level = m_UpgradeLevels[UPGRADE_FIREBALL]; level > 0)
+        {
+            m_FireballTimer -= inDeltaTime;
+
+            if (m_FireballTimer <= 0.0f)
+            {
+                m_FireballTimer = ( 2.6f - 0.25f * ( level - 1 ) ) * cooldown_multiplier;
+
+                const int count = 1 + ( level >= 3 ) + ( level >= 5 );
+
+                for (int shot = 0; shot < count; shot++)
+                    LaunchFireball(( 8.0f + 4.0f * level ) * damage_multiplier, ( 2.0f + 0.25f * level ) * area);
+            }
+        }
+
+        if (const int level = m_UpgradeLevels[UPGRADE_LIGHTNING]; level > 0)
+        {
+            m_LightningTimer -= inDeltaTime;
+
+            if (m_LightningTimer <= 0.0f)
+            {
+                m_LightningTimer = ( 2.2f - 0.2f * ( level - 1 ) ) * cooldown_multiplier;
+                CastLightning(2 + level, ( 7.0f + 3.0f * level ) * damage_multiplier);
+            }
+        }
+
+        if (const int level = m_UpgradeLevels[UPGRADE_METEOR]; level > 0)
+        {
+            m_MeteorTimer -= inDeltaTime;
+
+            if (m_MeteorTimer <= 0.0f)
+            {
+                m_MeteorTimer = ( 5.5f - 0.5f * ( level - 1 ) ) * cooldown_multiplier;
+
+                const int count = 1 + level / 2;
+
+                for (int meteor = 0; meteor < count; meteor++)
+                    CallMeteor(( 25.0f + 10.0f * level ) * damage_multiplier, ( 3.0f + 0.3f * level ) * area, meteor * 0.25f);
+            }
+        }
     }
 
     void FireBolts(int inLevel, float inDamageMultiplier)
     {
-        int target = -1;
-        float target_distance = 18.0f;
-
-        for (size_t index = 0; index < m_Enemies.size(); index++)
-        {
-            const Enemy& enemy = m_Enemies[index];
-
-            if (!enemy.mActive || enemy.mDying)
-                continue;
-
-            const float distance = glm::distance(enemy.mPosition, m_PlayerPosition);
-
-            if (distance < target_distance)
-            {
-                target = int(index);
-                target_distance = distance;
-            }
-        }
-
+        const int target = FindNearestEnemy(m_PlayerPosition, 18.0f);
         const Vec2 aim = target >= 0 ? glm::normalize(m_Enemies[target].mPosition - m_PlayerPosition + Vec2(0.0001f)) : m_FacingDirection;
 
         const int count = 1 + ( inLevel >= 3 ) + ( inLevel >= 5 );
@@ -1253,6 +2647,9 @@ private:
                 break;
             }
         }
+
+        m_CastTimer = 0.25f;
+        Emit(GetStaffTip(), ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = FX_ARCANE, .mCount = 4, .mSpeedMin = 1.0f, .mSpeedMax = 3.0f, .mLifeMin = 0.15f, .mLifeMax = 0.25f, .mSizeMin = 0.1f, .mSizeMax = 0.18f, .mDrag = 3.0f });
     }
 
     void UpdateProjectiles(float inDeltaTime)
@@ -1262,8 +2659,19 @@ private:
             if (!projectile.mActive)
                 continue;
 
+            const int target = FindNearestEnemy(projectile.mPosition, 6.0f, projectile.mLastHit);
+
+            if (target >= 0)
+            {
+                const Vec2 desired = glm::normalize(m_Enemies[target].mPosition - projectile.mPosition + Vec2(0.0001f)) * 17.0f;
+                projectile.mVelocity = glm::normalize(glm::mix(projectile.mVelocity, desired, 1.0f - glm::exp(-inDeltaTime * 4.0f))) * 17.0f;
+            }
+
             projectile.mPosition += projectile.mVelocity * inDeltaTime;
             projectile.mLifetime -= inDeltaTime;
+
+            if (RandomFloat(0.0f, 1.0f) < 0.5f)
+                Emit(ToWorld(projectile.mPosition, 0.9f), ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = FX_ARCANE, .mCount = 1, .mSpeedMin = 0.2f, .mSpeedMax = 0.8f, .mLifeMin = 0.12f, .mLifeMax = 0.22f, .mSizeMin = 0.1f, .mSizeMax = 0.15f, .mDrag = 2.0f });
 
             ForEachEnemyNear(projectile.mPosition, 0.2f, [&](int inIndex, Enemy& inEnemy)
             {
@@ -1274,6 +2682,7 @@ private:
                 projectile.mPierce--;
 
                 DamageEnemy(inIndex, projectile.mDamage, glm::normalize(projectile.mVelocity) * 4.0f);
+                Emit(ToWorld(projectile.mPosition, 0.9f), ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = FX_ARCANE, .mCount = 6, .mSpeedMin = 2.0f, .mSpeedMax = 5.0f, .mLifeMin = 0.15f, .mLifeMax = 0.3f, .mSizeMin = 0.15f, .mSizeMax = 0.25f, .mDrag = 3.0f });
             });
 
             const bool outside = glm::any(glm::greaterThan(glm::abs(projectile.mPosition), Vec2(cArenaHalfSize)));
@@ -1284,6 +2693,234 @@ private:
                 Park(projectile.mEntity);
             }
         }
+    }
+
+    void LaunchFireball(float inDamage, float inRadius)
+    {
+        Array<int> candidates;
+
+        for (size_t index = 0; index < m_Enemies.size(); index++)
+        {
+            const Enemy& enemy = m_Enemies[index];
+
+            if (enemy.mActive && !enemy.mDying && glm::distance(enemy.mPosition, m_PlayerPosition) < 14.0f)
+                candidates.push_back(int(index));
+        }
+
+        Vec2 target = m_PlayerPosition + m_FacingDirection * 8.0f;
+
+        if (!candidates.empty())
+            target = m_Enemies[candidates[RandomInt(0, int(candidates.size()) - 1)]].mPosition;
+
+        for (Fireball& fireball : m_Fireballs)
+        {
+            if (fireball.mActive)
+                continue;
+
+            fireball.mActive = true;
+            fireball.mStart = GetStaffTip();
+            fireball.mTarget = ToWorld(target, 0.3f);
+            fireball.mPosition = fireball.mStart;
+            fireball.mTime = 0.0f;
+            fireball.mDuration = 0.45f + glm::distance(target, m_PlayerPosition) * 0.03f;
+            fireball.mDamage = inDamage;
+            fireball.mRadius = inRadius;
+            m_CastTimer = 0.3f;
+            return;
+        }
+    }
+
+    void UpdateFireballs(float inDeltaTime)
+    {
+        for (Fireball& fireball : m_Fireballs)
+        {
+            if (!fireball.mActive)
+                continue;
+
+            fireball.mTime += inDeltaTime;
+            const float t = glm::min(fireball.mTime / fireball.mDuration, 1.0f);
+
+            fireball.mPosition = glm::mix(fireball.mStart, fireball.mTarget, t) + Vec3(0.0f, 4.0f * t * ( 1.0f - t ) * 3.0f, 0.0f);
+
+            Emit(fireball.mPosition, ParticleDesc { .mMesh = PARTICLE_PUFF, .mMaterial = FX_FIRE, .mCount = 2, .mSpeedMin = 0.2f, .mSpeedMax = 0.8f, .mLifeMin = 0.2f, .mLifeMax = 0.35f, .mSizeMin = 0.25f, .mSizeMax = 0.4f, .mDrag = 2.0f, .mSpread = 0.15f });
+
+            if (RandomFloat(0.0f, 1.0f) < 0.5f)
+                Emit(fireball.mPosition, ParticleDesc { .mMesh = PARTICLE_PUFF, .mMaterial = FX_SMOKE, .mCount = 1, .mSpeedMin = 0.2f, .mSpeedMax = 0.5f, .mLifeMin = 0.4f, .mLifeMax = 0.7f, .mSizeMin = 0.2f, .mSizeMax = 0.35f, .mEndSize = 1.6f, .mGravity = -1.5f, .mDrag = 1.0f });
+
+            SetTransform(fireball.mEntity, fireball.mPosition, Vec3(1.0f + 0.15f * glm::sin(m_Time * 30.0f)), Quat(Vec3(m_Time * 7.0f, m_Time * 5.0f, 0.0f)));
+
+            if (t >= 1.0f)
+            {
+                fireball.mActive = false;
+                Park(fireball.mEntity);
+                Explode(fireball.mTarget, fireball.mRadius, fireball.mDamage, EXPLOSION_FIRE, false, 0.0f);
+            }
+        }
+    }
+
+    void CastLightning(int inJumps, float inDamage)
+    {
+        Array<int> hits;
+        int current = FindNearestEnemy(m_PlayerPosition, 12.0f);
+
+        if (current < 0)
+            return;
+
+        Vec3 from = GetStaffTip();
+
+        for (int jump = 0; jump < inJumps && current >= 0; jump++)
+        {
+            hits.push_back(current);
+
+            const Enemy& enemy = m_Enemies[current];
+            const Vec3 to = ToWorld(enemy.mPosition, cEnemyArchetypes[enemy.mType].mTop * 0.6f);
+            const Vec2 knock = glm::length(enemy.mPosition - m_PlayerPosition) > 0.001f ? glm::normalize(enemy.mPosition - m_PlayerPosition) * 3.0f : Vec2(0.0f);
+
+            SpawnLightningArc(from, to, jump == 0 ? 1.4f : 1.0f);
+            Emit(to, ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = FX_WHITE, .mCount = 8, .mSpeedMin = 3.0f, .mSpeedMax = 7.0f, .mLifeMin = 0.12f, .mLifeMax = 0.25f, .mSizeMin = 0.15f, .mSizeMax = 0.25f, .mGravity = 4.0f, .mDrag = 3.0f });
+
+            DamageEnemy(current, inDamage, knock);
+
+            from = to;
+            current = FindNearestEnemy(Vec2(to.x, to.z), 5.5f, -1, &hits);
+        }
+
+        SpawnLight(GetStaffTip(), Vec3(0.7f, 0.85f, 1.0f), 1200000.0f, 12.0f, 0.2f);
+        AddTrauma(0.07f);
+        m_CastTimer = 0.3f;
+    }
+
+    void SpawnLightningArc(const Vec3& inFrom, const Vec3& inTo, float inWidth)
+    {
+        constexpr int cSegments = 6;
+
+        Vec3 previous = inFrom;
+        const Vec3 delta = inTo - inFrom;
+        const Vec3 side = glm::normalize(glm::cross(delta + Vec3(0.0001f), Vec3(0.0f, 1.0f, 0.0f)) + Vec3(0.0001f));
+
+        for (int segment = 1; segment <= cSegments; segment++)
+        {
+            const float t = float(segment) / float(cSegments);
+            Vec3 point = inFrom + delta * t;
+
+            if (segment < cSegments)
+                point += side * RandomFloat(-0.45f, 0.45f) + Vec3(0.0f, RandomFloat(-0.3f, 0.3f), 0.0f);
+
+            SpawnBeam(previous, point, inWidth, RandomFloat(0.12f, 0.2f));
+
+            if (segment == cSegments / 2 && RandomFloat(0.0f, 1.0f) < 0.6f)
+                SpawnBeam(point, point + RandomDirection() * RandomFloat(0.5f, 1.0f), inWidth * 0.6f, 0.12f);
+
+            previous = point;
+        }
+    }
+
+    void CallMeteor(float inDamage, float inRadius, float inDelay)
+    {
+        Vec2 target = m_PlayerPosition + RandomCircle() * RandomFloat(4.0f, 12.0f);
+
+        const int enemy = FindNearestEnemy(m_PlayerPosition + RandomCircle() * RandomFloat(3.0f, 10.0f), 16.0f);
+
+        if (enemy >= 0)
+            target = m_Enemies[enemy].mPosition;
+
+        target = ClampToArena(target, 1.0f);
+
+        for (Meteor& meteor : m_Meteors)
+        {
+            if (meteor.mActive)
+                continue;
+
+            meteor.mActive = true;
+            meteor.mTarget = ToWorld(target, 0.0f);
+            meteor.mStart = meteor.mTarget + Vec3(-5.0f, 16.0f, -4.0f);
+            meteor.mTime = -inDelay;
+            meteor.mDuration = 1.0f;
+            meteor.mDamage = inDamage;
+            meteor.mRadius = inRadius;
+            meteor.mTelegraph = SpawnTelegraph(meteor.mTarget, inRadius, meteor.mDuration + inDelay, m_TargetMaterial);
+            return;
+        }
+    }
+
+    void UpdateMeteors(float inDeltaTime)
+    {
+        for (Meteor& meteor : m_Meteors)
+        {
+            if (!meteor.mActive)
+                continue;
+
+            meteor.mTime += inDeltaTime;
+
+            if (meteor.mTime < 0.0f)
+                continue;
+
+            const float t = glm::min(meteor.mTime / meteor.mDuration, 1.0f);
+            const Vec3 position = glm::mix(meteor.mStart, meteor.mTarget + Vec3(0.0f, 0.4f, 0.0f), t * t);
+
+            SetTransform(meteor.mEntity, position, Vec3(1.0f), Quat(Vec3(m_Time * 4.0f, m_Time * 3.0f, 0.0f)));
+
+            Emit(position, ParticleDesc { .mMesh = PARTICLE_PUFF, .mMaterial = FX_FIRE, .mCount = 3, .mSpeedMin = 0.3f, .mSpeedMax = 1.0f, .mLifeMin = 0.25f, .mLifeMax = 0.45f, .mSizeMin = 0.4f, .mSizeMax = 0.7f, .mDrag = 2.0f, .mSpread = 0.3f });
+            Emit(position, ParticleDesc { .mMesh = PARTICLE_PUFF, .mMaterial = FX_SMOKE, .mCount = 1, .mSpeedMin = 0.2f, .mSpeedMax = 0.6f, .mLifeMin = 0.6f, .mLifeMax = 1.0f, .mSizeMin = 0.4f, .mSizeMax = 0.6f, .mEndSize = 2.0f, .mGravity = -1.0f, .mDrag = 1.0f, .mSpread = 0.3f });
+
+            if (t >= 1.0f)
+            {
+                meteor.mActive = false;
+                Park(meteor.mEntity);
+                ReleaseTelegraph(meteor.mTelegraph);
+                meteor.mTelegraph = -1;
+                Explode(meteor.mTarget + Vec3(0.0f, 0.3f, 0.0f), meteor.mRadius, meteor.mDamage, EXPLOSION_METEOR, false, 0.0f);
+            }
+        }
+    }
+
+    void Explode(const Vec3& inPosition, float inRadius, float inDamage, EExplosion inStyle, bool inHurtsPlayer, float inPlayerDamage)
+    {
+        const Vec2 center = Vec2(inPosition.x, inPosition.z);
+
+        if (inDamage > 0.0f)
+        {
+            ForEachEnemyNear(center, inRadius, [&](int inIndex, Enemy& inEnemy)
+            {
+                const Vec2 away = inEnemy.mPosition - center;
+                const float distance = glm::length(away);
+                const float falloff = glm::mix(1.0f, 0.5f, glm::clamp(distance / inRadius, 0.0f, 1.0f));
+                DamageEnemy(inIndex, inDamage * falloff, distance > 0.0001f ? away / distance * 12.0f : Vec2(0.0f));
+            });
+        }
+
+        if (inHurtsPlayer && glm::distance(center, m_PlayerPosition) < inRadius + cPlayerRadius)
+            DamagePlayer(inPlayerDamage);
+
+        int core = FX_FIRE, spark = FX_EMBER, ring = FX_FIRE, chunk = FX_DIRT;
+        Vec3 light = Vec3(1.0f, 0.55f, 0.2f);
+        bool smoke = true;
+
+        switch (inStyle)
+        {
+            case EXPLOSION_POISON: core = FX_POISON; spark = FX_POISON; ring = FX_POISON; chunk = FX_GOO;  light = Vec3(0.5f, 1.0f, 0.3f);  break;
+            case EXPLOSION_ARCANE: core = FX_PURPLE; spark = FX_PURPLE; ring = FX_PURPLE; chunk = FX_BONE; light = Vec3(0.75f, 0.4f, 1.0f); smoke = false; break;
+            case EXPLOSION_HOLY:   core = FX_WHITE;  spark = FX_GOLD;   ring = FX_GOLD;   chunk = FX_DIRT; light = Vec3(1.0f, 0.9f, 0.6f);  smoke = false; break;
+            case EXPLOSION_DUST:   core = FX_DIRT;   spark = FX_DIRT;   ring = FX_DANGER; chunk = FX_DIRT; light = Vec3(1.0f, 0.4f, 0.2f);  break;
+            default: break;
+        }
+
+        const float scale = glm::clamp(inRadius / 2.5f, 0.6f, 2.5f);
+        const int count = int(10.0f * scale);
+
+        if (inStyle != EXPLOSION_DUST)
+            Emit(inPosition, ParticleDesc { .mMesh = PARTICLE_PUFF, .mMaterial = core, .mCount = count, .mSpeedMin = inRadius * 1.2f, .mSpeedMax = inRadius * 2.4f, .mLifeMin = 0.2f, .mLifeMax = 0.4f, .mSizeMin = 0.4f * scale, .mSizeMax = 0.8f * scale, .mEndSize = 0.2f, .mDrag = 5.0f, .mUpBias = 0.3f });
+
+        Emit(inPosition, ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = spark, .mCount = count + 6, .mSpeedMin = 6.0f, .mSpeedMax = 14.0f * scale, .mLifeMin = 0.3f, .mLifeMax = 0.7f, .mSizeMin = 0.18f, .mSizeMax = 0.3f, .mGravity = 12.0f, .mDrag = 1.5f, .mUpBias = 0.8f });
+        Emit(inPosition, ParticleDesc { .mMesh = PARTICLE_CHUNK, .mMaterial = chunk, .mCount = count / 2 + 2, .mSpeedMin = 3.0f, .mSpeedMax = 8.0f * scale, .mLifeMin = 0.7f, .mLifeMax = 1.2f, .mSizeMin = 0.1f, .mSizeMax = 0.2f * scale, .mEndSize = 0.5f, .mGravity = 18.0f, .mDrag = 0.5f, .mUpBias = 1.4f });
+
+        if (smoke)
+            Emit(inPosition, ParticleDesc { .mMesh = PARTICLE_PUFF, .mMaterial = inStyle == EXPLOSION_DUST ? FX_DIRT : FX_SMOKE, .mCount = count / 2 + 2, .mSpeedMin = 0.8f, .mSpeedMax = 2.5f * scale, .mLifeMin = 0.7f, .mLifeMax = 1.3f, .mSizeMin = 0.4f * scale, .mSizeMax = 0.7f * scale, .mEndSize = 1.8f, .mGravity = -1.2f, .mDrag = 2.0f, .mUpBias = 0.5f, .mSpread = inRadius * 0.3f });
+
+        SpawnRing(Vec3(inPosition.x, 0.12f, inPosition.z), 0.3f, inRadius * 1.25f, 0.35f, m_FXMaterials[ring], 1.0f + scale * 0.5f);
+        SpawnLight(inPosition + Vec3(0.0f, 1.0f, 0.0f), light, 900000.0f * scale * scale, inRadius * 4.0f, 0.35f);
+        AddTraumaAt(inPosition, glm::clamp(inRadius * 0.07f, 0.06f, 0.5f));
+        m_CameraKick = glm::max(m_CameraKick, glm::clamp(inRadius * 0.15f, 0.0f, 1.2f));
     }
 
     void SpawnGem(const Vec2& inPosition, int inValue)
@@ -1327,7 +2964,12 @@ private:
         target->mPhase = RandomFloat(0.0f, glm::two_pi<float>());
         target->mValue = inValue;
 
-        SetModelMaterial(target->mModel, inValue > 1 ? m_LargeGemMaterial : m_SmallGemMaterial);
+        SetModelMaterial(target->mModel, m_GemMaterials[GetGemTier(inValue)]);
+    }
+
+    static int GetGemTier(int inValue)
+    {
+        return inValue >= 25 ? 2 : inValue >= 5 ? 1 : 0;
     }
 
     void UpdateGems(float inDeltaTime)
@@ -1356,8 +2998,138 @@ private:
                 gem.mActive = false;
                 Park(gem.mModel.mRoot);
                 AddExperience(gem.mValue);
+
+                const int tier = GetGemTier(gem.mValue);
+                Emit(GetPlayerCenter(), ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = tier == 2 ? FX_DANGER : tier == 1 ? FX_ARCANE : FX_HEAL, .mCount = 2 + tier * 3, .mSpeedMin = 1.0f, .mSpeedMax = 3.0f, .mLifeMin = 0.15f, .mLifeMax = 0.3f, .mSizeMin = 0.1f, .mSizeMax = 0.15f, .mDrag = 3.0f, .mUpBias = 0.5f });
             }
         }
+    }
+
+    void SpawnPickup(int inType, const Vec2& inPosition)
+    {
+        for (Pickup& pickup : m_Pickups)
+        {
+            if (pickup.mActive || pickup.mType != inType)
+                continue;
+
+            pickup.mActive = true;
+            pickup.mOpening = false;
+            pickup.mPosition = ClampToArena(inPosition, 0.6f);
+            pickup.mPhase = RandomFloat(0.0f, glm::two_pi<float>());
+            pickup.mTime = 0.0f;
+            pickup.mOpenTimer = 0.0f;
+
+            SpawnRing(ToWorld(pickup.mPosition, 0.1f), 0.2f, 1.6f, 0.4f, m_FXMaterials[FX_GOLD], 0.8f);
+            return;
+        }
+    }
+
+    void UpdatePickups(float inDeltaTime)
+    {
+        for (Pickup& pickup : m_Pickups)
+        {
+            if (!pickup.mActive)
+                continue;
+
+            pickup.mTime += inDeltaTime;
+
+            if (pickup.mOpening)
+            {
+                pickup.mOpenTimer += inDeltaTime;
+
+                if (RandomFloat(0.0f, 1.0f) < 0.6f)
+                    Emit(ToWorld(pickup.mPosition, 0.5f), ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = FX_GOLD, .mCount = 2, .mSpeedMin = 2.0f, .mSpeedMax = 5.0f, .mLifeMin = 0.4f, .mLifeMax = 0.8f, .mSizeMin = 0.15f, .mSizeMax = 0.25f, .mGravity = 3.0f, .mDrag = 1.0f, .mUpBias = 3.0f, .mSpread = 0.2f });
+
+                if (pickup.mOpenTimer >= 1.0f)
+                {
+                    pickup.mActive = false;
+                    Park(pickup.mModel.mRoot);
+                    Park(pickup.mGlow);
+                    OpenChest(pickup.mPosition);
+                }
+
+                continue;
+            }
+
+            const float distance = glm::distance(pickup.mPosition, m_PlayerPosition);
+
+            if (pickup.mType != PICKUP_CHEST && distance < 1.8f && distance > 0.0001f)
+                pickup.mPosition += ( m_PlayerPosition - pickup.mPosition ) / distance * glm::min(distance, 9.0f * inDeltaTime);
+
+            if (distance < 0.9f)
+                CollectPickup(pickup);
+        }
+    }
+
+    void CollectPickup(Pickup& ioPickup)
+    {
+        const Vec3 center = GetPlayerCenter();
+
+        switch (ioPickup.mType)
+        {
+            case PICKUP_POTION:
+            {
+                const float heal = GetMaxHealth() * 0.35f;
+                m_Health = glm::min(GetMaxHealth(), m_Health + heal);
+                AddPopup("HEALTH RESTORED", std::format("+{} HP", int(heal)), Vec4(1.0f, 0.45f, 0.45f, 1.0f), false);
+                Emit(center, ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = FX_HEAL, .mCount = 24, .mSpeedMin = 0.5f, .mSpeedMax = 1.5f, .mLifeMin = 0.6f, .mLifeMax = 1.0f, .mSizeMin = 0.15f, .mSizeMax = 0.25f, .mGravity = -4.0f, .mDrag = 1.0f, .mSpread = 0.8f, .mFlat = true });
+                SpawnRing(ToWorld(m_PlayerPosition, 0.1f), 0.3f, 2.0f, 0.5f, m_FXMaterials[FX_HEAL], 0.8f);
+            } break;
+
+            case PICKUP_MAGNET:
+            {
+                for (Gem& gem : m_Gems)
+                    gem.mAttracted |= gem.mActive;
+
+                AddPopup("MAGNETIZED", "All gems fly to you", Vec4(0.45f, 0.85f, 1.0f, 1.0f), false);
+                SpawnRing(ToWorld(m_PlayerPosition, 0.2f), 0.5f, 30.0f, 0.8f, m_FXMaterials[FX_ARCANE], 2.0f);
+            } break;
+
+            case PICKUP_BOMB:
+            {
+                Explode(center, 13.0f * GetAreaMultiplier(), 300.0f * GetDamageMultiplier(), EXPLOSION_HOLY, false, 0.0f);
+                m_ScreenFlash = 1.0f;
+                m_HitStop = 0.1f;
+                AddTrauma(0.7f);
+                AddPopup("HOLY BOMB", "", Vec4(1.0f, 0.9f, 0.6f, 1.0f), true);
+            } break;
+
+            case PICKUP_CHEST:
+            {
+                ioPickup.mOpening = true;
+                ioPickup.mOpenTimer = 0.0f;
+                SpawnLight(ToWorld(ioPickup.mPosition, 1.5f), Vec3(1.0f, 0.8f, 0.3f), 2000000.0f, 10.0f, 1.0f);
+                return;
+            }
+        }
+
+        ioPickup.mActive = false;
+        Park(ioPickup.mModel.mRoot);
+        Park(ioPickup.mGlow);
+    }
+
+    void OpenChest(const Vec2& inPosition)
+    {
+        const int rewards = 1 + ( RandomFloat(0.0f, 1.0f) < 0.45f ) + ( RandomFloat(0.0f, 1.0f) < 0.15f );
+
+        for (int reward = 0; reward < rewards; reward++)
+        {
+            Array<int> options;
+
+            for (int upgrade = 0; upgrade < UPGRADE_COUNT; upgrade++)
+            {
+                if (m_UpgradeLevels[upgrade] > 0 && m_UpgradeLevels[upgrade] < cMaxUpgradeLevel)
+                    options.push_back(upgrade);
+            }
+
+            const int upgrade = options.empty() ? UPGRADE_FEAST : options[RandomInt(0, int(options.size()) - 1)];
+            ApplyUpgrade(upgrade);
+        }
+
+        Emit(ToWorld(inPosition, 0.5f), ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = FX_GOLD, .mCount = 40, .mSpeedMin = 4.0f, .mSpeedMax = 10.0f, .mLifeMin = 0.6f, .mLifeMax = 1.2f, .mSizeMin = 0.2f, .mSizeMax = 0.35f, .mGravity = 10.0f, .mDrag = 0.8f, .mUpBias = 1.5f });
+        SpawnRing(ToWorld(inPosition, 0.1f), 0.5f, 6.0f, 0.6f, m_FXMaterials[FX_GOLD], 1.4f);
+        AddTrauma(0.25f);
+        AddPopup("TREASURE", rewards > 1 ? std::format("{} upgrades", rewards) : String("1 upgrade"), Vec4(1.0f, 0.82f, 0.35f, 1.0f), true);
     }
 
     void AddExperience(int inValue)
@@ -1374,11 +3146,15 @@ private:
 
     void UpdateProgress()
     {
+        m_HealthTrail = glm::max(m_Health, m_HealthTrail - GetMaxHealth() * 0.5f * ( 1.0f / 60.0f ));
+
         if (m_RunTime >= cVictoryTime)
         {
             m_State = STATE_VICTORY;
             m_EndTime = m_Time;
+            m_PlayerDeathTimer = 0.0f;
             m_BestTime = glm::max(m_BestTime, m_RunTime);
+            m_ScreenFlash = 0.6f;
             return;
         }
 
@@ -1417,6 +3193,31 @@ private:
         m_SelectedChoice = 0;
         m_LevelUpTime = m_Time;
         m_State = STATE_LEVEL_UP;
+
+        const Vec3 ground = ToWorld(m_PlayerPosition, 0.1f);
+        SpawnRing(ground, 0.4f, 4.0f, 0.5f, m_FXMaterials[FX_GOLD], 1.2f);
+        SpawnLight(GetPlayerCenter(), Vec3(1.0f, 0.85f, 0.5f), 1500000.0f, 10.0f, 0.6f);
+        Emit(ground, ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = FX_GOLD, .mCount = 30, .mSpeedMin = 3.0f, .mSpeedMax = 7.0f, .mLifeMin = 0.5f, .mLifeMax = 0.9f, .mSizeMin = 0.2f, .mSizeMax = 0.3f, .mDrag = 1.0f, .mUpBias = 4.0f, .mSpread = 0.6f });
+    }
+
+    void ApplyUpgrade(int inUpgrade)
+    {
+        if (inUpgrade == UPGRADE_FEAST)
+        {
+            m_Health = glm::min(GetMaxHealth(), m_Health + GetMaxHealth() * 0.3f);
+            AddPopup("FEAST", "", Vec4(cUpgrades[UPGRADE_FEAST].mColor, 1.0f), false);
+            return;
+        }
+
+        m_UpgradeLevels[inUpgrade]++;
+
+        if (inUpgrade == UPGRADE_VITALITY)
+            m_Health = glm::min(GetMaxHealth(), m_Health + 25.0f);
+
+        if (inUpgrade == UPGRADE_NOVA && m_UpgradeLevels[inUpgrade] == 1)
+            m_NovaTimer = 0.5f;
+
+        AddPopup(std::format("{}  LV {}", cUpgrades[inUpgrade].mName, m_UpgradeLevels[inUpgrade]), "", Vec4(cUpgrades[inUpgrade].mColor, 1.0f), false);
     }
 
     void ChooseUpgrade(int inChoice)
@@ -1424,112 +3225,680 @@ private:
         if (inChoice < 0 || inChoice >= m_ChoiceCount)
             return;
 
-        const int upgrade = m_Choices[inChoice];
-
-        if (upgrade == UPGRADE_FEAST)
-        {
-            m_Health = glm::min(GetMaxHealth(), m_Health + GetMaxHealth() * 0.3f);
-        }
-        else
-        {
-            m_UpgradeLevels[upgrade]++;
-
-            if (upgrade == UPGRADE_VITALITY)
-                m_Health = glm::min(GetMaxHealth(), m_Health + 25.0f);
-
-            if (upgrade == UPGRADE_NOVA && m_UpgradeLevels[upgrade] == 1)
-                m_NovaTimer = 0.5f;
-        }
-
-        AddPopup(upgrade == UPGRADE_FEAST ? "FEAST" : std::format("{}  LV {}", cUpgrades[upgrade].mName, m_UpgradeLevels[upgrade]), Vec4(cUpgrades[upgrade].mColor, 1.0f));
+        ApplyUpgrade(m_Choices[inChoice]);
 
         m_ChoiceCount = 0;
         m_State = STATE_PLAYING;
     }
 
+    void Emit(const Vec3& inPosition, const ParticleDesc& inDesc)
+    {
+        Array<Particle>& pool = m_Particles[inDesc.mMesh];
+
+        if (pool.empty())
+            return;
+
+        const Entity material = m_FXMaterials[inDesc.mMaterial];
+
+        for (int index = 0; index < inDesc.mCount; index++)
+        {
+            int& cursor = m_ParticleCursor[inDesc.mMesh];
+            Particle& particle = pool[cursor];
+            cursor = ( cursor + 1 ) % int(pool.size());
+
+            Vec3 direction = RandomDirection();
+
+            if (inDesc.mFlat)
+                direction.y = 0.0f;
+
+            direction.y += inDesc.mUpBias;
+            direction = glm::length(direction) > 0.0001f ? glm::normalize(direction) : Vec3(0.0f, 1.0f, 0.0f);
+
+            Vec3 offset = RandomDirection() * RandomFloat(0.0f, inDesc.mSpread);
+
+            if (inDesc.mFlat)
+                offset.y = 0.0f;
+
+            particle.mActive = true;
+            particle.mStretch = inDesc.mMesh == PARTICLE_SPARK;
+            particle.mBounce = inDesc.mMesh == PARTICLE_CHUNK;
+            particle.mPosition = inPosition + offset;
+            particle.mVelocity = direction * RandomFloat(inDesc.mSpeedMin, inDesc.mSpeedMax) + inDesc.mBaseVelocity;
+            particle.mAxis = RandomDirection();
+            particle.mAngle = RandomFloat(0.0f, glm::two_pi<float>());
+            particle.mSpin = RandomFloat(-8.0f, 8.0f);
+            particle.mLife = 0.0f;
+            particle.mMaxLife = RandomFloat(inDesc.mLifeMin, inDesc.mLifeMax);
+            particle.mSize = RandomFloat(inDesc.mSizeMin, inDesc.mSizeMax);
+            particle.mEndSize = particle.mSize * inDesc.mEndSize;
+            particle.mGravity = inDesc.mGravity;
+            particle.mDrag = inDesc.mDrag;
+
+            if (particle.mMaterial != material)
+            {
+                particle.mMaterial = material;
+                SetMaterial(particle.mEntity, material);
+            }
+        }
+    }
+
+    void UpdateParticles(float inDeltaTime)
+    {
+        for (Array<Particle>& pool : m_Particles)
+        {
+            for (Particle& particle : pool)
+            {
+                if (!particle.mActive)
+                    continue;
+
+                particle.mLife += inDeltaTime;
+
+                if (particle.mLife >= particle.mMaxLife)
+                {
+                    particle.mActive = false;
+                    Park(particle.mEntity);
+                    continue;
+                }
+
+                particle.mVelocity.y -= particle.mGravity * inDeltaTime;
+                particle.mVelocity *= glm::exp(-particle.mDrag * inDeltaTime);
+                particle.mPosition += particle.mVelocity * inDeltaTime;
+                particle.mAngle += particle.mSpin * inDeltaTime;
+
+                if (particle.mBounce && particle.mPosition.y < 0.05f)
+                {
+                    particle.mPosition.y = 0.05f;
+                    particle.mVelocity.y = glm::abs(particle.mVelocity.y) * 0.35f;
+                    particle.mVelocity.x *= 0.6f;
+                    particle.mVelocity.z *= 0.6f;
+                    particle.mSpin *= 0.6f;
+                }
+
+                const float t = particle.mLife / particle.mMaxLife;
+                const float size = glm::mix(particle.mSize, particle.mEndSize, t * t);
+
+                if (particle.mStretch)
+                {
+                    const float speed = glm::length(particle.mVelocity);
+                    SetTransform(particle.mEntity, particle.mPosition, Vec3(size, size, size * ( 1.0f + speed * 0.12f )), LookRotation(particle.mVelocity));
+                }
+                else
+                {
+                    SetTransform(particle.mEntity, particle.mPosition, Vec3(size), glm::angleAxis(particle.mAngle, particle.mAxis));
+                }
+            }
+        }
+    }
+
+    void SpawnRing(const Vec3& inPosition, float inStartRadius, float inEndRadius, float inLife, Entity inMaterial, float inThickness)
+    {
+        Ring* target = &m_Rings[0];
+        float oldest = -1.0f;
+
+        for (Ring& ring : m_Rings)
+        {
+            if (!ring.mActive)
+            {
+                target = &ring;
+                break;
+            }
+
+            if (ring.mLife / ring.mMaxLife > oldest)
+            {
+                oldest = ring.mLife / ring.mMaxLife;
+                target = &ring;
+            }
+        }
+
+        target->mActive = true;
+        target->mPosition = inPosition;
+        target->mStartRadius = inStartRadius;
+        target->mEndRadius = inEndRadius;
+        target->mThickness = inThickness;
+        target->mLife = 0.0f;
+        target->mMaxLife = inLife;
+
+        if (target->mMaterial != inMaterial)
+        {
+            target->mMaterial = inMaterial;
+            SetMaterial(target->mEntity, inMaterial);
+        }
+    }
+
+    void UpdateRings(float inDeltaTime)
+    {
+        for (Ring& ring : m_Rings)
+        {
+            if (!ring.mActive)
+                continue;
+
+            ring.mLife += inDeltaTime;
+
+            const float t = ring.mLife / ring.mMaxLife;
+
+            if (t >= 1.0f)
+            {
+                ring.mActive = false;
+                Park(ring.mEntity);
+                continue;
+            }
+
+            const float radius = glm::mix(ring.mStartRadius, ring.mEndRadius, EaseOutCubic(t));
+            const float thickness = ring.mThickness * ( 1.0f - t ) * 2.0f;
+            SetTransform(ring.mEntity, ring.mPosition, Vec3(radius * 2.0f, thickness, radius * 2.0f));
+        }
+    }
+
+    int SpawnTelegraph(const Vec3& inPosition, float inRadius, float inDuration, Entity inMaterial)
+    {
+        for (int index = 0; index < int(m_Telegraphs.size()); index++)
+        {
+            Telegraph& telegraph = m_Telegraphs[index];
+
+            if (telegraph.mActive)
+                continue;
+
+            telegraph.mActive = true;
+            telegraph.mPosition = Vec3(inPosition.x, 0.07f, inPosition.z);
+            telegraph.mRadius = inRadius;
+            telegraph.mTime = 0.0f;
+            telegraph.mDuration = inDuration;
+
+            SetMaterial(telegraph.mDisc, inMaterial);
+            SetMaterial(telegraph.mRing, inMaterial);
+            return index;
+        }
+
+        return -1;
+    }
+
+    void ReleaseTelegraph(int inIndex)
+    {
+        if (inIndex >= 0 && inIndex < int(m_Telegraphs.size()))
+            ReleaseTelegraph(m_Telegraphs[inIndex]);
+    }
+
+    void ReleaseTelegraph(Telegraph& ioTelegraph)
+    {
+        ioTelegraph.mActive = false;
+        Park(ioTelegraph.mDisc);
+        Park(ioTelegraph.mRing);
+    }
+
+    void UpdateTelegraphs(float inDeltaTime)
+    {
+        for (Telegraph& telegraph : m_Telegraphs)
+        {
+            if (!telegraph.mActive)
+                continue;
+
+            telegraph.mTime += inDeltaTime;
+
+            if (telegraph.mTime > telegraph.mDuration + 0.1f)
+            {
+                ReleaseTelegraph(telegraph);
+                continue;
+            }
+
+            const float t = glm::clamp(telegraph.mTime / telegraph.mDuration, 0.0f, 1.0f);
+            const float pulse = 1.0f + 0.04f * glm::sin(m_Time * 20.0f);
+
+            SetTransform(telegraph.mDisc, telegraph.mPosition, Vec3(telegraph.mRadius * 2.0f * t, 1.0f, telegraph.mRadius * 2.0f * t));
+            SetTransform(telegraph.mRing, telegraph.mPosition + Vec3(0.0f, 0.02f, 0.0f), Vec3(telegraph.mRadius * 2.0f * pulse, 0.6f, telegraph.mRadius * 2.0f * pulse));
+        }
+    }
+
+    void SpawnBeam(const Vec3& inStart, const Vec3& inEnd, float inWidth, float inLife)
+    {
+        for (Beam& beam : m_Beams)
+        {
+            if (beam.mActive)
+                continue;
+
+            beam.mActive = true;
+            beam.mStart = inStart;
+            beam.mEnd = inEnd;
+            beam.mWidth = inWidth;
+            beam.mLife = 0.0f;
+            beam.mMaxLife = inLife;
+            return;
+        }
+    }
+
+    void UpdateBeams(float inDeltaTime)
+    {
+        for (Beam& beam : m_Beams)
+        {
+            if (!beam.mActive)
+                continue;
+
+            beam.mLife += inDeltaTime;
+
+            if (beam.mLife >= beam.mMaxLife)
+            {
+                beam.mActive = false;
+                Park(beam.mEntity);
+                continue;
+            }
+
+            const Vec3 delta = beam.mEnd - beam.mStart;
+            const float width = beam.mWidth * ( 1.0f - beam.mLife / beam.mMaxLife ) * RandomFloat(0.6f, 1.4f);
+            SetTransform(beam.mEntity, ( beam.mStart + beam.mEnd ) * 0.5f, Vec3(width, width, glm::length(delta)), LookRotation(delta));
+        }
+    }
+
+    void SpawnLight(const Vec3& inPosition, const Vec3& inColor, float inIntensity, float inRadius, float inLife)
+    {
+        FlashLight* target = &m_Lights[0];
+        float oldest = -1.0f;
+
+        for (FlashLight& flash : m_Lights)
+        {
+            if (!flash.mActive)
+            {
+                target = &flash;
+                break;
+            }
+
+            if (flash.mLife / flash.mMaxLife > oldest)
+            {
+                oldest = flash.mLife / flash.mMaxLife;
+                target = &flash;
+            }
+        }
+
+        target->mActive = true;
+        target->mColor = inColor;
+        target->mIntensity = inIntensity;
+        target->mLife = 0.0f;
+        target->mMaxLife = inLife;
+
+        SetTransform(target->mEntity, inPosition, Vec3(1.0f));
+
+        if (Light* light = FindComponent<Light>(target->mEntity))
+            light->attributes.x = inRadius;
+    }
+
+    void UpdateLights(float inDeltaTime)
+    {
+        for (FlashLight& flash : m_Lights)
+        {
+            if (!flash.mActive)
+                continue;
+
+            flash.mLife += inDeltaTime;
+
+            const float t = glm::clamp(flash.mLife / flash.mMaxLife, 0.0f, 1.0f);
+            const float fade = ( 1.0f - t ) * ( 1.0f - t );
+
+            if (Light* light = FindComponent<Light>(flash.mEntity))
+                light->color = Vec4(flash.mColor, flash.mIntensity * fade);
+
+            if (t >= 1.0f)
+                flash.mActive = false;
+        }
+    }
+
+    void AnimatePlayer(float inDeltaTime)
+    {
+        const Model& model = m_PlayerModel;
+        const float speed = glm::length(m_PlayerVelocity);
+        const float move = glm::clamp(speed / cPlayerBaseSpeed, 0.0f, 1.5f);
+
+        m_PlayerWalkPhase += inDeltaTime * ( 3.0f + speed * 1.9f );
+
+        const float s = glm::sin(m_PlayerWalkPhase);
+        const float c = glm::cos(m_PlayerWalkPhase);
+        const float breathe = glm::sin(m_Time * 2.0f) * 0.02f;
+        const float cast = glm::clamp(m_CastTimer / 0.25f, 0.0f, 1.0f);
+        const bool dashing = m_DashTimer > 0.0f;
+
+        float pitch = dashing ? -0.35f : -0.08f * move;
+        float height = glm::abs(s) * 0.06f * move;
+
+        if (m_State == STATE_GAME_OVER)
+        {
+            const float t = glm::clamp(m_PlayerDeathTimer / 0.5f, 0.0f, 1.0f);
+            pitch = EaseOutCubic(t) * 1.45f;
+            height = 0.0f;
+        }
+
+        SetTransform(m_PlayerEntity, ToWorld(m_PlayerPosition, height), Vec3(1.0f), Quat(Vec3(0.0f, m_PlayerYaw, 0.0f)) * Quat(Vec3(pitch, 0.0f, 0.0f)));
+
+        Pose(model, RIG_BODY, Vec3(0.0f, breathe, 0.0f), Vec3(0.0f, 0.0f, s * 0.05f * move));
+        Pose(model, RIG_HEAD, Vec3(0.0f, breathe, 0.0f), Vec3(-c * 0.05f * move, 0.0f, 0.0f));
+        Pose(model, RIG_LEG_L, Vec3(0.0f), Vec3(s * 0.6f * move, 0.0f, 0.0f));
+        Pose(model, RIG_LEG_R, Vec3(0.0f), Vec3(-s * 0.6f * move, 0.0f, 0.0f));
+        Pose(model, RIG_ARM_L, Vec3(0.0f), Vec3(-s * 0.5f * move + ( dashing ? 0.8f : 0.0f ), 0.0f, -0.1f));
+        Pose(model, RIG_ARM_R, Vec3(0.0f), Vec3(glm::mix(s * 0.3f * move, -1.3f, cast) + ( dashing ? 0.6f : 0.0f ), 0.0f, 0.05f));
+    }
+
+    void AnimateEnemy(Enemy& ioEnemy, float inDeltaTime)
+    {
+        const EnemyArchetype& archetype = cEnemyArchetypes[ioEnemy.mType];
+        const Model& model = ioEnemy.mModel;
+
+        const float speed = glm::length(ioEnemy.mVelocity);
+        const float move = glm::clamp(speed / archetype.mSpeed, 0.0f, 1.5f);
+
+        ioEnemy.mWalkPhase += inDeltaTime * ( 2.0f + speed * 2.4f );
+
+        const float s = glm::sin(ioEnemy.mWalkPhase);
+        const float c = glm::cos(ioEnemy.mWalkPhase);
+        const float idle = glm::sin(m_Time * 2.0f + ioEnemy.mPhase);
+
+        float height = archetype.mHover;
+        float pitch = 0.0f;
+        float roll = 0.0f;
+        float body_scale = 1.0f;
+        Vec3 scale = Vec3(ioEnemy.mElite ? 1.35f : 1.0f);
+
+        Vec3 body = Vec3(0.0f), head = Vec3(0.0f), arm_l = Vec3(0.0f), arm_r = Vec3(0.0f), leg_l = Vec3(0.0f), leg_r = Vec3(0.0f), wing_l = Vec3(0.0f), wing_r = Vec3(0.0f);
+        Vec3 body_offset = Vec3(0.0f);
+
+        switch (ioEnemy.mType)
+        {
+            case ENEMY_GHOUL:
+            {
+                leg_l.x = s * 0.7f * move;
+                leg_r.x = -s * 0.7f * move;
+                arm_l.x = -0.15f + c * 0.25f;
+                arm_r.x = -0.15f - c * 0.25f;
+                body_offset.y = glm::abs(s) * 0.06f * move;
+                roll = s * 0.08f * move;
+                head.z = glm::sin(ioEnemy.mWalkPhase * 0.5f) * 0.18f;
+            } break;
+
+            case ENEMY_BAT:
+            {
+                height += glm::sin(m_Time * 5.0f + ioEnemy.mPhase) * 0.2f;
+                const float flap = glm::sin(m_Time * 22.0f + ioEnemy.mPhase) * 0.75f;
+                wing_l.z = -flap;
+                wing_r.z = flap;
+                pitch = -0.15f;
+            } break;
+
+            case ENEMY_SKELETON:
+            {
+                leg_l.x = s * 0.6f * move;
+                leg_r.x = -s * 0.6f * move;
+                arm_r.x = -s * 0.4f * move;
+                body_offset.y = glm::abs(s) * 0.04f * move;
+                head.x = idle * 0.05f;
+
+                if (ioEnemy.mAction == ACTION_AIM)
+                {
+                    const float draw = 1.0f - glm::clamp(ioEnemy.mActionTimer / 0.6f, 0.0f, 1.0f);
+                    arm_l.x = -0.2f * draw;
+                    arm_r.x = -0.3f - 0.4f * draw;
+                    arm_r.y = 0.4f * draw;
+                }
+            } break;
+
+            case ENEMY_BLOATER:
+            {
+                roll = s * 0.16f * move;
+                leg_l.x = s * 0.45f * move;
+                leg_r.x = -s * 0.45f * move;
+                arm_l.z = -0.3f + c * 0.3f;
+                arm_r.z = 0.3f - c * 0.3f;
+                body_scale = 1.0f + 0.05f * glm::sin(m_Time * 3.0f + ioEnemy.mPhase);
+
+                if (ioEnemy.mAction == ACTION_FUSE)
+                {
+                    const float fuse = 1.0f - glm::clamp(ioEnemy.mActionTimer / 0.9f, 0.0f, 1.0f);
+                    body_scale += fuse * 0.35f + glm::sin(m_Time * 40.0f) * 0.04f;
+                }
+            } break;
+
+            case ENEMY_WRAITH:
+            {
+                height += glm::sin(m_Time * 2.4f + ioEnemy.mPhase) * 0.15f;
+                pitch = -0.25f * move;
+                arm_l.x = -0.4f + glm::sin(m_Time * 3.0f + ioEnemy.mPhase) * 0.25f;
+                arm_r.x = -0.4f - glm::sin(m_Time * 3.0f + ioEnemy.mPhase) * 0.25f;
+
+                if (ioEnemy.mAction == ACTION_DASH_WINDUP)
+                {
+                    roll = glm::sin(m_Time * 60.0f) * 0.12f;
+                    arm_l.x = arm_r.x = -1.6f;
+                }
+                else if (ioEnemy.mAction == ACTION_DASH)
+                {
+                    pitch = -0.7f;
+                    arm_l.x = arm_r.x = -1.2f;
+                }
+            } break;
+
+            case ENEMY_BRUTE:
+            {
+                leg_l.x = s * 0.45f * move;
+                leg_r.x = -s * 0.45f * move;
+                arm_l.x = -s * 0.3f * move;
+                arm_r.x = s * 0.2f * move - 0.2f;
+                roll = s * 0.06f * move;
+                body_offset.y = glm::abs(s) * 0.05f * move;
+
+                if (ioEnemy.mAction == ACTION_SLAM)
+                {
+                    const float windup = 1.0f - glm::clamp(ioEnemy.mActionTimer / 0.8f, 0.0f, 1.0f);
+                    arm_r.x = windup < 0.85f ? -2.7f * EaseOutCubic(windup / 0.85f) : glm::mix(-2.7f, 0.4f, ( windup - 0.85f ) / 0.15f);
+                    pitch = 0.12f * EaseOutCubic(windup);
+                }
+            } break;
+
+            case ENEMY_LICH:
+            {
+                height += glm::sin(m_Time * 1.6f) * 0.2f;
+                arm_l.x = -0.3f + idle * 0.15f;
+                arm_r.x = -0.2f - idle * 0.1f;
+                head.y = glm::sin(m_Time * 0.7f) * 0.2f;
+
+                if (ioEnemy.mAction == ACTION_CAST)
+                {
+                    const float raise = 1.0f - glm::clamp(ioEnemy.mActionTimer / 0.7f, 0.0f, 1.0f);
+                    arm_l.x = arm_r.x = -1.6f * EaseOutCubic(raise);
+                    arm_l.z = -0.4f * raise;
+                    arm_r.z = 0.4f * raise;
+                }
+            } break;
+        }
+
+        if (ioEnemy.mSpawnTimer > 0.0f)
+        {
+            const float t = 1.0f - glm::clamp(ioEnemy.mSpawnTimer / archetype.mSpawnDuration, 0.0f, 1.0f);
+
+            switch (archetype.mSpawnStyle)
+            {
+                case SPAWN_RISE:
+                {
+                    height -= ( 1.0f - EaseOutCubic(t) ) * archetype.mTop * 1.1f;
+                    arm_l.x = arm_r.x = -2.4f * ( 1.0f - t );
+                } break;
+
+                case SPAWN_SWOOP:
+                {
+                    height += ( 1.0f - t ) * ( 1.0f - t ) * 7.0f;
+                } break;
+
+                case SPAWN_FADE:
+                {
+                    scale *= glm::max(EaseOutBack(t), 0.01f);
+                } break;
+            }
+        }
+
+        scale *= 1.0f + ioEnemy.mHitPunch * ioEnemy.mHitPunch * 0.18f;
+
+        SetTransform(model.mRoot, ToWorld(ioEnemy.mPosition, height), scale, Quat(Vec3(0.0f, ioEnemy.mYaw, 0.0f)) * Quat(Vec3(pitch, 0.0f, roll)));
+
+        Pose(model, RIG_BODY, body_offset, body, body_scale);
+        Pose(model, RIG_HEAD, body_offset, head);
+        Pose(model, RIG_ARM_L, body_offset, arm_l);
+        Pose(model, RIG_ARM_R, body_offset, arm_r);
+        Pose(model, RIG_LEG_L, Vec3(0.0f), leg_l);
+        Pose(model, RIG_LEG_R, Vec3(0.0f), leg_r);
+        Pose(model, RIG_WING_L, Vec3(0.0f), wing_l);
+        Pose(model, RIG_WING_R, Vec3(0.0f), wing_r);
+    }
+
+    void AnimateDyingEnemy(Enemy& ioEnemy)
+    {
+        const EnemyArchetype& archetype = cEnemyArchetypes[ioEnemy.mType];
+        const Model& model = ioEnemy.mModel;
+
+        const float t = glm::clamp(ioEnemy.mDeathTimer / archetype.mDeathDuration, 0.0f, 1.0f);
+        const float base_scale = ioEnemy.mElite ? 1.35f : 1.0f;
+        const Quat yaw = Quat(Vec3(0.0f, ioEnemy.mYaw, 0.0f));
+
+        switch (archetype.mDeathStyle)
+        {
+            case DEATH_FALL:
+            {
+                const float fall = EaseOutCubic(glm::min(t / 0.35f, 1.0f));
+                const float sink = glm::max(t - 0.55f, 0.0f) / 0.45f;
+                SetTransform(model.mRoot, ToWorld(ioEnemy.mPosition, -sink * 0.9f), Vec3(base_scale * ( 1.0f - sink * 0.3f )), yaw * Quat(Vec3(fall * 1.5f, 0.0f, ioEnemy.mDeathSpin * 0.3f * fall)));
+
+                Pose(model, RIG_BODY, Vec3(0.0f), Vec3(0.0f));
+                Pose(model, RIG_HEAD, Vec3(0.0f), Vec3(fall * 0.5f, 0.0f, ioEnemy.mDeathSpin * 0.4f));
+                Pose(model, RIG_ARM_L, Vec3(0.0f), Vec3(-2.6f * fall, 0.0f, -0.4f * fall));
+                Pose(model, RIG_ARM_R, Vec3(0.0f), Vec3(-2.4f * fall, 0.0f, 0.5f * fall));
+                Pose(model, RIG_LEG_L, Vec3(0.0f), Vec3(-0.4f * fall, 0.0f, 0.0f));
+                Pose(model, RIG_LEG_R, Vec3(0.0f), Vec3(0.2f * fall, 0.0f, 0.0f));
+            } break;
+
+            case DEATH_SHATTER:
+            {
+                const float time = ioEnemy.mDeathTimer;
+                const float shrink = 1.0f - glm::max(t - 0.7f, 0.0f) / 0.3f;
+                SetTransform(model.mRoot, ToWorld(ioEnemy.mPosition, 0.0f), Vec3(base_scale), yaw);
+
+                for (int part = 0; part < RIG_PART_COUNT; part++)
+                {
+                    const RigPart& rig = model.mParts[part];
+
+                    if (rig.mEntity == Entity::Null)
+                        continue;
+
+                    const Vec3 velocity = ioEnemy.mShatterVelocity[part];
+                    Vec3 offset = velocity * time - Vec3(0.0f, 9.0f * time * time, 0.0f);
+                    offset.y = glm::max(offset.y, -rig.mRest.y + 0.08f);
+
+                    SetTransform(rig.mEntity, rig.mRest + offset, Vec3(shrink), glm::angleAxis(time * 9.0f, ioEnemy.mShatterAxis[part]));
+                }
+            } break;
+
+            case DEATH_SPIN:
+            {
+                const float time = ioEnemy.mDeathTimer;
+                const float height = glm::max(archetype.mHover - 7.0f * time * time, 0.1f);
+                SetTransform(model.mRoot, ToWorld(ioEnemy.mPosition, height), Vec3(base_scale * ( 1.0f - t * 0.6f )), yaw * Quat(Vec3(time * 6.0f, time * 14.0f, 0.0f)));
+                Pose(model, RIG_WING_L, Vec3(0.0f), Vec3(0.0f, 0.0f, 0.9f));
+                Pose(model, RIG_WING_R, Vec3(0.0f), Vec3(0.0f, 0.0f, -0.9f));
+            } break;
+
+            case DEATH_POP:
+            {
+                const float swell = 1.0f + t * 0.5f;
+                SetTransform(model.mRoot, ToWorld(ioEnemy.mPosition, 0.0f), Vec3(base_scale * swell, base_scale * swell * 0.9f, base_scale * swell), yaw);
+            } break;
+
+            case DEATH_DISSIPATE:
+            {
+                SetTransform(model.mRoot, ToWorld(ioEnemy.mPosition, archetype.mHover + t * 1.2f), Vec3(base_scale * ( 1.0f - t ), base_scale * ( 1.0f + t * 0.8f ), base_scale * ( 1.0f - t )), yaw * Quat(Vec3(0.0f, t * 4.0f, 0.0f)));
+            } break;
+
+            case DEATH_BOSS:
+            {
+                const Vec3 shake = Vec3(RandomFloat(-1.0f, 1.0f), 0.0f, RandomFloat(-1.0f, 1.0f)) * 0.12f;
+                const float shrink = t > 0.85f ? 1.0f - ( t - 0.85f ) / 0.15f : 1.0f;
+                SetTransform(model.mRoot, ToWorld(ioEnemy.mPosition, archetype.mHover + t * 1.5f) + shake, Vec3(shrink), yaw * Quat(Vec3(-0.3f * t, 0.0f, 0.0f)));
+                Pose(model, RIG_ARM_L, Vec3(0.0f), Vec3(-2.6f, 0.0f, -0.6f));
+                Pose(model, RIG_ARM_R, Vec3(0.0f), Vec3(-2.6f, 0.0f, 0.6f));
+                Pose(model, RIG_HEAD, Vec3(0.0f), Vec3(-0.6f, 0.0f, 0.0f));
+            } break;
+        }
+    }
+
     void UpdateVisuals(float inDeltaTime)
     {
-        const bool moving = glm::length(m_PlayerVelocity) > 0.5f;
+        if (m_State == STATE_PLAYING)
+            m_PlayerYaw = LerpAngle(m_PlayerYaw, GetYaw(m_FacingDirection), 1.0f - glm::exp(-inDeltaTime * 14.0f));
 
-        m_PlayerYaw = glm::mix(m_PlayerYaw, m_PlayerYaw + glm::mod(GetYaw(m_FacingDirection) - m_PlayerYaw + glm::pi<float>(), glm::two_pi<float>()) - glm::pi<float>(), 1.0f - glm::exp(-inDeltaTime * 14.0f));
-
-        const float bob = moving ? glm::abs(glm::sin(m_Time * 11.0f)) * 0.12f : 0.0f;
-        SetTransform(m_PlayerEntity, ToWorld(m_PlayerPosition, bob), Vec3(1.0f), Quat(Vec3(0.0f, m_PlayerYaw, 0.0f)));
+        AnimatePlayer(inDeltaTime);
 
         const bool player_flash = m_InvulnerableTimer > 0.0f && glm::fract(m_Time * 12.0f) < 0.5f;
+
         if (player_flash)
             SetModelMaterial(m_PlayerModel, m_FlashMaterial);
         else
             RestoreModelMaterials(m_PlayerModel);
 
-        for (const Enemy& enemy : m_Enemies)
+        for (Enemy& enemy : m_Enemies)
         {
             if (!enemy.mActive)
                 continue;
 
-            const EnemyArchetype& archetype = cEnemyArchetypes[enemy.mType];
-
-            Vec3 scale = Vec3(1.0f);
-            float height = archetype.mHover;
-            float roll = 0.0f;
-
-            switch (enemy.mType)
-            {
-                case ENEMY_GHOUL:
-                {
-                    height += glm::abs(glm::sin(m_Time * 7.0f + enemy.mPhase)) * 0.12f;
-                    roll = glm::sin(m_Time * 7.0f + enemy.mPhase) * 0.1f;
-                } break;
-
-                case ENEMY_BAT:
-                {
-                    height += glm::sin(m_Time * 5.0f + enemy.mPhase) * 0.2f;
-
-                    const float flap = glm::sin(m_Time * 22.0f + enemy.mPhase) * 0.7f;
-                    SetTransform(enemy.mWings[0], Vec3(-0.12f, 0.0f, 0.0f), Vec3(1.0f), Quat(Vec3(0.0f, 0.0f, -flap)));
-                    SetTransform(enemy.mWings[1], Vec3(0.12f, 0.0f, 0.0f), Vec3(1.0f), Quat(Vec3(0.0f, 0.0f, flap)));
-                } break;
-
-                case ENEMY_BRUTE:
-                {
-                    scale *= Vec3(1.0f, 1.0f + 0.04f * glm::sin(m_Time * 4.0f + enemy.mPhase), 1.0f);
-                    roll = glm::sin(m_Time * 3.0f + enemy.mPhase) * 0.05f;
-                } break;
-            }
-
             if (enemy.mDying)
-            {
-                const float t = glm::clamp(enemy.mDeathTimer / cDeathDuration, 0.0f, 1.0f);
-                scale *= Vec3(1.0f + t * 0.6f, 1.0f - t * 0.9f, 1.0f + t * 0.6f);
-                height *= 1.0f - t * 0.5f;
-            }
+                AnimateDyingEnemy(enemy);
+            else
+                AnimateEnemy(enemy, inDeltaTime);
 
-            SetTransform(enemy.mModel.mRoot, ToWorld(enemy.mPosition, height), scale, Quat(Vec3(0.0f, enemy.mYaw, roll)));
+            if (enemy.mAura >= 0)
+            {
+                const float radius = cEnemyArchetypes[enemy.mType].mRadius * 1.6f * ( 1.0f + 0.08f * glm::sin(m_Time * 6.0f) );
+                SetTransform(m_EliteAuras[enemy.mAura].mEntity, ToWorld(enemy.mPosition, 0.1f), Vec3(radius * 2.0f, 1.2f, radius * 2.0f), Quat(Vec3(0.0f, m_Time * 2.0f, 0.0f)));
+
+                if (RandomFloat(0.0f, 1.0f) < 0.2f)
+                    Emit(ToWorld(enemy.mPosition, 0.3f), ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = FX_GOLD, .mCount = 1, .mSpeedMin = 0.5f, .mSpeedMax = 1.5f, .mLifeMin = 0.4f, .mLifeMax = 0.7f, .mSizeMin = 0.1f, .mSizeMax = 0.16f, .mGravity = -3.0f, .mDrag = 1.0f, .mSpread = 0.8f, .mFlat = true });
+            }
         }
 
         for (const Projectile& projectile : m_Projectiles)
         {
             if (projectile.mActive)
-                SetTransform(projectile.mEntity, ToWorld(projectile.mPosition, 0.9f), Vec3(1.0f), Quat(Vec3(0.0f, GetYaw(projectile.mVelocity), 0.0f)));
+                SetTransform(projectile.mEntity, ToWorld(projectile.mPosition, 0.9f), Vec3(1.0f), Quat(Vec3(0.0f, GetYaw(projectile.mVelocity), 0.0f)) * Quat(Vec3(0.0f, 0.0f, m_Time * 12.0f)));
         }
 
         for (const Gem& gem : m_Gems)
         {
             if (gem.mActive)
             {
-                const float size = gem.mValue > 1 ? 0.6f : 0.42f;
+                const int tier = GetGemTier(gem.mValue);
+                const float size = tier == 2 ? 0.75f : tier == 1 ? 0.6f : 0.42f;
                 const float height = 0.45f + 0.08f * glm::sin(m_Time * 4.0f + gem.mPhase);
                 SetTransform(gem.mModel.mRoot, ToWorld(gem.mPosition, height), Vec3(size), Quat(Vec3(0.0f, m_Time * 2.0f + gem.mPhase, 0.0f)));
             }
         }
 
+        for (const Pickup& pickup : m_Pickups)
+        {
+            if (!pickup.mActive)
+                continue;
+
+            const float appear = EaseOutBack(glm::min(pickup.mTime / 0.4f, 1.0f));
+            const float bob = pickup.mType == PICKUP_CHEST ? 0.0f : 0.25f + 0.12f * glm::sin(m_Time * 3.0f + pickup.mPhase);
+            const float spin = pickup.mType == PICKUP_CHEST ? 0.6f : m_Time * 1.8f + pickup.mPhase;
+
+            SetTransform(pickup.mModel.mRoot, ToWorld(pickup.mPosition, bob), Vec3(appear * ( pickup.mType == PICKUP_CHEST ? 1.2f : 1.0f )), Quat(Vec3(0.0f, spin, 0.0f)));
+
+            if (pickup.mType == PICKUP_CHEST)
+            {
+                const float open = pickup.mOpening ? EaseOutBack(glm::min(pickup.mOpenTimer / 0.4f, 1.0f)) : 0.05f * glm::max(glm::sin(m_Time * 5.0f), 0.0f);
+                Pose(pickup.mModel, RIG_HEAD, Vec3(0.0f), Vec3(-1.9f * open, 0.0f, 0.0f));
+            }
+
+            const float glow = ( pickup.mType == PICKUP_CHEST ? 1.3f : 0.8f ) * ( 1.0f + 0.1f * glm::sin(m_Time * 4.0f + pickup.mPhase) );
+            SetTransform(pickup.mGlow, ToWorld(pickup.mPosition, 0.08f), Vec3(glow * 2.0f, 0.8f, glow * 2.0f), Quat(Vec3(0.0f, -m_Time, 0.0f)));
+        }
+
         const int blade_level = m_UpgradeLevels[UPGRADE_BLADES];
         const int blade_count = blade_level > 0 ? glm::min(1 + blade_level, cMaxBlades) : 0;
-        const float blade_radius = 2.0f + 0.2f * blade_level;
+        const float blade_radius = ( 2.0f + 0.2f * blade_level ) * glm::sqrt(GetAreaMultiplier());
 
         for (int blade = 0; blade < cMaxBlades; blade++)
         {
-            if (blade >= blade_count)
+            if (blade >= blade_count || m_State == STATE_GAME_OVER)
             {
                 Park(m_Blades[blade]);
                 continue;
@@ -1537,24 +3906,10 @@ private:
 
             const float angle = m_BladeAngle + glm::two_pi<float>() * float(blade) / float(blade_count);
             const Vec2 position = m_PlayerPosition + Vec2(glm::cos(angle), glm::sin(angle)) * blade_radius;
-            SetTransform(m_Blades[blade], ToWorld(position, 0.8f), Vec3(1.0f), Quat(Vec3(0.0f, -angle, 0.0f)));
-        }
+            SetTransform(m_Blades[blade], ToWorld(position, 0.8f), Vec3(1.2f), Quat(Vec3(0.0f, -angle, 0.0f)) * Quat(Vec3(0.0f, m_Time * 14.0f, 0.0f)));
 
-        const float nova_duration = 0.35f;
-
-        if (m_NovaAge >= 0.0f && m_NovaAge < nova_duration)
-        {
-            const float t = m_NovaAge / nova_duration;
-            const float radius = m_NovaRadius * ( 0.3f + 0.7f * glm::sqrt(t) );
-            SetTransform(m_NovaEntity, ToWorld(m_PlayerPosition, 0.2f), Vec3(radius * 2.0f, 0.15f, radius * 2.0f));
-
-            if (Material* material = FindComponent<Material>(m_NovaMaterial))
-                material->albedo.a = 0.45f * ( 1.0f - t );
-        }
-        else
-        {
-            Park(m_NovaEntity);
-            m_NovaAge = -1.0f;
+            if (RandomFloat(0.0f, 1.0f) < 0.25f)
+                Emit(ToWorld(position, 0.8f), ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = FX_EMBER, .mCount = 1, .mSpeedMin = 0.2f, .mSpeedMax = 0.8f, .mLifeMin = 0.15f, .mLifeMax = 0.3f, .mSizeMin = 0.08f, .mSizeMax = 0.14f, .mDrag = 2.0f });
         }
     }
 
@@ -1565,33 +3920,43 @@ private:
         if (transform == nullptr)
             return;
 
-        const Vec3 player = ToWorld(m_PlayerPosition, 0.8f);
+        const Vec3 lookahead = ToWorld(m_PlayerVelocity * 0.25f, 0.0f);
+        const Vec3 player = ToWorld(m_PlayerPosition, 0.8f) + lookahead;
         m_CameraTarget = glm::mix(m_CameraTarget, player, 1.0f - glm::exp(-inDeltaTime * 6.0f));
 
-        m_Shake = glm::max(0.0f, m_Shake - inDeltaTime * 1.5f);
+        m_Trauma = glm::max(0.0f, m_Trauma - inDeltaTime * 1.4f);
         m_HitFlash = glm::max(0.0f, m_HitFlash - inDeltaTime * 3.0f);
+        m_ScreenFlash = glm::max(0.0f, m_ScreenFlash - inDeltaTime * 2.5f);
+        m_CameraKick = glm::max(0.0f, m_CameraKick - inDeltaTime * 4.0f);
 
-        const Vec3 shake = Vec3(RandomFloat(-1.0f, 1.0f), RandomFloat(-1.0f, 1.0f), RandomFloat(-1.0f, 1.0f)) * m_Shake * m_Shake;
+        const float shake = m_Trauma * m_Trauma;
+        const float noise_time = m_Time * 28.0f;
+        const Vec3 offset = Vec3(glm::sin(noise_time * 1.1f) + glm::sin(noise_time * 2.3f) * 0.5f, glm::sin(noise_time * 1.7f + 1.3f) + glm::sin(noise_time * 3.1f) * 0.5f, glm::sin(noise_time * 1.3f + 2.1f)) * shake * 0.9f;
+        const float roll = glm::sin(noise_time * 0.9f + 0.4f) * shake * 0.06f;
 
         const float pitch = glm::radians(58.0f);
-        const Vec3 position = m_CameraTarget + Vec3(0.0f, glm::sin(pitch), glm::cos(pitch)) * m_CameraDistance + shake;
+        const float distance = m_CameraDistance - m_CameraKick;
+        const Vec3 position = m_CameraTarget + Vec3(0.0f, glm::sin(pitch), glm::cos(pitch)) * distance + offset;
 
         transform->position = position;
-        transform->rotation = glm::quatLookAtRH(glm::normalize(m_CameraTarget - position), Camera::cUp);
+        transform->rotation = glm::angleAxis(roll, glm::normalize(m_CameraTarget - position)) * glm::quatLookAtRH(glm::normalize(m_CameraTarget - position), Camera::cUp);
         transform->Compose();
     }
 
-    void AddDamageNumber(const Vec3& inPosition, int inValue)
+    void AddDamageNumber(const Vec3& inPosition, int inValue, bool inCrit)
     {
         if (m_DamageNumbers.size() >= cMaxDamageNumbers)
             m_DamageNumbers.erase(m_DamageNumbers.begin());
 
-        m_DamageNumbers.push_back(DamageNumber { .mPosition = inPosition + Vec3(RandomFloat(-0.3f, 0.3f), 0.0f, RandomFloat(-0.3f, 0.3f)), .mTime = 0.0f, .mValue = inValue });
+        m_DamageNumbers.push_back(DamageNumber { .mPosition = inPosition + Vec3(RandomFloat(-0.3f, 0.3f), 0.0f, RandomFloat(-0.3f, 0.3f)), .mTime = 0.0f, .mValue = inValue, .mCrit = inCrit });
     }
 
-    void AddPopup(const String& inText, const Vec4& inColor)
+    void AddPopup(const String& inText, const String& inSubText, const Vec4& inColor, bool inBig)
     {
-        m_Popups.push_back(Popup { .mText = inText, .mTime = 0.0f, .mColor = inColor });
+        if (m_Popups.size() >= 4)
+            m_Popups.erase(m_Popups.begin());
+
+        m_Popups.push_back(Popup { .mText = inText, .mSubText = inSubText, .mTime = 0.0f, .mDuration = inBig ? 3.0f : 2.2f, .mColor = inColor, .mBig = inBig });
     }
 
     bool ProjectToScreen(const Vec3& inPosition, Vec2& outScreen) const
@@ -1607,26 +3972,183 @@ private:
         return true;
     }
 
-    void DrawPanel(Vec2 inPos, Vec2 inSize, float inScale, Vec4 inBorder = Vec4(1.0f, 0.6f, 0.3f, 0.35f))
+    static Vec4 Fade(const Vec4& inColor, float inAlpha)
     {
-        g_UIRenderer.AddRectFilled(inPos + Vec2(0.0f, 6.0f) * inScale, inSize, 14.0f * inScale, Vec4(0.0f, 0.0f, 0.0f, 0.35f), 14.0f * inScale);
-        g_UIRenderer.AddRectFilled(inPos, inSize, 14.0f * inScale, Vec4(0.06f, 0.04f, 0.05f, 0.8f));
-        g_UIRenderer.AddRect(inPos, inSize, 14.0f * inScale, 1.5f * inScale, inBorder);
+        return Vec4(Vec3(inColor), inColor.a * inAlpha);
     }
 
-    void DrawBar(Vec2 inPos, Vec2 inSize, float inFill, Vec4 inColor, float inScale)
+    void DrawPanel(Vec2 inPos, Vec2 inSize, float inScale, Vec4 inAccent, float inAlpha = 1.0f)
+    {
+        g_UIRenderer.AddRectFilled(inPos + Vec2(0.0f, 8.0f) * inScale, inSize, 16.0f * inScale, Vec4(0.0f, 0.0f, 0.0f, 0.4f * inAlpha), 18.0f * inScale);
+        g_UIRenderer.AddRectGradient(inPos, inSize, 14.0f * inScale, Vec4(0.09f, 0.08f, 0.14f, 0.92f * inAlpha), Vec4(0.04f, 0.035f, 0.07f, 0.92f * inAlpha));
+        g_UIRenderer.AddRect(inPos, inSize, 14.0f * inScale, 1.5f * inScale, Fade(inAccent, 0.35f * inAlpha));
+        g_UIRenderer.AddRectFilled(inPos + Vec2(14.0f * inScale, 0.0f), Vec2(inSize.x - 28.0f * inScale, 2.0f * inScale), 1.0f * inScale, Fade(inAccent, 0.8f * inAlpha));
+    }
+
+    void DrawBar(Vec2 inPos, Vec2 inSize, float inFill, Vec4 inStart, Vec4 inEnd, float inScale, float inTrail = -1.0f)
     {
         const float radius = inSize.y * 0.5f;
-        g_UIRenderer.AddRectFilled(inPos, inSize, radius, Vec4(0.0f, 0.0f, 0.0f, 0.6f));
+        g_UIRenderer.AddRectFilled(inPos - Vec2(2.0f * inScale), inSize + Vec2(4.0f * inScale), radius + 2.0f * inScale, Vec4(0.0f, 0.0f, 0.0f, 0.55f));
+        g_UIRenderer.AddRectFilled(inPos, inSize, radius, Vec4(0.12f, 0.1f, 0.16f, 0.9f));
+
+        if (inTrail > inFill)
+            g_UIRenderer.AddRectFilled(inPos, Vec2(glm::max(inSize.x * glm::clamp(inTrail, 0.0f, 1.0f), inSize.y), inSize.y), radius, Vec4(1.0f, 0.95f, 0.85f, 0.8f));
 
         if (inFill > 0.0f)
-            g_UIRenderer.AddRectFilled(inPos, Vec2(glm::max(inSize.x * glm::clamp(inFill, 0.0f, 1.0f), inSize.y), inSize.y), radius, inColor);
+        {
+            const float width = glm::max(inSize.x * glm::clamp(inFill, 0.0f, 1.0f), inSize.y);
+            g_UIRenderer.AddRectGradient(inPos, Vec2(width, inSize.y), radius, inStart, inEnd, true);
+            g_UIRenderer.AddRectFilled(inPos + Vec2(radius * 0.6f, inSize.y * 0.15f), Vec2(glm::max(width - radius * 1.2f, 0.0f), inSize.y * 0.28f), inSize.y * 0.14f, Vec4(1.0f, 1.0f, 1.0f, 0.22f));
+            g_UIRenderer.AddCircleFilled(inPos + Vec2(width - radius, radius), inSize.y * 0.9f, Fade(inEnd, 0.35f), inSize.y * 1.2f);
+        }
     }
 
-    static String FormatTime(float inSeconds)
+    void DrawShadowText(Vec2 inPos, StringView inText, float inSize, Vec4 inColor, EUITextAlign inAlign, float inScale)
     {
-        const int seconds = int(inSeconds);
-        return std::format("{:02}:{:02}", seconds / 60, seconds % 60);
+        g_UIRenderer.AddText(inPos + Vec2(0.0f, 3.0f) * inScale, inText, inSize, Vec4(0.0f, 0.0f, 0.0f, 0.6f * inColor.a), inAlign);
+        g_UIRenderer.AddText(inPos, inText, inSize, inColor, inAlign);
+    }
+
+    void DrawSegment(Vec2 inA, Vec2 inB, float inWidth, Vec4 inColor)
+    {
+        const Vec2 delta = inB - inA;
+        g_UIRenderer.AddRectRotated(( inA + inB ) * 0.5f, Vec2(glm::length(delta) + inWidth, inWidth), glm::atan(delta.y, delta.x), inWidth * 0.5f, inColor);
+    }
+
+    void DrawUpgradeIcon(int inUpgrade, Vec2 inCenter, float inSize, float inAlpha)
+    {
+        const Vec3 color = cUpgrades[inUpgrade].mColor;
+        const Vec4 base = Vec4(color, inAlpha);
+        const Vec4 light = Vec4(glm::mix(color, Vec3(1.0f), 0.65f), inAlpha);
+        const Vec2 c = inCenter;
+        const float s = inSize;
+        const float pi = glm::pi<float>();
+
+        g_UIRenderer.AddCircleFilled(c, s * 0.85f, Vec4(color, 0.16f * inAlpha), s * 0.6f);
+
+        switch (inUpgrade)
+        {
+            case UPGRADE_BOLT:
+            {
+                g_UIRenderer.AddRectRotated(c, Vec2(s * 0.7f, s * 0.7f), pi * 0.25f, s * 0.08f, base);
+                g_UIRenderer.AddRectRotated(c, Vec2(s * 0.34f, s * 0.34f), pi * 0.25f, s * 0.04f, light);
+            } break;
+
+            case UPGRADE_BLADES:
+            {
+                for (int blade = 0; blade < 3; blade++)
+                {
+                    const float angle = float(blade) * glm::two_pi<float>() / 3.0f - pi * 0.5f;
+                    const Vec2 direction = Vec2(glm::cos(angle), glm::sin(angle));
+                    g_UIRenderer.AddRectRotated(c + direction * s * 0.42f, Vec2(s * 0.62f, s * 0.17f), angle + 1.2f, s * 0.08f, base);
+                }
+
+                g_UIRenderer.AddCircleFilled(c, s * 0.17f, light);
+            } break;
+
+            case UPGRADE_NOVA:
+            {
+                g_UIRenderer.AddArc(c, s * 0.78f, s * 0.1f, 0.0f, 1.0f, Fade(base, 0.6f));
+                g_UIRenderer.AddArc(c, s * 0.5f, s * 0.13f, 0.0f, 1.0f, base);
+                g_UIRenderer.AddCircleFilled(c, s * 0.22f, light);
+            } break;
+
+            case UPGRADE_FIREBALL:
+            {
+                for (int trail = 0; trail < 3; trail++)
+                    g_UIRenderer.AddCircleFilled(c + Vec2(-0.32f - 0.2f * trail, 0.32f + 0.2f * trail) * s, s * ( 0.18f - 0.04f * trail ), Fade(base, 0.7f - 0.2f * trail));
+
+                g_UIRenderer.AddCircleFilled(c + Vec2(0.12f, -0.12f) * s, s * 0.44f, base);
+                g_UIRenderer.AddCircleFilled(c + Vec2(0.2f, -0.2f) * s, s * 0.22f, light);
+            } break;
+
+            case UPGRADE_LIGHTNING:
+            {
+                const StaticArray<Vec2, 4> points = { Vec2(0.1f, -0.8f), Vec2(-0.25f, 0.0f), Vec2(0.25f, 0.0f), Vec2(-0.1f, 0.8f) };
+
+                for (int segment = 0; segment < 3; segment++)
+                    DrawSegment(c + points[segment] * s, c + points[segment + 1] * s, s * 0.18f, base);
+
+                for (int segment = 0; segment < 3; segment++)
+                    DrawSegment(c + points[segment] * s, c + points[segment + 1] * s, s * 0.07f, light);
+            } break;
+
+            case UPGRADE_METEOR:
+            {
+                for (int streak = 0; streak < 3; streak++)
+                {
+                    const Vec2 offset = Vec2(-0.18f + streak * 0.18f, -0.18f - streak * 0.18f) * s;
+                    DrawSegment(c + offset + Vec2(-0.55f, -0.55f) * s * 0.6f, c + offset + Vec2(0.1f, 0.1f) * s, s * 0.09f, Fade(base, 0.7f));
+                }
+
+                g_UIRenderer.AddCircleFilled(c + Vec2(0.22f, 0.22f) * s, s * 0.38f, base);
+                g_UIRenderer.AddCircleFilled(c + Vec2(0.3f, 0.14f) * s, s * 0.14f, light);
+            } break;
+
+            case UPGRADE_BOOTS:
+            {
+                g_UIRenderer.AddRectFilled(c + Vec2(-0.15f, -0.6f) * s, Vec2(0.32f, 0.75f) * s, s * 0.06f, base);
+                g_UIRenderer.AddRectFilled(c + Vec2(-0.15f, 0.05f) * s, Vec2(0.7f, 0.32f) * s, s * 0.12f, base);
+
+                for (int line = 0; line < 3; line++)
+                    g_UIRenderer.AddRectFilled(c + Vec2(-0.78f, -0.4f + 0.25f * line) * s, Vec2(0.4f, 0.08f) * s, s * 0.04f, light);
+            } break;
+
+            case UPGRADE_VITALITY:
+            {
+                g_UIRenderer.AddCircleFilled(c + Vec2(-0.22f, -0.12f) * s, s * 0.28f, base);
+                g_UIRenderer.AddCircleFilled(c + Vec2(0.22f, -0.12f) * s, s * 0.28f, base);
+                g_UIRenderer.AddRectRotated(c + Vec2(0.0f, 0.14f) * s, Vec2(0.56f, 0.56f) * s, pi * 0.25f, s * 0.06f, base);
+                g_UIRenderer.AddCircleFilled(c + Vec2(-0.26f, -0.2f) * s, s * 0.09f, light);
+            } break;
+
+            case UPGRADE_MAGNET:
+            {
+                g_UIRenderer.AddArc(c + Vec2(0.0f, -0.05f) * s, s * 0.42f, s * 0.24f, 0.0f, 0.5f, base);
+                g_UIRenderer.AddRectFilled(c + Vec2(-0.66f, -0.5f) * s, Vec2(0.24f, 0.46f) * s, s * 0.03f, base);
+                g_UIRenderer.AddRectFilled(c + Vec2(0.42f, -0.5f) * s, Vec2(0.24f, 0.46f) * s, s * 0.03f, base);
+                g_UIRenderer.AddRectFilled(c + Vec2(-0.66f, -0.62f) * s, Vec2(0.24f, 0.16f) * s, s * 0.03f, light);
+                g_UIRenderer.AddRectFilled(c + Vec2(0.42f, -0.62f) * s, Vec2(0.24f, 0.16f) * s, s * 0.03f, light);
+            } break;
+
+            case UPGRADE_REGEN:
+            {
+                g_UIRenderer.AddRectFilled(c - Vec2(0.13f, 0.5f) * s, Vec2(0.26f, 1.0f) * s, s * 0.08f, base);
+                g_UIRenderer.AddRectFilled(c - Vec2(0.5f, 0.13f) * s, Vec2(1.0f, 0.26f) * s, s * 0.08f, base);
+                g_UIRenderer.AddCircleFilled(c, s * 0.1f, light);
+            } break;
+
+            case UPGRADE_POWER:
+            {
+                DrawSegment(c + Vec2(-0.35f, 0.35f) * s, c + Vec2(0.55f, -0.55f) * s, s * 0.18f, light);
+                DrawSegment(c + Vec2(-0.45f, 0.05f) * s, c + Vec2(-0.05f, 0.45f) * s, s * 0.16f, base);
+                g_UIRenderer.AddCircleFilled(c + Vec2(-0.55f, 0.55f) * s, s * 0.14f, base);
+            } break;
+
+            case UPGRADE_HASTE:
+            {
+                g_UIRenderer.AddArc(c, s * 0.6f, s * 0.14f, 0.0f, 1.0f, base);
+                g_UIRenderer.AddRectFilled(c + Vec2(-0.05f, -0.42f) * s, Vec2(0.1f, 0.44f) * s, s * 0.05f, light);
+                g_UIRenderer.AddRectFilled(c + Vec2(-0.05f, -0.05f) * s, Vec2(0.36f, 0.1f) * s, s * 0.05f, light);
+            } break;
+
+            case UPGRADE_AREA:
+            {
+                g_UIRenderer.AddArc(c, s * 0.4f, s * 0.1f, 0.0f, 1.0f, base);
+
+                for (int arrow = 0; arrow < 4; arrow++)
+                {
+                    const float angle = arrow * pi * 0.5f;
+                    g_UIRenderer.AddRectRotated(c + Vec2(glm::cos(angle), glm::sin(angle)) * s * 0.78f, Vec2(0.24f, 0.24f) * s, pi * 0.25f, s * 0.03f, light);
+                }
+            } break;
+
+            default:
+            {
+                g_UIRenderer.AddCircleFilled(c + Vec2(-0.15f, -0.15f) * s, s * 0.4f, base);
+                DrawSegment(c + Vec2(0.0f, 0.0f) * s, c + Vec2(0.5f, 0.5f) * s, s * 0.16f, light);
+            } break;
+        }
     }
 
     void DrawHUD(float inDeltaTime)
@@ -1635,48 +4157,278 @@ private:
         const float scale = glm::max(display.y / 1080.0f, 0.5f);
         const float margin = 24.0f * scale;
 
+        const float health_fraction = m_Health / GetMaxHealth();
+
         if (m_HitFlash > 0.0f)
-            g_UIRenderer.AddRect(Vec2(0.0f), display, 0.0f, 90.0f * scale, Vec4(0.8f, 0.05f, 0.05f, 0.35f * m_HitFlash));
+            g_UIRenderer.AddRect(Vec2(0.0f), display, 0.0f, 120.0f * scale, Vec4(0.8f, 0.05f, 0.05f, 0.4f * m_HitFlash));
+
+        if (health_fraction < 0.3f && m_State == STATE_PLAYING)
+        {
+            const float pulse = 0.5f + 0.5f * glm::sin(m_Time * 6.0f);
+            g_UIRenderer.AddRect(Vec2(0.0f), display, 0.0f, 90.0f * scale, Vec4(0.7f, 0.0f, 0.05f, ( 0.12f + 0.12f * pulse ) * ( 1.0f - health_fraction / 0.3f )));
+        }
 
         if (m_State == STATE_PLAYING)
+        {
             DrawDamageNumbers(inDeltaTime, scale);
-
-        const float xp_fill = float(m_Experience) / float(GetExperienceToNextLevel());
-        DrawBar(Vec2(margin, margin * 0.6f), Vec2(display.x - margin * 2.0f, 14.0f * scale), xp_fill, Vec4(0.3f, 0.75f, 1.0f, 1.0f), scale);
-        g_UIRenderer.AddText(Vec2(display.x - margin, margin * 0.6f + 20.0f * scale), std::format("LV {}", m_Level), 22.0f * scale, Vec4(0.6f, 0.85f, 1.0f, 1.0f), UI_TEXT_ALIGN_RIGHT);
-
-        const float remaining = glm::max(0.0f, cVictoryTime - m_RunTime);
-        g_UIRenderer.AddText(Vec2(display.x * 0.5f, margin * 0.6f + 22.0f * scale), FormatTime(m_RunTime), 44.0f * scale, Vec4(1.0f), UI_TEXT_ALIGN_CENTER);
-        g_UIRenderer.AddText(Vec2(display.x * 0.5f, margin * 0.6f + 72.0f * scale), std::format("dawn in {}", FormatTime(remaining)), 16.0f * scale, Vec4(1.0f, 0.75f, 0.5f, 0.8f), UI_TEXT_ALIGN_CENTER);
-
-        const Vec2 stats_pos = Vec2(margin, margin * 0.6f + 30.0f * scale);
-        DrawPanel(stats_pos, Vec2(230.0f, 96.0f) * scale, scale);
-        g_UIRenderer.AddText(stats_pos + Vec2(18.0f, 12.0f) * scale, "DUSK SWARM", 18.0f * scale, Vec4(1.0f, 0.6f, 0.3f, 1.0f));
-        g_UIRenderer.AddText(stats_pos + Vec2(18.0f, 40.0f) * scale, std::format("HP  {} / {}", int(glm::ceil(m_Health)), int(GetMaxHealth())), 17.0f * scale, Vec4(1.0f, 0.55f, 0.5f, 1.0f));
-        g_UIRenderer.AddText(stats_pos + Vec2(18.0f, 64.0f) * scale, std::format("KILLS  {}", m_Kills), 17.0f * scale, Vec4(0.9f, 0.9f, 0.95f, 1.0f));
+            DrawIndicators(display, scale);
+        }
 
         Vec2 player_screen;
-        if (ProjectToScreen(ToWorld(m_PlayerPosition, -0.2f), player_screen))
+        if (m_State == STATE_PLAYING && ProjectToScreen(ToWorld(m_PlayerPosition, -0.1f), player_screen))
         {
-            const Vec2 size = Vec2(64.0f, 8.0f) * scale;
-            DrawBar(player_screen - Vec2(size.x * 0.5f, -6.0f * scale), size, m_Health / GetMaxHealth(), Vec4(0.95f, 0.25f, 0.25f, 1.0f), scale);
+            const Vec2 size = Vec2(70.0f, 7.0f) * scale;
+            DrawBar(player_screen - Vec2(size.x * 0.5f, -10.0f * scale), size, health_fraction, Vec4(0.85f, 0.15f, 0.2f, 1.0f), Vec4(1.0f, 0.4f, 0.35f, 1.0f), scale, m_HealthTrail / GetMaxHealth());
+
+            if (m_DashCooldownTimer > 0.0f)
+                g_UIRenderer.AddArc(player_screen + Vec2(0.0f, 30.0f * scale), 7.0f * scale, 2.5f * scale, -glm::half_pi<float>(), 1.0f - m_DashCooldownTimer / cDashCooldown, Vec4(0.4f, 0.85f, 1.0f, 0.8f));
         }
 
-        DrawLoadout(display, scale, margin);
-
-        if (m_RunTime < 10.0f && m_State == STATE_PLAYING)
-        {
-            const float alpha = glm::clamp(( 10.0f - m_RunTime ) / 1.5f, 0.0f, 1.0f);
-            g_UIRenderer.AddText(Vec2(display.x * 0.5f, display.y - margin - 60.0f * scale), "WASD / ARROWS to move   -   weapons fire on their own", 20.0f * scale, Vec4(1.0f, 0.9f, 0.75f, alpha), UI_TEXT_ALIGN_CENTER);
-            g_UIRenderer.AddText(Vec2(display.x * 0.5f, display.y - margin - 30.0f * scale), "Collect gems to level up. Survive until dawn.", 18.0f * scale, Vec4(1.0f, 0.75f, 0.5f, alpha * 0.85f), UI_TEXT_ALIGN_CENTER);
-        }
-
+        DrawTopBar(display, scale, margin);
+        DrawStatus(display, scale, margin);
+        DrawBossBar(display, scale);
+        DrawAbilityBar(display, scale, margin);
+        DrawStreak(display, scale, margin);
         DrawPopups(display, inDeltaTime, scale);
+
+        if (m_RunTime < 4.5f && m_State == STATE_PLAYING)
+            DrawIntro(display, scale);
+
+        if (m_ScreenFlash > 0.0f)
+            g_UIRenderer.AddRectFilled(Vec2(0.0f), display, 0.0f, Vec4(1.0f, 0.97f, 0.9f, m_ScreenFlash * 0.7f));
 
         if (m_State == STATE_LEVEL_UP)
             DrawLevelUp(display, scale);
-        else if (m_State == STATE_GAME_OVER || m_State == STATE_VICTORY)
+        else if (( m_State == STATE_GAME_OVER || m_State == STATE_VICTORY ) && m_PlayerDeathTimer > 0.6f)
             DrawEndScreen(display, scale);
+    }
+
+    void DrawTopBar(const Vec2& inDisplay, float inScale, float inMargin)
+    {
+        const float xp_fill = float(m_Experience) / float(GetExperienceToNextLevel());
+        const Vec2 bar_pos = Vec2(inMargin + 52.0f * inScale, inMargin * 0.75f);
+        const Vec2 bar_size = Vec2(inDisplay.x - bar_pos.x - inMargin, 12.0f * inScale);
+
+        DrawBar(bar_pos, bar_size, xp_fill, Vec4(0.2f, 0.55f, 1.0f, 1.0f), Vec4(0.45f, 0.95f, 1.0f, 1.0f), inScale);
+
+        const Vec2 badge = Vec2(inMargin + 22.0f * inScale, bar_pos.y + bar_size.y * 0.5f);
+        g_UIRenderer.AddCircleFilled(badge + Vec2(0.0f, 4.0f * inScale), 26.0f * inScale, Vec4(0.0f, 0.0f, 0.0f, 0.45f), 10.0f * inScale);
+        g_UIRenderer.AddCircleFilled(badge, 24.0f * inScale, Vec4(0.08f, 0.1f, 0.18f, 1.0f));
+        g_UIRenderer.AddArc(badge, 22.0f * inScale, 4.0f * inScale, -glm::half_pi<float>(), 1.0f, Vec4(0.2f, 0.3f, 0.45f, 1.0f));
+        g_UIRenderer.AddArc(badge, 22.0f * inScale, 4.0f * inScale, -glm::half_pi<float>(), xp_fill, Vec4(0.45f, 0.9f, 1.0f, 1.0f));
+        g_UIRenderer.AddText(badge - Vec2(0.0f, 14.0f * inScale), std::format("{}", m_Level), 24.0f * inScale, Vec4(1.0f), UI_TEXT_ALIGN_CENTER);
+
+        const float center = inDisplay.x * 0.5f;
+        const float top = bar_pos.y + bar_size.y + 10.0f * inScale;
+        const String time_text = FormatTime(m_RunTime);
+
+        g_UIRenderer.AddRectFilled(Vec2(center - 90.0f * inScale, top), Vec2(180.0f, 74.0f) * inScale, 16.0f * inScale, Vec4(0.0f, 0.0f, 0.0f, 0.3f), 16.0f * inScale);
+        DrawShadowText(Vec2(center, top), time_text, 46.0f * inScale, Vec4(1.0f), UI_TEXT_ALIGN_CENTER, inScale);
+
+        const float night = glm::clamp(m_RunTime / cVictoryTime, 0.0f, 1.0f);
+        const Vec2 dawn_pos = Vec2(center - 70.0f * inScale, top + 56.0f * inScale);
+        g_UIRenderer.AddRectFilled(dawn_pos, Vec2(140.0f, 4.0f) * inScale, 2.0f * inScale, Vec4(0.2f, 0.18f, 0.3f, 0.9f));
+        g_UIRenderer.AddRectGradient(dawn_pos, Vec2(140.0f * night, 4.0f) * inScale, 2.0f * inScale, Vec4(0.4f, 0.3f, 0.8f, 1.0f), Vec4(1.0f, 0.7f, 0.35f, 1.0f), true);
+        g_UIRenderer.AddCircleFilled(dawn_pos + Vec2(140.0f * night, 2.0f) * inScale, 5.0f * inScale, Vec4(1.0f, 0.8f, 0.45f, 1.0f), 3.0f * inScale);
+        g_UIRenderer.AddText(Vec2(center, top + 64.0f * inScale), std::format("DAWN IN {}", FormatTime(glm::max(0.0f, cVictoryTime - m_RunTime))), 14.0f * inScale, Vec4(1.0f, 0.78f, 0.5f, 0.8f), UI_TEXT_ALIGN_CENTER);
+    }
+
+    void DrawStatus(const Vec2& inDisplay, float inScale, float inMargin)
+    {
+        const Vec2 pos = Vec2(inMargin, inMargin + 40.0f * inScale);
+        const Vec2 size = Vec2(300.0f, 92.0f) * inScale;
+
+        DrawPanel(pos, size, inScale, Vec4(1.0f, 0.4f, 0.4f, 1.0f));
+
+        const Vec2 heart = pos + Vec2(32.0f, 34.0f) * inScale;
+        g_UIRenderer.AddCircleFilled(heart + Vec2(-6.0f, -3.0f) * inScale, 8.0f * inScale, Vec4(1.0f, 0.3f, 0.35f, 1.0f));
+        g_UIRenderer.AddCircleFilled(heart + Vec2(6.0f, -3.0f) * inScale, 8.0f * inScale, Vec4(1.0f, 0.3f, 0.35f, 1.0f));
+        g_UIRenderer.AddRectRotated(heart + Vec2(0.0f, 4.0f) * inScale, Vec2(15.0f) * inScale, glm::quarter_pi<float>(), 2.0f * inScale, Vec4(1.0f, 0.3f, 0.35f, 1.0f));
+
+        DrawBar(pos + Vec2(56.0f, 26.0f) * inScale, Vec2(222.0f, 16.0f) * inScale, m_Health / GetMaxHealth(), Vec4(0.8f, 0.1f, 0.18f, 1.0f), Vec4(1.0f, 0.45f, 0.4f, 1.0f), inScale, m_HealthTrail / GetMaxHealth());
+        g_UIRenderer.AddText(pos + Vec2(278.0f, 46.0f) * inScale, std::format("{} / {}", int(glm::ceil(m_Health)), int(GetMaxHealth())), 15.0f * inScale, Vec4(1.0f, 0.85f, 0.85f, 0.9f), UI_TEXT_ALIGN_RIGHT);
+
+        const Vec2 skull = pos + Vec2(32.0f, 70.0f) * inScale;
+        g_UIRenderer.AddCircleFilled(skull - Vec2(0.0f, 2.0f) * inScale, 8.0f * inScale, Vec4(0.9f, 0.88f, 0.8f, 1.0f));
+        g_UIRenderer.AddRectFilled(skull + Vec2(-5.0f, 2.0f) * inScale, Vec2(10.0f, 7.0f) * inScale, 2.0f * inScale, Vec4(0.9f, 0.88f, 0.8f, 1.0f));
+        g_UIRenderer.AddCircleFilled(skull + Vec2(-3.0f, -2.0f) * inScale, 2.2f * inScale, Vec4(0.1f, 0.08f, 0.12f, 1.0f));
+        g_UIRenderer.AddCircleFilled(skull + Vec2(3.0f, -2.0f) * inScale, 2.2f * inScale, Vec4(0.1f, 0.08f, 0.12f, 1.0f));
+        g_UIRenderer.AddText(pos + Vec2(56.0f, 58.0f) * inScale, std::format("{}", m_Kills), 22.0f * inScale, Vec4(1.0f), UI_TEXT_ALIGN_LEFT);
+        g_UIRenderer.AddText(pos + Vec2(278.0f, 64.0f) * inScale, std::format("{:.0f}k damage", m_DamageDealt / 1000.0f), 15.0f * inScale, Vec4(0.75f, 0.75f, 0.85f, 0.8f), UI_TEXT_ALIGN_RIGHT);
+    }
+
+    void DrawBossBar(const Vec2& inDisplay, float inScale)
+    {
+        if (m_BossEnemy < 0)
+            return;
+
+        const Enemy& boss = m_Enemies[m_BossEnemy];
+
+        if (!boss.mActive)
+            return;
+
+        const float fraction = glm::max(boss.mHealth, 0.0f) / boss.mMaxHealth;
+        m_BossHealthTrail = glm::max(fraction, m_BossHealthTrail - 0.25f * ( 1.0f / 60.0f ));
+
+        const Vec2 size = Vec2(620.0f, 18.0f) * inScale;
+        const Vec2 pos = Vec2(inDisplay.x * 0.5f - size.x * 0.5f, 150.0f * inScale);
+        const float appear = glm::clamp(( m_RunTime - cBossTimes[glm::max(m_NextBoss - 1, 0)] ) / 0.8f, 0.0f, 1.0f);
+
+        DrawShadowText(Vec2(inDisplay.x * 0.5f, pos.y - 30.0f * inScale), "THE LICH", 22.0f * inScale, Vec4(0.85f, 0.6f, 1.0f, appear), UI_TEXT_ALIGN_CENTER, inScale);
+        DrawBar(pos, Vec2(size.x * appear, size.y), fraction, Vec4(0.45f, 0.1f, 0.7f, 1.0f), Vec4(0.85f, 0.45f, 1.0f, 1.0f), inScale, m_BossHealthTrail);
+
+        if (boss.mHealth < boss.mMaxHealth * 0.5f && !boss.mDying)
+            g_UIRenderer.AddText(Vec2(inDisplay.x * 0.5f, pos.y + 24.0f * inScale), "ENRAGED", 14.0f * inScale, Vec4(1.0f, 0.4f, 0.4f, 0.6f + 0.4f * glm::sin(m_Time * 8.0f)), UI_TEXT_ALIGN_CENTER);
+    }
+
+    float GetWeaponCooldownFraction(int inUpgrade) const
+    {
+        const int level = m_UpgradeLevels[inUpgrade];
+        const float haste = GetCooldownMultiplier();
+
+        switch (inUpgrade)
+        {
+            case UPGRADE_BOLT:      return 1.0f - m_BoltTimer / ( ( 0.95f - 0.1f * ( level - 1 ) ) * haste );
+            case UPGRADE_NOVA:      return 1.0f - m_NovaTimer / ( ( 3.6f - 0.35f * ( level - 1 ) ) * haste );
+            case UPGRADE_FIREBALL:  return 1.0f - m_FireballTimer / ( ( 2.6f - 0.25f * ( level - 1 ) ) * haste );
+            case UPGRADE_LIGHTNING: return 1.0f - m_LightningTimer / ( ( 2.2f - 0.2f * ( level - 1 ) ) * haste );
+            case UPGRADE_METEOR:    return 1.0f - m_MeteorTimer / ( ( 5.5f - 0.5f * ( level - 1 ) ) * haste );
+            default:                return 1.0f;
+        }
+    }
+
+    void DrawAbilityBar(const Vec2& inDisplay, float inScale, float inMargin)
+    {
+        Array<int> weapons;
+        Array<int> passives;
+
+        for (int upgrade = 0; upgrade < UPGRADE_COUNT; upgrade++)
+        {
+            if (m_UpgradeLevels[upgrade] > 0)
+                ( cUpgrades[upgrade].mIsWeapon ? weapons : passives ).push_back(upgrade);
+        }
+
+        const float slot = 64.0f * inScale;
+        const float gap = 12.0f * inScale;
+        const int slots = int(weapons.size()) + 1;
+        const float total = slots * slot + ( slots - 1 ) * gap;
+        const Vec2 start = Vec2(inDisplay.x * 0.5f - total * 0.5f, inDisplay.y - inMargin - slot - 16.0f * inScale);
+
+        g_UIRenderer.AddRectFilled(start - Vec2(16.0f, 12.0f) * inScale, Vec2(total + 32.0f * inScale, slot + 40.0f * inScale), 20.0f * inScale, Vec4(0.0f, 0.0f, 0.0f, 0.35f), 20.0f * inScale);
+
+        for (size_t index = 0; index < weapons.size(); index++)
+        {
+            const int upgrade = weapons[index];
+            const Vec2 pos = start + Vec2(float(index) * ( slot + gap ), 0.0f);
+            const Vec3 color = cUpgrades[upgrade].mColor;
+            const float ready = glm::clamp(GetWeaponCooldownFraction(upgrade), 0.0f, 1.0f);
+
+            g_UIRenderer.AddRectGradient(pos, Vec2(slot), 14.0f * inScale, Vec4(color * 0.25f, 0.95f), Vec4(0.05f, 0.04f, 0.08f, 0.95f));
+            g_UIRenderer.AddRect(pos, Vec2(slot), 14.0f * inScale, 2.0f * inScale, Vec4(color, 0.4f + 0.6f * ( ready >= 1.0f ? 1.0f : 0.0f )));
+
+            DrawUpgradeIcon(upgrade, pos + Vec2(slot * 0.5f), slot * 0.3f, 1.0f);
+
+            if (ready < 1.0f)
+                g_UIRenderer.AddArc(pos + Vec2(slot * 0.5f), slot * 0.42f, 3.0f * inScale, -glm::half_pi<float>(), ready, Vec4(color, 0.7f));
+
+            for (int pip = 0; pip < cMaxUpgradeLevel; pip++)
+            {
+                const Vec2 pip_pos = pos + Vec2(slot * 0.5f + ( float(pip) - 2.0f ) * 10.0f * inScale, slot + 8.0f * inScale);
+                g_UIRenderer.AddCircleFilled(pip_pos, 3.0f * inScale, pip < m_UpgradeLevels[upgrade] ? Vec4(color, 1.0f) : Vec4(1.0f, 1.0f, 1.0f, 0.15f));
+            }
+        }
+
+        const Vec2 dash_pos = start + Vec2(float(weapons.size()) * ( slot + gap ), 0.0f);
+        const float dash_ready = 1.0f - m_DashCooldownTimer / cDashCooldown;
+        const Vec4 dash_color = Vec4(0.4f, 0.85f, 1.0f, 1.0f);
+
+        g_UIRenderer.AddRectGradient(dash_pos, Vec2(slot), 14.0f * inScale, Vec4(0.08f, 0.2f, 0.28f, 0.95f), Vec4(0.04f, 0.04f, 0.08f, 0.95f));
+        g_UIRenderer.AddRect(dash_pos, Vec2(slot), 14.0f * inScale, 2.0f * inScale, Fade(dash_color, dash_ready >= 1.0f ? 1.0f : 0.35f));
+
+        for (int chevron = 0; chevron < 2; chevron++)
+        {
+            const Vec2 c = dash_pos + Vec2(slot * ( 0.42f + 0.18f * chevron ), slot * 0.45f);
+            DrawSegment(c + Vec2(-8.0f, -10.0f) * inScale, c, 5.0f * inScale, Fade(dash_color, dash_ready >= 1.0f ? 1.0f : 0.4f));
+            DrawSegment(c + Vec2(-8.0f, 10.0f) * inScale, c, 5.0f * inScale, Fade(dash_color, dash_ready >= 1.0f ? 1.0f : 0.4f));
+        }
+
+        if (dash_ready < 1.0f)
+            g_UIRenderer.AddArc(dash_pos + Vec2(slot * 0.5f), slot * 0.42f, 3.0f * inScale, -glm::half_pi<float>(), dash_ready, Fade(dash_color, 0.7f));
+
+        g_UIRenderer.AddText(dash_pos + Vec2(slot * 0.5f, slot + 2.0f * inScale), "SPACE", 11.0f * inScale, Vec4(0.7f, 0.85f, 1.0f, 0.7f), UI_TEXT_ALIGN_CENTER);
+
+        const float passive_size = 40.0f * inScale;
+
+        for (size_t index = 0; index < passives.size(); index++)
+        {
+            const int upgrade = passives[index];
+            const Vec2 pos = Vec2(inMargin + float(index) * ( passive_size + 8.0f * inScale ), inDisplay.y - inMargin - passive_size);
+
+            g_UIRenderer.AddRectFilled(pos, Vec2(passive_size), 10.0f * inScale, Vec4(0.06f, 0.05f, 0.1f, 0.85f));
+            g_UIRenderer.AddRect(pos, Vec2(passive_size), 10.0f * inScale, 1.5f * inScale, Vec4(cUpgrades[upgrade].mColor, 0.5f));
+            DrawUpgradeIcon(upgrade, pos + Vec2(passive_size * 0.5f), passive_size * 0.28f, 1.0f);
+            g_UIRenderer.AddCircleFilled(pos + Vec2(passive_size - 4.0f * inScale, 4.0f * inScale), 9.0f * inScale, Vec4(0.08f, 0.07f, 0.12f, 1.0f));
+            g_UIRenderer.AddText(pos + Vec2(passive_size - 4.0f * inScale, -4.0f * inScale), std::format("{}", m_UpgradeLevels[upgrade]), 13.0f * inScale, Vec4(cUpgrades[upgrade].mColor, 1.0f), UI_TEXT_ALIGN_CENTER);
+        }
+    }
+
+    void DrawStreak(const Vec2& inDisplay, float inScale, float inMargin)
+    {
+        if (m_Streak < 10 || m_State != STATE_PLAYING)
+            return;
+
+        const float alpha = glm::clamp(m_StreakTimer / 0.5f, 0.0f, 1.0f);
+        const float pulse = 1.0f + 0.08f * glm::max(0.0f, 1.0f - ( cStreakWindow - m_StreakTimer ) * 8.0f);
+        const Vec2 pos = Vec2(inDisplay.x - inMargin, inMargin + 48.0f * inScale);
+
+        DrawShadowText(pos, std::format("x{}", m_Streak), 46.0f * inScale * pulse, Vec4(1.0f, 0.8f, 0.3f, alpha), UI_TEXT_ALIGN_RIGHT, inScale);
+        g_UIRenderer.AddText(pos + Vec2(0.0f, 54.0f * inScale), "KILL STREAK", 14.0f * inScale, Vec4(1.0f, 0.9f, 0.7f, 0.7f * alpha), UI_TEXT_ALIGN_RIGHT);
+        g_UIRenderer.AddRectFilled(pos + Vec2(-120.0f * inScale, 74.0f * inScale), Vec2(120.0f * ( m_StreakTimer / cStreakWindow ), 3.0f) * inScale, 1.5f * inScale, Vec4(1.0f, 0.8f, 0.3f, 0.8f * alpha));
+    }
+
+    void DrawIndicators(const Vec2& inDisplay, float inScale)
+    {
+        const auto DrawIndicator = [&](const Vec3& inWorld, Vec4 inColor)
+        {
+            Vec2 screen;
+            const bool visible = ProjectToScreen(inWorld, screen);
+            const float edge = 50.0f * inScale;
+
+            if (visible && screen.x > edge && screen.y > edge && screen.x < inDisplay.x - edge && screen.y < inDisplay.y - edge)
+                return;
+
+            Vec2 player_screen;
+            if (!ProjectToScreen(GetPlayerCenter(), player_screen))
+                return;
+
+            Vec2 direction = Vec2(inWorld.x - m_PlayerPosition.x, inWorld.z - m_PlayerPosition.y);
+            direction = glm::length(direction) > 0.001f ? glm::normalize(direction) : Vec2(1.0f, 0.0f);
+
+            const Vec2 center = inDisplay * 0.5f;
+            const Vec2 extent = inDisplay * 0.5f - Vec2(edge);
+            const float t = glm::min(extent.x / glm::max(glm::abs(direction.x), 0.001f), extent.y / glm::max(glm::abs(direction.y), 0.001f));
+            const Vec2 position = center + direction * t;
+            const float pulse = 1.0f + 0.12f * glm::sin(m_Time * 6.0f);
+
+            g_UIRenderer.AddCircleFilled(position, 16.0f * inScale * pulse, Fade(inColor, 0.25f), 10.0f * inScale);
+            g_UIRenderer.AddRectRotated(position, Vec2(16.0f, 16.0f) * inScale * pulse, glm::atan(direction.y, direction.x) + glm::quarter_pi<float>(), 3.0f * inScale, inColor);
+            g_UIRenderer.AddRectRotated(position - direction * 9.0f * inScale, Vec2(8.0f, 8.0f) * inScale, glm::quarter_pi<float>(), 2.0f * inScale, Vec4(1.0f, 1.0f, 1.0f, 0.8f));
+        };
+
+        for (const Pickup& pickup : m_Pickups)
+        {
+            if (pickup.mActive && pickup.mType == PICKUP_CHEST)
+                DrawIndicator(ToWorld(pickup.mPosition, 0.5f), Vec4(1.0f, 0.8f, 0.3f, 1.0f));
+        }
+
+        if (m_BossEnemy >= 0 && m_Enemies[m_BossEnemy].mActive)
+            DrawIndicator(ToWorld(m_Enemies[m_BossEnemy].mPosition, 1.5f), Vec4(0.8f, 0.4f, 1.0f, 1.0f));
+    }
+
+    static String FormatTime(float inSeconds)
+    {
+        const int seconds = int(inSeconds);
+        return std::format("{:02}:{:02}", seconds / 60, seconds % 60);
     }
 
     void DrawDamageNumbers(float inDeltaTime, float inScale)
@@ -1689,87 +4441,80 @@ private:
             if (!ProjectToScreen(number.mPosition + Vec3(0.0f, number.mTime * 1.5f, 0.0f), screen))
                 continue;
 
-            const float alpha = glm::clamp(( 0.7f - number.mTime ) / 0.25f, 0.0f, 1.0f);
-            const float size = ( 18.0f + glm::min(float(number.mValue), 20.0f) * 0.4f ) * inScale;
-            const String text = std::format("{}", number.mValue);
+            const float alpha = glm::clamp(( 0.75f - number.mTime ) / 0.25f, 0.0f, 1.0f);
+            const float pop = 1.0f + 0.6f * glm::max(0.0f, 1.0f - number.mTime * 8.0f);
+            const float size = ( number.mCrit ? 30.0f : 18.0f + glm::min(float(number.mValue), 20.0f) * 0.4f ) * inScale * pop;
+            const String text = number.mCrit ? std::format("{}!", number.mValue) : std::format("{}", number.mValue);
+            const Vec4 color = number.mCrit ? Vec4(1.0f, 0.82f, 0.25f, alpha) : Vec4(1.0f, 0.95f, 0.85f, alpha);
 
-            g_UIRenderer.AddText(screen + Vec2(1.5f, 1.5f) * inScale, text, size, Vec4(0.0f, 0.0f, 0.0f, 0.7f * alpha), UI_TEXT_ALIGN_CENTER);
-            g_UIRenderer.AddText(screen, text, size, Vec4(1.0f, 0.95f, 0.8f, alpha), UI_TEXT_ALIGN_CENTER);
+            g_UIRenderer.AddText(screen + Vec2(2.0f, 2.0f) * inScale, text, size, Vec4(0.0f, 0.0f, 0.0f, 0.7f * alpha), UI_TEXT_ALIGN_CENTER);
+            g_UIRenderer.AddText(screen, text, size, color, UI_TEXT_ALIGN_CENTER);
         }
 
-        std::erase_if(m_DamageNumbers, [](const DamageNumber& inNumber) { return inNumber.mTime >= 0.7f; });
-    }
-
-    void DrawLoadout(const Vec2& inDisplay, float inScale, float inMargin)
-    {
-        int count = 0;
-
-        for (int upgrade = 0; upgrade < UPGRADE_COUNT; upgrade++)
-            count += m_UpgradeLevels[upgrade] > 0;
-
-        const float line_height = 24.0f * inScale;
-        const Vec2 panel_size = Vec2(250.0f * inScale, count * line_height + 24.0f * inScale);
-        const Vec2 panel_pos = Vec2(inMargin, inDisplay.y - inMargin - panel_size.y);
-
-        DrawPanel(panel_pos, panel_size, inScale);
-
-        int line = 0;
-
-        for (int upgrade = 0; upgrade < UPGRADE_COUNT; upgrade++)
-        {
-            const int level = m_UpgradeLevels[upgrade];
-
-            if (level == 0)
-                continue;
-
-            const Vec2 pos = panel_pos + Vec2(16.0f * inScale, 12.0f * inScale + line * line_height);
-            const Vec3 color = cUpgrades[upgrade].mColor;
-
-            g_UIRenderer.AddCircleFilled(pos + Vec2(6.0f, 10.0f) * inScale, 5.0f * inScale, Vec4(color, 1.0f));
-            g_UIRenderer.AddText(pos + Vec2(20.0f * inScale, 0.0f), cUpgrades[upgrade].mName, 16.0f * inScale, Vec4(0.95f, 0.92f, 0.9f, 1.0f));
-
-            for (int pip = 0; pip < cMaxUpgradeLevel; pip++)
-            {
-                const Vec2 pip_pos = pos + Vec2(160.0f + pip * 13.0f, 4.0f) * inScale;
-                g_UIRenderer.AddRectFilled(pip_pos, Vec2(9.0f, 12.0f) * inScale, 2.0f * inScale, pip < level ? Vec4(color, 1.0f) : Vec4(1.0f, 1.0f, 1.0f, 0.12f));
-            }
-
-            line++;
-        }
+        std::erase_if(m_DamageNumbers, [](const DamageNumber& inNumber) { return inNumber.mTime >= 0.75f; });
     }
 
     void DrawPopups(const Vec2& inDisplay, float inDeltaTime, float inScale)
     {
-        float popup_y = inDisplay.y * 0.24f;
+        float popup_y = inDisplay.y * 0.26f;
 
         for (Popup& popup : m_Popups)
         {
             popup.mTime += inDeltaTime;
 
             const float fade_in = glm::clamp(popup.mTime / 0.15f, 0.0f, 1.0f);
-            const float fade_out = glm::clamp(( 2.2f - popup.mTime ) / 0.4f, 0.0f, 1.0f);
+            const float fade_out = glm::clamp(( popup.mDuration - popup.mTime ) / 0.4f, 0.0f, 1.0f);
             const float alpha = fade_in * fade_out;
-            const float size = glm::mix(26.0f, 38.0f, fade_in) * inScale;
+            const float size = ( popup.mBig ? glm::mix(34.0f, 48.0f, EaseOutBack(fade_in)) : glm::mix(22.0f, 30.0f, fade_in) ) * inScale;
+            const float center = inDisplay.x * 0.5f;
 
-            g_UIRenderer.AddText(Vec2(inDisplay.x * 0.5f + 2.0f * inScale, popup_y + 3.0f * inScale), popup.mText, size, Vec4(0.0f, 0.0f, 0.0f, 0.5f * alpha), UI_TEXT_ALIGN_CENTER);
-            g_UIRenderer.AddText(Vec2(inDisplay.x * 0.5f, popup_y), popup.mText, size, Vec4(Vec3(popup.mColor), alpha), UI_TEXT_ALIGN_CENTER);
+            const Vec2 extent = g_UIRenderer.MeasureText(popup.mText, size);
+            const float width = extent.x + 60.0f * inScale;
+            const float height = size * 1.25f + ( popup.mSubText.empty() ? 0.0f : 26.0f * inScale );
 
-            popup_y += 46.0f * inScale;
+            g_UIRenderer.AddRectFilled(Vec2(center - width * 0.5f, popup_y - 6.0f * inScale), Vec2(width, height), height * 0.4f, Vec4(0.0f, 0.0f, 0.02f, 0.45f * alpha), 22.0f * inScale);
+
+            if (popup.mBig)
+                g_UIRenderer.AddRectFilled(Vec2(center - width * 0.35f, popup_y + height - 6.0f * inScale), Vec2(width * 0.7f, 2.0f * inScale), 1.0f * inScale, Fade(popup.mColor, alpha));
+
+            DrawShadowText(Vec2(center, popup_y), popup.mText, size, Fade(popup.mColor, alpha), UI_TEXT_ALIGN_CENTER, inScale);
+
+            if (!popup.mSubText.empty())
+                g_UIRenderer.AddText(Vec2(center, popup_y + size * 1.15f), popup.mSubText, 17.0f * inScale, Vec4(1.0f, 1.0f, 1.0f, 0.75f * alpha), UI_TEXT_ALIGN_CENTER);
+
+            popup_y += height + 14.0f * inScale;
         }
 
-        std::erase_if(m_Popups, [](const Popup& inPopup) { return inPopup.mTime >= 2.2f; });
+        std::erase_if(m_Popups, [](const Popup& inPopup) { return inPopup.mTime >= inPopup.mDuration; });
+    }
+
+    void DrawIntro(const Vec2& inDisplay, float inScale)
+    {
+        const float alpha = glm::clamp(m_RunTime / 0.5f, 0.0f, 1.0f) * glm::clamp(( 4.5f - m_RunTime ) / 1.0f, 0.0f, 1.0f);
+        const float center = inDisplay.x * 0.5f;
+        const float y = inDisplay.y * 0.36f;
+
+        DrawShadowText(Vec2(center, y), "DUSK SWARM", 88.0f * inScale, Vec4(1.0f, 0.62f, 0.3f, alpha), UI_TEXT_ALIGN_CENTER, inScale);
+        g_UIRenderer.AddRectGradient(Vec2(center - 220.0f * inScale, y + 104.0f * inScale), Vec2(440.0f, 2.0f) * inScale, 1.0f, Vec4(1.0f, 0.6f, 0.3f, 0.0f), Vec4(1.0f, 0.6f, 0.3f, alpha), true);
+        g_UIRenderer.AddText(Vec2(center, y + 116.0f * inScale), "Survive until dawn", 24.0f * inScale, Vec4(1.0f, 0.9f, 0.8f, alpha), UI_TEXT_ALIGN_CENTER);
+        g_UIRenderer.AddText(Vec2(center, inDisplay.y * 0.78f), "WASD  move      SPACE  dash      weapons fire on their own", 18.0f * inScale, Vec4(1.0f, 0.9f, 0.75f, 0.8f * alpha), UI_TEXT_ALIGN_CENTER);
     }
 
     void DrawLevelUp(const Vec2& inDisplay, float inScale)
     {
-        const float alpha = glm::clamp(( m_Time - m_LevelUpTime ) / 0.2f, 0.0f, 1.0f);
+        const float time = m_Time - m_LevelUpTime;
+        const float alpha = glm::clamp(time / 0.25f, 0.0f, 1.0f);
 
-        g_UIRenderer.AddRectFilled(Vec2(0.0f), inDisplay, 0.0f, Vec4(0.02f, 0.0f, 0.02f, 0.5f * alpha));
-        g_UIRenderer.AddText(Vec2(inDisplay.x * 0.5f, inDisplay.y * 0.5f - 230.0f * inScale), "LEVEL UP", 60.0f * inScale, Vec4(1.0f, 0.75f, 0.35f, alpha), UI_TEXT_ALIGN_CENTER);
-        g_UIRenderer.AddText(Vec2(inDisplay.x * 0.5f, inDisplay.y * 0.5f - 160.0f * inScale), "Choose an upgrade", 20.0f * inScale, Vec4(1.0f, 0.9f, 0.8f, 0.8f * alpha), UI_TEXT_ALIGN_CENTER);
+        g_UIRenderer.AddRectFilled(Vec2(0.0f), inDisplay, 0.0f, Vec4(0.02f, 0.0f, 0.04f, 0.6f * alpha));
+        g_UIRenderer.AddRect(Vec2(0.0f), inDisplay, 0.0f, 160.0f * inScale, Vec4(0.0f, 0.0f, 0.0f, 0.5f * alpha));
 
-        const Vec2 card_size = Vec2(280.0f, 240.0f) * inScale;
-        const float gap = 28.0f * inScale;
+        const float title_y = inDisplay.y * 0.5f - 300.0f * inScale;
+        g_UIRenderer.AddCircleFilled(Vec2(inDisplay.x * 0.5f, title_y + 34.0f * inScale), 120.0f * inScale, Vec4(1.0f, 0.7f, 0.3f, 0.12f * alpha), 90.0f * inScale);
+        DrawShadowText(Vec2(inDisplay.x * 0.5f, title_y), "LEVEL UP", 64.0f * inScale * glm::mix(0.8f, 1.0f, EaseOutBack(alpha)), Vec4(1.0f, 0.78f, 0.35f, alpha), UI_TEXT_ALIGN_CENTER, inScale);
+        g_UIRenderer.AddText(Vec2(inDisplay.x * 0.5f, title_y + 76.0f * inScale), std::format("Level {}  -  choose your power", m_Level), 20.0f * inScale, Vec4(1.0f, 0.9f, 0.8f, 0.8f * alpha), UI_TEXT_ALIGN_CENTER);
+
+        const Vec2 card_size = Vec2(300.0f, 380.0f) * inScale;
+        const float gap = 32.0f * inScale;
         const float total_width = m_ChoiceCount * card_size.x + ( m_ChoiceCount - 1 ) * gap;
 
         for (int choice = 0; choice < m_ChoiceCount; choice++)
@@ -1777,52 +4522,102 @@ private:
             const int upgrade = m_Choices[choice];
             const UpgradeInfo& info = cUpgrades[upgrade];
             const bool selected = choice == m_SelectedChoice;
-            const float lift = selected ? 10.0f * inScale : 0.0f;
+            const float appear = EaseOutBack(glm::clamp(( time - 0.08f * choice ) / 0.35f, 0.0f, 1.0f));
+            const float card_alpha = glm::clamp(( time - 0.08f * choice ) / 0.2f, 0.0f, 1.0f);
+            const float lift = ( selected ? 14.0f : 0.0f ) * inScale + ( 1.0f - appear ) * 80.0f * inScale;
+            const Vec4 accent = Vec4(info.mColor, 1.0f);
 
-            const Vec2 pos = Vec2(inDisplay.x * 0.5f - total_width * 0.5f + choice * ( card_size.x + gap ), inDisplay.y * 0.5f - 110.0f * inScale - lift);
-
-            DrawPanel(pos, card_size, inScale, Vec4(info.mColor, selected ? 1.0f : 0.35f));
+            const Vec2 pos = Vec2(inDisplay.x * 0.5f - total_width * 0.5f + choice * ( card_size.x + gap ), inDisplay.y * 0.5f - 170.0f * inScale - lift);
 
             if (selected)
-                g_UIRenderer.AddRect(pos - Vec2(4.0f * inScale), card_size + Vec2(8.0f * inScale), 18.0f * inScale, 2.0f * inScale, Vec4(info.mColor, 0.5f));
+            {
+                const float pulse = 0.5f + 0.5f * glm::sin(m_Time * 5.0f);
+                g_UIRenderer.AddRectFilled(pos - Vec2(6.0f * inScale), card_size + Vec2(12.0f * inScale), 22.0f * inScale, Fade(accent, ( 0.25f + 0.2f * pulse ) * card_alpha), 26.0f * inScale);
+            }
+
+            g_UIRenderer.AddRectFilled(pos + Vec2(0.0f, 10.0f) * inScale, card_size, 18.0f * inScale, Vec4(0.0f, 0.0f, 0.0f, 0.5f * card_alpha), 20.0f * inScale);
+            g_UIRenderer.AddRectGradient(pos, card_size, 18.0f * inScale, Vec4(info.mColor * 0.22f + Vec3(0.04f, 0.035f, 0.07f), 0.97f * card_alpha), Vec4(0.035f, 0.03f, 0.06f, 0.97f * card_alpha));
+            g_UIRenderer.AddRect(pos, card_size, 18.0f * inScale, ( selected ? 2.5f : 1.5f ) * inScale, Fade(accent, ( selected ? 0.95f : 0.35f ) * card_alpha));
 
             const float center = pos.x + card_size.x * 0.5f;
+            const Vec2 icon_center = Vec2(center, pos.y + 104.0f * inScale);
 
-            g_UIRenderer.AddText(Vec2(center, pos.y + 18.0f * inScale), std::format("[{}]", choice + 1), 18.0f * inScale, Vec4(1.0f, 1.0f, 1.0f, 0.5f * alpha), UI_TEXT_ALIGN_CENTER);
-            g_UIRenderer.AddCircleFilled(Vec2(center, pos.y + 78.0f * inScale), 18.0f * inScale, Vec4(info.mColor, alpha), 6.0f * inScale);
-            g_UIRenderer.AddText(Vec2(center, pos.y + 110.0f * inScale), info.mName, 24.0f * inScale, Vec4(info.mColor, alpha), UI_TEXT_ALIGN_CENTER);
+            g_UIRenderer.AddCircleFilled(icon_center, 56.0f * inScale, Vec4(0.03f, 0.025f, 0.05f, card_alpha));
+            g_UIRenderer.AddArc(icon_center, 56.0f * inScale, 3.0f * inScale, -glm::half_pi<float>(), 1.0f, Fade(accent, 0.6f * card_alpha));
+            DrawUpgradeIcon(upgrade, icon_center, 34.0f * inScale, card_alpha);
 
-            const String level_text = upgrade == UPGRADE_FEAST ? String("") :
-                m_UpgradeLevels[upgrade] == 0 ? String(info.mIsWeapon ? "NEW WEAPON" : "NEW") : std::format("LV {}  >  {}", m_UpgradeLevels[upgrade], m_UpgradeLevels[upgrade] + 1);
+            g_UIRenderer.AddText(Vec2(pos.x + 16.0f * inScale, pos.y + 14.0f * inScale), std::format("{}", choice + 1), 16.0f * inScale, Vec4(1.0f, 1.0f, 1.0f, 0.4f * card_alpha));
 
-            g_UIRenderer.AddText(Vec2(center, pos.y + 146.0f * inScale), level_text, 16.0f * inScale, Vec4(1.0f, 0.85f, 0.45f, alpha), UI_TEXT_ALIGN_CENTER);
-            g_UIRenderer.AddText(Vec2(center, pos.y + 182.0f * inScale), info.mDescription, 14.0f * inScale, Vec4(0.9f, 0.88f, 0.86f, 0.9f * alpha), UI_TEXT_ALIGN_CENTER);
+            DrawShadowText(Vec2(center, pos.y + 180.0f * inScale), info.mName, 27.0f * inScale, Vec4(glm::mix(info.mColor, Vec3(1.0f), 0.3f), card_alpha), UI_TEXT_ALIGN_CENTER, inScale);
+
+            const bool is_new = upgrade != UPGRADE_FEAST && m_UpgradeLevels[upgrade] == 0;
+            const String chip = upgrade == UPGRADE_FEAST ? String("RESTORE") : is_new ? String(info.mIsWeapon ? "NEW WEAPON" : "NEW") : std::format("LV {}  >  {}", m_UpgradeLevels[upgrade], m_UpgradeLevels[upgrade] + 1);
+            const Vec2 chip_extent = g_UIRenderer.MeasureText(chip, 14.0f * inScale);
+            const Vec2 chip_pos = Vec2(center - chip_extent.x * 0.5f - 12.0f * inScale, pos.y + 222.0f * inScale);
+
+            g_UIRenderer.AddRectFilled(chip_pos, Vec2(chip_extent.x + 24.0f * inScale, 24.0f * inScale), 12.0f * inScale, is_new ? Fade(accent, 0.9f * card_alpha) : Vec4(1.0f, 1.0f, 1.0f, 0.1f * card_alpha));
+            g_UIRenderer.AddText(Vec2(center, chip_pos.y + 4.0f * inScale), chip, 14.0f * inScale, is_new ? Vec4(0.05f, 0.04f, 0.08f, card_alpha) : Vec4(1.0f, 0.85f, 0.5f, card_alpha), UI_TEXT_ALIGN_CENTER);
+
+            g_UIRenderer.AddText(Vec2(center, pos.y + 266.0f * inScale), info.mDescription, 17.0f * inScale, Vec4(0.9f, 0.88f, 0.86f, 0.9f * card_alpha), UI_TEXT_ALIGN_CENTER);
+
+            if (upgrade != UPGRADE_FEAST)
+            {
+                for (int pip = 0; pip < cMaxUpgradeLevel; pip++)
+                {
+                    const Vec2 pip_pos = Vec2(center + ( float(pip) - 2.0f ) * 22.0f * inScale, pos.y + card_size.y - 28.0f * inScale);
+                    const bool filled = pip < m_UpgradeLevels[upgrade];
+                    const bool next = pip == m_UpgradeLevels[upgrade];
+                    const float blink = next ? 0.5f + 0.5f * glm::sin(m_Time * 6.0f) : 1.0f;
+                    g_UIRenderer.AddRectRotated(pip_pos, Vec2(11.0f) * inScale, glm::quarter_pi<float>(), 2.0f * inScale, filled ? Fade(accent, card_alpha) : next ? Fade(accent, blink * card_alpha) : Vec4(1.0f, 1.0f, 1.0f, 0.12f * card_alpha));
+                }
+            }
         }
 
-        g_UIRenderer.AddText(Vec2(inDisplay.x * 0.5f, inDisplay.y * 0.5f + 170.0f * inScale), "1 / 2 / 3 to pick   -   A D to select, ENTER to confirm", 18.0f * inScale, Vec4(1.0f, 0.9f, 0.75f, 0.75f * alpha), UI_TEXT_ALIGN_CENTER);
+        g_UIRenderer.AddText(Vec2(inDisplay.x * 0.5f, inDisplay.y * 0.5f + 250.0f * inScale), "1 / 2 / 3 to pick     A / D to browse     ENTER to confirm", 18.0f * inScale, Vec4(1.0f, 0.9f, 0.75f, 0.7f * alpha), UI_TEXT_ALIGN_CENTER);
     }
 
     void DrawEndScreen(const Vec2& inDisplay, float inScale)
     {
         const bool victory = m_State == STATE_VICTORY;
-        const float alpha = glm::clamp(( m_Time - m_EndTime ) / 0.6f, 0.0f, 1.0f);
+        const float alpha = glm::clamp(( m_PlayerDeathTimer - 0.6f ) / 0.6f, 0.0f, 1.0f);
         const Vec4 accent = victory ? Vec4(1.0f, 0.8f, 0.4f, 1.0f) : Vec4(1.0f, 0.35f, 0.3f, 1.0f);
 
-        g_UIRenderer.AddRectFilled(Vec2(0.0f), inDisplay, 0.0f, Vec4(0.02f, 0.0f, 0.0f, 0.55f * alpha));
+        g_UIRenderer.AddRectFilled(Vec2(0.0f), inDisplay, 0.0f, Vec4(0.02f, 0.0f, 0.02f, 0.6f * alpha));
 
-        const Vec2 size = Vec2(560.0f, 280.0f) * inScale;
-        const Vec2 pos = inDisplay * 0.5f - size * 0.5f;
+        const Vec2 size = Vec2(620.0f, 380.0f) * inScale;
+        const Vec2 pos = inDisplay * 0.5f - size * 0.5f + Vec2(0.0f, ( 1.0f - EaseOutCubic(alpha) ) * 40.0f * inScale);
 
-        g_UIRenderer.AddRectFilled(pos, size, 20.0f * inScale, Vec4(0.06f, 0.04f, 0.05f, 0.92f * alpha));
-        g_UIRenderer.AddRect(pos, size, 20.0f * inScale, 2.0f * inScale, Vec4(Vec3(accent), 0.8f * alpha));
+        DrawPanel(pos, size, inScale, accent, alpha);
 
         const float center = inDisplay.x * 0.5f;
-        g_UIRenderer.AddText(Vec2(center, pos.y + 28.0f * inScale), victory ? "DAWN BREAKS" : "YOU FELL", 64.0f * inScale, Vec4(Vec3(accent), alpha), UI_TEXT_ALIGN_CENTER);
-        g_UIRenderer.AddText(Vec2(center, pos.y + 118.0f * inScale), std::format("Survived {}   Level {}   Kills {}", FormatTime(m_RunTime), m_Level, m_Kills), 22.0f * inScale, Vec4(1.0f, 1.0f, 1.0f, alpha), UI_TEXT_ALIGN_CENTER);
-        g_UIRenderer.AddText(Vec2(center, pos.y + 158.0f * inScale), std::format("Best {}", FormatTime(m_BestTime)), 18.0f * inScale, Vec4(1.0f, 0.85f, 0.6f, 0.8f * alpha), UI_TEXT_ALIGN_CENTER);
+        g_UIRenderer.AddCircleFilled(Vec2(center, pos.y + 70.0f * inScale), 140.0f * inScale, Fade(accent, 0.08f * alpha), 100.0f * inScale);
+        DrawShadowText(Vec2(center, pos.y + 34.0f * inScale), victory ? "DAWN BREAKS" : "YOU FELL", 66.0f * inScale, Fade(accent, alpha), UI_TEXT_ALIGN_CENTER, inScale);
+        g_UIRenderer.AddText(Vec2(center, pos.y + 112.0f * inScale), victory ? "The swarm retreats from the light" : "The night claims another soul", 18.0f * inScale, Vec4(1.0f, 0.9f, 0.85f, 0.75f * alpha), UI_TEXT_ALIGN_CENTER);
+
+        const StaticArray<std::pair<String, String>, 6> stats =
+        {
+            std::pair { String("SURVIVED"), FormatTime(m_RunTime) },
+            std::pair { String("LEVEL"), std::format("{}", m_Level) },
+            std::pair { String("KILLS"), std::format("{}", m_Kills) },
+            std::pair { String("BEST STREAK"), std::format("{}", m_BestStreak) },
+            std::pair { String("ELITES"), std::format("{}", m_EliteKills) },
+            std::pair { String("DAMAGE"), std::format("{:.1f}k", m_DamageDealt / 1000.0f) },
+        };
+
+        for (size_t index = 0; index < stats.size(); index++)
+        {
+            const float column = float(index % 3);
+            const float row = float(index / 3);
+            const Vec2 cell = Vec2(pos.x + size.x * ( 0.2f + 0.3f * column ), pos.y + 170.0f * inScale + row * 72.0f * inScale);
+
+            g_UIRenderer.AddText(cell, stats[index].second, 30.0f * inScale, Vec4(1.0f, 1.0f, 1.0f, alpha), UI_TEXT_ALIGN_CENTER);
+            g_UIRenderer.AddText(cell + Vec2(0.0f, 36.0f * inScale), stats[index].first, 13.0f * inScale, Fade(accent, 0.8f * alpha), UI_TEXT_ALIGN_CENTER);
+        }
+
+        g_UIRenderer.AddText(Vec2(center, pos.y + 318.0f * inScale), std::format("Best {}", FormatTime(m_BestTime)), 16.0f * inScale, Vec4(1.0f, 0.85f, 0.6f, 0.7f * alpha), UI_TEXT_ALIGN_CENTER);
 
         const float blink = 0.6f + 0.4f * glm::sin(m_Time * 4.0f);
-        g_UIRenderer.AddText(Vec2(center, pos.y + 212.0f * inScale), "Press ENTER to play again", 20.0f * inScale, Vec4(1.0f, 0.85f, 0.4f, alpha * blink), UI_TEXT_ALIGN_CENTER);
+        g_UIRenderer.AddText(Vec2(center, pos.y + size.y + 24.0f * inScale), "Press ENTER to play again", 22.0f * inScale, Vec4(1.0f, 0.85f, 0.4f, alpha * blink), UI_TEXT_ALIGN_CENTER);
     }
 
 private:
@@ -1834,43 +4629,51 @@ private:
     float m_BestTime = 0.0f;
     std::mt19937 m_Random;
 
+    uint32_t m_PaletteTexture = 0;
+    uint32_t m_PaletteEmissiveTexture = 0;
+    HashMap<String, Array<PartTemplate>> m_MeshTemplates;
+
     Entity m_RootEntity = Entity::Null;
     Entity m_CameraEntity = Entity::Null;
     Entity m_PlayerEntity = Entity::Null;
     Model m_PlayerModel;
-    Entity m_NovaEntity = Entity::Null;
     StaticArray<Entity, cMaxBlades> m_Blades;
 
-    HashMap<String, Array<MeshTemplate>> m_MeshTemplates;
-    HashMap<String, Entity> m_ModelMaterials;
-
+    Entity m_PaletteMaterial = Entity::Null;
     Entity m_FlashMaterial = Entity::Null;
-    Entity m_GroundMaterial = Entity::Null;
-    Entity m_DirtMaterial = Entity::Null;
-    Entity m_StoneMaterial = Entity::Null;
-    Entity m_WallMaterial = Entity::Null;
-    Entity m_WoodMaterial = Entity::Null;
-    Entity m_LanternMaterial = Entity::Null;
-    Entity m_PlayerBodyMaterial = Entity::Null;
-    Entity m_PlayerHeadMaterial = Entity::Null;
-    Entity m_VisorMaterial = Entity::Null;
+    Entity m_EliteFlashMaterial = Entity::Null;
     Entity m_BoltMaterial = Entity::Null;
     Entity m_BladeMaterial = Entity::Null;
-    Entity m_NovaMaterial = Entity::Null;
-    Entity m_SmallGemMaterial = Entity::Null;
-    Entity m_LargeGemMaterial = Entity::Null;
+    Entity m_DangerMaterial = Entity::Null;
+    Entity m_TargetMaterial = Entity::Null;
+    Entity m_PoisonTelegraphMaterial = Entity::Null;
+    StaticArray<Entity, 3> m_GemMaterials;
+    StaticArray<Entity, FX_MATERIAL_COUNT> m_FXMaterials;
 
     Vec2 m_PlayerPosition = Vec2(0.0f);
     Vec2 m_PlayerVelocity = Vec2(0.0f);
     Vec2 m_FacingDirection = Vec2(0.0f, -1.0f);
+    Vec2 m_DashDirection = Vec2(0.0f, -1.0f);
     float m_PlayerYaw = 0.0f;
+    float m_PlayerWalkPhase = 0.0f;
+    float m_PlayerDeathTimer = 0.0f;
     float m_Health = cPlayerBaseHealth;
+    float m_HealthTrail = cPlayerBaseHealth;
     float m_InvulnerableTimer = 0.0f;
+    float m_DashTimer = -1.0f;
+    float m_DashCooldownTimer = 0.0f;
+    float m_CastTimer = 0.0f;
 
     int m_Level = 1;
     int m_Experience = 0;
     int m_PendingLevelUps = 0;
     int m_Kills = 0;
+    int m_EliteKills = 0;
+    int m_BossKills = 0;
+    int m_Streak = 0;
+    int m_BestStreak = 0;
+    float m_StreakTimer = 0.0f;
+    float m_DamageDealt = 0.0f;
     StaticArray<int, UPGRADE_COUNT> m_UpgradeLevels = {};
 
     StaticArray<int, cChoiceCount> m_Choices = {};
@@ -1881,9 +4684,22 @@ private:
     Array<Enemy> m_Enemies;
     StaticArray<Array<int>, ENEMY_TYPE_COUNT> m_FreeEnemies;
     Array<Projectile> m_Projectiles;
+    Array<Fireball> m_Fireballs;
+    Array<EnemyProjectile> m_Arrows;
+    Array<EnemyProjectile> m_Orbs;
+    Array<Meteor> m_Meteors;
     Array<Gem> m_Gems;
+    Array<Pickup> m_Pickups;
     Array<Obstacle> m_Obstacles;
     Array<Vec2> m_Pushes;
+
+    StaticArray<Array<Particle>, PARTICLE_MESH_COUNT> m_Particles;
+    StaticArray<int, PARTICLE_MESH_COUNT> m_ParticleCursor = {};
+    Array<Ring> m_Rings;
+    Array<Telegraph> m_Telegraphs;
+    Array<Beam> m_Beams;
+    Array<FlashLight> m_Lights;
+    Array<EliteAura> m_EliteAuras;
 
     Array<int> m_GridStart;
     Array<int> m_GridFill;
@@ -1893,10 +4709,15 @@ private:
     float m_SpawnAccumulator = 0.0f;
     float m_NextSwarmTime = cSwarmInterval;
     float m_NextBruteTime = cBruteInterval;
+    int m_NextBoss = 0;
+    int m_BossEnemy = -1;
+    int m_BossPattern = 0;
+    float m_BossHealthTrail = 0.0f;
     float m_BoltTimer = 0.0f;
     float m_NovaTimer = 0.0f;
-    float m_NovaAge = -1.0f;
-    float m_NovaRadius = 0.0f;
+    float m_FireballTimer = 0.0f;
+    float m_LightningTimer = 0.0f;
+    float m_MeteorTimer = 0.0f;
     float m_BladeAngle = 0.0f;
 
     Array<DamageNumber> m_DamageNumbers;
@@ -1904,13 +4725,23 @@ private:
 
     Vec3 m_CameraTarget = Vec3(0.0f);
     float m_CameraDistance = 22.0f;
-    float m_Shake = 0.0f;
+    float m_CameraKick = 0.0f;
+    float m_Trauma = 0.0f;
+    float m_HitStop = 0.0f;
     float m_HitFlash = 0.0f;
+    float m_ScreenFlash = 0.0f;
+
+    int* m_GodMode = nullptr;
+    int* m_AutoPick = nullptr;
+    float* m_StartTime = nullptr;
+    int* m_StartWeapons = nullptr;
 
 public:
     DuskSwarmScript()
     {
         m_Blades.fill(Entity::Null);
+        m_GemMaterials.fill(Entity::Null);
+        m_FXMaterials.fill(Entity::Null);
     }
 };
 
