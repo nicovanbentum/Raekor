@@ -14,9 +14,7 @@ public:
 	virtual void OnEvent(const SDL_Event& inEvent) override;
 
 	bool ShouldLaunch() const { return m_Launch; }
-	const Path& GetGameSceneFile() const { return m_GameSceneFile; }
-
-	static Path sGetGameExecutablePath();
+	const Path& GetSceneFile() const { return m_SceneFile; }
 
 private:
 	struct GameEntry
@@ -26,15 +24,15 @@ private:
 	};
 
 	void DrawHeader();
-	void DrawLaunchTarget();
+	void DrawGames();
 	void DrawStartupSettings();
 	void DrawConsoleVariables();
 	void DrawFooter();
 
-	bool DrawLaunchTile(const char* inIcon, const char* inName, bool inSelected, bool inEnabled);
+	bool DrawGameTile(const GameEntry& inGame, bool inSelected);
 
 	void SetDisplay(SDL_DisplayID inDisplay);
-	void SetGameSceneFile(const Path& inSceneFile);
+	void SetSceneFile(const Path& inSceneFile);
 	void Launch();
 
 	bool m_Launch = false;
@@ -42,8 +40,7 @@ private:
 	SDL_Renderer* m_Renderer;
 	Array<String> m_SortedCvarNames;
 	Array<GameEntry> m_Games;
-	Path m_GameSceneFile;
-	bool m_HasGameExecutable = false;
+	Path m_SceneFile;
 };
 
 }

@@ -1,12 +1,11 @@
-#include "pch.h"
+#include "PCH.h"
 #include "Launcher.h"
-#include "gui.h"
 #include "OS.h"
+#include "CVars.h"
+#include "GUIStyle.h"
 
 namespace RK {
 
-static constexpr const char* cSceneFileFilter = "Scene Files (*.scene)\0*.scene\0";
-static constexpr const char* cEnableLauncherCVar = "enable_launcher";
 static constexpr const char* cLauncherGameCVar = "launcher_game";
 static constexpr const char* cGameScenesDirectory = "Assets/Scenes";
 
@@ -90,7 +89,7 @@ Launcher::Launcher() : Application(WindowFlag::HIDDEN | WindowFlag::RESIZE)
 
 	for (const auto& [name, cvar] : g_CVariables->GetCVars())
 	{
-		if (cvar.mType != CVAR_TYPE_FUNCTION && cvar.mType != CVAR_TYPE_NONE && name != cEnableLauncherCVar && name != cLauncherGameCVar)
+		if (cvar.mType != CVAR_TYPE_FUNCTION && cvar.mType != CVAR_TYPE_NONE && name != cLauncherGameCVar)
 			m_SortedCvarNames.push_back(name);
 	}
 
@@ -106,12 +105,13 @@ Launcher::Launcher() : Application(WindowFlag::HIDDEN | WindowFlag::RESIZE)
 
 	std::sort(m_Games.begin(), m_Games.end(), [](const GameEntry& inLeft, const GameEntry& inRight) { return inLeft.mName < inRight.mName; });
 
-	m_HasGameExecutable = fs::exists(sGetGameExecutablePath());
+	if (!m_Games.empty())
+		m_SceneFile = m_Games.front().mSceneFile;
 
 	for (const GameEntry& game : m_Games)
 	{
-		if (m_HasGameExecutable && game.mSceneFile == Path(last_game))
-			m_GameSceneFile = game.mSceneFile;
+		if (game.mSceneFile == Path(last_game))
+			m_SceneFile = game.mSceneFile;
 	}
 
 	SetDisplay(m_ConfigSettings.mDisplayID);
@@ -149,7 +149,7 @@ void Launcher::OnUpdate(float inDeltaTime)
 	ImGui::Begin("##Launcher", nullptr, window_flags);
 
 	DrawHeader();
-	DrawLaunchTarget();
+	DrawGames();
 	DrawStartupSettings();
 	DrawConsoleVariables();
 	DrawFooter();
@@ -188,44 +188,40 @@ void Launcher::DrawHeader()
 	ImGui::GetWindowDrawList()->AddText(ImGui::GetFont(), title_size, ImGui::GetCursorScreenPos(), ImGui::GetColorU32(ImGuiCol_Text), title);
 	ImGui::Dummy(title_extent);
 
-	ImGui::TextDisabled("Pick the editor or a game and adjust startup settings, then press Launch or Enter.");
+	ImGui::TextDisabled("Pick a game and adjust startup settings, then press Launch or Enter to play.");
 
 	ImGui::Spacing();
 }
 
 
 
-void Launcher::DrawLaunchTarget()
+void Launcher::DrawGames()
 {
-	ImGui::SeparatorText("Launch");
+	ImGui::SeparatorText("Games");
+
+	if (m_Games.empty())
+	{
+		ImGui::TextDisabled("No games found, save a scene to %s to add one.", cGameScenesDirectory);
+		ImGui::Spacing();
+		return;
+	}
 
 	const ImGuiStyle& style = ImGui::GetStyle();
 	const float tile_width = ImGui::GetFontSize() * 7.5f;
 	const float right_edge = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
 
-	if (DrawLaunchTile((const char*)ICON_FA_TOOLS, "Editor", m_GameSceneFile.empty(), true))
-		SetGameSceneFile(Path());
-
-	if (ImGui::IsItemHovered())
-		ImGui::SetTooltip("Open the editor with the scene selected below.");
-
-	for (const GameEntry& game : m_Games)
+	for (const auto& [index, game] : gEnumerate(m_Games))
 	{
 		ImGui::PushID(game.mSceneFile.string().c_str());
 
-		if (ImGui::GetItemRectMax().x + style.ItemSpacing.x + tile_width <= right_edge)
+		if (index > 0 && ImGui::GetItemRectMax().x + style.ItemSpacing.x + tile_width <= right_edge)
 			ImGui::SameLine();
 
-		if (DrawLaunchTile((const char*)ICON_FA_GAMEPAD, game.mName.c_str(), game.mSceneFile == m_GameSceneFile, m_HasGameExecutable))
-			SetGameSceneFile(game.mSceneFile);
+		if (DrawGameTile(game, game.mSceneFile == m_SceneFile))
+			SetSceneFile(game.mSceneFile);
 
-		if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-		{
-			if (m_HasGameExecutable)
-				ImGui::SetTooltip("Play %s\n%s", game.mName.c_str(), game.mSceneFile.string().c_str());
-			else
-				ImGui::SetTooltip("%s was not found, build the Game project first.", sGetGameExecutablePath().filename().string().c_str());
-		}
+		if (ImGui::IsItemHovered())
+			ImGui::SetTooltip("Play %s\n%s", game.mName.c_str(), game.mSceneFile.string().c_str());
 
 		ImGui::PopID();
 	}
@@ -235,17 +231,18 @@ void Launcher::DrawLaunchTarget()
 
 
 
-bool Launcher::DrawLaunchTile(const char* inIcon, const char* inName, bool inSelected, bool inEnabled)
+bool Launcher::DrawGameTile(const GameEntry& inGame, bool inSelected)
 {
-	const ImVec2 tile_size = ImVec2(ImGui::GetFontSize() * 7.5f, ImGui::GetFontSize() * 4.5f);
+	const char* icon = (const char*)ICON_FA_GAMEPAD;
+	const char* name = inGame.mName.c_str();
 
-	ImGui::BeginDisabled(!inEnabled);
+	const ImVec2 tile_size = ImVec2(ImGui::GetFontSize() * 7.5f, ImGui::GetFontSize() * 4.5f);
 
 	const ImVec2 tile_min = ImGui::GetCursorScreenPos();
 	const ImVec2 tile_max = tile_min + tile_size;
 
 	ImGui::PushStyleVar(ImGuiStyleVar_SelectableTextAlign, ImVec2(0.5f, 0.5f));
-	const bool clicked = ImGui::Selectable(std::format("##{}", inName).c_str(), inSelected, ImGuiSelectableFlags_AllowDoubleClick, tile_size);
+	const bool clicked = ImGui::Selectable("##Tile", inSelected, ImGuiSelectableFlags_AllowDoubleClick, tile_size);
 	ImGui::PopStyleVar();
 
 	const bool double_clicked = clicked && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
@@ -259,18 +256,16 @@ bool Launcher::DrawLaunchTile(const char* inIcon, const char* inName, bool inSel
 	draw_list->AddRect(tile_min, tile_max, border_color, rounding, 0, inSelected ? 2.0f : 1.0f);
 
 	const float icon_size = ImGui::GetFontSize() * 1.6f;
-	const ImVec2 icon_extent = ImGui::GetFont()->CalcTextSizeA(icon_size, FLT_MAX, 0.0f, inIcon);
-	const ImVec2 name_extent = ImGui::CalcTextSize(inName);
+	const ImVec2 icon_extent = ImGui::GetFont()->CalcTextSizeA(icon_size, FLT_MAX, 0.0f, icon);
+	const ImVec2 name_extent = ImGui::CalcTextSize(name);
 
 	const float content_height = icon_extent.y + style.ItemSpacing.y + name_extent.y;
 	const float content_top = tile_min.y + ( tile_size.y - content_height ) * 0.5f;
 
 	const ImU32 text_color = ImGui::GetColorU32(ImGuiCol_Text);
 
-	draw_list->AddText(ImGui::GetFont(), icon_size, ImVec2(tile_min.x + ( tile_size.x - icon_extent.x ) * 0.5f, content_top), text_color, inIcon);
-	draw_list->AddText(ImVec2(tile_min.x + ( tile_size.x - name_extent.x ) * 0.5f, content_top + icon_extent.y + style.ItemSpacing.y), text_color, inName);
-
-	ImGui::EndDisabled();
+	draw_list->AddText(ImGui::GetFont(), icon_size, ImVec2(tile_min.x + ( tile_size.x - icon_extent.x ) * 0.5f, content_top), text_color, icon);
+	draw_list->AddText(ImVec2(tile_min.x + ( tile_size.x - name_extent.x ) * 0.5f, content_top + icon_extent.y + style.ItemSpacing.y), text_color, name);
 
 	if (double_clicked)
 		Launch();
@@ -292,63 +287,6 @@ void Launcher::DrawStartupSettings()
 		ImGui::TextUnformatted(inLabel);
 		ImGui::SameLine(label_width);
 	};
-
-	ImGui::BeginDisabled(!m_GameSceneFile.empty());
-
-	DrawLabel("Scene");
-
-	const String scene_preview = m_ConfigSettings.mSceneFile.empty() ? "Empty scene" : m_ConfigSettings.mSceneFile.filename().string();
-	const float browse_width = ImGui::CalcTextSize("Browse..").x + ImGui::GetFontSize() * 1.5f + ImGui::GetStyle().FramePadding.x * 2.0f;
-
-	ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - browse_width - ImGui::GetStyle().ItemSpacing.x);
-
-	if (ImGui::BeginCombo("##Scene", scene_preview.c_str()))
-	{
-		if (ImGui::Selectable("Empty scene", m_ConfigSettings.mSceneFile.empty()))
-			m_ConfigSettings.mSceneFile.clear();
-
-		if (!m_ConfigSettings.mRecentScenes.empty())
-			ImGui::SeparatorText("Recent");
-
-		for (const Path& scene_file : m_ConfigSettings.mRecentScenes)
-		{
-			if (scene_file.empty())
-				continue;
-
-			const bool exists = fs::exists(scene_file);
-			const String scene_name = scene_file.filename().string();
-
-			ImGui::BeginDisabled(!exists);
-
-			if (ImGui::Selectable(scene_name.c_str(), scene_file == m_ConfigSettings.mSceneFile))
-				m_ConfigSettings.mSceneFile = scene_file;
-
-			ImGui::EndDisabled();
-
-			if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-				ImGui::SetTooltip(exists ? "%s" : "%s\nThis file no longer exists.", scene_file.string().c_str());
-		}
-
-		ImGui::EndCombo();
-	}
-
-	if (ImGui::IsItemHovered() && !m_ConfigSettings.mSceneFile.empty())
-		ImGui::SetTooltip("%s", m_ConfigSettings.mSceneFile.string().c_str());
-
-	ImGui::SameLine();
-
-	if (ImGui::Button((const char*)ICON_FA_FOLDER_OPEN "  Browse..", ImVec2(-FLT_MIN, 0.0f)))
-	{
-		const String file_path = OS::sOpenFileDialog(cSceneFileFilter);
-
-		if (!file_path.empty())
-		{
-			m_ConfigSettings.mSceneFile = file_path;
-			AddRecentScene(file_path);
-		}
-	}
-
-	ImGui::EndDisabled();
 
 	DrawLabel("Display");
 
@@ -459,7 +397,7 @@ void Launcher::DrawConsoleVariables()
 	{
 		ImGui::TableNextRow();
 		ImGui::TableNextColumn();
-		ImGui::TextDisabled(m_SortedCvarNames.empty() ? "No console variables yet, they are created the first time the editor runs." : "No console variables match the search.");
+		ImGui::TextDisabled(m_SortedCvarNames.empty() ? "No console variables yet, they are created the first time the engine runs." : "No console variables match the search.");
 	}
 
 	ImGui::EndTable();
@@ -471,23 +409,9 @@ void Launcher::DrawFooter()
 {
 	ImGui::Separator();
 
-	if (int* enable_launcher = g_CVariables->TryGetValue<int>(cEnableLauncherCVar))
-	{
-		bool value = *enable_launcher != 0;
-
-		ImGui::AlignTextToFramePadding();
-
-		if (ImGui::Checkbox("Show this launcher on startup", &value))
-			*enable_launcher = int(value);
-
-		if (ImGui::IsItemHovered())
-			ImGui::SetTooltip("Turn it back on later by running \"%s 1\" in the editor console.", cEnableLauncherCVar);
-	}
-
 	const ImGuiStyle& style = ImGui::GetStyle();
 	const float button_width = ImGui::GetFontSize() * 7.0f;
 
-	ImGui::SameLine();
 	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + glm::max(ImGui::GetContentRegionAvail().x - button_width * 2.0f - style.ItemSpacing.x, 0.0f));
 
 	if (ImGui::Button((const char*)ICON_FA_TIMES "  Quit", ImVec2(button_width, 0.0f)))
@@ -495,12 +419,14 @@ void Launcher::DrawFooter()
 
 	ImGui::SameLine();
 
+	ImGui::BeginDisabled(m_SceneFile.empty());
 	ImGui::PushStyleColor(ImGuiCol_Button, style.Colors[ImGuiCol_ButtonActive]);
 
 	if (ImGui::Button((const char*)ICON_FA_PLAY "  Launch", ImVec2(button_width, 0.0f)))
 		Launch();
 
 	ImGui::PopStyleColor();
+	ImGui::EndDisabled();
 }
 
 
@@ -514,24 +440,20 @@ void Launcher::SetDisplay(SDL_DisplayID inDisplay)
 
 
 
-void Launcher::SetGameSceneFile(const Path& inSceneFile)
+void Launcher::SetSceneFile(const Path& inSceneFile)
 {
-	m_GameSceneFile = inSceneFile;
+	m_SceneFile = inSceneFile;
 
 	g_CVariables->GetValue<String>(cLauncherGameCVar) = inSceneFile.generic_string();
 }
 
 
 
-Path Launcher::sGetGameExecutablePath()
-{
-	return OS::sGetExecutablePath().parent_path() / "Game.exe";
-}
-
-
-
 void Launcher::Launch()
 {
+	if (m_SceneFile.empty())
+		return;
+
 	m_Launch = true;
 	m_Running = false;
 }

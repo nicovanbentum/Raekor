@@ -10,7 +10,7 @@ namespace RK {
 class GameApp : public Game
 {
 public:
-    GameApp();
+    GameApp(const Path& inSceneFile);
     ~GameApp();
 
     void OnUpdate(float inDeltaTime) override;

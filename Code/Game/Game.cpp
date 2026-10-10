@@ -8,7 +8,7 @@
 
 namespace RK {
 
-GameApp::GameApp() :
+GameApp::GameApp(const Path& inSceneFile) :
     Game(WindowFlag::RESIZE),
     m_Scene(&m_RenderSystem),
     m_Physics(&m_RenderSystem),
@@ -24,12 +24,9 @@ GameApp::GameApp() :
 
     m_RenderSystem.InitImGui(m_Window);
 
-    const String scene_override = OS::sGetCommandLineValue("-scene");
-    const Path scene_file = scene_override.empty() ? m_ConfigSettings.mSceneFile : Path(scene_override);
-
-    if (!scene_file.empty() && fs::exists(scene_file))
+    if (!inSceneFile.empty() && fs::exists(inSceneFile))
     {
-        m_Scene.OpenFromFile(scene_file.string(), m_Assets, this);
+        m_Scene.OpenFromFile(inSceneFile.string(), m_Assets, this);
     }
 
     Game::Start();
