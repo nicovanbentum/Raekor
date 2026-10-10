@@ -120,6 +120,13 @@ void RenderWorld::Extract(const Scene& inScene, const Device& inDevice, float in
     {
         PROFILE_SCOPE_CPU("Extract Batches");
 
+        const auto GetBatchKey = [](const RenderInstance& inInstance)
+        {
+            return std::make_tuple(inInstance.mBlendMode, inInstance.mVertexShader, inInstance.mPixelShader, inInstance.mIndexBuffer.GetValue(), inInstance.mVertexBuffer.GetValue(), uint32_t(inInstance.mEntity));
+        };
+
+        std::sort(m_Instances.begin(), m_Instances.end(), [&](const RenderInstance& inLeft, const RenderInstance& inRight) { return GetBatchKey(inLeft) < GetBatchKey(inRight); });
+
         for (uint32_t instance_index = 0; instance_index < m_Instances.size(); instance_index++)
         {
             const RenderInstance& instance = m_Instances[instance_index];
