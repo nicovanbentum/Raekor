@@ -36,6 +36,9 @@ public:
     void AddRectFilled(Vec2 inPos, Vec2 inSize, float inRadius, Vec4 inColor, float inSoftness = 0.0f);
     void AddRect(Vec2 inPos, Vec2 inSize, float inRadius, float inThickness, Vec4 inColor);
     void AddCircleFilled(Vec2 inCenter, float inRadius, Vec4 inColor, float inSoftness = 0.0f);
+    void AddRectGradient(Vec2 inPos, Vec2 inSize, float inRadius, Vec4 inColorStart, Vec4 inColorEnd, bool inHorizontal = false, float inSoftness = 0.0f);
+    void AddRectRotated(Vec2 inCenter, Vec2 inSize, float inRotation, float inRadius, Vec4 inColor, float inSoftness = 0.0f);
+    void AddArc(Vec2 inCenter, float inRadius, float inThickness, float inStartAngle, float inFill, Vec4 inColor, float inSoftness = 0.0f);
 
     float AddText(Vec2 inPos, StringView inText, float inSize, Vec4 inColor, EUITextAlign inAlign = UI_TEXT_ALIGN_LEFT);
     Vec2  MeasureText(StringView inText, float inSize) const;

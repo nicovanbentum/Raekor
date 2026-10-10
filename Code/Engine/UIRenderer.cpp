@@ -187,6 +187,54 @@ void UIRenderer::AddCircleFilled(Vec2 inCenter, float inRadius, Vec4 inColor, fl
 }
 
 
+void UIRenderer::AddRectGradient(Vec2 inPos, Vec2 inSize, float inRadius, Vec4 inColorStart, Vec4 inColorEnd, bool inHorizontal, float inSoftness)
+{
+    m_Primitives.push_back(UIPrimitive
+    {
+        .mColor = inColorStart,
+        .mRect = Vec4(inPos, inPos + inSize),
+        .mUVRect = inColorEnd,
+        .mRadius = glm::min(inRadius, glm::min(inSize.x, inSize.y) * 0.5f),
+        .mSoftness = inSoftness,
+        .mType = uint32_t(inHorizontal ? UI_PRIMITIVE_RECT_GRADIENT_H : UI_PRIMITIVE_RECT_GRADIENT_V)
+    });
+}
+
+
+void UIRenderer::AddRectRotated(Vec2 inCenter, Vec2 inSize, float inRotation, float inRadius, Vec4 inColor, float inSoftness)
+{
+    m_Primitives.push_back(UIPrimitive
+    {
+        .mColor = inColor,
+        .mRect = Vec4(inCenter - inSize * 0.5f, inCenter + inSize * 0.5f),
+        .mRadius = glm::min(inRadius, glm::min(inSize.x, inSize.y) * 0.5f),
+        .mSoftness = inSoftness,
+        .mType = UI_PRIMITIVE_RECT,
+        .mRotation = inRotation
+    });
+}
+
+
+void UIRenderer::AddArc(Vec2 inCenter, float inRadius, float inThickness, float inStartAngle, float inFill, Vec4 inColor, float inSoftness)
+{
+    if (inFill <= 0.0f)
+        return;
+
+    const float extent = inRadius + inThickness * 0.5f;
+
+    m_Primitives.push_back(UIPrimitive
+    {
+        .mColor = inColor,
+        .mRect = Vec4(inCenter - extent, inCenter + extent),
+        .mUVRect = Vec4(inStartAngle, glm::min(inFill, 1.0f), 0.0f, 0.0f),
+        .mRadius = inRadius,
+        .mThickness = inThickness,
+        .mSoftness = inSoftness,
+        .mType = UI_PRIMITIVE_ARC
+    });
+}
+
+
 const UIGlyph* UIRenderer::GetGlyph(uint32_t inCodepoint) const
 {
     const auto glyph = m_Glyphs.find(inCodepoint);

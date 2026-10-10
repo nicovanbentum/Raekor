@@ -585,6 +585,9 @@ enum EUIPrimitiveType
     UI_PRIMITIVE_RECT,
     UI_PRIMITIVE_CIRCLE,
     UI_PRIMITIVE_GLYPH,
+    UI_PRIMITIVE_RECT_GRADIENT_V,
+    UI_PRIMITIVE_RECT_GRADIENT_H,
+    UI_PRIMITIVE_ARC,
 };
 
 struct UIPrimitive
@@ -596,6 +599,7 @@ struct UIPrimitive
     float  mThickness;
     float  mSoftness;
     uint   mType;
+    float  mRotation;
 };
 
 struct SDFUIRootConstants

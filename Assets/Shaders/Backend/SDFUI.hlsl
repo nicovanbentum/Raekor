@@ -33,15 +33,44 @@ float4 main(in VS_OUTPUT inParams) : SV_Target0
     const float2 half_size = ( primitive.mRect.zw - primitive.mRect.xy ) * 0.5;
 
     float coverage = 0.0;
+    float4 color = primitive.mColor;
 
-    if (primitive.mType == UI_PRIMITIVE_RECT)
+    float2 local = inParams.mPixel - center;
+
+    if (primitive.mRotation != 0.0)
     {
-        float distance = RoundedBoxDistance(inParams.mPixel - center, half_size, primitive.mRadius);
+        const float s = sin(-primitive.mRotation);
+        const float c = cos(-primitive.mRotation);
+        local = float2(local.x * c - local.y * s, local.x * s + local.y * c);
+    }
+
+    if (primitive.mType == UI_PRIMITIVE_RECT || primitive.mType == UI_PRIMITIVE_RECT_GRADIENT_V || primitive.mType == UI_PRIMITIVE_RECT_GRADIENT_H)
+    {
+        float distance = RoundedBoxDistance(local, half_size, primitive.mRadius);
 
         if (primitive.mThickness > 0.0)
             distance = abs(distance + primitive.mThickness * 0.5) - primitive.mThickness * 0.5;
 
         coverage = Coverage(distance, primitive.mSoftness);
+
+        if (primitive.mType == UI_PRIMITIVE_RECT_GRADIENT_V)
+            color = lerp(primitive.mColor, primitive.mUVRect, saturate(local.y / max(half_size.y * 2.0, 1e-4) + 0.5));
+        else if (primitive.mType == UI_PRIMITIVE_RECT_GRADIENT_H)
+            color = lerp(primitive.mColor, primitive.mUVRect, saturate(local.x / max(half_size.x * 2.0, 1e-4) + 0.5));
+    }
+    else if (primitive.mType == UI_PRIMITIVE_ARC)
+    {
+        const float radius = length(local);
+        const float distance = abs(radius - primitive.mRadius) - primitive.mThickness * 0.5;
+        coverage = Coverage(distance, primitive.mSoftness);
+
+        if (primitive.mUVRect.y < 1.0)
+        {
+            const float angle = frac(( atan2(local.y, local.x) - primitive.mUVRect.x ) / 6.28318530718 + 1.0);
+            const float arc_length = angle * 6.28318530718 * max(radius, 1.0);
+            const float arc_end = primitive.mUVRect.y * 6.28318530718 * max(radius, 1.0);
+            coverage *= saturate(arc_end - arc_length + 0.5);
+        }
     }
     else if (primitive.mType == UI_PRIMITIVE_CIRCLE)
     {
@@ -61,5 +90,5 @@ float4 main(in VS_OUTPUT inParams) : SV_Target0
         coverage = Coverage(screen_distance, 0.0);
     }
 
-    return float4(primitive.mColor.rgb, primitive.mColor.a * coverage);
+    return float4(color.rgb, color.a * coverage);
 }
