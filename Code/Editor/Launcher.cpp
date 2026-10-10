@@ -7,6 +7,36 @@ namespace RK {
 
 static constexpr const char* cSceneFileFilter = "Scene Files (*.scene)\0*.scene\0";
 static constexpr const char* cEnableLauncherCVar = "enable_launcher";
+static constexpr const char* cLauncherGameCVar = "launcher_game";
+static constexpr const char* cGameScenesDirectory = "Assets/Scenes";
+
+
+static String sGetGameDisplayName(const Path& inSceneFile)
+{
+	const String stem = inSceneFile.stem().string();
+
+	String name;
+
+	for (size_t index = 0; index < stem.size(); index++)
+	{
+		const char current = stem[index];
+
+		if (index > 0)
+		{
+			const char previous = stem[index - 1];
+
+			const bool lower_to_upper = std::islower(previous) && std::isupper(current);
+			const bool letter_to_digit = std::isalpha(previous) && std::isdigit(current);
+
+			if (lower_to_upper || letter_to_digit)
+				name += ' ';
+		}
+
+		name += current == '_' ? ' ' : current;
+	}
+
+	return name;
+}
 
 
 static bool sIsToggleCVar(StringView inName)
@@ -56,13 +86,33 @@ Launcher::Launcher() : Application(WindowFlag::HIDDEN | WindowFlag::RESIZE)
 	SDL_SetWindowMinimumSize(m_Window, int(480 * ui_scale), int(420 * ui_scale));
 	SDL_SetWindowSize(m_Window, int(720 * ui_scale), int(640 * ui_scale));
 
+	const String last_game = g_CVariables->Create(cLauncherGameCVar, String());
+
 	for (const auto& [name, cvar] : g_CVariables->GetCVars())
 	{
-		if (cvar.mType != CVAR_TYPE_FUNCTION && cvar.mType != CVAR_TYPE_NONE && name != cEnableLauncherCVar)
+		if (cvar.mType != CVAR_TYPE_FUNCTION && cvar.mType != CVAR_TYPE_NONE && name != cEnableLauncherCVar && name != cLauncherGameCVar)
 			m_SortedCvarNames.push_back(name);
 	}
 
 	std::sort(m_SortedCvarNames.begin(), m_SortedCvarNames.end());
+
+	std::error_code error_code;
+
+	for (const fs::directory_entry& entry : fs::directory_iterator(cGameScenesDirectory, error_code))
+	{
+		if (entry.is_regular_file() && entry.path().extension() == ".scene")
+			m_Games.push_back(GameEntry { .mName = sGetGameDisplayName(entry.path()), .mSceneFile = entry.path().generic_string() });
+	}
+
+	std::sort(m_Games.begin(), m_Games.end(), [](const GameEntry& inLeft, const GameEntry& inRight) { return inLeft.mName < inRight.mName; });
+
+	m_HasGameExecutable = fs::exists(sGetGameExecutablePath());
+
+	for (const GameEntry& game : m_Games)
+	{
+		if (m_HasGameExecutable && game.mSceneFile == Path(last_game))
+			m_GameSceneFile = game.mSceneFile;
+	}
 
 	SetDisplay(m_ConfigSettings.mDisplayID);
 	SDL_ShowWindow(m_Window);
@@ -99,6 +149,7 @@ void Launcher::OnUpdate(float inDeltaTime)
 	ImGui::Begin("##Launcher", nullptr, window_flags);
 
 	DrawHeader();
+	DrawLaunchTarget();
 	DrawStartupSettings();
 	DrawConsoleVariables();
 	DrawFooter();
@@ -137,9 +188,94 @@ void Launcher::DrawHeader()
 	ImGui::GetWindowDrawList()->AddText(ImGui::GetFont(), title_size, ImGui::GetCursorScreenPos(), ImGui::GetColorU32(ImGuiCol_Text), title);
 	ImGui::Dummy(title_extent);
 
-	ImGui::TextDisabled("Pick a scene and adjust startup settings, then press Launch or Enter to start the editor.");
+	ImGui::TextDisabled("Pick the editor or a game and adjust startup settings, then press Launch or Enter.");
 
 	ImGui::Spacing();
+}
+
+
+
+void Launcher::DrawLaunchTarget()
+{
+	ImGui::SeparatorText("Launch");
+
+	const ImGuiStyle& style = ImGui::GetStyle();
+	const float tile_width = ImGui::GetFontSize() * 7.5f;
+	const float right_edge = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
+
+	if (DrawLaunchTile((const char*)ICON_FA_TOOLS, "Editor", m_GameSceneFile.empty(), true))
+		SetGameSceneFile(Path());
+
+	if (ImGui::IsItemHovered())
+		ImGui::SetTooltip("Open the editor with the scene selected below.");
+
+	for (const GameEntry& game : m_Games)
+	{
+		ImGui::PushID(game.mSceneFile.string().c_str());
+
+		if (ImGui::GetItemRectMax().x + style.ItemSpacing.x + tile_width <= right_edge)
+			ImGui::SameLine();
+
+		if (DrawLaunchTile((const char*)ICON_FA_GAMEPAD, game.mName.c_str(), game.mSceneFile == m_GameSceneFile, m_HasGameExecutable))
+			SetGameSceneFile(game.mSceneFile);
+
+		if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+		{
+			if (m_HasGameExecutable)
+				ImGui::SetTooltip("Play %s\n%s", game.mName.c_str(), game.mSceneFile.string().c_str());
+			else
+				ImGui::SetTooltip("%s was not found, build the Game project first.", sGetGameExecutablePath().filename().string().c_str());
+		}
+
+		ImGui::PopID();
+	}
+
+	ImGui::Spacing();
+}
+
+
+
+bool Launcher::DrawLaunchTile(const char* inIcon, const char* inName, bool inSelected, bool inEnabled)
+{
+	const ImVec2 tile_size = ImVec2(ImGui::GetFontSize() * 7.5f, ImGui::GetFontSize() * 4.5f);
+
+	ImGui::BeginDisabled(!inEnabled);
+
+	const ImVec2 tile_min = ImGui::GetCursorScreenPos();
+	const ImVec2 tile_max = tile_min + tile_size;
+
+	ImGui::PushStyleVar(ImGuiStyleVar_SelectableTextAlign, ImVec2(0.5f, 0.5f));
+	const bool clicked = ImGui::Selectable(std::format("##{}", inName).c_str(), inSelected, ImGuiSelectableFlags_AllowDoubleClick, tile_size);
+	ImGui::PopStyleVar();
+
+	const bool double_clicked = clicked && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
+
+	ImDrawList* draw_list = ImGui::GetWindowDrawList();
+	const ImGuiStyle& style = ImGui::GetStyle();
+
+	const float rounding = glm::max(style.FrameRounding, 4.0f);
+	const ImU32 border_color = ImGui::GetColorU32(inSelected ? ImGuiCol_ButtonActive : ImGuiCol_Border);
+
+	draw_list->AddRect(tile_min, tile_max, border_color, rounding, 0, inSelected ? 2.0f : 1.0f);
+
+	const float icon_size = ImGui::GetFontSize() * 1.6f;
+	const ImVec2 icon_extent = ImGui::GetFont()->CalcTextSizeA(icon_size, FLT_MAX, 0.0f, inIcon);
+	const ImVec2 name_extent = ImGui::CalcTextSize(inName);
+
+	const float content_height = icon_extent.y + style.ItemSpacing.y + name_extent.y;
+	const float content_top = tile_min.y + ( tile_size.y - content_height ) * 0.5f;
+
+	const ImU32 text_color = ImGui::GetColorU32(ImGuiCol_Text);
+
+	draw_list->AddText(ImGui::GetFont(), icon_size, ImVec2(tile_min.x + ( tile_size.x - icon_extent.x ) * 0.5f, content_top), text_color, inIcon);
+	draw_list->AddText(ImVec2(tile_min.x + ( tile_size.x - name_extent.x ) * 0.5f, content_top + icon_extent.y + style.ItemSpacing.y), text_color, inName);
+
+	ImGui::EndDisabled();
+
+	if (double_clicked)
+		Launch();
+
+	return clicked;
 }
 
 
@@ -156,6 +292,8 @@ void Launcher::DrawStartupSettings()
 		ImGui::TextUnformatted(inLabel);
 		ImGui::SameLine(label_width);
 	};
+
+	ImGui::BeginDisabled(!m_GameSceneFile.empty());
 
 	DrawLabel("Scene");
 
@@ -209,6 +347,8 @@ void Launcher::DrawStartupSettings()
 			AddRecentScene(file_path);
 		}
 	}
+
+	ImGui::EndDisabled();
 
 	DrawLabel("Display");
 
@@ -370,6 +510,22 @@ void Launcher::SetDisplay(SDL_DisplayID inDisplay)
 	m_ConfigSettings.mDisplayID = inDisplay;
 
 	SDL_SetWindowPosition(m_Window, SDL_WINDOWPOS_CENTERED_DISPLAY(inDisplay), SDL_WINDOWPOS_CENTERED_DISPLAY(inDisplay));
+}
+
+
+
+void Launcher::SetGameSceneFile(const Path& inSceneFile)
+{
+	m_GameSceneFile = inSceneFile;
+
+	g_CVariables->GetValue<String>(cLauncherGameCVar) = inSceneFile.generic_string();
+}
+
+
+
+Path Launcher::sGetGameExecutablePath()
+{
+	return OS::sGetExecutablePath().parent_path() / "Game.exe";
 }
 
 
