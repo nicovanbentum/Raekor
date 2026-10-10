@@ -141,6 +141,8 @@ void DeviceResourcesWidget::Draw(Widgets* inWidgets, float inDeltaTime)
     constexpr static std::array texture_usage_names =
     {
         "General",
+        "CopySrc",
+        "CopyDst",
         "ShaderReadOnly",
         "ShaderReadWrite",
         "RenderTarget",

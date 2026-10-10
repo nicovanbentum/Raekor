@@ -91,7 +91,9 @@ void GPUScene::ReleaseBottomLevelAS(Device& inDevice, BufferID inBottomLevelAS)
 
     {
         std::scoped_lock lock(m_PendingBuildsMutex);
-        std::erase_if(m_PendingBuilds, [inBottomLevelAS](const BottomLevelASBuild& inBuild) { return inBuild.mBottomLevelAS == inBottomLevelAS; });
+
+        if (!m_PendingBuilds.empty())
+            std::erase_if(m_PendingBuilds, [inBottomLevelAS](const BottomLevelASBuild& inBuild) { return inBuild.mBottomLevelAS == inBottomLevelAS; });
     }
 
     inDevice.ReleaseBuffer(inBottomLevelAS);

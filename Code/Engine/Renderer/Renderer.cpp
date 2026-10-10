@@ -641,6 +641,7 @@ void Renderer::Recompile(Device& inDevice)
                                                          reflections_texture != default_textures.mBlackTexture, ddgi_output.mOutput != default_textures.mBlackTexture);
 
         compose_input = light_data.mOutputTexture;
+        lighting_texture = light_data.mOutputTexture;
 
         if (m_Settings.mEnableDDGI && m_Settings.mDebugProbes && inDevice.IsRayTracingSupported())
         {
