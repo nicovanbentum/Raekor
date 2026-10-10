@@ -124,4 +124,6 @@ SharedPtr<T> Assets::GetAsset(const String& inPath)
 	}
 }
 
+extern template SharedPtr<TextureAsset> Assets::GetAsset<TextureAsset>(const String& inPath);
+
 }

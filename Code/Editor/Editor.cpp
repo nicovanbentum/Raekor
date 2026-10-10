@@ -124,11 +124,26 @@ Editor::Editor(WindowFlags inWindowFlags, IRenderInterface* inRenderInterface) :
 
 Editor::~Editor()
 {
+	Shutdown();
+
+	if (m_CompilerProcess)
+	{
+		TerminateProcess(m_CompilerProcess, 0);
+		CloseHandle(m_CompilerProcess);
+	}
+}
+
+
+void Editor::Shutdown()
+{
 	if (m_SceneTask && m_SceneTask->mJob)
 		m_SceneTask->mJob->Wait();
 
 	if (m_SceneTask)
+	{
 		m_SceneTask->mScene->ReleaseResources();
+		m_SceneTask.reset();
+	}
 
 	if (m_SaveJob)
 		m_SaveJob->Wait();
@@ -138,12 +153,6 @@ Editor::~Editor()
 
 	Game::Stop();
 	UnloadScripts();
-
-	if (m_CompilerProcess)
-	{
-		TerminateProcess(m_CompilerProcess, 0);
-		CloseHandle(m_CompilerProcess);
-	}
 }
 
 

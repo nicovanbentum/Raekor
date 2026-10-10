@@ -11,6 +11,8 @@ RTTI_DEFINE_TYPE_NO_FACTORY(Asset) {}
 
 RTTI_DEFINE_TYPE(TextureAsset) { RTTI_DEFINE_TYPE_INHERITANCE(TextureAsset, Asset); }
 
+template SharedPtr<TextureAsset> Assets::GetAsset<TextureAsset>(const String& inPath);
+
 
 String TextureAsset::Convert(const String& inPath)
 {

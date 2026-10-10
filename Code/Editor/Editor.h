@@ -46,6 +46,8 @@ public:
 	Editor(WindowFlags inWindowFlags, IRenderInterface* inRenderInterface);
 	virtual ~Editor();
 
+	void Shutdown();
+
 	void OnUpdate(float dt) override;
 	void OnEvent(const SDL_Event& event) override;
 	bool OnCloseRequested() override;

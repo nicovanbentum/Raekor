@@ -43,6 +43,7 @@ DXApp::DXApp() :
 
 DXApp::~DXApp()
 {
+    Shutdown();
 }
 
 
