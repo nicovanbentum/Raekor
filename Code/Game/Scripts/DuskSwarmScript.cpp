@@ -849,12 +849,6 @@ private:
 
     void ReleaseModels()
     {
-        for (auto& [name, templates] : m_MeshTemplates)
-        {
-            for (PartTemplate& part : templates)
-                m_App->GetRenderInterface()->DestroyMeshBuffers(Entity::Null, part.mMesh);
-        }
-
         m_MeshTemplates.clear();
     }
 
@@ -883,8 +877,6 @@ private:
             part_template.mName = part;
             part_template.mJoint = scene.Get<Transform>(entity).position;
             part_template.mMesh = mesh;
-
-            m_App->GetRenderInterface()->UploadMeshBuffers(Entity::Null, part_template.mMesh);
         }
     }
 
@@ -922,11 +914,8 @@ private:
                 Mesh& mesh = m_Scene->Add<Mesh>(entity);
                 mesh = part.mMesh;
                 mesh.material = material;
-                mesh.indexBuffer = 0;
-                mesh.vertexBuffer = 0;
-                mesh.BottomLevelAS = 0;
 
-                m_App->GetRenderInterface()->ShareMeshBuffers(entity, part.mMesh, mesh);
+                m_App->GetRenderInterface()->UploadMeshBuffers(entity, mesh);
 
                 if (role >= 0 && model.mParts[role].mEntity == Entity::Null)
                     model.mParts[role] = RigPart { .mEntity = entity, .mRest = part.mJoint };

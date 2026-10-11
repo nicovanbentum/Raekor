@@ -432,12 +432,6 @@ private:
 
     void ReleaseModels()
     {
-        for (auto& [name, templates] : m_MeshTemplates)
-        {
-            for (PartTemplate& part : templates)
-                m_App->GetRenderInterface()->DestroyMeshBuffers(Entity::Null, part.mMesh);
-        }
-
         m_MeshTemplates.clear();
     }
 
@@ -463,8 +457,6 @@ private:
             part.mName = split != String::npos ? name.substr(split + 1) : String("Main");
             part.mJoint = scene.Get<Transform>(entity).position;
             part.mMesh = mesh;
-
-            m_App->GetRenderInterface()->UploadMeshBuffers(Entity::Null, part.mMesh);
         }
     }
 
@@ -487,11 +479,8 @@ private:
 
         *mesh = inTemplate->mMesh;
         mesh->material = material;
-        mesh->indexBuffer = 0;
-        mesh->vertexBuffer = 0;
-        mesh->BottomLevelAS = 0;
 
-        m_App->GetRenderInterface()->ShareMeshBuffers(inEntity, inTemplate->mMesh, *mesh);
+        m_App->GetRenderInterface()->UploadMeshBuffers(inEntity, *mesh);
     }
 
     Entity CreateMeshEntity(StringView inName, const PartTemplate* inTemplate, Entity inParent)
