@@ -138,18 +138,56 @@ void Scene::UpdateCameras()
 }
 
 
+void Scene::RebuildTransformOrder(const ComponentStorage<Transform>& inTransforms)
+{
+	m_TransformOrder.clear();
+	m_TransformOrder.reserve(inTransforms.Length());
+
+	TraverseFunction Traverse = [](void* inContext, Scene& inScene, Entity inEntity)
+	{
+		const ComponentStorage<Transform>& transforms = *static_cast<const ComponentStorage<Transform>*>( inContext );
+
+		const int transform_index = transforms.GetPackedIndex(inEntity);
+
+		if (transform_index < 0)
+			return;
+
+		const Entity parent = inScene.GetParent(inEntity);
+		const int parent_index = parent != inScene.GetRootEntity() ? transforms.GetPackedIndex(parent) : -1;
+
+		inScene.m_TransformOrder.push_back(TransformNode
+		{
+			.mTransform = uint32_t(transform_index),
+			.mParent = parent_index < 0 ? UINT32_MAX : uint32_t(parent_index)
+		});
+	};
+
+	TraverseDepthFirst(m_RootEntity, Traverse, (void*)&inTransforms);
+
+	m_TransformOrderStorage = &inTransforms;
+	m_TransformOrderVersion = inTransforms.GetVersion();
+	m_TransformOrderHierarchyVersion = m_HierarchyVersion;
+}
+
+
 void Scene::UpdateTransforms()
 {
 	PROFILE_FUNCTION_CPU();
 
-	TraverseFunction Traverse = [](void* inContext, Scene& inScene, Entity inEntity) 
+	ComponentStorage<Transform>* storage = GetComponentStorage<Transform>();
+
+	if (storage != m_TransformOrderStorage || storage->GetVersion() != m_TransformOrderVersion || m_HierarchyVersion != m_TransformOrderHierarchyVersion)
+		RebuildTransformOrder(*storage);
+
+	Transform* transforms = storage->m_Components.data();
+
+	for (const TransformNode& node : m_TransformOrder)
 	{
-		Entity parent = inScene.GetParent(inEntity);
-		Transform& transform = inScene.Get<Transform>(inEntity);
+		Transform& transform = transforms[node.mTransform];
 
 		Mat4x4 local_transform = transform.localTransform;
 
-		if (const Animation* animation = inScene.GetPtr<Animation>(transform.animation))
+		if (const Animation* animation = transform.animation != Entity::Null ? GetPtr<Animation>(transform.animation) : nullptr)
 		{
 			if (animation->HasKeyFrames(transform.animationChannel))
 			{
@@ -174,20 +212,13 @@ void Scene::UpdateTransforms()
 			}
 		}
 
-        transform.prevWorldTransform = transform.worldTransform;
+		transform.prevWorldTransform = transform.worldTransform;
 
-		if (parent == Entity::Null || parent == inScene.GetRootEntity())
-		{
+		if (node.mParent == UINT32_MAX)
 			transform.worldTransform = local_transform;
-		}
 		else
-		{
-			const Transform& parent_transform = inScene.Get<Transform>(parent);
-			transform.worldTransform = parent_transform.worldTransform * local_transform;
-		}
-	};
-
-	TraverseDepthFirst(m_RootEntity, Traverse, nullptr);
+			transform.worldTransform = transforms[node.mParent].worldTransform * local_transform;
+	}
 }
 
 
@@ -593,6 +624,7 @@ bool Scene::ReadSceneFile(const String& inFilePath)
 
 	Clear();
 	m_Hierarchy.clear();
+	MarkHierarchyChanged();
 
 	ReadFileBinary(file, m_Entities);
 	RebuildEntityIndices();
@@ -818,6 +850,8 @@ void Scene::Swap(Scene& ioOther)
 	ECStorage::Swap(ioOther);
 
 	std::swap(m_Hierarchy, ioOther.m_Hierarchy);
+	MarkHierarchyChanged();
+	ioOther.MarkHierarchyChanged();
 	std::swap(m_RootEntity, ioOther.m_RootEntity);
 	std::swap(m_ActiveSceneFilePath, ioOther.m_ActiveSceneFilePath);
 }
@@ -835,6 +869,7 @@ void Scene::CopyFrom(Scene& inOther)
 
 	m_Hierarchy.clear();
 	m_Hierarchy.insert(pairs);
+	MarkHierarchyChanged();
 
 	m_RootEntity = inOther.m_RootEntity;
 	m_ActiveSceneFilePath = inOther.m_ActiveSceneFilePath;
@@ -908,6 +943,7 @@ Array<Entity> Scene::Merge(Scene& ioOther)
 
 	ioOther.Clear();
 	ioOther.m_Hierarchy.clear();
+	ioOther.MarkHierarchyChanged();
 	ioOther.m_RootEntity = ioOther.Create();
 
 	return new_entities;

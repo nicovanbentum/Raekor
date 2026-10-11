@@ -6,6 +6,13 @@ namespace RK {
 
 ComponentRegistry g_ComponentRegistry;
 
+
+uint64_t gNextECSVersion()
+{
+	static Atomic<uint64_t> sVersion = 0;
+	return ++sVersion;
+}
+
 RTTI_DEFINE_TYPE_PRIMITIVE(Entity);
 
 struct TestName

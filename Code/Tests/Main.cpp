@@ -458,6 +458,64 @@ static void sTestMeshPack(const Path& inDirectory, const Path& inGltfFile)
 }
 
 
+static void sTestTransformHierarchy()
+{
+	Scene scene = Scene(nullptr);
+
+	auto CreateNode = [&](Vec3 inPosition, Entity inParent)
+	{
+		const Entity entity = scene.CreateSpatialEntity("Node");
+
+		if (inParent != Entity::Null)
+		{
+			scene.Unparent(entity);
+			scene.ParentTo(entity, inParent);
+		}
+
+		Transform& transform = scene.Get<Transform>(entity);
+		transform.position = inPosition;
+		transform.Compose();
+		return entity;
+	};
+
+	auto WorldPosition = [&](Entity inEntity) { return Vec3(scene.Get<Transform>(inEntity).worldTransform[3]); };
+
+	const Entity a = CreateNode(Vec3(1.0f, 0.0f, 0.0f), Entity::Null);
+	const Entity b = CreateNode(Vec3(0.0f, 2.0f, 0.0f), a);
+	const Entity c = CreateNode(Vec3(0.0f, 0.0f, 3.0f), b);
+	const Entity d = CreateNode(Vec3(4.0f, 0.0f, 0.0f), Entity::Null);
+
+	scene.UpdateTransforms();
+
+	CHECK(WorldPosition(a) == Vec3(1.0f, 0.0f, 0.0f));
+	CHECK(WorldPosition(b) == Vec3(1.0f, 2.0f, 0.0f));
+	CHECK(WorldPosition(c) == Vec3(1.0f, 2.0f, 3.0f));
+	CHECK(WorldPosition(d) == Vec3(4.0f, 0.0f, 0.0f));
+
+	scene.Unparent(b);
+	scene.ParentTo(b, d);
+	scene.UpdateTransforms();
+
+	CHECK(WorldPosition(b) == Vec3(4.0f, 2.0f, 0.0f));
+	CHECK(WorldPosition(c) == Vec3(4.0f, 2.0f, 3.0f));
+
+	scene.Remove<Transform>(a);
+	const Entity e = CreateNode(Vec3(0.0f, 5.0f, 0.0f), c);
+	scene.UpdateTransforms();
+
+	CHECK(WorldPosition(c) == Vec3(4.0f, 2.0f, 3.0f));
+	CHECK(WorldPosition(e) == Vec3(4.0f, 7.0f, 3.0f));
+
+	scene.Destroy(b);
+	scene.Get<Transform>(d).position = Vec3(6.0f, 0.0f, 0.0f);
+	scene.Get<Transform>(d).Compose();
+	scene.UpdateTransforms();
+
+	CHECK(!scene.Exists(c) && !scene.Exists(e));
+	CHECK(WorldPosition(d) == Vec3(6.0f, 0.0f, 0.0f));
+}
+
+
 static void sTestSceneMergeAndSwap()
 {
 	Scene source = Scene(nullptr);
@@ -633,6 +691,7 @@ static void sTestJobSystem()
 	CHECK(nested_sum.load() == 32 * 8);
 }
 
+
 }
 
 
@@ -658,6 +717,7 @@ int main(int argc, char** argv)
 	sTestLegacyMemberSkipping(directory);
 	sTestSceneRoundTrip(directory);
 	sTestMeshPack(directory, "Assets/Models/glTF-Sample-Models-main/2.0/AlphaBlendModeTest/glTF/AlphaBlendModeTest.gltf");
+	sTestTransformHierarchy();
 	sTestSceneMergeAndSwap();
 	sTestEntityLifetime(directory);
 	sTestScriptVariables(directory);

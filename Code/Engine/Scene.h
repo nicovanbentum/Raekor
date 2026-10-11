@@ -15,6 +15,7 @@ class IRenderInterface;
 
 struct Mesh;
 struct Material;
+struct Transform;
 struct Skeleton;
 struct DirectionalLight;
 
@@ -59,8 +60,8 @@ public:
 	bool HasParent(Entity inEntity) const { return GetParent(inEntity) != Entity::Null; }
 	Entity GetParent(Entity inEntity) const { return m_Hierarchy.findLeft(inEntity, Entity::Null); }
 
-	void Unparent(Entity inEntity) { assert(inEntity != Entity::Null); m_Hierarchy.eraseRight(inEntity); }
-	void ParentTo(Entity inEntity, Entity inParent) { assert(inEntity != Entity::Null && inParent != Entity::Null); m_Hierarchy.insert(inParent, inEntity); }
+	void Unparent(Entity inEntity) { assert(inEntity != Entity::Null); m_Hierarchy.eraseRight(inEntity); MarkHierarchyChanged(); }
+	void ParentTo(Entity inEntity, Entity inParent) { assert(inEntity != Entity::Null && inParent != Entity::Null); m_Hierarchy.insert(inParent, inEntity); MarkHierarchyChanged(); }
 
 	// entity operations
 	void Destroy(Entity inEntity);
@@ -99,7 +100,16 @@ public:
 	void Optimize();
 
 private:
+	struct TransformNode
+	{
+		uint32_t mTransform = 0;
+		uint32_t mParent = UINT32_MAX;
+	};
+
 	bool ReadSceneFile(const String& inFilePath);
+
+	void MarkHierarchyChanged() { m_HierarchyVersion = gNextECSVersion(); }
+	void RebuildTransformOrder(const ComponentStorage<Transform>& inTransforms);
 
 protected:
 	Path m_ActiveSceneFilePath;
@@ -110,6 +120,12 @@ private:
 	std::stack<Entity> m_DFS;
 	std::queue<Entity> m_BFS;
 	EntityHierarchy m_Hierarchy;
+	uint64_t m_HierarchyVersion = gNextECSVersion();
+
+	Array<TransformNode> m_TransformOrder;
+	const IComponentStorage* m_TransformOrderStorage = nullptr;
+	uint64_t m_TransformOrderVersion = 0;
+	uint64_t m_TransformOrderHierarchyVersion = 0;
 };
 
 

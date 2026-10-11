@@ -15,6 +15,8 @@ RTTI_DECLARE_TYPE_PRIMITIVE(Entity);
 
 using EntityHierarchy = BinaryRelations::OneToMany<Entity, Entity>;
 
+RK_API uint64_t gNextECSVersion();
+
 template<typename T>
 class ComponentStorage;
 
@@ -49,12 +51,17 @@ public:
 
 	bool IsEmpty() const { return Length() == 0; }
 
+	uint64_t GetVersion() const { return m_Version; }
+	void MarkChanged() { m_Version = gNextECSVersion(); }
+
 	template<typename T> 
     ComponentStorage<T>* GetDerived() { return static_cast<ComponentStorage<T>*>( this ); }
 
 	template<typename T> 
     ComponentStorage<T>* GetDerived() const { return static_cast<ComponentStorage<T>*>( this ); }
 
+private:
+	uint64_t m_Version = gNextECSVersion();
 };
 
 template<typename Component>
@@ -244,6 +251,7 @@ public:
 		}
 
 		m_Entities.push_back(entity);
+		MarkChanged();
 
 		// grow the m_Sparse vector exponentially when we need to make room
 		if (m_Sparse.size() <= entity)
@@ -288,7 +296,9 @@ public:
 
 	UniquePtr<IComponentStorage> Clone() const override final
 	{
-		return std::make_unique<ComponentStorage<T>>(*this);
+		UniquePtr<IComponentStorage> clone = std::make_unique<ComponentStorage<T>>(*this);
+		clone->MarkChanged();
+		return clone;
 	}
 
 	void Add(Entity inEntity) override final
@@ -309,6 +319,8 @@ public:
 
 		m_Components.pop_back();
 		m_Entities.pop_back();
+
+		MarkChanged();
 	}
 
 	bool Contains(Entity entity) const override final
@@ -327,12 +339,16 @@ public:
 		m_Sparse.clear();
 		m_Entities.clear();
 		m_Components.clear();
+
+		MarkChanged();
 	}
 
 	size_t Length() const override final { return m_Components.size(); }
 
 	void Read(BinaryReadArchive& ioArchive) override final
 	{
+		MarkChanged();
+
 		ReadFileBinary(ioArchive.GetFile(), m_Entities);
 		ReadFileBinary(ioArchive.GetFile(), m_Sparse);
 
