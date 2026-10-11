@@ -10,7 +10,6 @@ struct VS_OUTPUT {
     float3 normal : NORMAL;
     float3 tangent : TANGENT;
     float3 bitangent : BINORMAL;
-    nointerpolation uint instance_index : INSTANCE;
 };
 
 struct PS_OUTPUT {
@@ -28,7 +27,7 @@ PS_OUTPUT main(in VS_OUTPUT input) {
     StructuredBuffer<RTGeometry> geometries = ResourceDescriptorHeap[fc.mInstancesBuffer];
     StructuredBuffer<RTMaterial> materials = ResourceDescriptorHeap[fc.mMaterialsBuffer];
     
-    RTGeometry geometry = geometries[input.instance_index];
+    RTGeometry geometry = geometries[rc.mInstanceIndex];
     RTMaterial material = materials[geometry.mMaterialIndex];
     
     Texture2D albedo_texture = ResourceDescriptorHeap[NonUniformResourceIndex(material.mAlbedoTexture)];
@@ -76,7 +75,7 @@ PS_OUTPUT main(in VS_OUTPUT input) {
     output.motionvectors = (curr_pos - prev_pos);
     output.motionvectors.xy *= float2(0.5, -0.5);
     
-    output.selection = geometry.mEntity;
+    output.selection = rc.mEntity;
     
     return output;
 }
