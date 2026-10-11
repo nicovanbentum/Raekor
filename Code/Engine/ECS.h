@@ -57,112 +57,67 @@ public:
 
 };
 
+template<typename Component>
+struct ComponentEntry
+{
+	Entity mEntity;
+	Component& mComponent;
+};
+
 template<typename T>
 class ComponentStorage : public IComponentStorage
 {
+	template<typename Component>
 	class EachIterator
 	{
 	public:
 		EachIterator() = delete;
-		EachIterator(typename Array<T>::iterator t_iter, typename Array<Entity>::iterator e_iter)
-			: t_iter(t_iter), e_iter(e_iter)
-		{
-		}
+		EachIterator(Component* inComponent, const Entity* inEntity) : m_Component(inComponent), m_Entity(inEntity) {}
 
-		using value_type = std::tuple<Entity, T&>;
+		using value_type = ComponentEntry<Component>;
 		using iterator_category = std::forward_iterator_tag;
 
-		bool operator==(const EachIterator& rhs) { return ( t_iter == rhs.t_iter ) && ( e_iter == rhs.e_iter ); }
-		bool operator!=(const EachIterator& rhs) { return ( t_iter != rhs.t_iter ) && ( e_iter != rhs.e_iter ); }
+		bool operator==(const EachIterator& inOther) const { return m_Component == inOther.m_Component; }
+		bool operator!=(const EachIterator& inOther) const { return m_Component != inOther.m_Component; }
 
 		EachIterator& operator++()
 		{
-			t_iter++;
-			e_iter++;
+			m_Component++;
+			m_Entity++;
 			return *this;
 		}
 
 		EachIterator operator++(int)
 		{
-			auto tmp = *this;
+			EachIterator previous = *this;
 			++*this;
-			return tmp;
+			return previous;
 		}
 
-		auto operator*() -> value_type
-		{
-			return std::forward_as_tuple(*e_iter, *t_iter);
-		}
+		value_type operator*() const { return value_type { *m_Entity, *m_Component }; }
 
 	private:
-		typename Array<T>::iterator t_iter;
-		typename Array<Entity>::iterator e_iter;
+		Component* m_Component;
+		const Entity* m_Entity;
 	};
 
-	class ConstEachIterator
+	template<typename Component>
+	class EachView
 	{
 	public:
-		ConstEachIterator() = delete;
-		ConstEachIterator(typename Array<T>::const_iterator t_iter, typename Array<Entity>::const_iterator e_iter)
-			: t_iter(t_iter), e_iter(e_iter)
-		{
-		}
+		EachView(Component* inComponents, const Entity* inEntities, size_t inCount) : m_Components(inComponents), m_Entities(inEntities), m_Count(inCount) {}
 
-		using value_type = std::tuple<Entity, const T&>;
-		using iterator_category = std::forward_iterator_tag;
-
-		bool operator==(const ConstEachIterator& rhs) { return ( t_iter == rhs.t_iter ) && ( e_iter == rhs.e_iter ); }
-		bool operator!=(const ConstEachIterator& rhs) { return ( t_iter != rhs.t_iter ) && ( e_iter != rhs.e_iter ); }
-
-		ConstEachIterator& operator++()
-		{
-			t_iter++;
-			e_iter++;
-			return *this;
-		}
-
-		ConstEachIterator operator++(int)
-		{
-			auto tmp = *this;
-			++*this;
-			return tmp;
-		}
-
-		auto operator*() -> value_type
-		{
-			return std::forward_as_tuple(*e_iter, *t_iter);
-		}
+		EachIterator<Component> begin() const { return EachIterator<Component>(m_Components, m_Entities); }
+		EachIterator<Component> end() const { return EachIterator<Component>(m_Components + m_Count, m_Entities + m_Count); }
 
 	private:
-		typename std::vector<T>::const_iterator t_iter;
-		typename std::vector<Entity>::const_iterator e_iter;
+		Component* m_Components;
+		const Entity* m_Entities;
+		size_t m_Count;
 	};
 
-	class View
-	{
-	public:
-		View(ComponentStorage<T>& storage) : storage(storage) {}
-		View(View& rhs) { storage = rhs.storage; }
-
-		auto begin() { return EachIterator(storage.m_Components.begin(), storage.m_Entities.begin()); }
-		auto end() { return EachIterator(storage.m_Components.end(), storage.m_Entities.end()); }
-
-	private:
-		ComponentStorage<T>& storage;
-	};
-
-	class ConstView
-	{
-	public:
-		ConstView(const ComponentStorage<T>& storage) : storage(storage) {}
-		ConstView(View& rhs) { storage = rhs.storage; }
-
-		auto begin() { return ConstEachIterator(storage.m_Components.begin(), storage.m_Entities.begin()); }
-		auto end() { return ConstEachIterator(storage.m_Components.end(), storage.m_Entities.end()); }
-
-	private:
-		const ComponentStorage<T>& storage;
-	};
+	using View = EachView<T>;
+	using ConstView = EachView<const T>;
 
 public:
 	virtual ~ComponentStorage() { Clear(); }
@@ -435,14 +390,14 @@ public:
 
 	void Write(JSON::WriteArchive& ioArchive) override final {}
 
-	View Each() { return View(*this); }
-	ConstView Each() const { return ConstView(*this); }
+	View Each() { return View(m_Components.data(), m_Entities.data(), m_Components.size()); }
+	ConstView Each() const { return ConstView(m_Components.data(), m_Entities.data(), m_Components.size()); }
 
 	const Array<T>& GetComponents() const { return m_Components; }
 	const Array<Entity>& GetEntities() const { return m_Entities; }
 
-	auto begin() { return EachIterator(m_Components.begin(), m_Entities.begin()); }
-	auto end() { return EachIterator(m_Components.end(), m_Entities.end()); }
+	auto begin() { return Each().begin(); }
+	auto end() { return Each().end(); }
 
 	Array<T> m_Components;
 	Array<Entity> m_Entities;
