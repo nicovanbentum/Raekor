@@ -391,6 +391,24 @@ void ViewportWidget::DrawToolbar()
 
 	ImGui::SameLine();
 
+	static int& show_debug_grid = g_CVariables->Create("r_show_debug_grid", 1);
+
+	if (show_debug_grid)
+		ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
+
+	const bool toggle_grid = ImGui::Button((const char*)ICON_FA_BORDER_ALL);
+
+	if (show_debug_grid)
+		ImGui::PopStyleColor();
+
+	if (toggle_grid)
+		show_debug_grid = !show_debug_grid;
+
+	if (ImGui::IsItemHovered())
+		ImGui::SetTooltip("Toggle Grid");
+
+	ImGui::SameLine();
+
 	ImGui::Button((const char*)ICON_FA_COG);
 
 	if (ImGui::IsItemHovered())

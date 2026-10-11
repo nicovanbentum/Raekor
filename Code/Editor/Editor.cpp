@@ -206,20 +206,25 @@ void Editor::OnUpdate(float inDeltaTime)
 			EditorCameraController::OnUpdate(m_Camera, inDeltaTime);
 	}
 
-	int cGridSize = 20;
-	float cGridCellSize = 0.5f;
+	static int& show_debug_grid = g_CVariables->Create("r_show_debug_grid", 1);
 
-	int cGridHalfSize = cGridSize / 2;
-	for (float i = -cGridHalfSize; i <= cGridHalfSize; i += cGridCellSize)
+	if (show_debug_grid)
 	{
-		Vec4 color = Vec4(0.2, 0.2, 0.2, 0.2);
-		g_DebugRenderer.AddLine(Vec3(i, 0, -cGridHalfSize), Vec3(i, 0, cGridHalfSize), color);
-		g_DebugRenderer.AddLine(Vec3(-cGridHalfSize, 0, i), Vec3(cGridHalfSize, 0, i), color);
-	}
+		int cGridSize = 20;
+		float cGridCellSize = 0.5f;
 
-	g_DebugRenderer.AddLine(Vec3(0, 0.001, 0), Camera::cUp * 2.0f, Vec4(0, 1, 0, 1));
-	g_DebugRenderer.AddLine(Vec3(0, 0.001, 0), Camera::cRight * 2.0f, Vec4(1, 0, 0, 1));
-	g_DebugRenderer.AddLine(Vec3(0, 0.001, 0), Camera::cForward * 2.0f, Vec4(0, 0, 1, 1));
+		int cGridHalfSize = cGridSize / 2;
+		for (float i = -cGridHalfSize; i <= cGridHalfSize; i += cGridCellSize)
+		{
+			Vec4 color = Vec4(0.2, 0.2, 0.2, 0.2);
+			g_DebugRenderer.AddLine(Vec3(i, 0, -cGridHalfSize), Vec3(i, 0, cGridHalfSize), color);
+			g_DebugRenderer.AddLine(Vec3(-cGridHalfSize, 0, i), Vec3(cGridHalfSize, 0, i), color);
+		}
+
+		g_DebugRenderer.AddLine(Vec3(0, 0.001, 0), Camera::cUp * 2.0f, Vec4(0, 1, 0, 1));
+		g_DebugRenderer.AddLine(Vec3(0, 0.001, 0), Camera::cRight * 2.0f, Vec4(1, 0, 0, 1));
+		g_DebugRenderer.AddLine(Vec3(0, 0.001, 0), Camera::cForward * 2.0f, Vec4(0, 0, 1, 1));
+	}
 
 	// render any scene dependent debug shapes
 	if (GetActiveEntity() != Entity::Null && m_ActiveEntity != m_Scene.GetRootEntity())
