@@ -209,10 +209,11 @@ private:
         transform.Compose();
 
         Mesh& mesh = m_Scene->Add<Mesh>(entity);
-        Mesh::CreateCube(mesh, 1.0f);
+        mesh.SetAsset(MeshAsset::Find(*m_App->GetAssets(), MeshAsset::cBuiltinCube), 0);
         mesh.material = inMaterial;
 
-        m_App->GetRenderInterface()->UploadMeshBuffers(entity, mesh);
+        if (mesh.asset)
+            m_App->GetRenderInterface()->UploadMeshBuffers(*mesh.asset);
 
         return entity;
     }

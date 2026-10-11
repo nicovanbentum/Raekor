@@ -232,25 +232,27 @@ void MenubarWidget::DrawCreateMenu()
 
 	if (ImGui::BeginMenu((const char*)ICON_FA_CUBES "  Shapes"))
 	{
-		auto CreateShape = [&](const char* inName, auto inCreateFunction)
+		auto CreateShape = [&](const char* inName, const char* inSource)
 		{
 			const Entity entity = scene.CreateSpatialEntity(inName);
 
 			Mesh& mesh = scene.Add<Mesh>(entity);
-			inCreateFunction(mesh);
+			mesh.SetAsset(MeshAsset::Find(*m_Editor->GetAssets(), inSource), 0);
 
-			GetRenderInterface().UploadMeshBuffers(entity, mesh);
+			if (mesh.asset)
+				GetRenderInterface().UploadMeshBuffers(*mesh.asset);
+
 			SelectCreatedEntity(entity);
 		};
 
 		if (ImGui::MenuItem("Cube"))
-			CreateShape("Cube", [](Mesh& ioMesh) { Mesh::CreateCube(ioMesh, 1.0f); });
+			CreateShape("Cube", MeshAsset::cBuiltinCube);
 
 		if (ImGui::MenuItem("Sphere"))
-			CreateShape("Sphere", [](Mesh& ioMesh) { Mesh::CreateSphere(ioMesh, 0.5f, 32, 32); });
+			CreateShape("Sphere", MeshAsset::cBuiltinSphere);
 
 		if (ImGui::MenuItem("Plane"))
-			CreateShape("Plane", [](Mesh& ioMesh) { Mesh::CreatePlane(ioMesh, 1.0f); });
+			CreateShape("Plane", MeshAsset::cBuiltinPlane);
 
 		ImGui::EndMenu();
 	}

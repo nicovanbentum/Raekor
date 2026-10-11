@@ -256,7 +256,7 @@ void HierarchyWidget::DrawContextMenu(Scene& inScene, Entity inEntity)
 
 		if (const Mesh* mesh = inScene.GetPtr<Mesh>(inEntity))
 		{
-			const BBox3D bounds = mesh->bbox.Transformed(transform.worldTransform);
+			const BBox3D bounds = mesh->GetBounds().Transformed(transform.worldTransform);
 			target = bounds.GetCenter();
 			radius = glm::max(glm::length(bounds.GetExtents()) * 0.5f, 0.1f);
 		}
@@ -291,14 +291,16 @@ void HierarchyWidget::DrawCreateMenuItems(Scene& inScene, Entity inParent)
 		m_Editor->MarkSceneChanged();
 	};
 
-	auto CreateShape = [&](const char* inName, auto inCreateFunction)
+	auto CreateShape = [&](const char* inName, const char* inSource)
 	{
 		const Entity entity = inScene.CreateSpatialEntity(inName);
 
 		Mesh& mesh = inScene.Add<Mesh>(entity);
-		inCreateFunction(mesh);
+		mesh.SetAsset(MeshAsset::Find(*m_Editor->GetAssets(), inSource), 0);
 
-		GetRenderInterface().UploadMeshBuffers(entity, mesh);
+		if (mesh.asset)
+			GetRenderInterface().UploadMeshBuffers(*mesh.asset);
+
 		FinishCreation(entity);
 	};
 
@@ -308,13 +310,13 @@ void HierarchyWidget::DrawCreateMenuItems(Scene& inScene, Entity inParent)
 		FinishCreation(inScene.CreateSpatialEntity("Empty"));
 
 	if (ImGui::MenuItem("      Cube"))
-		CreateShape("Cube", [](Mesh& ioMesh) { Mesh::CreateCube(ioMesh, 1.0f); });
+		CreateShape("Cube", MeshAsset::cBuiltinCube);
 
 	if (ImGui::MenuItem("      Sphere"))
-		CreateShape("Sphere", [](Mesh& ioMesh) { Mesh::CreateSphere(ioMesh, 0.5f, 32, 32); });
+		CreateShape("Sphere", MeshAsset::cBuiltinSphere);
 
 	if (ImGui::MenuItem("      Plane"))
-		CreateShape("Plane", [](Mesh& ioMesh) { Mesh::CreatePlane(ioMesh, 1.0f); });
+		CreateShape("Plane", MeshAsset::cBuiltinPlane);
 
 	ImGui::Separator();
 

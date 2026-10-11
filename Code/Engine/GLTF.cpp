@@ -87,6 +87,9 @@ bool GltfImporter::LoadFromFile(const String& inFile, Assets* inAssets)
 	/*
 	* PARSE NODES & MESHES
 	*/
+	CreateMeshAsset(inFile);
+	ConvertMeshes();
+
 	for (const cgltf_scene& scene : Slice(m_GltfData->scenes, m_GltfData->scenes_count))
 		for (const cgltf_node* node : Slice(scene.nodes, scene.nodes_count))
 			if (!node->parent)
@@ -99,6 +102,8 @@ bool GltfImporter::LoadFromFile(const String& inFile, Assets* inAssets)
 		if (!m_Scene.HasParent(entity) || m_Scene.GetParent(entity) == m_Scene.GetRootEntity())
 			 m_Scene.ParentTo(entity, root_entity);
 	}
+
+	FinishMeshAsset(inAssets);
 
 	gLogInfo("GLTF", "Meshes & nodes took {:.2f} ms", Timer::sToMilliseconds(timer.Restart()));
 
@@ -215,14 +220,14 @@ void GltfImporter::ParseNode(const cgltf_node& inNode, Entity inParent, glm::mat
 
 		if (inNode.mesh->primitives_count == 1)
 		{
-			ConvertMesh(entity, inNode.mesh->primitives[0]);
+			AddMesh(entity, *inNode.mesh, 0);
 		}
 		else if (inNode.mesh->primitives_count > 1)
 		{
-			for (const auto& [index, primitive] : gEnumerate(Slice(inNode.mesh->primitives, inNode.mesh->primitives_count)))
+			for (uint32_t index = 0; index < inNode.mesh->primitives_count; index++)
 			{
 				Entity sub_entity = m_Scene.CreateSpatialEntity();
-				ConvertMesh(sub_entity, primitive);
+				AddMesh(sub_entity, *inNode.mesh, index);
 
 				Name& sub_name = m_Scene.Get<Name>(sub_entity);
 				sub_name.name = name + "-" + std::to_string(index);
@@ -244,19 +249,62 @@ void GltfImporter::ParseNode(const cgltf_node& inNode, Entity inParent, glm::mat
 }
 
 
-bool GltfImporter::ConvertMesh(Entity inEntity, const cgltf_primitive& inMesh)
+void GltfImporter::ConvertMeshes()
 {
-	if (!inMesh.indices || inMesh.type != cgltf_primitive_type_triangles)
-		return false;
-	
+	uint32_t mesh_count = 0;
+	m_MeshOffsets.resize(m_GltfData->meshes_count);
+
+	for (const auto& [index, gltf_mesh] : gEnumerate(Slice(m_GltfData->meshes, m_GltfData->meshes_count)))
+	{
+		m_MeshOffsets[index] = mesh_count;
+		mesh_count += uint32_t(gltf_mesh.primitives_count);
+	}
+
+	Array<MeshGeometry>& meshes = m_MeshAsset->GetMeshes();
+	meshes.resize(mesh_count);
+
+	g_JobSystem.ParallelFor(uint32_t(m_GltfData->meshes_count), 1, [&](uint32_t inIndex)
+	{
+		const cgltf_mesh& gltf_mesh = m_GltfData->meshes[inIndex];
+
+		for (uint32_t primitive = 0; primitive < gltf_mesh.primitives_count; primitive++)
+		{
+			MeshGeometry& geometry = meshes[m_MeshOffsets[inIndex] + primitive];
+
+			const String name = gltf_mesh.name ? gltf_mesh.name : std::format("Mesh {}", inIndex);
+			geometry.name = gltf_mesh.primitives_count > 1 ? std::format("{}-{}", name, primitive) : name;
+
+			ConvertMesh(geometry, gltf_mesh.primitives[primitive]);
+		}
+	});
+}
+
+
+void GltfImporter::AddMesh(Entity inEntity, const cgltf_mesh& inMesh, uint32_t inPrimitive)
+{
+	const uint32_t mesh_index = m_MeshOffsets[&inMesh - m_GltfData->meshes] + inPrimitive;
+
+	if (m_MeshAsset->GetMesh(mesh_index)->IsEmpty())
+		return;
+
 	assert(!m_Scene.Has<Mesh>(inEntity));
-	Mesh& mesh = m_Scene.Add<Mesh>(inEntity);
+
+	Entity material = Entity::Null;
 
 	for (int i = 0; i < m_GltfData->materials_count; i++)
 	{
-		if (inMesh.material == &m_GltfData->materials[i])
-			mesh.material = m_Materials[i];
+		if (inMesh.primitives[inPrimitive].material == &m_GltfData->materials[i])
+			material = m_Materials[i];
 	}
+
+	Importer::AddMesh(inEntity, mesh_index, material);
+}
+
+
+bool GltfImporter::ConvertMesh(MeshGeometry& ioGeometry, const cgltf_primitive& inMesh)
+{
+	if (!inMesh.indices || inMesh.type != cgltf_primitive_type_triangles)
+		return false;
 
 	bool seen_uv0 = false;
 
@@ -281,19 +329,19 @@ bool GltfImporter::ConvertMesh(Entity inEntity, const cgltf_primitive& inMesh)
 			{
 				case cgltf_attribute_type_position:
 				{
-					mesh.positions.emplace_back(data[0], data[1], data[2]);
+					ioGeometry.positions.emplace_back(data[0], data[1], data[2]);
 				} break;
 				case cgltf_attribute_type_texcoord:
 				{
-					mesh.uvs.emplace_back(data[0], data[1] * -1.0f);
+					ioGeometry.uvs.emplace_back(data[0], data[1] * -1.0f);
 				} break;
 				case cgltf_attribute_type_normal:
 				{
-					mesh.normals.emplace_back(data[0], data[1], data[2]);
+					ioGeometry.normals.emplace_back(data[0], data[1], data[2]);
 				} break;
 				case cgltf_attribute_type_tangent:
 				{
-					mesh.tangents.emplace_back(data[0], data[1], data[2]);
+					ioGeometry.tangents.emplace_back(data[0], data[1], data[2]);
 				} break;
 			}
 
@@ -303,21 +351,18 @@ bool GltfImporter::ConvertMesh(Entity inEntity, const cgltf_primitive& inMesh)
 	}
 
 	for (uint32_t i = 0; i < inMesh.indices->count; i++)
-		mesh.indices.emplace_back(uint32_t(cgltf_accessor_read_index(inMesh.indices, i)));
+		ioGeometry.indices.emplace_back(uint32_t(cgltf_accessor_read_index(inMesh.indices, i)));
 
-	mesh.CalculateBoundingBox();
+	ioGeometry.CalculateBoundingBox();
 
-	if (mesh.normals.empty() && !mesh.positions.empty())
-		mesh.CalculateNormals();
+	if (ioGeometry.normals.empty() && !ioGeometry.positions.empty())
+		ioGeometry.CalculateNormals();
 
-	if (mesh.tangents.empty() && !mesh.uvs.empty())
-		mesh.CalculateTangents();
+	if (ioGeometry.tangents.empty() && !ioGeometry.uvs.empty())
+		ioGeometry.CalculateTangents();
 
-	if (mesh.vertices.empty())
-		mesh.CalculateVertices();
-
-	if (m_Renderer)
-		m_Renderer->UploadMeshBuffers(inEntity, mesh);
+	if (ioGeometry.vertices.empty())
+		ioGeometry.CalculateVertices();
 
 	return true;
 }
@@ -450,12 +495,6 @@ void GltfImporter::ConvertBones(Entity inEntity, const cgltf_node& inNode)
 
 	skeleton.boneTransformMatrices.resize(skeleton.boneOffsetMatrices.size(), glm::mat4(1.0f));
 	skeleton.boneWSTransformMatrices.resize(skeleton.boneOffsetMatrices.size(), glm::mat4(1.0f));
-
-	if (m_Renderer)
-	{
-		Mesh& mesh = m_Scene.Get<Mesh>(inEntity);
-		m_Renderer->UploadSkeletonBuffers(inEntity, skeleton, mesh);
-	}
 
 	if (cgltf_node* root_bone = inNode.skin->skeleton)
 	{

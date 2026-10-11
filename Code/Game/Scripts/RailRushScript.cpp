@@ -339,10 +339,11 @@ private:
         SetTransform(entity, inPosition, inScale);
 
         Mesh& mesh = m_Scene->Add<Mesh>(entity);
-        Mesh::CreateCube(mesh, 1.0f);
+        mesh.SetAsset(MeshAsset::Find(*m_App->GetAssets(), MeshAsset::cBuiltinCube), 0);
         mesh.material = inMaterial;
 
-        m_App->GetRenderInterface()->UploadMeshBuffers(entity, mesh);
+        if (mesh.asset)
+            m_App->GetRenderInterface()->UploadMeshBuffers(*mesh.asset);
 
         return entity;
     }
@@ -475,12 +476,11 @@ private:
 
         const Entity material = mesh->material;
 
-        m_App->GetRenderInterface()->DestroyMeshBuffers(inEntity, *mesh);
-
         *mesh = inTemplate->mMesh;
         mesh->material = material;
 
-        m_App->GetRenderInterface()->UploadMeshBuffers(inEntity, *mesh);
+        if (mesh->asset)
+            m_App->GetRenderInterface()->UploadMeshBuffers(*mesh->asset);
     }
 
     Entity CreateMeshEntity(StringView inName, const PartTemplate* inTemplate, Entity inParent)

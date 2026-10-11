@@ -108,7 +108,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 		if (scene.Has<Mesh>(GetActiveEntity()))
 		{
 			const Mesh& mesh = scene.Get<Mesh>(GetActiveEntity());
-			const BBox3D world_space_bounds = mesh.bbox.Transformed(transform.worldTransform);
+			const BBox3D world_space_bounds = mesh.GetBounds().Transformed(transform.worldTransform);
 			additional_translation = world_space_bounds.GetCenter() - transform.GetPositionWorldSpace();
 		}
 
@@ -325,7 +325,10 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 		{
 			uint64_t triangle_count = 0;
 			for (const Mesh& mesh : GetScene().GetStorage<Mesh>())
-				triangle_count += mesh.indices.size();
+			{
+				if (const MeshGeometry* geometry = mesh.GetGeometry())
+					triangle_count += geometry->indices.size();
+			}
 			triangle_count /= 3;
 
 			std::array<uint32_t, MATERIAL_BLEND_MODE_COUNT> material_counts = {};

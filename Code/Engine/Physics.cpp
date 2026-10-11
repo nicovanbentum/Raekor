@@ -208,11 +208,11 @@ void Physics::OnUpdate(Scene& inScene)
 
     for (const auto& [entity, transform, mesh, rigid_body] : inScene.Each<Transform, Mesh, RigidBody>())
     {
-        if (rigid_body.bodyID.IsInvalid() && rigid_body.shape == RigidBody::MESH)
+        if (rigid_body.bodyID.IsInvalid() && rigid_body.shape == RigidBody::MESH && mesh.GetGeometry())
         {
             collider_jobs.Schedule([&]()
             {
-                rigid_body.CreateMeshCollider(*this, mesh, transform);
+                rigid_body.CreateMeshCollider(*this, *mesh.GetGeometry(), transform);
                 rigid_body.CreateBody(*this, transform);
                 rigid_body.ActivateBody(*this, transform);
             });
@@ -249,13 +249,15 @@ void Physics::OnUpdate(Scene& inScene)
 
 					if (JPH::SoftBodyMotionProperties* props = (JPH::SoftBodyMotionProperties*)body->GetMotionProperties())
 					{
-						if (auto mesh = inScene.GetPtr<Mesh>(entity))
+						const Mesh* mesh = inScene.GetPtr<Mesh>(entity);
+
+						if (MeshGeometry* geometry = mesh ? mesh->GetGeometry() : nullptr)
 						{
 							for (auto i = 0u; i < props->GetVertices().size(); i++)
 							{
 								const auto& pos = props->GetVertex(i).mPosition;
-								mesh->positions[i] = Vec3(pos.GetX(), pos.GetY(), pos.GetZ());
-								mesh->positions[i] *= Vec3(1.0f) / transform.scale;
+								geometry->positions[i] = Vec3(pos.GetX(), pos.GetY(), pos.GetZ());
+								geometry->positions[i] *= Vec3(1.0f) / transform.scale;
 							}
 						}
 					}
@@ -357,11 +359,11 @@ void Physics::GenerateRigidBodiesEntireScene(Scene& inScene)
 
 	for (const auto& [entity, transform, mesh, rigid_body] : inScene.Each<Transform, Mesh, RigidBody>())
 	{
-        if (rigid_body.bodyID.IsInvalid())
+        if (rigid_body.bodyID.IsInvalid() && mesh.GetGeometry())
         {
 		    collider_jobs.Schedule([&]()
 		    {
-                rigid_body.CreateMeshCollider(*this, mesh, transform);
+                rigid_body.CreateMeshCollider(*this, *mesh.GetGeometry(), transform);
                 rigid_body.CreateBody(*this, transform);
                 rigid_body.ActivateBody(*this, transform);
 		    });

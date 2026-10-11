@@ -4,7 +4,7 @@
 #include "Resource.h"
 
 namespace RK {
-struct Mesh;
+struct MeshGeometry;
 class Viewport;
 }
 
@@ -47,7 +47,7 @@ public:
 
     void BindDefaults(Device& inDevice);
     void BindIndexBuffer(Buffer& inBuffer);
-    void BindVertexAndIndexBuffers(Device& inDevice, const RK::Mesh& inMesh);
+    void BindVertexAndIndexBuffers(Device& inDevice, const RK::MeshGeometry& inMesh);
 
     void BindComputeProgram(const ComputeProgram& inProgram);
     void BindGraphicsProgram(const GraphicsProgram& inProgram);

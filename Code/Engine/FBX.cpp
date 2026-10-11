@@ -2,6 +2,7 @@
 #include "fbx.h"
 #include "iter.h"
 #include "timer.h"
+#include "threading.h"
 #include "components.h"
 #include "application.h"
 
@@ -48,6 +49,9 @@ bool FBXImporter::LoadFromFile(const String& inFile, Assets* inAssets)
 		m_Materials.push_back(entity);
 	}
 
+	CreateMeshAsset(inFile);
+	ConvertMeshes();
+
 	for (const ufbx_node* node : m_FbxScene->nodes)
 	{
 		if (node->is_root)
@@ -64,6 +68,8 @@ bool FBXImporter::LoadFromFile(const String& inFile, Assets* inAssets)
 		if (!m_Scene.HasParent(entity) || m_Scene.GetParent(entity) == m_Scene.GetRootEntity())
 			m_Scene.ParentTo(entity, root_entity);
 	}
+
+	FinishMeshAsset(inAssets);
 
 	gLogInfo("FBX", "Meshes & nodes took {:.2f} ms", Timer::sToMilliseconds(timer.Restart()));
 
@@ -110,14 +116,14 @@ void FBXImporter::ParseNode(const ufbx_node* inNode, Entity inParent, Entity inE
 
 		if (inNode->mesh->materials.count == 1)
 		{
-			ConvertMesh(inEntity, inNode->mesh, inNode->mesh->materials[0]);
+			AddMesh(inEntity, inNode->mesh, 0);
 		}
 		else if (inNode->mesh->materials.count > 1)
 		{
-			for (const auto& [index, material] : gEnumerate(inNode->mesh->materials))
+			for (uint32_t index = 0; index < inNode->mesh->materials.count; index++)
 			{
 				Entity sub_entity = m_Scene.CreateSpatialEntity();
-				ConvertMesh(sub_entity, inNode->mesh, material);
+				AddMesh(sub_entity, inNode->mesh, index);
 
 				Name& sub_name = m_Scene.Get<Name>(sub_entity);
 				sub_name.name = name + "-" + std::to_string(index);
@@ -146,23 +152,65 @@ void FBXImporter::ParseNode(const ufbx_node* inNode, Entity inParent, Entity inE
 }
 
 
-void FBXImporter::ConvertMesh(Entity inEntity, const ufbx_mesh* inMesh, const ufbx_mesh_material& inMaterial)
+void FBXImporter::ConvertMeshes()
 {
-	Mesh& mesh = m_Scene.Add<Mesh>(inEntity);
+	uint32_t mesh_count = 0;
+	m_MeshOffsets.resize(m_FbxScene->meshes.count);
 
-	if (!inMesh->num_indices || !inMaterial.num_triangles)
+	for (const auto& [index, fbx_mesh] : gEnumerate(m_FbxScene->meshes))
+	{
+		m_MeshOffsets[index] = mesh_count;
+		mesh_count += uint32_t(fbx_mesh->materials.count);
+	}
+
+	Array<MeshGeometry>& meshes = m_MeshAsset->GetMeshes();
+	meshes.resize(mesh_count);
+
+	g_JobSystem.ParallelFor(uint32_t(m_FbxScene->meshes.count), 1, [&](uint32_t inIndex)
+	{
+		const ufbx_mesh* fbx_mesh = m_FbxScene->meshes[inIndex];
+
+		for (uint32_t part = 0; part < fbx_mesh->materials.count; part++)
+		{
+			MeshGeometry& geometry = meshes[m_MeshOffsets[inIndex] + part];
+
+			const String name = fbx_mesh->name.length ? String(fbx_mesh->name.data) : std::format("Mesh {}", inIndex);
+			geometry.name = fbx_mesh->materials.count > 1 ? std::format("{}-{}", name, part) : name;
+
+			ConvertMesh(geometry, fbx_mesh, fbx_mesh->materials[part]);
+		}
+	});
+}
+
+
+void FBXImporter::AddMesh(Entity inEntity, const ufbx_mesh* inMesh, uint32_t inPart)
+{
+	const uint32_t mesh_index = m_MeshOffsets[inMesh->typed_id] + inPart;
+
+	if (m_MeshAsset->GetMesh(mesh_index)->IsEmpty())
 		return;
 
-	mesh.uvs.reserve(inMesh->vertex_uv.indices.count);
-	mesh.normals.reserve(inMesh->vertex_normal.indices.count);
-	mesh.tangents.reserve(inMesh->vertex_tangent.indices.count);
-	mesh.positions.reserve(inMesh->vertex_position.indices.count);
+	Entity material = Entity::Null;
 
 	for (int i = 0; i < m_FbxScene->materials.count; i++)
 	{
-		if (inMaterial.material == m_FbxScene->materials[i])
-			mesh.material = m_Materials[i];
+		if (inMesh->materials[inPart].material == m_FbxScene->materials[i])
+			material = m_Materials[i];
 	}
+
+	Importer::AddMesh(inEntity, mesh_index, material);
+}
+
+
+void FBXImporter::ConvertMesh(MeshGeometry& ioGeometry, const ufbx_mesh* inMesh, const ufbx_mesh_material& inMaterial)
+{
+	if (!inMesh->num_indices || !inMaterial.num_triangles)
+		return;
+
+	ioGeometry.uvs.reserve(inMesh->vertex_uv.indices.count);
+	ioGeometry.normals.reserve(inMesh->vertex_normal.indices.count);
+	ioGeometry.tangents.reserve(inMesh->vertex_tangent.indices.count);
+	ioGeometry.positions.reserve(inMesh->vertex_position.indices.count);
 
 	// Temporary buffers
 	int num_tri_indices = inMesh->max_face_triangles * 3;
@@ -183,21 +231,21 @@ void FBXImporter::ConvertMesh(Entity inEntity, const ufbx_mesh* inMesh, const uf
 			const uint32_t ix = tri_indices[vi];
 
 			const ufbx_vec3 pos = ufbx_get_vertex_vec3(&inMesh->vertex_position, ix);
-			mesh.positions.push_back(Vec3(pos.x, pos.y, pos.z));
+			ioGeometry.positions.push_back(Vec3(pos.x, pos.y, pos.z));
 
 			const ufbx_vec2 uv = inMesh->vertex_uv.exists ? ufbx_get_vertex_vec2(&inMesh->vertex_uv, ix) : ufbx_vec2 { 0 };
-			mesh.uvs.push_back(Vec2(uv.x, uv.y));
+			ioGeometry.uvs.push_back(Vec2(uv.x, uv.y));
 
 			if (inMesh->vertex_normal.exists)
 			{
 				const ufbx_vec3 normal = ufbx_get_vertex_vec3(&inMesh->vertex_normal, ix);
-				mesh.normals.push_back(glm::normalize(Vec3(normal.x, normal.y, normal.z)));
+				ioGeometry.normals.push_back(glm::normalize(Vec3(normal.x, normal.y, normal.z)));
 			}
 
 			if (inMesh->vertex_tangent.exists)
 			{
 				const ufbx_vec3 tangent = ufbx_get_vertex_vec3(&inMesh->vertex_tangent, ix);
-				mesh.tangents.push_back(glm::normalize(Vec3(tangent.x, tangent.y, tangent.z)));
+				ioGeometry.tangents.push_back(glm::normalize(Vec3(tangent.x, tangent.y, tangent.z)));
 			}
 
 			num_indices++;
@@ -207,47 +255,52 @@ void FBXImporter::ConvertMesh(Entity inEntity, const ufbx_mesh* inMesh, const uf
 	std::vector<ufbx_vertex_stream> streams;
 
 	ufbx_vertex_stream& pos_stream = streams.emplace_back();
-	pos_stream.data = mesh.positions.data();
+	pos_stream.data = ioGeometry.positions.data();
 	pos_stream.vertex_size = sizeof(Vec3);
 
 	ufbx_vertex_stream& uv_stream = streams.emplace_back();
-	uv_stream.data = mesh.uvs.data();
+	uv_stream.data = ioGeometry.uvs.data();
 	uv_stream.vertex_size = sizeof(Vec2);
 
 	if (inMesh->vertex_normal.exists)
 	{
 		ufbx_vertex_stream& normal_stream = streams.emplace_back();
-		normal_stream.data = mesh.normals.data();
+		normal_stream.data = ioGeometry.normals.data();
 		normal_stream.vertex_size = sizeof(Vec3);
 	}
 
 	if (inMesh->vertex_tangent.exists)
 	{
 		ufbx_vertex_stream& tangent_stream = streams.emplace_back();
-		tangent_stream.data = mesh.tangents.data();
+		tangent_stream.data = ioGeometry.tangents.data();
 		tangent_stream.vertex_size = sizeof(Vec3);
 	}
 
 	// Optimize the flat vertex buffer into an indexed one. `ufbx_generate_indices()`
 	// compacts the vertex buffer and returns the number of used vertices.
 	ufbx_error error;
-	mesh.indices.resize(num_indices);
-	size_t num_vertices = ufbx_generate_indices(streams.data(), streams.size(), mesh.indices.data(), num_indices, NULL, &error);
+	ioGeometry.indices.resize(num_indices);
+	size_t num_vertices = ufbx_generate_indices(streams.data(), streams.size(), ioGeometry.indices.data(), num_indices, NULL, &error);
 	assert(error.type == UFBX_ERROR_NONE);
 
-	mesh.CalculateBoundingBox();
+	for (Array<Vec3>* stream : { &ioGeometry.positions, &ioGeometry.normals, &ioGeometry.tangents })
+	{
+		if (!stream->empty())
+			stream->resize(num_vertices);
+	}
 
-	if (mesh.normals.empty() && !mesh.positions.empty())
-		mesh.CalculateNormals();
+	ioGeometry.uvs.resize(num_vertices);
 
-	if (mesh.tangents.empty() && !mesh.uvs.empty())
-		mesh.CalculateTangents();
+	ioGeometry.CalculateBoundingBox();
 
-	if (mesh.vertices.empty())
-		mesh.CalculateVertices();
+	if (ioGeometry.normals.empty() && !ioGeometry.positions.empty())
+		ioGeometry.CalculateNormals();
 
-	if (m_Renderer)
-		m_Renderer->UploadMeshBuffers(inEntity, mesh);
+	if (ioGeometry.tangents.empty() && !ioGeometry.uvs.empty())
+		ioGeometry.CalculateTangents();
+
+	if (ioGeometry.vertices.empty())
+		ioGeometry.CalculateVertices();
 }
 
 

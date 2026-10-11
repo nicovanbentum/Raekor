@@ -16,7 +16,7 @@ public:
         BBox3D scene_bounds;
 
         for (const auto& [entity, transform, mesh] : m_Scene->Each<Transform, Mesh>())
-            scene_bounds.Combine(mesh.bbox.Transformed(transform.worldTransform));
+            scene_bounds.Combine(mesh.GetBounds().Transformed(transform.worldTransform));
 
         constexpr float cPointLightRadius = 2.5f;
         constexpr float cPointLightIntensity = 50000.0f;

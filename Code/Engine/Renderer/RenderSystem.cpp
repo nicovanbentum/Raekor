@@ -67,6 +67,16 @@ RenderSystem::~RenderSystem()
 {
     m_Renderer.WaitForIdle(m_Device);
 
+    Array<MeshAsset*> mesh_assets;
+
+    {
+        std::scoped_lock lock(m_MeshAssetsMutex);
+        mesh_assets.assign(m_MeshAssets.begin(), m_MeshAssets.end());
+    }
+
+    for (MeshAsset* mesh_asset : mesh_assets)
+        DestroyMeshBuffers(*mesh_asset);
+
     if (m_ImGuiFontTexture.IsValid())
         m_Device.ReleaseTextureImmediate(m_ImGuiFontTexture);
 }
@@ -257,12 +267,44 @@ const char* RenderSystem::GetDebugTextureName(uint32_t inIndex) const
 
 
 
-void RenderSystem::UploadMeshBuffers(Entity inEntity, Mesh& inMesh)
+void RenderSystem::UploadMeshBuffers(MeshAsset& ioAsset)
 {
-    DestroyMeshBuffers(inEntity, inMesh);
+    {
+        std::scoped_lock lock(m_MeshAssetsMutex);
 
-    const uint64_t indices_size = inMesh.indices.size() * sizeof(inMesh.indices[0]);
-    const uint64_t vertices_size = inMesh.vertices.size() * sizeof(inMesh.vertices[0]);
+        if (!m_MeshAssets.insert(&ioAsset).second)
+            return;
+
+        ioAsset.SetRenderer(this);
+    }
+
+    for (MeshGeometry& geometry : ioAsset.GetMeshes())
+        UploadGeometryBuffers(geometry);
+}
+
+
+void RenderSystem::DestroyMeshBuffers(MeshAsset& ioAsset)
+{
+    {
+        std::scoped_lock lock(m_MeshAssetsMutex);
+
+        if (m_MeshAssets.erase(&ioAsset) == 0)
+            return;
+
+        ioAsset.SetRenderer(nullptr);
+    }
+
+    for (MeshGeometry& geometry : ioAsset.GetMeshes())
+        DestroyGeometryBuffers(geometry);
+}
+
+
+void RenderSystem::UploadGeometryBuffers(MeshGeometry& ioGeometry)
+{
+    DestroyGeometryBuffers(ioGeometry);
+
+    const uint64_t indices_size = ioGeometry.indices.size() * sizeof(ioGeometry.indices[0]);
+    const uint64_t vertices_size = ioGeometry.vertices.size() * sizeof(ioGeometry.vertices[0]);
 
     if (!vertices_size || !indices_size)
         return;
@@ -284,47 +326,49 @@ void RenderSystem::UploadMeshBuffers(Entity inEntity, Mesh& inMesh)
         .debugName = "VertexBuffer"
     });
 
-    m_Device.UploadInitialBufferData(m_Device.GetBuffer(index_buffer), inMesh.indices.data(), indices_size);
-    m_Device.UploadInitialBufferData(m_Device.GetBuffer(vertex_buffer), inMesh.vertices.data(), vertices_size);
+    m_Device.UploadInitialBufferData(m_Device.GetBuffer(index_buffer), ioGeometry.indices.data(), indices_size);
+    m_Device.UploadInitialBufferData(m_Device.GetBuffer(vertex_buffer), ioGeometry.vertices.data(), vertices_size);
 
     const BufferID bottom_level_as = m_Renderer.GetGPUScene().CreateBottomLevelAS(m_Device, BottomLevelASBuild
     {
         .mIndexBuffer  = index_buffer,
         .mVertexBuffer = vertex_buffer,
-        .mIndexCount   = uint32_t(inMesh.indices.size()),
-        .mVertexCount  = uint32_t(inMesh.positions.size())
+        .mIndexCount   = uint32_t(ioGeometry.indices.size()),
+        .mVertexCount  = uint32_t(ioGeometry.positions.size())
     });
 
-    inMesh.indexBuffer = index_buffer.GetValue();
-    inMesh.vertexBuffer = vertex_buffer.GetValue();
-    inMesh.BottomLevelAS = bottom_level_as.GetValue();
+    ioGeometry.indexBuffer = index_buffer.GetValue();
+    ioGeometry.vertexBuffer = vertex_buffer.GetValue();
+    ioGeometry.BottomLevelAS = bottom_level_as.GetValue();
 }
 
 
-void RenderSystem::DestroyMeshBuffers(Entity inEntity, Mesh& inMesh)
+void RenderSystem::DestroyGeometryBuffers(MeshGeometry& ioGeometry)
 {
-    m_Renderer.GetGPUScene().ReleaseBottomLevelAS(m_Device, gToBufferID(inMesh.BottomLevelAS));
+    m_Renderer.GetGPUScene().ReleaseBottomLevelAS(m_Device, gToBufferID(ioGeometry.BottomLevelAS));
 
-    for (uint32_t buffer : { inMesh.indexBuffer, inMesh.vertexBuffer })
+    for (uint32_t buffer : { ioGeometry.indexBuffer, ioGeometry.vertexBuffer })
     {
         if (buffer != 0)
             m_Device.ReleaseBuffer(BufferID(buffer));
     }
 
-    inMesh.indexBuffer = 0;
-    inMesh.vertexBuffer = 0;
-    inMesh.BottomLevelAS = 0;
+    ioGeometry.indexBuffer = 0;
+    ioGeometry.vertexBuffer = 0;
+    ioGeometry.BottomLevelAS = 0;
 }
 
 
-void RenderSystem::UploadSkeletonBuffers(Entity inEntity, Skeleton& inSkeleton, Mesh& inMesh)
+void RenderSystem::UploadSkeletonBuffers(Entity inEntity, Skeleton& inSkeleton, const Mesh& inMesh)
 {
     DestroySkeletonBuffers(inEntity, inSkeleton);
 
     inSkeleton.boneTransformMatrices.resize(inSkeleton.boneOffsetMatrices.size(), Mat4x4(1.0f));
     inSkeleton.boneWSTransformMatrices.resize(inSkeleton.boneOffsetMatrices.size(), Mat4x4(1.0f));
 
-    if (inSkeleton.boneIndices.empty() || inSkeleton.boneWeights.empty() || inSkeleton.boneTransformMatrices.empty() || inMesh.vertices.empty())
+    const MeshGeometry* geometry = inMesh.GetGeometry();
+
+    if (geometry == nullptr || inSkeleton.boneIndices.empty() || inSkeleton.boneWeights.empty() || inSkeleton.boneTransformMatrices.empty() || geometry->vertices.empty())
         return;
 
     const BufferID bone_index_buffer = m_Device.CreateBuffer(Buffer::Desc
@@ -353,7 +397,7 @@ void RenderSystem::UploadSkeletonBuffers(Entity inEntity, Skeleton& inSkeleton, 
 
     const BufferID skinned_vertex_buffer = m_Device.CreateBuffer(Buffer::Desc
     {
-        .size   = sizeof(inMesh.vertices[0]) * inMesh.vertices.size(),
+        .size   = sizeof(geometry->vertices[0]) * geometry->vertices.size(),
         .stride = sizeof(RTVertex),
         .usage  = Buffer::Usage::SHADER_READ_WRITE,
         .debugName = "SkinnedVertexBuffer"
@@ -367,18 +411,17 @@ void RenderSystem::UploadSkeletonBuffers(Entity inEntity, Skeleton& inSkeleton, 
     inSkeleton.boneTransformsBuffer = bone_transforms_buffer.GetValue();
     inSkeleton.skinnedVertexBuffer = skinned_vertex_buffer.GetValue();
 
-    if (inMesh.BottomLevelAS != 0)
+    if (geometry->IsUploaded())
     {
         GPUScene& gpu_scene = m_Renderer.GetGPUScene();
-        gpu_scene.ReleaseBottomLevelAS(m_Device, gToBufferID(inMesh.BottomLevelAS));
 
-        const uint32_t index_count = uint32_t(inMesh.indices.size());
-        const uint32_t vertex_count = uint32_t(inMesh.positions.size());
+        const uint32_t index_count = uint32_t(geometry->indices.size());
+        const uint32_t vertex_count = uint32_t(geometry->positions.size());
 
-        inMesh.BottomLevelAS = gpu_scene.CreateBottomLevelAS(m_Device, BottomLevelASBuild
+        inSkeleton.skinnedBottomLevelAS = gpu_scene.CreateBottomLevelAS(m_Device, BottomLevelASBuild
         {
-            .mIndexBuffer  = gToBufferID(inMesh.indexBuffer),
-            .mVertexBuffer = gToBufferID(inMesh.vertexBuffer),
+            .mIndexBuffer  = gToBufferID(geometry->indexBuffer),
+            .mVertexBuffer = gToBufferID(geometry->vertexBuffer),
             .mIndexCount   = index_count,
             .mVertexCount  = vertex_count,
             .mAllowUpdate  = true
@@ -396,6 +439,9 @@ void RenderSystem::UploadSkeletonBuffers(Entity inEntity, Skeleton& inSkeleton, 
 
 void RenderSystem::DestroySkeletonBuffers(Entity inEntity, Skeleton& inSkeleton)
 {
+    m_Renderer.GetGPUScene().ReleaseBottomLevelAS(m_Device, gToBufferID(inSkeleton.skinnedBottomLevelAS));
+    inSkeleton.skinnedBottomLevelAS = 0;
+
     for (uint32_t* buffer : { &inSkeleton.boneIndexBuffer, &inSkeleton.boneWeightBuffer, &inSkeleton.skinnedVertexBuffer, &inSkeleton.boneTransformsBuffer, &inSkeleton.blasScratchBuffer })
     {
         if (*buffer != 0)

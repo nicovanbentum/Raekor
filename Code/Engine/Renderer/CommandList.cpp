@@ -166,7 +166,7 @@ void CommandList::BindIndexBuffer(Buffer& inBuffer)
 }
 
 
-void CommandList::BindVertexAndIndexBuffers(Device& inDevice, const RK::Mesh& inMesh)
+void CommandList::BindVertexAndIndexBuffers(Device& inDevice, const RK::MeshGeometry& inMesh)
 {
     Buffer& index_buffer = inDevice.GetBuffer(BufferID(inMesh.indexBuffer));
     Buffer& vertex_buffer = inDevice.GetBuffer(BufferID(inMesh.vertexBuffer));

@@ -63,13 +63,8 @@ RTTI_DEFINE_TYPE(Light)
 
 RTTI_DEFINE_TYPE(Mesh)
 {
-	RTTI_DEFINE_MEMBER(Mesh, SERIALIZE_ALL, "BBox", bbox);
-	RTTI_DEFINE_MEMBER(Mesh, SERIALIZE_ALL, "Positions", positions);
-	RTTI_DEFINE_MEMBER(Mesh, SERIALIZE_ALL, "Texcoords", uvs);
-	RTTI_DEFINE_MEMBER(Mesh, SERIALIZE_ALL, "Normals", normals);
-	RTTI_DEFINE_MEMBER(Mesh, SERIALIZE_ALL, "Tangents", tangents);
-	RTTI_DEFINE_MEMBER(Mesh, ESerializeType(SERIALIZE_JSON | SERIALIZE_LEGACY_BINARY), "Vertices", vertices);
-	RTTI_DEFINE_MEMBER(Mesh, SERIALIZE_ALL, "Indices", indices);
+	RTTI_DEFINE_MEMBER(Mesh, SERIALIZE_ALL, "Source", source);
+	RTTI_DEFINE_MEMBER(Mesh, SERIALIZE_ALL, "Index", index);
 	RTTI_DEFINE_MEMBER(Mesh, SERIALIZE_ALL, "Material", material);
 }
 
@@ -256,7 +251,7 @@ void Transform::Print()
 }
 
 
-void Mesh::CreateCube(Mesh& ioMesh, float inScale)
+void MeshGeometry::CreateCube(MeshGeometry& ioMesh, float inScale)
 {
 	static constexpr std::array vertices = {
 		// Front face
@@ -321,7 +316,7 @@ void Mesh::CreateCube(Mesh& ioMesh, float inScale)
 }
 
 
-void Mesh::CreatePlane(Mesh& ioMesh, float inScale)
+void MeshGeometry::CreatePlane(MeshGeometry& ioMesh, float inScale)
 {
 	static constexpr std::array vertices = 
 	{
@@ -356,7 +351,7 @@ void Mesh::CreatePlane(Mesh& ioMesh, float inScale)
 }
 
 
-void Mesh::CreateSphere(Mesh& ioMesh, float inRadius, uint32_t inSectorCount, uint32_t inStackCount)
+void MeshGeometry::CreateSphere(MeshGeometry& ioMesh, float inRadius, uint32_t inSectorCount, uint32_t inStackCount)
 {
 	ioMesh.positions.clear();
 	ioMesh.normals.clear();
@@ -437,7 +432,7 @@ void Mesh::CreateSphere(Mesh& ioMesh, float inRadius, uint32_t inSectorCount, ui
 }
 
 
-void Mesh::CalculateTangents()
+void MeshGeometry::CalculateTangents()
 {
 	tangents.resize(positions.size());
 
@@ -510,7 +505,7 @@ void Mesh::CalculateTangents()
 }
 
 
-void Mesh::CalculateNormals()
+void MeshGeometry::CalculateNormals()
 {
 	normals.resize(positions.size(), Vec3(0.0f));
 
@@ -542,7 +537,7 @@ void Mesh::CalculateNormals()
 }
 
 
-void Mesh::CalculateBoundingBox()
+void MeshGeometry::CalculateBoundingBox()
 {
 	if (positions.size() < 2)
 		return;
@@ -558,7 +553,7 @@ void Mesh::CalculateBoundingBox()
 }
 
 
-void Mesh::CalculateVertices()
+void MeshGeometry::CalculateVertices()
 {
 	vertices.clear();
 
@@ -606,7 +601,7 @@ void Mesh::CalculateVertices()
 }
 
 
-uint32_t Mesh::GetVertexStride() const
+uint32_t MeshGeometry::GetVertexStride() const
 {
 	uint32_t stride = 0u;
 	stride += sizeof(Vec3) * !positions.empty();
@@ -614,6 +609,28 @@ uint32_t Mesh::GetVertexStride() const
 	stride += sizeof(Vec3) * !normals.empty();
 	stride += sizeof(Vec3) * !tangents.empty();
 	return stride;
+}
+
+
+void Mesh::SetAsset(const MeshAsset::Ptr& inAsset, uint32_t inIndex)
+{
+	asset = inAsset;
+	index = inIndex;
+	source = inAsset ? inAsset->GetSource() : String();
+}
+
+
+BBox3D Mesh::GetBounds() const
+{
+	const MeshGeometry* geometry = GetGeometry();
+	return geometry ? geometry->bbox : BBox3D();
+}
+
+
+bool Mesh::IsLoaded() const
+{
+	const MeshGeometry* geometry = GetGeometry();
+	return geometry && geometry->IsUploaded();
 }
 
 
@@ -676,7 +693,7 @@ void DDGISceneSettings::FitToScene(const Scene& inScene, Transform& ioTransform)
 	BBox3D scene_bounds;
 
 	for (const auto& [entity, transform, mesh] : inScene.Each<Transform, Mesh>())
-		scene_bounds.Combine(mesh.bbox.Transformed(transform.worldTransform));
+		scene_bounds.Combine(mesh.GetBounds().Transformed(transform.worldTransform));
 
 	if (scene_bounds.IsValid())
 	{
@@ -769,15 +786,15 @@ void RigidBody::CreateSphereCollider(Physics& inPhysics, float inRadius)
 }
 
 
-void RigidBody::CreateMeshCollider(Physics& inPhysics, const Mesh& inMesh, const Transform& inTransform)
+void RigidBody::CreateMeshCollider(Physics& inPhysics, const MeshGeometry& inGeometry, const Transform& inTransform)
 {
 	JPH::TriangleList triangles;
 
-	for (int i = 0; i < inMesh.indices.size(); i += 3)
+	for (int i = 0; i < inGeometry.indices.size(); i += 3)
 	{
-		Vec3 v0 = inMesh.positions[inMesh.indices[i]];
-		Vec3 v1 = inMesh.positions[inMesh.indices[i + 1]];
-		Vec3 v2 = inMesh.positions[inMesh.indices[i + 2]];
+		Vec3 v0 = inGeometry.positions[inGeometry.indices[i]];
+		Vec3 v1 = inGeometry.positions[inGeometry.indices[i + 1]];
+		Vec3 v2 = inGeometry.positions[inGeometry.indices[i + 2]];
 
 		v0 *= inTransform.GetScaleWorldSpace();
 		v1 *= inTransform.GetScaleWorldSpace();
@@ -791,9 +808,9 @@ void RigidBody::CreateMeshCollider(Physics& inPhysics, const Mesh& inMesh, const
 }
 
 
-void RigidBody::CreateCylinderCollider(Physics& inPhysics, const Mesh& inMesh, const Transform& inTransform)
+void RigidBody::CreateCylinderCollider(Physics& inPhysics, const MeshGeometry& inGeometry, const Transform& inTransform)
 {
-	const BBox3D aabb = BBox3D(inMesh.bbox).Scale(inTransform.scale);
+	const BBox3D aabb = BBox3D(inGeometry.bbox).Scale(inTransform.scale);
 	const Vec3 half_extent = aabb.GetExtents() / 2.0f;
 	shapeSettings = new JPH::CylinderShapeSettings(half_extent.y, half_extent.x);
 }

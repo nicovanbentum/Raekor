@@ -18,6 +18,8 @@ bool OBJImporter::LoadFromFile(const String& inFile, Assets* inAssets)
 	if (!file.is_open())
 		return false;
 
+	CreateMeshAsset(inFile);
+
 	String mtl_file = "";
 	String name = Path(inFile).filename().string();
 	String file_name = name;
@@ -138,6 +140,8 @@ bool OBJImporter::LoadFromFile(const String& inFile, Assets* inAssets)
 	if (!mtl_file.empty())
 		LoadMaterials(m_Directory / mtl_file);
 
+	FinishMeshAsset(inAssets);
+
 	if (inAssets != nullptr)
 		m_Scene.LoadMaterialTextures(*inAssets);
 
@@ -148,11 +152,15 @@ bool OBJImporter::LoadFromFile(const String& inFile, Assets* inAssets)
 void OBJImporter::ConvertMesh(Entity inEntity, const OBJMesh& inMesh)
 {
 	RK_ASSERT(!inMesh.IsEmpty());
-	Mesh& mesh = m_Scene.Add<Mesh>(inEntity);
 
-	mesh.uvs.reserve(inMesh.vt_indices.size());
-	mesh.normals.reserve(inMesh.vn_indices.size());
-	mesh.positions.reserve(inMesh.v_indices.size());
+	const uint32_t mesh_index = m_MeshAsset->GetMeshCount();
+
+	MeshGeometry& geometry = m_MeshAsset->GetMeshes().emplace_back();
+	geometry.name = m_Scene.Has<Name>(inEntity) ? m_Scene.Get<Name>(inEntity).name : std::format("Mesh {}", mesh_index);
+
+	geometry.uvs.reserve(inMesh.vt_indices.size());
+	geometry.normals.reserve(inMesh.vn_indices.size());
+	geometry.positions.reserve(inMesh.v_indices.size());
 
 	uint32_t index_count = inMesh.v_indices.size();
 
@@ -163,30 +171,29 @@ void OBJImporter::ConvertMesh(Entity inEntity, const OBJMesh& inMesh)
 		uint32_t vn_index = inMesh.vn_indices[i] - 1;
 
 		if (!m_Texcoords.empty())
-			mesh.uvs.push_back(m_Texcoords[vt_index]);
+			geometry.uvs.push_back(m_Texcoords[vt_index]);
 
 		if (!m_Normals.empty())
-			mesh.normals.push_back(m_Normals[vn_index]);
+			geometry.normals.push_back(m_Normals[vn_index]);
 
 		if (!m_Positions.empty())
-			mesh.positions.push_back(m_Positions[v_index]);
+			geometry.positions.push_back(m_Positions[v_index]);
 
-		mesh.indices.push_back(i);
+		geometry.indices.push_back(i);
 	}
 
-	mesh.CalculateBoundingBox();
+	geometry.CalculateBoundingBox();
 
-	if (mesh.normals.empty() && !mesh.positions.empty())
-		mesh.CalculateNormals();
+	if (geometry.normals.empty() && !geometry.positions.empty())
+		geometry.CalculateNormals();
 
-	if (mesh.tangents.empty() && !mesh.uvs.empty())
-		mesh.CalculateTangents();
+	if (geometry.tangents.empty() && !geometry.uvs.empty())
+		geometry.CalculateTangents();
 
-	if (mesh.vertices.empty())
-		mesh.CalculateVertices();
+	if (geometry.vertices.empty())
+		geometry.CalculateVertices();
 
-	if (m_Renderer)
-		m_Renderer->UploadMeshBuffers(inEntity, mesh);
+	AddMesh(inEntity, mesh_index, Entity::Null);
 
 	m_Meshes.push_back(inEntity);
 }

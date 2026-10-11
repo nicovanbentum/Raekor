@@ -673,10 +673,11 @@ private:
         SetTransform(entity, inPosition, inScale);
 
         Mesh& mesh = m_Scene->Add<Mesh>(entity);
-        Mesh::CreateCube(mesh, 1.0f);
+        mesh.SetAsset(MeshAsset::Find(*m_App->GetAssets(), MeshAsset::cBuiltinCube), 0);
         mesh.material = inMaterial;
 
-        m_App->GetRenderInterface()->UploadMeshBuffers(entity, mesh);
+        if (mesh.asset)
+            m_App->GetRenderInterface()->UploadMeshBuffers(*mesh.asset);
 
         return entity;
     }
@@ -915,7 +916,8 @@ private:
                 mesh = part.mMesh;
                 mesh.material = material;
 
-                m_App->GetRenderInterface()->UploadMeshBuffers(entity, mesh);
+                if (mesh.asset)
+                    m_App->GetRenderInterface()->UploadMeshBuffers(*mesh.asset);
 
                 if (role >= 0 && model.mParts[role].mEntity == Entity::Null)
                     model.mParts[role] = RigPart { .mEntity = entity, .mRest = part.mJoint };

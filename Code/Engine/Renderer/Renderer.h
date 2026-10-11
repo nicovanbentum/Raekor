@@ -175,7 +175,7 @@ private:
     Array<RTGeometry>           m_PrevGeometries;
     BufferID                    m_DebugLinesVertexBuffer;
     BufferID                    m_DebugLinesIndirectArgsBuffer;
-    Mesh                        m_ProbeDebugMesh;
+    MeshGeometry                m_ProbeDebugMesh;
     TextureID                   m_BlackTexture;
     TextureID                   m_WhiteTexture;
     Array<TextureID>            m_FontAtlasTextures;

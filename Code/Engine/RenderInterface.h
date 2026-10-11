@@ -8,6 +8,8 @@ namespace RK {
 
 class Application;
 
+class MeshAsset;
+
 struct Mesh;
 struct Material;
 struct Skeleton;
@@ -62,10 +64,10 @@ public:
 	virtual uint64_t RequestEntityPick(uint32_t inPixelX, uint32_t inPixelY) = 0;
 	virtual bool GetEntityPickResult(uint64_t inRequestID, Entity& outEntity) = 0;
 
-	virtual void UploadMeshBuffers(Entity inEntity, Mesh& inMesh) = 0;
-	virtual void DestroyMeshBuffers(Entity inEntity, Mesh& inMesh) = 0;
+	virtual void UploadMeshBuffers(MeshAsset& ioAsset) = 0;
+	virtual void DestroyMeshBuffers(MeshAsset& ioAsset) = 0;
 
-	virtual void UploadSkeletonBuffers(Entity inEntity, Skeleton& inSkeleton, Mesh& inMesh) = 0;
+	virtual void UploadSkeletonBuffers(Entity inEntity, Skeleton& inSkeleton, const Mesh& inMesh) = 0;
 	virtual void DestroySkeletonBuffers(Entity inEntity, Skeleton& inSkeleton) = 0;
 
 	virtual void UploadMaterialTextures(Entity inEntity, Material& inMaterial, Assets& inAssets);

@@ -8,6 +8,7 @@ class Async;
 class Assets;
 
 class Mesh;
+struct MeshGeometry;
 class Material;
 class Skeleton;
 
@@ -22,7 +23,9 @@ public:
 private:
 	void ParseNode(const cgltf_node& gltfNode, Entity parent, glm::mat4 transform);
 
-	bool ConvertMesh(Entity inEntity, const cgltf_primitive& inMesh);
+	void ConvertMeshes();
+	bool ConvertMesh(MeshGeometry& ioGeometry, const cgltf_primitive& inMesh);
+	void AddMesh(Entity inEntity, const cgltf_mesh& inMesh, uint32_t inPrimitive);
 	void ConvertLight(Entity inEntity, const cgltf_light& inLight);
 	void ConvertBones(Entity inEntity, const cgltf_node& inSkeleton);
 	void ConvertMaterial(Entity inEntity, const cgltf_material& inMaterial);
@@ -35,6 +38,7 @@ private:
 	Path m_Directory;
 	cgltf_data* m_GltfData = nullptr;
 	Array<Entity> m_Materials;
+	Array<uint32_t> m_MeshOffsets;
 	Array<Entity> m_Animations;
 	Array<Entity> m_CreatedNodeEntities;
 };

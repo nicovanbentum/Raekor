@@ -255,7 +255,8 @@ void Scene::RenderDebugShapes(Entity inEntity, float inOpacity) const
 	if (Has<Mesh>(inEntity))
 	{
 		const auto& [mesh, transform] = Get<Mesh, Transform>(inEntity);
-		g_DebugRenderer.AddLineCube(mesh.bbox.GetMin(), mesh.bbox.GetMax(), transform.worldTransform);
+		const BBox3D bounds = mesh.GetBounds();
+		g_DebugRenderer.AddLineCube(bounds.GetMin(), bounds.GetMax(), transform.worldTransform);
 
 		Vec4 debug_mesh_color = Vec4(0.65, 1.0, 0.8, inOpacity);
 #if 0
@@ -371,10 +372,6 @@ Entity Scene::Clone(Entity inEntity, Entity inParent)
 	if (Has<Mesh>(copy))
 	{
 		Mesh& mesh = Get<Mesh>(copy);
-		mesh.vertexBuffer = 0;
-		mesh.indexBuffer = 0;
-		mesh.BottomLevelAS = 0;
-
 		Skeleton* skeleton = GetPtr<Skeleton>(copy);
 
 		if (skeleton)
@@ -383,13 +380,14 @@ Entity Scene::Clone(Entity inEntity, Entity inParent)
 			skeleton->boneWeightBuffer = 0;
 			skeleton->boneTransformsBuffer = 0;
 			skeleton->skinnedVertexBuffer = 0;
+			skeleton->skinnedBottomLevelAS = 0;
 			skeleton->blasScratchBuffer = 0;
 			skeleton->gpuBuffersUploaded = false;
 		}
 
-		if (m_Renderer)
+		if (m_Renderer && mesh.asset)
 		{
-			m_Renderer->UploadMeshBuffers(copy, mesh);
+			m_Renderer->UploadMeshBuffers(*mesh.asset);
 
 			if (skeleton)
 				m_Renderer->UploadSkeletonBuffers(copy, *skeleton, mesh);
@@ -421,8 +419,8 @@ void Scene::Destroy(Entity inEntity)
 		{
 			if (inScene.m_Renderer != nullptr)
 			{
-				if (inScene.Has<Mesh>(inEntity))
-					inScene.m_Renderer->DestroyMeshBuffers(inEntity, inScene.Get<Mesh>(inEntity));
+				if (Skeleton* skeleton = inScene.GetPtr<Skeleton>(inEntity))
+					inScene.m_Renderer->DestroySkeletonBuffers(inEntity, *skeleton);
 
 				//if (inScene.Has<Material>(inEntity))
 					//inScene.m_Renderer->DestroyMaterialTextures(inEntity, inScene.Get<Material>(inEntity));
@@ -467,6 +465,47 @@ void Scene::LoadMaterialTextures(Assets& inAssets, Slice<const Entity> inMateria
 		m_Renderer->UploadMaterialTextures(entity, Get<Material>(entity), inAssets);
 
 	gLogInfo("Scene", "Upload textures to GPU took {:.3f} seconds.", timer.GetElapsedTime());
+}
+
+
+void Scene::LoadMeshAssets(Assets& ioAssets)
+{
+	Timer timer;
+
+	Array<String> sources;
+	uint32_t missing_source_count = 0;
+
+	for (const Mesh& mesh : GetStorage<Mesh>())
+	{
+		if (mesh.source.empty())
+			missing_source_count++;
+		else if (std::find(sources.begin(), sources.end(), mesh.source) == sources.end())
+			sources.push_back(mesh.source);
+	}
+
+	if (missing_source_count > 0)
+		gLogWarning("Scene", "{} meshes in {} have no source file and can't be loaded, regenerate the scene from its source file", missing_source_count, m_ActiveSceneFilePath.string());
+
+	Array<MeshAsset::Ptr> assets(sources.size());
+
+	g_JobSystem.ParallelFor(uint32_t(sources.size()), 1, [&](uint32_t inIndex)
+	{
+		assets[inIndex] = MeshAsset::Find(ioAssets, sources[inIndex]);
+	});
+
+	for (const auto& [entity, mesh] : Each<Mesh>())
+	{
+		const auto source = std::find(sources.begin(), sources.end(), mesh.source);
+		mesh.asset = source != sources.end() ? assets[source - sources.begin()] : nullptr;
+
+		if (mesh.asset && mesh.index >= mesh.asset->GetMeshCount())
+		{
+			gLogWarning("Scene", "Mesh {} of entity {} is out of range, {} only contains {} meshes", mesh.index, uint32_t(entity), mesh.source, mesh.asset->GetMeshCount());
+			mesh.asset = nullptr;
+		}
+	}
+
+	gLogInfo("Scene", "Load {} mesh assets took {:.3f} seconds.", sources.size(), timer.GetElapsedTime());
 }
 
 
@@ -546,9 +585,9 @@ bool Scene::ReadSceneFile(const String& inFilePath)
 		return false;
 	}
 
-	if (header.Version != SceneHeader::sVersion && header.Version != SceneHeader::sLegacyVersion)
+	if (header.Version != SceneHeader::sVersion)
 	{
-		gLogError("Scene", "Unsupported scene format version {} in {}", header.Version, inFilePath);
+		gLogError("Scene", "Unsupported scene format version {} in {}, regenerate it from its source file", header.Version, inFilePath);
 		return false;
 	}
 
@@ -564,64 +603,28 @@ bool Scene::ReadSceneFile(const String& inFilePath)
 
 	file.seekg(header.IndexTableStart);
 
-	if (header.Version == SceneHeader::sLegacyVersion)
+	Array<SceneComponentTable> tables;
+	ReadFileBinary(file, tables);
+
+	Array<Pair<IComponentStorage*, SceneComponentTable>> table_reads;
+	table_reads.reserve(tables.size());
+
+	for (const SceneComponentTable& table : tables)
 	{
-		Array<SceneTable> tables;
-		ReadFileBinary(file, tables);
-
-		BinaryReadArchive archive(inFilePath);
-
-		for (const SceneTable& table : tables)
-		{
-			IComponentStorage* storage = GetComponentStorage(table.Hash);
-
-			if (storage == nullptr)
-			{
-				gLogWarning("Scene", "Skipped unknown component table with hash {:#x}", table.Hash);
-				continue;
-			}
-
-			archive.GetFile().seekg(table.Start);
-			storage->Read(archive);
-		}
-
-		gLogInfo("Scene", "Loaded {} from scene format version {}, it will be saved as version {}", inFilePath, header.Version, SceneHeader::sVersion);
-	}
-	else
-	{
-		Array<SceneComponentTable> tables;
-		ReadFileBinary(file, tables);
-
-		Array<Pair<IComponentStorage*, SceneComponentTable>> table_reads;
-		table_reads.reserve(tables.size());
-
-		for (const SceneComponentTable& table : tables)
-		{
-			if (IComponentStorage* storage = GetComponentStorage(table.mHash))
-				table_reads.emplace_back(storage, table);
-			else
-				gLogWarning("Scene", "Skipped unknown component table with hash {:#x}", table.mHash);
-		}
-
-		g_JobSystem.ParallelFor(uint32_t(table_reads.size()), 1, [&](uint32_t inIndex)
-		{
-			const auto& [storage, table] = table_reads[inIndex];
-
-			File table_file = File(inFilePath, std::ios::binary | std::ios::in);
-			table_file.seekg(table.mStart);
-
-			storage->ReadTable(table_file);
-		});
+		if (IComponentStorage* storage = GetComponentStorage(table.mHash))
+			table_reads.emplace_back(storage, table);
+		else
+			gLogWarning("Scene", "Skipped unknown component table with hash {:#x}", table.mHash);
 	}
 
-	ComponentStorage<Mesh>* meshes = GetComponentStorage<Mesh>();
-
-	g_JobSystem.ParallelFor(uint32_t(meshes->Length()), 1, [&](uint32_t inIndex)
+	g_JobSystem.ParallelFor(uint32_t(table_reads.size()), 1, [&](uint32_t inIndex)
 	{
-		Mesh& mesh = meshes->m_Components[inIndex];
+		const auto& [storage, table] = table_reads[inIndex];
 
-		if (mesh.vertices.empty())
-			mesh.CalculateVertices();
+		File table_file = File(inFilePath, std::ios::binary | std::ios::in);
+		table_file.seekg(table.mStart);
+
+		storage->ReadTable(table_file);
 	});
 
 	return true;
@@ -724,6 +727,8 @@ bool Scene::LoadFromFile(const String& inFilePath, Assets& ioAssets)
 
 	gLogInfo("Scene", "Load ECStorage data took {:.3f} seconds.", timer.Restart());
 
+	LoadMeshAssets(ioAssets);
+
 	LoadMaterialTextures(ioAssets);
 
 	UploadDirectionalLightCubeMaps(ioAssets);
@@ -759,18 +764,30 @@ void Scene::UploadMeshes(Slice<const Entity> inEntities)
 	if (m_Renderer == nullptr)
 		return;
 
-	g_JobSystem.ParallelFor(uint32_t(inEntities.size()), 1, [&](uint32_t inIndex)
+	Array<MeshAsset*> assets;
+
+	for (Entity entity : inEntities)
 	{
-		const Entity entity = inEntities[inIndex];
-
-		if (Mesh* mesh = GetPtr<Mesh>(entity))
+		if (const Mesh* mesh = GetPtr<Mesh>(entity))
 		{
-			m_Renderer->UploadMeshBuffers(entity, *mesh);
+			if (mesh->asset && std::find(assets.begin(), assets.end(), mesh->asset.get()) == assets.end())
+				assets.push_back(mesh->asset.get());
+		}
+	}
 
+	g_JobSystem.ParallelFor(uint32_t(assets.size()), 1, [&](uint32_t inIndex)
+	{
+		m_Renderer->UploadMeshBuffers(*assets[inIndex]);
+	});
+
+	for (Entity entity : inEntities)
+	{
+		if (const Mesh* mesh = GetPtr<Mesh>(entity))
+		{
 			if (Skeleton* skeleton = GetPtr<Skeleton>(entity))
 				m_Renderer->UploadSkeletonBuffers(entity, *skeleton, *mesh);
 		}
-	});
+	}
 }
 
 
@@ -787,7 +804,8 @@ void Scene::ReleaseResources()
 
 	for (const auto& [entity, mesh] : Each<Mesh>())
 	{
-		m_Renderer->DestroyMeshBuffers(entity, mesh);
+		if (mesh.asset)
+			m_Renderer->DestroyMeshBuffers(*mesh.asset);
 
 		if (Skeleton* skeleton = GetPtr<Skeleton>(entity))
 			m_Renderer->DestroySkeletonBuffers(entity, *skeleton);
@@ -956,6 +974,47 @@ void Scene::Optimize()
 
 			/* TODO */
 		}
+	}
+}
+
+
+void Importer::CreateMeshAsset(const String& inFile)
+{
+	m_MeshAsset = MeshAsset::Create(MeshAsset::GetSourcePath(inFile));
+}
+
+
+Mesh& Importer::AddMesh(Entity inEntity, uint32_t inIndex, Entity inMaterial)
+{
+	Mesh& mesh = m_Scene.Add<Mesh>(inEntity);
+	mesh.SetAsset(m_MeshAsset, inIndex);
+	mesh.material = inMaterial;
+	return mesh;
+}
+
+
+void Importer::FinishMeshAsset(Assets* inAssets)
+{
+	if (m_MeshAsset == nullptr)
+		return;
+
+	m_MeshAsset->Save(m_MeshAsset->GetPath().string());
+
+	if (inAssets != nullptr)
+	{
+		inAssets->ReleaseAsset(m_MeshAsset->GetPath().string());
+		inAssets->AddAsset(m_MeshAsset->GetPath().string(), m_MeshAsset);
+	}
+
+	if (m_Renderer == nullptr)
+		return;
+
+	m_Renderer->UploadMeshBuffers(*m_MeshAsset);
+
+	for (const auto& [entity, mesh, skeleton] : m_Scene.Each<Mesh, Skeleton>())
+	{
+		if (mesh.asset == m_MeshAsset)
+			m_Renderer->UploadSkeletonBuffers(entity, skeleton, mesh);
 	}
 }
 

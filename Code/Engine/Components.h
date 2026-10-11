@@ -6,6 +6,7 @@
 #include "Maths.h"
 #include "Camera.h"
 #include "Defines.h"
+#include "Assets.h"
 #include "Animation.h"
 
 namespace RK {
@@ -14,6 +15,7 @@ class Scene;
 class Physics;
 class TextureAsset;
 class INativeScript;
+class IRenderInterface;
 class IComponentStorage;
 
 struct Name
@@ -125,34 +127,26 @@ struct Meshlet
 };
 
 
-struct Mesh
+struct MeshGeometry
 {
-	RTTI_DECLARE_TYPE(Mesh);
-
 	String name;
 	BBox3D bbox;
-	float lodFade = 0.0f;
-	Entity material = Entity::Null;
-	
+
 	Array<Vec3> positions;
-	Array<Vec2> uvs; 
+	Array<Vec2> uvs;
 	Array<Vec3> normals;
-	Array<Vec3> tangents; 
+	Array<Vec3> tangents;
 
 	Array<uint32_t> indices;
 	Array<float> vertices; // OPTIMIZE ME
-
-	Array<Meshlet> meshlets;
-	Array<uint32_t> meshletIndices;
-	Array<MeshletTriangle> meshletTriangles;
 
 	uint32_t vertexBuffer = 0;
 	uint32_t indexBuffer = 0;
 	uint32_t BottomLevelAS = 0;
 
-	static void CreateCube(Mesh& inMesh, float inScale);
-	static void CreatePlane(Mesh& inMesh, float inScale);
-	static void CreateSphere(Mesh& inMesh, float inRadius, uint32_t inSectorCount, uint32_t inStackCount);
+	static void CreateCube(MeshGeometry& ioMesh, float inScale);
+	static void CreatePlane(MeshGeometry& ioMesh, float inScale);
+	static void CreateSphere(MeshGeometry& ioMesh, float inRadius, uint32_t inSectorCount, uint32_t inStackCount);
 
 	void CalculateNormals();
 	void CalculateTangents();
@@ -161,10 +155,76 @@ struct Mesh
 
 	uint32_t GetVertexStride() const;
 
-	bool HasBLAS() const { return BottomLevelAS != 0; }
-	bool HasVertices() const { return !vertices.empty(); }
-	bool IsLoaded() const { return vertexBuffer != 0 && indexBuffer != 0 && BottomLevelAS != 0; }
+	bool IsEmpty() const { return positions.empty() || indices.empty(); }
+	bool IsUploaded() const { return vertexBuffer != 0 && indexBuffer != 0 && BottomLevelAS != 0; }
+};
 
+
+class MeshAsset : public Asset
+{
+public:
+	RTTI_DECLARE_VIRTUAL_TYPE(MeshAsset);
+
+	using Ptr = SharedPtr<MeshAsset>;
+
+	static constexpr uint32_t cMagicNumber = 0x534D4B52;
+	static constexpr uint32_t cVersion = 1;
+	static constexpr const char* cBuiltinCube = "Builtin/Cube";
+	static constexpr const char* cBuiltinPlane = "Builtin/Plane";
+	static constexpr const char* cBuiltinSphere = "Builtin/Sphere";
+
+	MeshAsset() = default;
+	MeshAsset(const String& inPath) : Asset(inPath) {}
+	virtual ~MeshAsset();
+
+	virtual bool Load() override;
+	bool Save(const String& inPath) const;
+
+	static String GetCachedPath(const String& inSource) { return Asset::GetCachedPath(inSource, ".meshes"); }
+	static String GetSourcePath(const Path& inFile);
+	static bool IsBuiltin(const String& inSource) { return inSource.starts_with("Builtin/"); }
+
+	static Ptr Create(const String& inSource);
+	static Ptr CreateBuiltin(const String& inSource);
+	static Ptr Import(const String& inSource);
+	static Ptr Find(Assets& ioAssets, const String& inSource);
+
+	const String& GetSource() const { return m_Source; }
+
+	uint32_t GetMeshCount() const { return uint32_t(m_Meshes.size()); }
+	MeshGeometry* GetMesh(uint32_t inIndex) { return inIndex < m_Meshes.size() ? &m_Meshes[inIndex] : nullptr; }
+	const MeshGeometry* GetMesh(uint32_t inIndex) const { return inIndex < m_Meshes.size() ? &m_Meshes[inIndex] : nullptr; }
+
+	Array<MeshGeometry>& GetMeshes() { return m_Meshes; }
+	const Array<MeshGeometry>& GetMeshes() const { return m_Meshes; }
+
+	IRenderInterface* GetRenderer() const { return m_Renderer; }
+	void SetRenderer(IRenderInterface* inRenderer) { m_Renderer = inRenderer; }
+
+private:
+	String m_Source;
+	Array<MeshGeometry> m_Meshes;
+	IRenderInterface* m_Renderer = nullptr;
+};
+
+
+struct Mesh
+{
+	RTTI_DECLARE_TYPE(Mesh);
+
+	String source;
+	uint32_t index = 0;
+	Entity material = Entity::Null;
+	float lodFade = 0.0f;
+
+	MeshAsset::Ptr asset;
+
+	void SetAsset(const MeshAsset::Ptr& inAsset, uint32_t inIndex);
+
+	MeshGeometry* GetGeometry() const { return asset ? asset->GetMesh(index) : nullptr; }
+	BBox3D GetBounds() const;
+
+	bool IsLoaded() const;
 };
 
 
@@ -209,8 +269,8 @@ struct RigidBody
     void CreateCubeCollider(Physics& inPhysics, const BBox3D& inBBox);
     void CreateSphereCollider(Physics& inPhysics, float inRadius);
 
-	void CreateMeshCollider(Physics& inPhysics, const Mesh& inMesh, const Transform& inTransform);
-	void CreateCylinderCollider(Physics& inPhysics, const Mesh& inMesh, const Transform& inTransform);
+	void CreateMeshCollider(Physics& inPhysics, const MeshGeometry& inGeometry, const Transform& inTransform);
+	void CreateCylinderCollider(Physics& inPhysics, const MeshGeometry& inGeometry, const Transform& inTransform);
 };
 
 
@@ -222,7 +282,7 @@ struct SoftBody
 	JPH::SoftBodySharedSettings mSharedSettings;
 	JPH::SoftBodyCreationSettings mCreationSettings;
 
-	void CreateFromMesh(const Mesh& inMesh) { /* todo impl */ }
+	void CreateFromMesh(const MeshGeometry& inGeometry) { /* todo impl */ }
 };
 
 
@@ -255,6 +315,7 @@ struct Skeleton
 	uint32_t boneWeightBuffer = 0;
 	uint32_t boneTransformsBuffer = 0;
 	uint32_t skinnedVertexBuffer = 0;
+	uint32_t skinnedBottomLevelAS = 0;
 	uint32_t blasScratchBuffer = 0;
 	bool gpuBuffersUploaded = false;
 

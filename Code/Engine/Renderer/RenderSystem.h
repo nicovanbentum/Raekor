@@ -45,10 +45,10 @@ public:
     uint64_t RequestEntityPick(uint32_t inPixelX, uint32_t inPixelY) override { return m_Renderer.RequestEntityPick(UVec2(inPixelX, inPixelY)); }
     bool GetEntityPickResult(uint64_t inRequestID, Entity& outEntity) override { return m_Renderer.GetEntityPickResult(inRequestID, outEntity); }
 
-    void UploadMeshBuffers(Entity inEntity, Mesh& inMesh) override;
-    void DestroyMeshBuffers(Entity inEntity, Mesh& inMesh) override;
+    void UploadMeshBuffers(MeshAsset& ioAsset) override;
+    void DestroyMeshBuffers(MeshAsset& ioAsset) override;
 
-    void UploadSkeletonBuffers(Entity inEntity, Skeleton& inSkeleton, Mesh& inMesh) override;
+    void UploadSkeletonBuffers(Entity inEntity, Skeleton& inSkeleton, const Mesh& inMesh) override;
     void DestroySkeletonBuffers(Entity inEntity, Skeleton& inSkeleton) override;
 
     void CompileMaterialShaders(Entity inEntity, Material& inMaterial) override;
@@ -63,6 +63,9 @@ private:
     void CreateDefaultTextures();
     void UpdateGPUStats();
 
+    void UploadGeometryBuffers(MeshGeometry& ioGeometry);
+    void DestroyGeometryBuffers(MeshGeometry& ioGeometry);
+
 private:
     Device m_Device;
     Renderer m_Renderer;
@@ -74,6 +77,9 @@ private:
     TextureID m_LightTexture;
     TextureID m_CameraTexture;
     TextureID m_ImGuiFontTexture;
+
+    Mutex m_MeshAssetsMutex;
+    HashSet<MeshAsset*> m_MeshAssets;
 };
 
 } // namespace RK::DX12

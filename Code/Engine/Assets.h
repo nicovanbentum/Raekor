@@ -43,6 +43,10 @@ public:
 	template<typename T> SharedPtr<T> GetAsset(const String& inPath);
 	template<typename T> SharedPtr<T> GetAsset(const Path& inPath) { return GetAsset<T>(inPath.string()); }
 
+	template<typename T> SharedPtr<T> AddAsset(const String& inPath, const SharedPtr<T>& inAsset);
+
+	template<typename T> SharedPtr<T> FindAsset(const String& inPath);
+
 	bool ReleaseAsset(const String& inPath);
 	bool ContainsAsset(const String& inPath) const { return m_Assets.contains(inPath); }
 
@@ -122,6 +126,24 @@ SharedPtr<T> Assets::GetAsset(const String& inPath)
 		ReleaseAsset(inPath);
 		return nullptr;
 	}
+}
+
+template<typename T>
+SharedPtr<T> Assets::AddAsset(const String& inPath, const SharedPtr<T>& inAsset)
+{
+	std::scoped_lock lock(m_Mutex);
+
+	const auto [asset, inserted] = m_Assets.try_emplace(inPath, inAsset);
+	return std::static_pointer_cast<T>( asset->second );
+}
+
+template<typename T>
+SharedPtr<T> Assets::FindAsset(const String& inPath)
+{
+	std::scoped_lock lock(m_Mutex);
+
+	const auto asset = m_Assets.find(inPath);
+	return asset != m_Assets.end() ? std::static_pointer_cast<T>( asset->second ) : nullptr;
 }
 
 extern template SharedPtr<TextureAsset> Assets::GetAsset<TextureAsset>(const String& inPath);

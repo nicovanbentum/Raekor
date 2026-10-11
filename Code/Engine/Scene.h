@@ -7,6 +7,7 @@ namespace RK {
 
 class Ray;
 class Assets;
+class MeshAsset;
 class Application;
 class NativeScript;
 class SceneImporter;
@@ -70,6 +71,8 @@ public:
 	void LoadMaterialTextures(Assets& ioAssets);
 	void LoadMaterialTextures(Assets& ioAssets, Slice<const Entity> inMaterials);
 
+	void LoadMeshAssets(Assets& ioAssets);
+
 	// save Scene to disk
 	void SaveToFile(const String& inFile, Assets& ioAssets, Application* inApp = nullptr);
 	void OpenFromFile(const String& inFile, Assets& ioAssets, Application* inApp = nullptr);
@@ -116,9 +119,16 @@ public:
 	Importer(Scene& inScene, IRenderInterface* inRenderer) : m_Scene(inScene), m_Renderer(inRenderer) {}
 	virtual bool LoadFromFile(const String& inFile, Assets* inAssets) = 0;
 
+	const SharedPtr<MeshAsset>& GetMeshAsset() const { return m_MeshAsset; }
+
 protected:
+	void CreateMeshAsset(const String& inFile);
+	Mesh& AddMesh(Entity inEntity, uint32_t inIndex, Entity inMaterial);
+	void FinishMeshAsset(Assets* inAssets);
+
 	Scene& m_Scene;
 	IRenderInterface* m_Renderer = nullptr;
+	SharedPtr<MeshAsset> m_MeshAsset;
 };
 
 

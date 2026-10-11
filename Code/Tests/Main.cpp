@@ -202,8 +202,10 @@ static void sTestSceneRoundTrip(const Path& inDirectory)
 		material.blendMode = EMaterialBlendMode(index % MATERIAL_BLEND_MODE_COUNT);
 		material.alphaCutoff = 0.01f * index;
 
+		constexpr StaticArray builtin_meshes = { MeshAsset::cBuiltinCube, MeshAsset::cBuiltinSphere, MeshAsset::cBuiltinPlane };
+
 		Mesh& mesh = scene.Add<Mesh>(entity);
-		Mesh::CreateCube(mesh, 1.0f + index);
+		mesh.SetAsset(MeshAsset::Find(assets, builtin_meshes[index % builtin_meshes.size()]), 0);
 		mesh.material = material_entity;
 
 		if (index % 4 == 0)
@@ -233,9 +235,9 @@ static void sTestSceneRoundTrip(const Path& inDirectory)
 		const Mesh& original_mesh = scene.Get<Mesh>(entity);
 		const Mesh& loaded_mesh = loaded.Get<Mesh>(entity);
 
-		CHECK(loaded_mesh.positions == original_mesh.positions);
-		CHECK(loaded_mesh.indices == original_mesh.indices);
-		CHECK(loaded_mesh.vertices == original_mesh.vertices);
+		CHECK(loaded_mesh.source == original_mesh.source);
+		CHECK(loaded_mesh.index == original_mesh.index);
+		CHECK(loaded_mesh.GetGeometry() && loaded_mesh.GetGeometry() == original_mesh.GetGeometry());
 		CHECK(loaded_mesh.material == original_mesh.material);
 
 		const Material& original_material = scene.Get<Material>(original_mesh.material);
@@ -377,6 +379,85 @@ static void sTestGltfBlendModes(const Path& inGltfFile)
 }
 
 
+static void sTestMeshPack(const Path& inDirectory, const Path& inGltfFile)
+{
+	MeshAsset::Ptr pack = MeshAsset::Create("Assets/Tests/Pack.gltf");
+	MeshGeometry::CreateCube(pack->GetMeshes().emplace_back(), 2.0f);
+	MeshGeometry::CreateSphere(pack->GetMeshes().emplace_back(), 0.5f, 8, 8);
+	pack->GetMeshes()[0].name = "Cube";
+	pack->GetMeshes()[1].name = "Sphere";
+
+	const String pack_path = ( inDirectory / "Pack.meshes" ).string();
+	CHECK(pack->Save(pack_path));
+
+	MeshAsset loaded = MeshAsset(pack_path);
+	CHECK(loaded.Load());
+	CHECK(loaded.GetSource() == "Assets/Tests/Pack.gltf");
+	CHECK(loaded.GetMeshCount() == 2);
+
+	for (uint32_t index = 0; index < loaded.GetMeshCount() && index < pack->GetMeshCount(); index++)
+	{
+		const MeshGeometry& original = *pack->GetMesh(index);
+		const MeshGeometry& geometry = *loaded.GetMesh(index);
+
+		CHECK(geometry.name == original.name);
+		CHECK(geometry.positions == original.positions);
+		CHECK(geometry.uvs == original.uvs);
+		CHECK(geometry.normals == original.normals);
+		CHECK(geometry.tangents == original.tangents);
+		CHECK(geometry.indices == original.indices);
+		CHECK(geometry.vertices == original.vertices);
+		CHECK(geometry.bbox.GetMin() == original.bbox.GetMin() && geometry.bbox.GetMax() == original.bbox.GetMax());
+	}
+
+	CHECK(MeshAsset::CreateBuiltin("Builtin/Unknown") == nullptr);
+
+	if (!fs::exists(inGltfFile))
+	{
+		gLogWarning("Tests", "Skipped the glTF mesh pack test, {} does not exist", inGltfFile.string());
+		return;
+	}
+
+	const String source = MeshAsset::GetSourcePath(inGltfFile);
+	const String cached_path = MeshAsset::GetCachedPath(source);
+
+	std::error_code error_code;
+	fs::remove(cached_path, error_code);
+
+	Scene scene = Scene(nullptr);
+	GltfImporter importer = GltfImporter(scene, nullptr);
+	CHECK(importer.LoadFromFile(inGltfFile.string(), nullptr));
+
+	const MeshAsset::Ptr imported = importer.GetMeshAsset();
+	CHECK(imported && imported->GetMeshCount() > 0);
+	CHECK(fs::exists(cached_path));
+	CHECK(scene.Count<Mesh>() > 0);
+
+	for (const auto& [entity, mesh] : scene.Each<Mesh>())
+	{
+		CHECK(mesh.asset == imported);
+		CHECK(mesh.source == source);
+		CHECK(mesh.GetGeometry() && !mesh.GetGeometry()->IsEmpty());
+	}
+
+	Assets assets;
+	const MeshAsset::Ptr cached = MeshAsset::Find(assets, source);
+	CHECK(cached && cached != imported && cached->GetMeshCount() == imported->GetMeshCount());
+
+	for (uint32_t index = 0; cached && index < cached->GetMeshCount(); index++)
+		CHECK(cached->GetMesh(index)->positions == imported->GetMesh(index)->positions);
+
+	CHECK(MeshAsset::Find(assets, source) == cached);
+
+	fs::remove(cached_path, error_code);
+
+	Assets regenerated_assets;
+	const MeshAsset::Ptr regenerated = MeshAsset::Find(regenerated_assets, source);
+	CHECK(regenerated && regenerated->GetMeshCount() == imported->GetMeshCount());
+	CHECK(fs::exists(cached_path));
+}
+
+
 static void sTestSceneMergeAndSwap()
 {
 	Scene source = Scene(nullptr);
@@ -391,7 +472,7 @@ static void sTestSceneMergeAndSwap()
 	source.ParentTo(child, parent);
 
 	Mesh& mesh = source.Add<Mesh>(child);
-	Mesh::CreateCube(mesh, 2.0f);
+	mesh.SetAsset(MeshAsset::CreateBuiltin(MeshAsset::cBuiltinCube), 0);
 	mesh.material = material_entity;
 
 	Scene snapshot = Scene(nullptr);
@@ -399,7 +480,7 @@ static void sTestSceneMergeAndSwap()
 
 	CHECK(snapshot.GetEntities().size() == source.GetEntities().size());
 	CHECK(snapshot.GetParent(child) == parent);
-	CHECK(snapshot.Get<Mesh>(child).positions == source.Get<Mesh>(child).positions);
+	CHECK(snapshot.Get<Mesh>(child).GetGeometry() == source.Get<Mesh>(child).GetGeometry());
 
 	Scene destination = Scene(nullptr);
 	const Entity existing = destination.CreateSpatialEntity("Existing");
@@ -418,7 +499,7 @@ static void sTestSceneMergeAndSwap()
 	CHECK(destination.Has<Name>(merged_child) && destination.Get<Name>(merged_child).name == "Child");
 	CHECK(destination.Has<Name>(merged_parent) && destination.Get<Name>(merged_parent).name == "Parent");
 	CHECK(destination.GetParent(merged_parent) == destination.GetRootEntity());
-	CHECK(destination.Get<Mesh>(merged_child).positions == snapshot.Get<Mesh>(child).positions);
+	CHECK(destination.Get<Mesh>(merged_child).GetGeometry() == snapshot.Get<Mesh>(child).GetGeometry());
 
 	const Entity merged_material = destination.Get<Mesh>(merged_child).material;
 	CHECK(destination.Has<Material>(merged_material) && destination.Get<Material>(merged_material).albedo == Vec4(0.25f, 0.5f, 0.75f, 1.0f));
@@ -472,75 +553,6 @@ static void sTestEntityLifetime(const Path& inDirectory)
 
 	const Entity created_after_load = loaded.Create();
 	CHECK(created_after_load > survivor && loaded.Exists(created_after_load));
-}
-
-
-static void sTestLegacySceneConversion(const Path& inDirectory, const Path& inLegacyScene)
-{
-	if (!fs::exists(inLegacyScene))
-	{
-		gLogWarning("Tests", "Skipping legacy scene conversion test, {} does not exist", inLegacyScene.string());
-		return;
-	}
-
-	Assets assets;
-
-	Timer timer;
-
-	Scene legacy = Scene(nullptr);
-	legacy.OpenFromFile(inLegacyScene.string(), assets);
-
-	const double legacy_load_time = timer.Restart();
-
-	CHECK(legacy.GetEntities().size() > 1);
-
-	const String converted_path = ( inDirectory / "converted.scene" ).string();
-	legacy.SaveToFile(converted_path, assets);
-
-	timer.Restart();
-
-	Scene converted = Scene(nullptr);
-	converted.OpenFromFile(converted_path, assets);
-
-	const double converted_load_time = timer.Restart();
-
-	gLogInfo("Tests", "Legacy: {:.1f} MB loaded in {:.3f} s, current format: {:.1f} MB loaded in {:.3f} s",
-		fs::file_size(inLegacyScene) / 1048576.0, legacy_load_time, fs::file_size(converted_path) / 1048576.0, converted_load_time);
-
-	CHECK(converted.GetEntities() == legacy.GetEntities());
-
-	auto CompareCounts = [&]<typename Component>()
-	{
-		CHECK(converted.Count<Component>() == legacy.Count<Component>());
-	};
-
-	std::apply([&](const auto& ... inComponents)
-	{
-		( CompareCounts.template operator()<typename std::decay_t<decltype( inComponents )>::type>(), ... );
-	}, Components);
-
-	for (const auto& [entity, mesh] : legacy.Each<Mesh>())
-	{
-		const Mesh& converted_mesh = converted.Get<Mesh>(entity);
-		CHECK(converted_mesh.positions == mesh.positions);
-		CHECK(converted_mesh.normals == mesh.normals);
-		CHECK(converted_mesh.indices == mesh.indices);
-		CHECK(converted_mesh.vertices == mesh.vertices);
-		CHECK(converted_mesh.material == mesh.material);
-	}
-
-	for (const auto& [entity, skeleton] : legacy.Each<Skeleton>())
-	{
-		const Skeleton& converted_skeleton = converted.Get<Skeleton>(entity);
-		CHECK(converted_skeleton.boneWeights == skeleton.boneWeights);
-		CHECK(converted_skeleton.boneOffsetMatrices == skeleton.boneOffsetMatrices);
-		CHECK(converted_skeleton.rootBone.children.size() == skeleton.rootBone.children.size());
-	}
-
-	for (const auto& [entity, name] : legacy.Each<Name>())
-		CHECK(converted.Get<Name>(entity).name == name.name);
-
-	gLogInfo("Tests", "Converted {} ({} entities, {} meshes) from the legacy format", inLegacyScene.string(), legacy.GetEntities().size(), legacy.Count<Mesh>());
 }
 
 
@@ -645,17 +657,11 @@ int main(int argc, char** argv)
 	sTestComponentTableVersioning(directory);
 	sTestLegacyMemberSkipping(directory);
 	sTestSceneRoundTrip(directory);
+	sTestMeshPack(directory, "Assets/Models/glTF-Sample-Models-main/2.0/AlphaBlendModeTest/glTF/AlphaBlendModeTest.gltf");
 	sTestSceneMergeAndSwap();
 	sTestEntityLifetime(directory);
 	sTestScriptVariables(directory);
 	sTestGltfBlendModes("Assets/Models/glTF-Sample-Models-main/2.0/AlphaBlendModeTest/glTF/AlphaBlendModeTest.gltf");
-
-	String legacy_scene = OS::sGetCommandLineValue("-legacy_scene");
-
-	if (legacy_scene.empty())
-		legacy_scene = "Cached/Models/DancingStormtrooper/scene.scene";
-
-	sTestLegacySceneConversion(directory, legacy_scene);
 
 	fs::remove_all(directory);
 

@@ -122,7 +122,7 @@ void Renderer::CreateDisplayTextureProxy(Device& inDevice)
 
 void Renderer::CreateProbeDebugMesh(Device& inDevice)
 {
-    Mesh::CreateSphere(m_ProbeDebugMesh, 0.5f, 32u, 32u);
+    MeshGeometry::CreateSphere(m_ProbeDebugMesh, 0.5f, 32u, 32u);
 
     const uint64_t indices_size = m_ProbeDebugMesh.indices.size() * sizeof(m_ProbeDebugMesh.indices[0]);
     const uint64_t vertices_size = m_ProbeDebugMesh.vertices.size() * sizeof(m_ProbeDebugMesh.vertices[0]);

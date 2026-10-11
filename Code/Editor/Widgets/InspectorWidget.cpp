@@ -227,15 +227,11 @@ void InspectorWidget::RemoveComponent(Entity inEntity, const RTTI& inRTTI)
 
 	if (&inRTTI == &RTTI_OF<Mesh>())
 	{
-		Mesh& mesh = scene.Get<Mesh>(inEntity);
-
 		if (Skeleton* skeleton = scene.GetPtr<Skeleton>(inEntity))
 		{
 			GetRenderInterface().DestroySkeletonBuffers(inEntity, *skeleton);
 			scene.Remove<Skeleton>(inEntity);
 		}
-
-		GetRenderInterface().DestroyMeshBuffers(inEntity, mesh);
 	}
 
 	if (&inRTTI == &RTTI_OF<Skeleton>())
@@ -393,12 +389,22 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Name& inName)
 
 bool InspectorWidget::DrawComponent(Entity inEntity, Mesh& ioMesh)
 {
-	const int byte_size = sizeof(Mesh) + ioMesh.GetVertexStride() * ioMesh.positions.size();
-	ImGui::Text("%.1f Kb", float(byte_size) / 1024);
+	MeshGeometry* geometry = ioMesh.GetGeometry();
 
-	ImGui::Text("%i Meshlets", ioMesh.meshlets.size());
-	ImGui::Text("%i Vertices", ioMesh.positions.size());
-	ImGui::Text("%i Triangles", ioMesh.indices.size() / 3);
+	ImGui::Text("Source: %s", ioMesh.source.empty() ? "Runtime" : ioMesh.source.c_str());
+	ImGui::Text("Index: %u", ioMesh.index);
+
+	if (geometry)
+	{
+		const int byte_size = geometry->GetVertexStride() * int(geometry->positions.size()) + int(geometry->indices.size() * sizeof(uint32_t));
+		ImGui::Text("%s, %.1f Kb", geometry->name.c_str(), float(byte_size) / 1024);
+		ImGui::Text("%i Vertices", int(geometry->positions.size()));
+		ImGui::Text("%i Triangles", int(geometry->indices.size() / 3));
+	}
+	else
+	{
+		ImGui::TextDisabled("No mesh data loaded");
+	}
 
 	Scene& scene = GetScene();
 	bool scene_changed = false;
@@ -489,29 +495,36 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Mesh& ioMesh)
 
 	ImGui::DragFloat("LOD Fade", &ioMesh.lodFade, 0.001f, -1.0f, 1.0f, "%.3f");
 
+	if (geometry == nullptr)
+		return scene_changed;
+
+	auto ReuploadMesh = [&]()
+	{
+		geometry->CalculateVertices();
+		m_Editor->GetRenderInterface()->DestroyMeshBuffers(*ioMesh.asset);
+		m_Editor->GetRenderInterface()->UploadMeshBuffers(*ioMesh.asset);
+	};
+
     if (ImGui::Button("Scale UVs"))
     {
-        for (Vec2& uv : ioMesh.uvs)
+        for (Vec2& uv : geometry->uvs)
             uv *= 2.0f;
 
-        ioMesh.CalculateVertices();
-        m_Editor->GetRenderInterface()->UploadMeshBuffers(inEntity, ioMesh);
+        ReuploadMesh();
     }
 
     if (ImGui::Button("Generate Normals"))
     {
-		ioMesh.CalculateNormals();
-        ioMesh.CalculateVertices();
-        m_Editor->GetRenderInterface()->UploadMeshBuffers(inEntity, ioMesh);
+		geometry->CalculateNormals();
+        ReuploadMesh();
     }
 
 	ImGui::SameLine();
 
     if (ImGui::Button("Generate Tangents"))
     {
-		ioMesh.CalculateTangents();
-        ioMesh.CalculateVertices();
-        m_Editor->GetRenderInterface()->UploadMeshBuffers(inEntity, ioMesh);
+		geometry->CalculateTangents();
+        ReuploadMesh();
     }
 
 	return scene_changed;
@@ -615,13 +628,13 @@ bool InspectorWidget::DrawComponent(Entity inEntity, SoftBody& ioSoftBody)
 
 	ImGui::Text("Unique Body ID: %i", ioSoftBody.mBodyID.GetIndexAndSequenceNumber());
 
-	Mesh& mesh = GetScene().Get<Mesh>(inEntity);
+	const MeshGeometry* geometry = GetScene().Get<Mesh>(inEntity).GetGeometry();
 	Transform& transform = GetScene().Get<Transform>(inEntity);
 
-	if (ImGui::Button("Build"))
+	if (geometry && ImGui::Button("Build"))
 	{
 		// verts
-		for (const Vec3& pos : mesh.positions)
+		for (const Vec3& pos : geometry->positions)
 		{
 			const Vec3 wpos = pos * transform.scale;
 
@@ -632,21 +645,21 @@ bool InspectorWidget::DrawComponent(Entity inEntity, SoftBody& ioSoftBody)
 		}
 
 		// faces
-		for (int index = 0; index < mesh.indices.size(); index += 3)
+		for (int index = 0; index < geometry->indices.size(); index += 3)
 		{
 			JPH::SoftBodySharedSettings::Face face;
-			face.mVertex[0] = mesh.indices[index];
-			face.mVertex[1] = mesh.indices[index + 1];
-			face.mVertex[2] = mesh.indices[index + 2];
+			face.mVertex[0] = geometry->indices[index];
+			face.mVertex[1] = geometry->indices[index + 1];
+			face.mVertex[2] = geometry->indices[index + 2];
 
 			ioSoftBody.mSharedSettings.AddFace(face);
 		}
 
-		const int ntriangles = mesh.indices.size() / 3;
+		const int ntriangles = geometry->indices.size() / 3;
 		int		maxidx = 0;
 		int i, j, ni;
 
-		for (uint32_t index : mesh.indices)
+		for (uint32_t index : geometry->indices)
 			maxidx = glm::max((int)index, maxidx);
 		++maxidx;
 
@@ -655,7 +668,7 @@ bool InspectorWidget::DrawComponent(Entity inEntity, SoftBody& ioSoftBody)
 
 		for (int i = 0, ni = ntriangles * 3; i < ni; i += 3)
 		{
-			const int idx[] = { (int)mesh.indices[i], (int)mesh.indices[i + 1], (int)mesh.indices[i + 2] };
+			const int idx[] = { (int)geometry->indices[i], (int)geometry->indices[i + 1], (int)geometry->indices[i + 2] };
 #define IDX(_x_,_y_) ((_y_)*maxidx+(_x_))
 			for (int j = 2, k = 0; k < 3; j = k++)
 			{
@@ -674,16 +687,16 @@ bool InspectorWidget::DrawComponent(Entity inEntity, SoftBody& ioSoftBody)
 		//    JPH::SoftBodySharedSettings::Edge edge;
 		//    edge.mCompliance = 0.00001f;
 		//    
-		//    edge.mVertex[0] = mesh.indices[index];
-		//    edge.mVertex[1] = mesh.indices[index + 1];
+		//    edge.mVertex[0] = geometry->indices[index];
+		//    edge.mVertex[1] = geometry->indices[index + 1];
 		//    soft_body.mSharedSettings.mEdgeConstraints.push_back(edge);
 
-		//    edge.mVertex[0] = mesh.indices[index];
-		//    edge.mVertex[1] = mesh.indices[index + 2];
+		//    edge.mVertex[0] = geometry->indices[index];
+		//    edge.mVertex[1] = geometry->indices[index + 2];
 		//    soft_body.mSharedSettings.mEdgeConstraints.push_back(edge);
 
-		//    edge.mVertex[0] = mesh.indices[index + 1];
-		//    edge.mVertex[1] = mesh.indices[index + 2];
+		//    edge.mVertex[0] = geometry->indices[index + 1];
+		//    edge.mVertex[1] = geometry->indices[index + 2];
 		//    soft_body.mSharedSettings.mEdgeConstraints.push_back(edge);
 		//}
 
@@ -732,9 +745,9 @@ bool InspectorWidget::DrawComponent(Entity inEntity, RigidBody& inRigidBody)
 			    Mesh* mesh = GetScene().GetPtr<Mesh>(inEntity);
 			    Transform* transform = GetScene().GetPtr<Transform>(inEntity);
 
-                if (mesh && transform)
+                if (mesh && mesh->GetGeometry() && transform)
                 {
-                    inRigidBody.CreateMeshCollider(GetPhysics(), *mesh, *transform);
+                    inRigidBody.CreateMeshCollider(GetPhysics(), *mesh->GetGeometry(), *transform);
                     inRigidBody.CreateBody(GetPhysics(), *transform);
                     inRigidBody.ActivateBody(GetPhysics(), *transform);
                 }
@@ -747,7 +760,7 @@ bool InspectorWidget::DrawComponent(Entity inEntity, RigidBody& inRigidBody)
 		    Transform* transform = GetScene().GetPtr<Transform>(inEntity);
 
 		    if (mesh && transform)
-                inRigidBody.CreateCubeCollider(GetPhysics(), mesh->bbox.Scaled(transform->scale));
+                inRigidBody.CreateCubeCollider(GetPhysics(), mesh->GetBounds().Scaled(transform->scale));
 		    else
                 inRigidBody.CreateCubeCollider(GetPhysics(), BBox3D(Vec3(0.0f), Vec3(1.0f)));
 
@@ -760,8 +773,8 @@ bool InspectorWidget::DrawComponent(Entity inEntity, RigidBody& inRigidBody)
 		    Mesh* mesh = GetScene().GetPtr<Mesh>(inEntity);
 		    Transform* transform = GetScene().GetPtr<Transform>(inEntity);
 
-		    if (mesh && transform)
-                inRigidBody.CreateCylinderCollider(GetPhysics(), *mesh, *transform);
+		    if (mesh && mesh->GetGeometry() && transform)
+                inRigidBody.CreateCylinderCollider(GetPhysics(), *mesh->GetGeometry(), *transform);
 	    }
     }
     else

@@ -56,9 +56,15 @@ public:
             if (entity == Entity::Null)
             {
                 entity = m_Scene->CreateSpatialEntity("Bullet");
+                if (m_BulletMesh == nullptr)
+                {
+                    m_BulletMesh = MeshAsset::Create("");
+                    MeshGeometry::CreateSphere(m_BulletMesh->GetMeshes().emplace_back(), cBulletSize, 16, 16);
+                }
+
                 Mesh& mesh = m_Scene->Add<Mesh>(entity);
-                mesh.CreateSphere(mesh, cBulletSize, 16, 16);
-                m_App->GetRenderInterface()->UploadMeshBuffers(entity, mesh);
+                mesh.SetAsset(m_BulletMesh, 0);
+                m_App->GetRenderInterface()->UploadMeshBuffers(*m_BulletMesh);
 
                 RigidBody& rb = m_Scene->Add<RigidBody>(entity);
                 rb.motionType = JPH::EMotionType::Dynamic;
@@ -231,6 +237,7 @@ private:
     float m_BulletVelocity = 50.0f;
     Entity m_BulletMaterial = Entity::Null;
     StaticArray<Entity, cBulletCount> m_Bullets;
+    MeshAsset::Ptr m_BulletMesh;
 
     float m_SwayStep = 0.01f;
     float m_SwayMaxStepDistance = 0.06f;

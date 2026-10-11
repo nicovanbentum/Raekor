@@ -86,7 +86,9 @@ void RenderWorld::Extract(const Scene& inScene, const Device& inDevice, float in
 
         for (const auto& [entity, mesh] : inScene.Each<Mesh>())
         {
-            if (!mesh.IsLoaded())
+            const MeshGeometry* geometry = mesh.GetGeometry();
+
+            if (geometry == nullptr || !geometry->IsUploaded())
                 continue;
 
             const Transform* transform = inScene.GetPtr<Transform>(entity);
@@ -98,18 +100,20 @@ void RenderWorld::Extract(const Scene& inScene, const Device& inDevice, float in
             const Skeleton* skeleton = inScene.GetPtr<Skeleton>(entity);
             const Name* name = inScene.GetPtr<Name>(entity);
 
+            const bool is_skinned = skeleton && skeleton->gpuBuffersUploaded;
+
             RenderInstance& instance = m_Instances.emplace_back();
             instance.mEntity = entity;
-            instance.mIndexBuffer = gToBufferID(mesh.indexBuffer);
-            instance.mVertexBuffer = gToBufferID(skeleton ? skeleton->skinnedVertexBuffer : mesh.vertexBuffer);
-            instance.mBottomLevelAS = gToBufferID(mesh.BottomLevelAS);
-            instance.mIndexCount = uint32_t(mesh.indices.size());
+            instance.mIndexBuffer = gToBufferID(geometry->indexBuffer);
+            instance.mVertexBuffer = gToBufferID(is_skinned ? skeleton->skinnedVertexBuffer : geometry->vertexBuffer);
+            instance.mBottomLevelAS = gToBufferID(is_skinned && skeleton->skinnedBottomLevelAS ? skeleton->skinnedBottomLevelAS : geometry->BottomLevelAS);
+            instance.mIndexCount = uint32_t(geometry->indices.size());
             instance.mMaterialIndex = material ? inScene.GetPackedIndex<Material>(mesh.material) : default_material_index;
-            instance.mNameOffset = AddName(!mesh.name.empty() ? mesh.name.c_str() : name ? name->name.c_str() : nullptr);
+            instance.mNameOffset = AddName(name ? name->name.c_str() : geometry->name.c_str());
             instance.mBlendMode = sGetRenderBlendMode(material ? material->blendMode : Material::Default.blendMode);
             instance.mVertexShader = material ? material->vertexShader : 0;
             instance.mPixelShader = material ? material->pixelShader : 0;
-            instance.mBoundsCenter = mesh.bbox.Transformed(transform->worldTransform).GetCenter();
+            instance.mBoundsCenter = geometry->bbox.Transformed(transform->worldTransform).GetCenter();
             instance.mWorldTransform = transform->worldTransform;
             instance.mPrevWorldTransform = transform->prevWorldTransform;
 
@@ -131,7 +135,9 @@ void RenderWorld::Extract(const Scene& inScene, const Device& inDevice, float in
 
         for (const auto& [entity, mesh, skeleton] : inScene.Each<Mesh, Skeleton>())
         {
-            if (!skeleton.gpuBuffersUploaded || !mesh.IsLoaded())
+            const MeshGeometry* geometry = mesh.GetGeometry();
+
+            if (!skeleton.gpuBuffersUploaded || geometry == nullptr || !geometry->IsUploaded())
                 continue;
 
             const Name* name = inScene.GetPtr<Name>(entity);
@@ -139,16 +145,16 @@ void RenderWorld::Extract(const Scene& inScene, const Device& inDevice, float in
             m_SkinnedMeshes.push_back(RenderSkinnedMesh
             {
                 .mEntity                = entity,
-                .mIndexBuffer           = gToBufferID(mesh.indexBuffer),
-                .mMeshVertexBuffer      = gToBufferID(mesh.vertexBuffer),
+                .mIndexBuffer           = gToBufferID(geometry->indexBuffer),
+                .mMeshVertexBuffer      = gToBufferID(geometry->vertexBuffer),
                 .mSkinnedVertexBuffer   = gToBufferID(skeleton.skinnedVertexBuffer),
                 .mBoneIndexBuffer       = gToBufferID(skeleton.boneIndexBuffer),
                 .mBoneWeightBuffer      = gToBufferID(skeleton.boneWeightBuffer),
                 .mBoneTransformsBuffer  = gToBufferID(skeleton.boneTransformsBuffer),
-                .mBottomLevelAS         = gToBufferID(mesh.BottomLevelAS),
+                .mBottomLevelAS         = gToBufferID(skeleton.skinnedBottomLevelAS),
                 .mScratchBuffer         = gToBufferID(skeleton.blasScratchBuffer),
-                .mVertexCount           = uint32_t(mesh.positions.size()),
-                .mIndexCount            = uint32_t(mesh.indices.size()),
+                .mVertexCount           = uint32_t(geometry->positions.size()),
+                .mIndexCount            = uint32_t(geometry->indices.size()),
                 .mBoneMatrixOffset      = uint32_t(m_BoneMatrices.size()),
                 .mBoneMatrixCount       = uint32_t(skeleton.boneTransformMatrices.size()),
                 .mNameOffset            = AddName(name ? name->name.c_str() : nullptr)
