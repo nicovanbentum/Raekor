@@ -458,6 +458,97 @@ static void sTestMeshPack(const Path& inDirectory, const Path& inGltfFile)
 }
 
 
+static void sTestMultiComponentEach()
+{
+	ECStorage ecs;
+	ecs.EnsureExists<Name>();
+	ecs.EnsureExists<Mesh>();
+	ecs.EnsureExists<Transform>();
+
+	Array<Entity> entities;
+
+	for (int index = 0; index < 64; index++)
+	{
+		const Entity entity = entities.emplace_back(ecs.Create());
+
+		if (index % 2 == 0)
+			ecs.Add<Name>(entity).name = std::to_string(index);
+
+		if (index % 3 == 0)
+			ecs.Add<Transform>(entity).position.x = float(index);
+
+		if (index % 5 != 0)
+			ecs.Add<Mesh>(entity).index = uint32_t(index);
+	}
+
+	auto Expected = [&]<typename ...Components>()
+	{
+		Array<Entity> expected;
+
+		for (Entity entity : entities)
+		{
+			if (ecs.Exists(entity) && ecs.Has<Components...>(entity))
+				expected.push_back(entity);
+		}
+
+		return expected;
+	};
+
+	auto Visited = [&](auto&& inView)
+	{
+		Array<Entity> visited;
+
+		for (const auto& entry : inView)
+			visited.push_back(entry.mEntity);
+
+		std::sort(visited.begin(), visited.end());
+		return visited;
+	};
+
+	auto CheckViews = [&]()
+	{
+		const ECStorage& const_ecs = ecs;
+
+		const Array<Entity> name_transform = Expected.template operator()<Name, Transform>();
+		const Array<Entity> mesh_transform = Expected.template operator()<Mesh, Transform>();
+		const Array<Entity> name_transform_mesh = Expected.template operator()<Name, Transform, Mesh>();
+
+		const bool name_transform_matches = Visited(ecs.Each<Name, Transform>()) == name_transform;
+		const bool transform_name_matches = Visited(ecs.Each<Transform, Name>()) == name_transform;
+		const bool mesh_transform_matches = Visited(ecs.Each<Mesh, Transform>()) == mesh_transform;
+		const bool name_transform_mesh_matches = Visited(ecs.Each<Name, Transform, Mesh>()) == name_transform_mesh;
+		const bool const_transform_mesh_matches = Visited(const_ecs.Each<Transform, Mesh>()) == mesh_transform;
+
+		CHECK(!name_transform.empty() && !mesh_transform.empty() && !name_transform_mesh.empty());
+		CHECK(name_transform_matches);
+		CHECK(transform_name_matches);
+		CHECK(mesh_transform_matches);
+		CHECK(name_transform_mesh_matches);
+		CHECK(const_transform_mesh_matches);
+
+		for (const auto& [entity, name, transform, mesh] : ecs.Each<Name, Transform, Mesh>())
+		{
+			CHECK(&name == &ecs.Get<Name>(entity));
+			CHECK(&transform == &ecs.Get<Transform>(entity));
+			CHECK(mesh.index == uint32_t(transform.position.x));
+		}
+	};
+
+	CheckViews();
+
+	ecs.Remove<Name>(entities[6]);
+	ecs.Remove<Transform>(entities[12]);
+	ecs.Destroy(entities[18]);
+	ecs.Remove<Mesh>(entities[0]);
+
+	CheckViews();
+
+	const bool is_empty = ecs.Each<Name, Transform>().IsEmpty();
+	const bool expected_empty = Expected.template operator()<Name, Transform>().empty();
+	CHECK(is_empty == expected_empty);
+}
+
+
 static void sTestTransformHierarchy()
 {
 	Scene scene = Scene(nullptr);
@@ -715,6 +806,7 @@ static void sTestJobSystem()
 
 
 
+
 }
 
 
@@ -740,6 +832,7 @@ int main(int argc, char** argv)
 	sTestLegacyMemberSkipping(directory);
 	sTestSceneRoundTrip(directory);
 	sTestMeshPack(directory, "Assets/Models/glTF-Sample-Models-main/2.0/AlphaBlendModeTest/glTF/AlphaBlendModeTest.gltf");
+	sTestMultiComponentEach();
 	sTestTransformHierarchy();
 	sTestSceneMergeAndSwap();
 	sTestEntityLifetime(directory);

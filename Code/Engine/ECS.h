@@ -71,6 +71,36 @@ struct ComponentEntry
 	Component& mComponent;
 };
 
+template<typename ...Components>
+struct ComponentEntries;
+
+template<typename First, typename Second>
+struct ComponentEntries<First, Second>
+{
+	Entity mEntity;
+	First& mFirst;
+	Second& mSecond;
+};
+
+template<typename First, typename Second, typename Third>
+struct ComponentEntries<First, Second, Third>
+{
+	Entity mEntity;
+	First& mFirst;
+	Second& mSecond;
+	Third& mThird;
+};
+
+template<typename First, typename Second, typename Third, typename Fourth>
+struct ComponentEntries<First, Second, Third, Fourth>
+{
+	Entity mEntity;
+	First& mFirst;
+	Second& mSecond;
+	Third& mThird;
+	Fourth& mFourth;
+};
+
 template<typename T>
 class ComponentStorage : public IComponentStorage
 {
@@ -422,6 +452,95 @@ public:
 
 
 
+template<typename Component>
+using ComponentStorageOf = std::conditional_t<std::is_const_v<Component>, const ComponentStorage<std::remove_const_t<Component>>, ComponentStorage<Component>>;
+
+
+template<typename ...Components>
+class ComponentsIterator
+{
+public:
+	using Storages = std::tuple<ComponentStorageOf<Components>*...>;
+	using value_type = ComponentEntries<Components...>;
+	using iterator_category = std::forward_iterator_tag;
+
+	ComponentsIterator() = delete;
+	ComponentsIterator(const Entity* inEntity, const Entity* inEnd, const Storages& inStorages) : m_Entity(inEntity), m_End(inEnd), m_Storages(inStorages)
+	{
+		SkipMissing();
+	}
+
+	bool operator==(const ComponentsIterator& inOther) const { return m_Entity == inOther.m_Entity; }
+	bool operator!=(const ComponentsIterator& inOther) const { return m_Entity != inOther.m_Entity; }
+
+	ComponentsIterator& operator++()
+	{
+		m_Entity++;
+		SkipMissing();
+		return *this;
+	}
+
+	ComponentsIterator operator++(int)
+	{
+		ComponentsIterator previous = *this;
+		++*this;
+		return previous;
+	}
+
+	value_type operator*() const
+	{
+		const Entity entity = *m_Entity;
+		return value_type { entity, std::get<ComponentStorageOf<Components>*>(m_Storages)->Get(entity)... };
+	}
+
+private:
+	void SkipMissing()
+	{
+		while (m_Entity != m_End && !( std::get<ComponentStorageOf<Components>*>(m_Storages)->Contains(*m_Entity) && ... ))
+			m_Entity++;
+	}
+
+	const Entity* m_Entity;
+	const Entity* m_End;
+	Storages m_Storages;
+};
+
+
+template<typename ...Components>
+class ComponentsView
+{
+public:
+	using Storages = typename ComponentsIterator<Components...>::Storages;
+
+	ComponentsView(const Storages& inStorages, const Entity* inEntities, size_t inCount) : m_Storages(inStorages), m_Entities(inEntities), m_Count(inCount) {}
+
+	ComponentsIterator<Components...> begin() const { return ComponentsIterator<Components...>(m_Entities, m_Entities + m_Count, m_Storages); }
+	ComponentsIterator<Components...> end() const { return ComponentsIterator<Components...>(m_Entities + m_Count, m_Entities + m_Count, m_Storages); }
+
+	bool IsEmpty() const { return begin() == end(); }
+
+private:
+	Storages m_Storages;
+	const Entity* m_Entities;
+	size_t m_Count;
+};
+
+
+template<typename ...Components>
+ComponentsView<Components...> MakeComponentsView(ComponentStorageOf<Components>*... inStorages)
+{
+	const Array<Entity>* smallest = nullptr;
+
+	( [&]()
+	{
+		if (smallest == nullptr || inStorages->m_Entities.size() < smallest->size())
+			smallest = &inStorages->m_Entities;
+	}( ), ... );
+
+	return ComponentsView<Components...>(std::make_tuple(inStorages...), smallest->data(), smallest->size());
+}
+
+
 class ComponentRegistry
 {
 public:
@@ -676,150 +795,13 @@ public:
 		GetComponentStorage<Component>()->Remove(entity);
 	}
 
-	friend class EachIterator;
-	friend class ConstEachIterator;
-
-	template <typename ...Components>
-	class EachIterator
-	{
-	public:
-		EachIterator() = delete;
-		EachIterator(ECStorage& ecs, Array<Entity>::iterator inIter) : ecs(ecs), it(inIter)
-		{
-			while (it != ecs.m_Entities.end() && !ecs.Has<Components...>(*it))
-				it++;
-		}
-
-		EachIterator(EachIterator& rhs) { ecs = rhs.ecs; it = rhs.it; }
-		EachIterator(EachIterator&& rhs) { ecs = rhs.ecs; it = rhs.it; }
-
-		using iterator_category = std::forward_iterator_tag;
-		using value_type = std::tuple<Entity, Components&...>;
-
-		bool operator==(const EachIterator& rhs) { return it == rhs.it; }
-		bool operator!=(const EachIterator& rhs) { return it != rhs.it; }
-
-		EachIterator& operator++()
-		{
-			do
-			{
-				it++;
-			} while (it != ecs.m_Entities.end() && !ecs.Has<Components...>(*it));
-
-			return *this;
-		}
-
-		EachIterator operator++(int)
-		{
-			auto tmp = *this;
-			++*this;
-			return tmp;
-		}
-
-		auto operator*() -> std::tuple<Entity, Components&...>
-		{
-			return std::tuple_cat(std::make_tuple(*it), ecs.Get<Components...>(*it));
-		}
-
-	private:
-		ECStorage& ecs;
-		Array<Entity>::iterator it;
-	};
-
-	template <typename ...Components>
-	class ConstEachIterator
-	{
-	public:
-		ConstEachIterator() = delete;
-		ConstEachIterator(const ECStorage& ecs, Array<Entity>::const_iterator inIter) : ecs(ecs), it(inIter)
-		{
-			while (it != ecs.m_Entities.end() && !ecs.Has<Components...>(*it))
-				it++;
-		}
-
-		ConstEachIterator(ConstEachIterator& rhs) { ecs = rhs.ecs; it = rhs.it; }
-		ConstEachIterator(ConstEachIterator&& rhs) { ecs = rhs.ecs; it = rhs.it; }
-
-		using iterator_category = std::forward_iterator_tag;
-		using value_type = std::tuple<Entity, Components&...>;
-
-		bool operator==(const ConstEachIterator& rhs) { return it == rhs.it; }
-		bool operator!=(const ConstEachIterator& rhs) { return it != rhs.it; }
-
-		ConstEachIterator& operator++()
-		{
-			do
-			{
-				it++;
-			} while (it != ecs.m_Entities.end() && !ecs.Has<Components...>(*it));
-
-			return *this;
-		}
-
-		ConstEachIterator operator++(int)
-		{
-			auto tmp = *this;
-			++*this;
-			return tmp;
-		}
-
-		auto operator*() -> std::tuple<Entity, const Components&...>
-		{
-			return std::tuple_cat(std::make_tuple(*it), ecs.Get<Components...>(*it));
-		}
-
-	private:
-		const ECStorage& ecs;
-		Array<Entity>::const_iterator it;
-	};
-
-	template <typename ...Components>
-	class ComponentView
-	{
-	public:
-		ComponentView(ECStorage& ecs) : ecs(ecs) {}
-		ComponentView(ComponentView& rhs) { ecs = rhs.ecs; }
-
-		Entity Front() const { return Entity::Null; } // TODO: pls fix
-		bool IsEmpty() const { return begin() == end(); }
-
-		auto begin() { return EachIterator<Components...>(ecs, ecs.m_Entities.begin()); }
-		auto end() { return EachIterator<Components...>(ecs, ecs.m_Entities.end()); }
-
-	private:
-		ECStorage& ecs;
-	};
-
-	template <typename ...Components>
-	class ConstComponentView
-	{
-	public:
-		ConstComponentView(const ECStorage& ecs) : ecs(ecs) {}
-		ConstComponentView(ConstComponentView& rhs) { ecs = rhs.ecs; }
-
-		Entity Front() const { return Entity::INVALID; } // TODO: pls fix
-		bool IsEmpty() const { return begin() == end(); }
-
-		auto begin() const { return ConstEachIterator<Components...>(ecs, ecs.m_Entities.begin()); }
-		auto end() const { return ConstEachIterator<Components...>(ecs, ecs.m_Entities.end()); }
-
-	private:
-		const ECStorage& ecs;
-	};
-
-	template<typename ...Components>
-	ComponentView<Components...> GetView()
-	{
-		return ComponentView<Components...>(*this);
-	}
-
 	template<typename ...Components>
 	auto Each() -> decltype( auto )
 	{
 		if constexpr (sizeof...( Components ) == 1)
 			return GetComponentStorage<Components...>()->Each();
 		else
-			return ComponentView<Components...>(*this);
+			return MakeComponentsView<Components...>(GetComponentStorage<Components>()...);
 	}
 
 	template<typename ...Components>
@@ -828,7 +810,7 @@ public:
 		if constexpr (sizeof...( Components ) == 1)
 			return GetComponentStorage<Components...>()->Each();
 		else
-			return ConstComponentView<Components...>(*this);
+			return MakeComponentsView<const Components...>(GetComponentStorage<Components>()...);
 	}
 
 	template<typename Fn>
