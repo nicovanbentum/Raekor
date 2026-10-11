@@ -485,6 +485,24 @@ def star(p, rng):
     cyl(p, "GlowGold", (0, 0, 0), 0.13, 0.13, 0.14, seg=10, axis="z", shade=6, var=0)
 
 
+def skateboard(p, rng):
+    box(p, "Cap", (0, 0.12, 0), (0.28, 0.03, 0.78), shade=5, var=0)
+    box(p, "Yellow", (0, 0.137, 0), (0.08, 0.006, 0.6), var=0)
+    for side in (-1, 1):
+        box(p, "GlowCyan", (side * 0.135, 0.12, 0), (0.02, 0.035, 0.78), var=0)
+    for end in (-1, 1):
+        cyl(p, "Cap", (0, 0.12 + 0.02, end * 0.42), 0.14, 0.14, 0.03, seg=12, rot=(end * 0.25, 0, 0), shade=5, var=0)
+        cyl(p, "GlowCyan", (0, 0.12 + 0.02, end * 0.42), 0.145, 0.145, 0.02, seg=12, rot=(end * 0.25, 0, 0), var=0)
+    box(p, "GlowCyan", (0, 0.103, 0), (0.08, 0.006, 0.72), var=0)
+    box(p, "Yellow", (0, 0.103, 0), (0.2, 0.007, 0.1), var=0)
+    for z in (-0.27, 0.27):
+        box(p, "Steel", (0, 0.09, z), (0.2, 0.03, 0.07), shade=5, var=0)
+        box(p, "Steel", (0, 0.07, z), (0.06, 0.03, 0.05), shade=3, var=0)
+        for x in (-0.12, 0.12):
+            cyl(p, "White", (x, 0.05, z), 0.05, 0.05, 0.05, seg=10, axis="x", var=0)
+            cyl(p, "Orange", (x, 0.05, z), 0.025, 0.025, 0.055, seg=8, axis="x", var=0)
+
+
 def track(rng):
     p = Part("Main", (0, 0, 0), rng)
     box(p, "Gravel", (0, -0.27, SEGMENT_LENGTH * 0.5), (TRACK_HALF * 2, 0.5, SEGMENT_LENGTH), shade=1, var=0)
@@ -755,6 +773,7 @@ ASSETS = [
     ("Magnet", lambda r: single(r, magnet)),
     ("Sneaker", lambda r: single(r, sneaker)),
     ("Multiplier", lambda r: single(r, star)),
+    ("Skateboard", lambda r: single(r, skateboard)),
     ("Bench", lambda r: single(r, bench)),
     ("TrashCan", lambda r: single(r, trash_can)),
     ("Vending", lambda r: single(r, vending)),

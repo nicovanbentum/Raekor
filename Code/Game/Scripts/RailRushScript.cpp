@@ -53,6 +53,13 @@ static constexpr float cGuardHiddenZ = -16.0f;
 static constexpr float cGuardChaseZ = -2.1f;
 static constexpr float cGuardSideOffset = 0.5f;
 
+static constexpr float cSkateboardDuration = 30.0f;
+static constexpr int   cSkateboardsPerRun = 3;
+static constexpr float cSkateboardScale = 1.5f;
+static constexpr float cSkateboardRideHeight = 0.22f;
+static constexpr float cSmashInvulnerability = 1.0f;
+static constexpr Vec3  cSkateboardColor = Vec3(0.35f, 0.85f, 1.0f);
+
 static constexpr Vec3 cParkedPosition = Vec3(0.0f, -60.0f, 0.0f);
 
 static constexpr const char* cRuntimeRootName = "RailRush Runtime";
@@ -300,6 +307,7 @@ public:
             case SDLK_SPACE: Jump();         break;
             case SDLK_S:
             case SDLK_DOWN:  Slide();        break;
+            case SDLK_E:     UseSkateboard(); break;
         }
     }
 
@@ -592,6 +600,9 @@ private:
         m_Legs = { FindPart(m_Runner, "LegL"), FindPart(m_Runner, "LegR") };
         m_Arms = { FindPart(m_Runner, "ArmL"), FindPart(m_Runner, "ArmR") };
         m_Shoes = { FindPart(m_Runner, "ShoeL"), FindPart(m_Runner, "ShoeR") };
+
+        m_Skateboard = CreateModel("Skateboard", m_PlayerEntity);
+        Park(m_Skateboard.mRoot);
     }
 
     void CreateGuard()
@@ -704,6 +715,7 @@ private:
         m_BodyPivot = Entity::Null;
         m_Runner = Model();
         m_Guard = Model();
+        m_Skateboard = Model();
         m_Legs.fill(ModelPart());
         m_Arms.fill(ModelPart());
         m_Shoes.fill(ModelPart());
@@ -773,6 +785,9 @@ private:
         m_CameraLookY = 1.2f;
         m_Shake = 0.0f;
         m_CaughtByGuard = false;
+        m_SkateboardTimer = 0.0f;
+        m_InvulnerableTimer = 0.0f;
+        m_SkateboardsLeft = cSkateboardsPerRun;
         m_GuardPosition = Vec3(GetLaneX(1), 0.0f, cGuardHiddenZ);
         m_GuardPhase = 0.0f;
 
@@ -825,6 +840,15 @@ private:
         m_BounceDirection = float(inDirection);
         m_Shake = glm::max(m_Shake, 0.3f);
 
+        if (m_InvulnerableTimer > 0.0f)
+            return;
+
+        if (m_SkateboardTimer > 0.0f)
+        {
+            SmashSkateboard();
+            return;
+        }
+
         if (m_GuardTimer > 0.0f)
         {
             m_CaughtByGuard = true;
@@ -844,6 +868,24 @@ private:
         m_VelocityY = m_PowerUpTimers[POWER_UP_SNEAKERS] > 0.0f ? cSneakersJumpVelocity : cJumpVelocity;
         m_Grounded = false;
         m_SlideTimer = 0.0f;
+    }
+
+    void UseSkateboard()
+    {
+        if (m_SkateboardTimer > 0.0f || m_SkateboardsLeft <= 0)
+            return;
+
+        m_SkateboardsLeft--;
+        m_SkateboardTimer = cSkateboardDuration;
+        AddPopup("SKATEBOARD!", Vec4(cSkateboardColor, 1.0f));
+    }
+
+    void SmashSkateboard()
+    {
+        m_SkateboardTimer = 0.0f;
+        m_InvulnerableTimer = glm::max(m_InvulnerableTimer, cSmashInvulnerability);
+        m_Shake = glm::max(m_Shake, 0.6f);
+        AddPopup("BOARD SMASHED!", Vec4(1.0f, 0.55f, 0.3f, 1.0f));
     }
 
     void Slide()
@@ -908,6 +950,8 @@ private:
         m_BounceTimer = glm::max(0.0f, m_BounceTimer - inDeltaTime);
         m_GuardTimer = glm::max(0.0f, m_GuardTimer - inDeltaTime);
         m_SlideTimer = glm::max(0.0f, m_SlideTimer - ( m_Grounded ? inDeltaTime : 0.0f ));
+        m_SkateboardTimer = glm::max(0.0f, m_SkateboardTimer - inDeltaTime);
+        m_InvulnerableTimer = glm::max(0.0f, m_InvulnerableTimer - inDeltaTime);
 
         for (float& timer : m_PowerUpTimers)
             timer = glm::max(0.0f, timer - inDeltaTime);
@@ -920,7 +964,15 @@ private:
         const int lane = GetNearestLane(m_PlayerX);
         float ground = GetSurfaceHeight(lane, 0.0f);
 
-        if (ground > previous_y + cStepHeight && *m_GodMode)
+        const bool blocked = ground > previous_y + cStepHeight;
+
+        if (blocked && m_SkateboardTimer > 0.0f && m_InvulnerableTimer <= 0.0f && !*m_GodMode)
+            SmashSkateboard();
+
+        if (blocked && m_InvulnerableTimer > 0.0f)
+            m_InvulnerableTimer = glm::max(m_InvulnerableTimer, 0.15f);
+
+        if (blocked && ( *m_GodMode || m_InvulnerableTimer > 0.0f ))
             ground = glm::min(ground, previous_y);
 
         if (ground > previous_y + cStepHeight)
@@ -952,7 +1004,7 @@ private:
             if (obstacle.mType != OBSTACLE_LOW_BARRIER && obstacle.mType != OBSTACLE_HIGH_BARRIER)
                 continue;
 
-            if (*m_GodMode)
+            if (*m_GodMode || m_InvulnerableTimer > 0.0f)
                 continue;
 
             if (obstacle.mZ + obstacle.mLength < previous_z - 0.3f || obstacle.mZ > 0.3f)
@@ -960,17 +1012,20 @@ private:
 
             const float top = m_PlayerY + ( sliding ? cSlideHeight : cPlayerHeight );
 
-            if (obstacle.mType == OBSTACLE_LOW_BARRIER && m_PlayerY < cLowBarrierHeight)
+            const bool hit_low = obstacle.mType == OBSTACLE_LOW_BARRIER && m_PlayerY < cLowBarrierHeight;
+            const bool hit_high = obstacle.mType == OBSTACLE_HIGH_BARRIER && m_PlayerY < cHighBarrierTop && top > cHighBarrierBottom;
+
+            if (!hit_low && !hit_high)
+                continue;
+
+            if (m_SkateboardTimer > 0.0f)
             {
-                Crash("HIT A BARRIER");
-                return;
+                SmashSkateboard();
+                continue;
             }
 
-            if (obstacle.mType == OBSTACLE_HIGH_BARRIER && m_PlayerY < cHighBarrierTop && top > cHighBarrierBottom)
-            {
-                Crash("HIT A BARRIER");
-                return;
-            }
+            Crash("HIT A BARRIER");
+            return;
         }
     }
 
@@ -1269,26 +1324,44 @@ private:
 
         const float swing = glm::sin(m_RunPhase);
         const float bounce = m_BounceTimer > 0.0f ? glm::sin(m_BounceTimer / 0.25f * glm::pi<float>()) * 0.6f * m_BounceDirection : 0.0f;
-        const float bob = running && m_Grounded && !sliding ? glm::abs(swing) * 0.08f : 0.0f;
+        const bool riding = m_SkateboardTimer > 0.0f;
+        const float bob = running && m_Grounded && !sliding && !riding ? glm::abs(swing) * 0.08f : 0.0f;
+        const float lean = riding ? glm::clamp(( GetLaneX(m_Lane) - m_PlayerX ) * 0.12f, -0.3f, 0.3f) : 0.0f;
+        const float ride_height = riding ? cSkateboardRideHeight : 0.0f;
 
         float pitch = 0.0f;
 
         if (m_State == STATE_CRASHED || m_State == STATE_GAME_OVER)
             pitch = -glm::min(( m_Time - m_CrashTime ) * 6.0f, 1.45f);
 
-        SetTransform(m_PlayerEntity, Vec3(m_PlayerX - bounce, m_PlayerY + bob, 0.0f),Vec3(1.0f), Quat(Vec3(pitch, 0.0f, 0.0f)));
-        SetTransform(m_BodyPivot, Vec3(0.0f, sliding ? 0.25f : 0.0f, 0.0f), Vec3(1.0f), Quat(Vec3(sliding ? -1.2f : 0.0f, 0.0f, 0.0f)));
+        const bool flicker = m_InvulnerableTimer > 0.0f && glm::mod(m_Time, 0.16f) < 0.08f;
+        const float body_yaw = riding && !sliding ? 0.95f : 0.0f;
+
+        SetTransform(m_PlayerEntity, Vec3(m_PlayerX - bounce, m_PlayerY + bob + ride_height, 0.0f),Vec3(1.0f), Quat(Vec3(pitch, 0.0f, 0.0f)));
+        SetTransform(m_BodyPivot, Vec3(0.0f, sliding ? 0.25f : 0.0f, 0.0f), Vec3(flicker ? 0.0f : 1.0f), Quat(Vec3(sliding ? -1.2f : 0.0f, body_yaw, -lean)));
+
+        if (riding)
+            SetTransform(m_Skateboard.mRoot, Vec3(0.0f, -cSkateboardRideHeight, 0.0f), Vec3(cSkateboardScale), Quat(Vec3(0.0f, 0.0f, -lean)));
+        else
+            Park(m_Skateboard.mRoot);
 
         for (int side = 0; side < 2; side++)
         {
             const float direction = side == 0 ? 1.0f : -1.0f;
             float leg = 0.0f;
             float arm = 0.0f;
+            float arm_roll = side == 0 ? 0.12f : -0.12f;
 
             if (sliding)
             {
                 leg = 1.1f;
                 arm = -0.4f;
+            }
+            else if (running && riding)
+            {
+                leg = ( m_Grounded ? 0.3f : 0.7f ) * direction;
+                arm = -0.25f + 0.1f * glm::sin(m_Time * 3.0f + direction);
+                arm_roll = direction * 0.7f;
             }
             else if (running && !m_Grounded)
             {
@@ -1303,7 +1376,7 @@ private:
 
             SetTransform(m_Legs[side].mEntity, m_Legs[side].mRest, Vec3(1.0f), Quat(Vec3(leg, 0.0f, 0.0f)));
             SetTransform(m_Shoes[side].mEntity, m_Shoes[side].mRest, Vec3(1.0f), Quat(Vec3(leg, 0.0f, 0.0f)));
-            SetTransform(m_Arms[side].mEntity, m_Arms[side].mRest, Vec3(1.0f), Quat(Vec3(arm, 0.0f, side == 0 ? 0.12f : -0.12f)));
+            SetTransform(m_Arms[side].mEntity, m_Arms[side].mRest, Vec3(1.0f), Quat(Vec3(arm, 0.0f, arm_roll)));
             SetMaterial(m_Shoes[side].mEntity, m_PowerUpTimers[POWER_UP_SNEAKERS] > 0.0f ? m_GlowingSneakerMaterial : m_PaletteMaterial);
         }
 
@@ -1490,6 +1563,19 @@ private:
             bar_y -= 32.0f * scale;
         }
 
+        if (m_SkateboardTimer > 0.0f)
+        {
+            const Vec2 pos = Vec2(margin, bar_y);
+            const Vec2 size = Vec2(240.0f, 22.0f) * scale;
+
+            g_UIRenderer.AddRectFilled(pos, size, size.y * 0.5f, Vec4(0.0f, 0.0f, 0.0f, 0.55f));
+            g_UIRenderer.AddRectFilled(pos, Vec2(glm::max(size.x * m_SkateboardTimer / cSkateboardDuration, size.y), size.y), size.y * 0.5f, Vec4(cSkateboardColor, 1.0f));
+            g_UIRenderer.AddText(pos + Vec2(10.0f, 2.0f) * scale, "SKATEBOARD", 15.0f * scale, Vec4(0.05f, 0.05f, 0.08f, 1.0f));
+        }
+
+        const Vec4 board_color = m_SkateboardsLeft > 0 ? Vec4(cSkateboardColor, 1.0f) : Vec4(1.0f, 1.0f, 1.0f, 0.35f);
+        DrawOutlinedText(score_pos + Vec2(260.0f, 132.0f) * scale, std::format("[E] SKATEBOARD x{}", m_SkateboardsLeft), 18.0f * scale, board_color, UI_TEXT_ALIGN_RIGHT, scale);
+
         if (m_GuardTimer > 0.0f && m_State == STATE_RUNNING)
         {
             const float pulse = 0.5f + 0.5f * glm::sin(m_Time * 10.0f);
@@ -1540,12 +1626,13 @@ private:
         DrawOutlinedText(Vec2(center, inDisplay.y * 0.16f), "RAIL RUSH", 96.0f * inScale, Vec4(1.0f, 0.85f, 0.25f, 1.0f), UI_TEXT_ALIGN_CENTER, inScale);
         DrawOutlinedText(Vec2(center, inDisplay.y * 0.16f + 110.0f * inScale), "Dodge the trains. Grab the coins. Don't get caught.", 24.0f * inScale, Vec4(1.0f), UI_TEXT_ALIGN_CENTER, inScale);
 
-        static constexpr std::array<std::pair<const char*, const char*>, 5> cControls =
+        static constexpr std::array<std::pair<const char*, const char*>, 6> cControls =
         {
             std::pair { "A / D",           "Switch lanes" },
             std::pair { "W / SPACE",       "Jump" },
             std::pair { "S",               "Slide, or slam down mid-air" },
-            std::pair { "F1 / F2",         "Cheats: god mode / speed" },
+            std::pair { "E",               "Skateboard, survives one crash" },
+            std::pair { "G / F",           "Cheats: god mode / speed" },
             std::pair { "ESC",             "Pause" },
         };
 
@@ -1610,6 +1697,11 @@ private:
     Vec3 m_GuardPosition = Vec3(0.0f, 0.0f, cGuardHiddenZ);
     float m_GuardPhase = 0.0f;
     bool m_CaughtByGuard = false;
+
+    Model m_Skateboard;
+    float m_SkateboardTimer = 0.0f;
+    float m_InvulnerableTimer = 0.0f;
+    int m_SkateboardsLeft = cSkateboardsPerRun;
 
     HashMap<String, Array<PartTemplate>> m_MeshTemplates;
     uint32_t m_PaletteTexture = 0;
