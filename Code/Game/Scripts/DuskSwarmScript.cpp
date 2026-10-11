@@ -51,6 +51,8 @@ static constexpr const char* cRuntimeRootName = "DuskSwarm Runtime";
 static constexpr const char* cModelFile = "Assets/DuskSwarm/DuskSwarm.glb";
 static constexpr const char* cPaletteFile = "Assets/DuskSwarm/Palette.png";
 static constexpr const char* cPaletteEmissiveFile = "Assets/DuskSwarm/PaletteEmissive.png";
+static constexpr const char* cHudFontFile = "Assets/Fonts/Cinzel.ttf";
+static constexpr const char* cTitleFontFile = "Assets/Fonts/CinzelDecorative-Bold.ttf";
 
 
 enum EEnemyType
@@ -825,6 +827,24 @@ private:
 
         if (m_PaletteEmissiveTexture == 0)
             m_PaletteEmissiveTexture = LoadTexture(cPaletteEmissiveFile, false);
+
+        const auto LoadUITexture = [this](uint32_t& outTexture, const char* inFile)
+        {
+            if (outTexture == 0)
+                outTexture = LoadTexture(inFile, false);
+        };
+
+        LoadUITexture(m_FrameTexture, "Assets/DuskSwarm/UI/Frame.png");
+        LoadUITexture(m_BarFrameTexture, "Assets/DuskSwarm/UI/BarFrame.png");
+        LoadUITexture(m_BarSheenTexture, "Assets/DuskSwarm/UI/BarSheen.png");
+        LoadUITexture(m_RuneRingTexture, "Assets/DuskSwarm/UI/RuneRing.png");
+        LoadUITexture(m_HeartTexture, "Assets/DuskSwarm/UI/Heart.png");
+        LoadUITexture(m_SkullTexture, "Assets/DuskSwarm/UI/Skull.png");
+        LoadUITexture(m_BannerTexture, "Assets/DuskSwarm/UI/Banner.png");
+        LoadUITexture(m_GemTexture, "Assets/DuskSwarm/UI/Gem.png");
+
+        m_HudFont = g_UIRenderer.AddFont(cHudFontFile);
+        m_TitleFont = g_UIRenderer.AddFont(cTitleFontFile);
     }
 
     void ReleaseModels()
@@ -3977,19 +3997,24 @@ private:
         return Vec4(Vec3(inColor), inColor.a * inAlpha);
     }
 
+    static constexpr Vec4 cGold = Vec4(0.95f, 0.75f, 0.35f, 1.0f);
+    static constexpr Vec4 cParchment = Vec4(0.96f, 0.91f, 0.82f, 1.0f);
+    static constexpr Vec4 cShadow = Vec4(0.03f, 0.02f, 0.04f, 1.0f);
+
     void DrawPanel(Vec2 inPos, Vec2 inSize, float inScale, Vec4 inAccent, float inAlpha = 1.0f)
     {
-        g_UIRenderer.AddRectFilled(inPos + Vec2(0.0f, 8.0f) * inScale, inSize, 16.0f * inScale, Vec4(0.0f, 0.0f, 0.0f, 0.4f * inAlpha), 18.0f * inScale);
-        g_UIRenderer.AddRectGradient(inPos, inSize, 14.0f * inScale, Vec4(0.09f, 0.08f, 0.14f, 0.92f * inAlpha), Vec4(0.04f, 0.035f, 0.07f, 0.92f * inAlpha));
-        g_UIRenderer.AddRect(inPos, inSize, 14.0f * inScale, 1.5f * inScale, Fade(inAccent, 0.35f * inAlpha));
-        g_UIRenderer.AddRectFilled(inPos + Vec2(14.0f * inScale, 0.0f), Vec2(inSize.x - 28.0f * inScale, 2.0f * inScale), 1.0f * inScale, Fade(inAccent, 0.8f * inAlpha));
+        g_UIRenderer.AddRectFilled(inPos + Vec2(0.0f, 10.0f) * inScale, inSize, 18.0f * inScale, Vec4(0.0f, 0.0f, 0.0f, 0.45f * inAlpha), 20.0f * inScale);
+        g_UIRenderer.AddImageSliced(inPos, inSize, m_FrameTexture, 34.0f * inScale, 0.25f, Vec4(1.0f, 1.0f, 1.0f, inAlpha));
+        g_UIRenderer.AddRectFilled(inPos + Vec2(24.0f * inScale), inSize - Vec2(48.0f * inScale), 8.0f * inScale, Fade(inAccent, 0.08f * inAlpha), 24.0f * inScale);
     }
 
     void DrawBar(Vec2 inPos, Vec2 inSize, float inFill, Vec4 inStart, Vec4 inEnd, float inScale, float inTrail = -1.0f)
     {
         const float radius = inSize.y * 0.5f;
-        g_UIRenderer.AddRectFilled(inPos - Vec2(2.0f * inScale), inSize + Vec2(4.0f * inScale), radius + 2.0f * inScale, Vec4(0.0f, 0.0f, 0.0f, 0.55f));
-        g_UIRenderer.AddRectFilled(inPos, inSize, radius, Vec4(0.12f, 0.1f, 0.16f, 0.9f));
+        const float frame_height = inSize.y * 64.0f / 44.0f;
+        const Vec2 frame_pad = Vec2(( frame_height - inSize.y ) * 0.5f);
+
+        g_UIRenderer.AddRectFilled(inPos, inSize, radius, Vec4(0.06f, 0.05f, 0.08f, 0.95f));
 
         if (inTrail > inFill)
             g_UIRenderer.AddRectFilled(inPos, Vec2(glm::max(inSize.x * glm::clamp(inTrail, 0.0f, 1.0f), inSize.y), inSize.y), radius, Vec4(1.0f, 0.95f, 0.85f, 0.8f));
@@ -3998,15 +4023,37 @@ private:
         {
             const float width = glm::max(inSize.x * glm::clamp(inFill, 0.0f, 1.0f), inSize.y);
             g_UIRenderer.AddRectGradient(inPos, Vec2(width, inSize.y), radius, inStart, inEnd, true);
-            g_UIRenderer.AddRectFilled(inPos + Vec2(radius * 0.6f, inSize.y * 0.15f), Vec2(glm::max(width - radius * 1.2f, 0.0f), inSize.y * 0.28f), inSize.y * 0.14f, Vec4(1.0f, 1.0f, 1.0f, 0.22f));
+            g_UIRenderer.AddImage(inPos, Vec2(width, inSize.y), m_BarSheenTexture, Vec4(1.0f), Vec4(0.0f, 0.0f, width / inSize.y, 1.0f), radius);
             g_UIRenderer.AddCircleFilled(inPos + Vec2(width - radius, radius), inSize.y * 0.9f, Fade(inEnd, 0.35f), inSize.y * 1.2f);
         }
+
+        g_UIRenderer.AddImageSliced(inPos - frame_pad, inSize + frame_pad * 2.0f, m_BarFrameTexture, frame_height * 0.5f, 0.5f);
     }
 
     void DrawShadowText(Vec2 inPos, StringView inText, float inSize, Vec4 inColor, EUITextAlign inAlign, float inScale)
     {
-        g_UIRenderer.AddText(inPos + Vec2(0.0f, 3.0f) * inScale, inText, inSize, Vec4(0.0f, 0.0f, 0.0f, 0.6f * inColor.a), inAlign);
-        g_UIRenderer.AddText(inPos, inText, inSize, inColor, inAlign);
+        const Vec4 shadow = Fade(cShadow, inColor.a);
+        g_UIRenderer.AddTextOutlined(inPos + Vec2(0.0f, inSize * 0.07f), inText, inSize, Fade(shadow, 0.6f), Fade(shadow, 0.6f), inSize * 0.06f, inAlign);
+        g_UIRenderer.AddTextOutlined(inPos, inText, inSize, inColor, shadow, inSize * 0.05f, inAlign);
+    }
+
+    void DrawTitle(Vec2 inPos, StringView inText, float inSize, Vec4 inColor, float inScale)
+    {
+        g_UIRenderer.SetFont(m_TitleFont);
+        g_UIRenderer.AddTextGlow(inPos, inText, inSize, Fade(cShadow, inColor.a), Fade(inColor, 0.4f * inColor.a), inSize * 0.3f, UI_TEXT_ALIGN_CENTER);
+        DrawShadowText(inPos, inText, inSize, inColor, UI_TEXT_ALIGN_CENTER, inScale);
+        g_UIRenderer.SetFont(m_HudFont);
+    }
+
+    void DrawBanner(Vec2 inCenter, Vec2 inClothSize, float inAlpha)
+    {
+        const Vec2 size = Vec2(inClothSize.x, inClothSize.y * 2.0f);
+        g_UIRenderer.AddImageSliced(inCenter - size * 0.5f, size, m_BannerTexture, inClothSize.y * 0.5f, 0.25f, Vec4(1.0f, 1.0f, 1.0f, inAlpha));
+    }
+
+    void DrawGem(Vec2 inCenter, float inSize, Vec4 inColor)
+    {
+        g_UIRenderer.AddImage(inCenter - Vec2(inSize * 0.5f), Vec2(inSize), m_GemTexture, inColor);
     }
 
     void DrawSegment(Vec2 inA, Vec2 inB, float inWidth, Vec4 inColor)
@@ -4157,6 +4204,8 @@ private:
         const float scale = glm::max(display.y / 1080.0f, 0.5f);
         const float margin = 24.0f * scale;
 
+        g_UIRenderer.SetFont(m_HudFont);
+
         const float health_fraction = m_Health / GetMaxHealth();
 
         if (m_HitFlash > 0.0f)
@@ -4206,55 +4255,49 @@ private:
     void DrawTopBar(const Vec2& inDisplay, float inScale, float inMargin)
     {
         const float xp_fill = float(m_Experience) / float(GetExperienceToNextLevel());
-        const Vec2 bar_pos = Vec2(inMargin + 52.0f * inScale, inMargin * 0.75f);
+        const float badge_radius = 34.0f * inScale;
+        const Vec2 bar_pos = Vec2(inMargin + badge_radius * 2.0f + 4.0f * inScale, inMargin * 0.75f + 4.0f * inScale);
         const Vec2 bar_size = Vec2(inDisplay.x - bar_pos.x - inMargin, 12.0f * inScale);
 
         DrawBar(bar_pos, bar_size, xp_fill, Vec4(0.2f, 0.55f, 1.0f, 1.0f), Vec4(0.45f, 0.95f, 1.0f, 1.0f), inScale);
 
-        const Vec2 badge = Vec2(inMargin + 22.0f * inScale, bar_pos.y + bar_size.y * 0.5f);
-        g_UIRenderer.AddCircleFilled(badge + Vec2(0.0f, 4.0f * inScale), 26.0f * inScale, Vec4(0.0f, 0.0f, 0.0f, 0.45f), 10.0f * inScale);
-        g_UIRenderer.AddCircleFilled(badge, 24.0f * inScale, Vec4(0.08f, 0.1f, 0.18f, 1.0f));
-        g_UIRenderer.AddArc(badge, 22.0f * inScale, 4.0f * inScale, -glm::half_pi<float>(), 1.0f, Vec4(0.2f, 0.3f, 0.45f, 1.0f));
-        g_UIRenderer.AddArc(badge, 22.0f * inScale, 4.0f * inScale, -glm::half_pi<float>(), xp_fill, Vec4(0.45f, 0.9f, 1.0f, 1.0f));
-        g_UIRenderer.AddText(badge - Vec2(0.0f, 14.0f * inScale), std::format("{}", m_Level), 24.0f * inScale, Vec4(1.0f), UI_TEXT_ALIGN_CENTER);
+        const Vec2 badge = Vec2(inMargin + badge_radius, inMargin * 0.5f + badge_radius);
+        g_UIRenderer.AddCircleFilled(badge + Vec2(0.0f, 6.0f * inScale), badge_radius, Vec4(0.0f, 0.0f, 0.0f, 0.5f), 10.0f * inScale);
+        g_UIRenderer.AddImage(badge - Vec2(badge_radius), Vec2(badge_radius * 2.0f), m_RuneRingTexture);
+        g_UIRenderer.AddArc(badge, badge_radius * 48.0f / 64.0f, 5.0f * inScale, -glm::half_pi<float>(), xp_fill, Vec4(0.45f, 0.9f, 1.0f, 0.9f));
+        g_UIRenderer.SetFont(m_TitleFont);
+        DrawShadowText(badge - Vec2(0.0f, 21.0f * inScale), std::format("{}", m_Level), 34.0f * inScale, cParchment, UI_TEXT_ALIGN_CENTER, inScale);
+        g_UIRenderer.SetFont(m_HudFont);
 
         const float center = inDisplay.x * 0.5f;
-        const float top = bar_pos.y + bar_size.y + 10.0f * inScale;
+        const float top = bar_pos.y + bar_size.y + 12.0f * inScale;
         const String time_text = FormatTime(m_RunTime);
 
-        g_UIRenderer.AddRectFilled(Vec2(center - 90.0f * inScale, top), Vec2(180.0f, 74.0f) * inScale, 16.0f * inScale, Vec4(0.0f, 0.0f, 0.0f, 0.3f), 16.0f * inScale);
-        DrawShadowText(Vec2(center, top), time_text, 46.0f * inScale, Vec4(1.0f), UI_TEXT_ALIGN_CENTER, inScale);
+        g_UIRenderer.AddRectFilled(Vec2(center - 100.0f * inScale, top), Vec2(200.0f, 84.0f) * inScale, 16.0f * inScale, Vec4(0.0f, 0.0f, 0.0f, 0.35f), 18.0f * inScale);
+        DrawShadowText(Vec2(center, top), time_text, 50.0f * inScale, cParchment, UI_TEXT_ALIGN_CENTER, inScale);
 
         const float night = glm::clamp(m_RunTime / cVictoryTime, 0.0f, 1.0f);
-        const Vec2 dawn_pos = Vec2(center - 70.0f * inScale, top + 56.0f * inScale);
+        const Vec2 dawn_pos = Vec2(center - 70.0f * inScale, top + 62.0f * inScale);
         g_UIRenderer.AddRectFilled(dawn_pos, Vec2(140.0f, 4.0f) * inScale, 2.0f * inScale, Vec4(0.2f, 0.18f, 0.3f, 0.9f));
         g_UIRenderer.AddRectGradient(dawn_pos, Vec2(140.0f * night, 4.0f) * inScale, 2.0f * inScale, Vec4(0.4f, 0.3f, 0.8f, 1.0f), Vec4(1.0f, 0.7f, 0.35f, 1.0f), true);
         g_UIRenderer.AddCircleFilled(dawn_pos + Vec2(140.0f * night, 2.0f) * inScale, 5.0f * inScale, Vec4(1.0f, 0.8f, 0.45f, 1.0f), 3.0f * inScale);
-        g_UIRenderer.AddText(Vec2(center, top + 64.0f * inScale), std::format("DAWN IN {}", FormatTime(glm::max(0.0f, cVictoryTime - m_RunTime))), 14.0f * inScale, Vec4(1.0f, 0.78f, 0.5f, 0.8f), UI_TEXT_ALIGN_CENTER);
+        DrawShadowText(Vec2(center, top + 70.0f * inScale), std::format("DAWN IN {}", FormatTime(glm::max(0.0f, cVictoryTime - m_RunTime))), 16.0f * inScale, Fade(cGold, 0.9f), UI_TEXT_ALIGN_CENTER, inScale);
     }
 
     void DrawStatus(const Vec2& inDisplay, float inScale, float inMargin)
     {
-        const Vec2 pos = Vec2(inMargin, inMargin + 40.0f * inScale);
-        const Vec2 size = Vec2(300.0f, 92.0f) * inScale;
+        const Vec2 pos = Vec2(inMargin, inMargin + 84.0f * inScale);
+        const Vec2 size = Vec2(350.0f, 116.0f) * inScale;
 
         DrawPanel(pos, size, inScale, Vec4(1.0f, 0.4f, 0.4f, 1.0f));
 
-        const Vec2 heart = pos + Vec2(32.0f, 34.0f) * inScale;
-        g_UIRenderer.AddCircleFilled(heart + Vec2(-6.0f, -3.0f) * inScale, 8.0f * inScale, Vec4(1.0f, 0.3f, 0.35f, 1.0f));
-        g_UIRenderer.AddCircleFilled(heart + Vec2(6.0f, -3.0f) * inScale, 8.0f * inScale, Vec4(1.0f, 0.3f, 0.35f, 1.0f));
-        g_UIRenderer.AddRectRotated(heart + Vec2(0.0f, 4.0f) * inScale, Vec2(15.0f) * inScale, glm::quarter_pi<float>(), 2.0f * inScale, Vec4(1.0f, 0.3f, 0.35f, 1.0f));
+        g_UIRenderer.AddImage(pos + Vec2(34.0f, 20.0f) * inScale, Vec2(34.0f) * inScale, m_HeartTexture);
+        DrawBar(pos + Vec2(80.0f, 28.0f) * inScale, Vec2(240.0f, 16.0f) * inScale, m_Health / GetMaxHealth(), Vec4(0.8f, 0.1f, 0.18f, 1.0f), Vec4(1.0f, 0.45f, 0.4f, 1.0f), inScale, m_HealthTrail / GetMaxHealth());
+        DrawShadowText(pos + Vec2(320.0f, 50.0f) * inScale, std::format("{} / {}", int(glm::ceil(m_Health)), int(GetMaxHealth())), 16.0f * inScale, Vec4(1.0f, 0.85f, 0.85f, 0.95f), UI_TEXT_ALIGN_RIGHT, inScale);
 
-        DrawBar(pos + Vec2(56.0f, 26.0f) * inScale, Vec2(222.0f, 16.0f) * inScale, m_Health / GetMaxHealth(), Vec4(0.8f, 0.1f, 0.18f, 1.0f), Vec4(1.0f, 0.45f, 0.4f, 1.0f), inScale, m_HealthTrail / GetMaxHealth());
-        g_UIRenderer.AddText(pos + Vec2(278.0f, 46.0f) * inScale, std::format("{} / {}", int(glm::ceil(m_Health)), int(GetMaxHealth())), 15.0f * inScale, Vec4(1.0f, 0.85f, 0.85f, 0.9f), UI_TEXT_ALIGN_RIGHT);
-
-        const Vec2 skull = pos + Vec2(32.0f, 70.0f) * inScale;
-        g_UIRenderer.AddCircleFilled(skull - Vec2(0.0f, 2.0f) * inScale, 8.0f * inScale, Vec4(0.9f, 0.88f, 0.8f, 1.0f));
-        g_UIRenderer.AddRectFilled(skull + Vec2(-5.0f, 2.0f) * inScale, Vec2(10.0f, 7.0f) * inScale, 2.0f * inScale, Vec4(0.9f, 0.88f, 0.8f, 1.0f));
-        g_UIRenderer.AddCircleFilled(skull + Vec2(-3.0f, -2.0f) * inScale, 2.2f * inScale, Vec4(0.1f, 0.08f, 0.12f, 1.0f));
-        g_UIRenderer.AddCircleFilled(skull + Vec2(3.0f, -2.0f) * inScale, 2.2f * inScale, Vec4(0.1f, 0.08f, 0.12f, 1.0f));
-        g_UIRenderer.AddText(pos + Vec2(56.0f, 58.0f) * inScale, std::format("{}", m_Kills), 22.0f * inScale, Vec4(1.0f), UI_TEXT_ALIGN_LEFT);
-        g_UIRenderer.AddText(pos + Vec2(278.0f, 64.0f) * inScale, std::format("{:.0f}k damage", m_DamageDealt / 1000.0f), 15.0f * inScale, Vec4(0.75f, 0.75f, 0.85f, 0.8f), UI_TEXT_ALIGN_RIGHT);
+        g_UIRenderer.AddImage(pos + Vec2(34.0f, 62.0f) * inScale, Vec2(34.0f) * inScale, m_SkullTexture);
+        DrawShadowText(pos + Vec2(80.0f, 62.0f) * inScale, std::format("{}", m_Kills), 28.0f * inScale, cParchment, UI_TEXT_ALIGN_LEFT, inScale);
+        DrawShadowText(pos + Vec2(320.0f, 72.0f) * inScale, std::format("{:.0f}K DAMAGE", m_DamageDealt / 1000.0f), 16.0f * inScale, Vec4(0.8f, 0.78f, 0.9f, 0.85f), UI_TEXT_ALIGN_RIGHT, inScale);
     }
 
     void DrawBossBar(const Vec2& inDisplay, float inScale)
@@ -4271,14 +4314,15 @@ private:
         m_BossHealthTrail = glm::max(fraction, m_BossHealthTrail - 0.25f * ( 1.0f / 60.0f ));
 
         const Vec2 size = Vec2(620.0f, 18.0f) * inScale;
-        const Vec2 pos = Vec2(inDisplay.x * 0.5f - size.x * 0.5f, 150.0f * inScale);
+        const Vec2 pos = Vec2(inDisplay.x * 0.5f - size.x * 0.5f, 190.0f * inScale);
         const float appear = glm::clamp(( m_RunTime - cBossTimes[glm::max(m_NextBoss - 1, 0)] ) / 0.8f, 0.0f, 1.0f);
 
-        DrawShadowText(Vec2(inDisplay.x * 0.5f, pos.y - 30.0f * inScale), "THE LICH", 22.0f * inScale, Vec4(0.85f, 0.6f, 1.0f, appear), UI_TEXT_ALIGN_CENTER, inScale);
+        DrawBanner(Vec2(inDisplay.x * 0.5f, pos.y - 30.0f * inScale), Vec2(300.0f, 44.0f) * inScale, appear);
+        DrawTitle(Vec2(inDisplay.x * 0.5f, pos.y - 48.0f * inScale), "THE LICH", 28.0f * inScale, Vec4(0.9f, 0.7f, 1.0f, appear), inScale);
         DrawBar(pos, Vec2(size.x * appear, size.y), fraction, Vec4(0.45f, 0.1f, 0.7f, 1.0f), Vec4(0.85f, 0.45f, 1.0f, 1.0f), inScale, m_BossHealthTrail);
 
         if (boss.mHealth < boss.mMaxHealth * 0.5f && !boss.mDying)
-            g_UIRenderer.AddText(Vec2(inDisplay.x * 0.5f, pos.y + 24.0f * inScale), "ENRAGED", 14.0f * inScale, Vec4(1.0f, 0.4f, 0.4f, 0.6f + 0.4f * glm::sin(m_Time * 8.0f)), UI_TEXT_ALIGN_CENTER);
+            DrawShadowText(Vec2(inDisplay.x * 0.5f, pos.y + 26.0f * inScale), "ENRAGED", 18.0f * inScale, Vec4(1.0f, 0.4f, 0.4f, 0.6f + 0.4f * glm::sin(m_Time * 8.0f)), UI_TEXT_ALIGN_CENTER, inScale);
     }
 
     float GetWeaponCooldownFraction(int inUpgrade) const
@@ -4297,6 +4341,15 @@ private:
         }
     }
 
+    void DrawSlot(Vec2 inPos, float inSize, const Vec3& inColor, bool inReady, float inScale)
+    {
+        g_UIRenderer.AddImageSliced(inPos, Vec2(inSize), m_FrameTexture, 20.0f * inScale, 0.25f);
+        g_UIRenderer.AddRectGradient(inPos + Vec2(12.0f * inScale), Vec2(inSize - 24.0f * inScale), 6.0f * inScale, Vec4(inColor * 0.35f, 0.6f), Vec4(inColor * 0.05f, 0.2f));
+
+        if (inReady)
+            g_UIRenderer.AddRect(inPos - Vec2(2.0f * inScale), Vec2(inSize + 4.0f * inScale), 16.0f * inScale, 2.0f * inScale, Vec4(inColor, 0.8f));
+    }
+
     void DrawAbilityBar(const Vec2& inDisplay, float inScale, float inMargin)
     {
         Array<int> weapons;
@@ -4308,13 +4361,13 @@ private:
                 ( cUpgrades[upgrade].mIsWeapon ? weapons : passives ).push_back(upgrade);
         }
 
-        const float slot = 64.0f * inScale;
+        const float slot = 72.0f * inScale;
         const float gap = 12.0f * inScale;
         const int slots = int(weapons.size()) + 1;
         const float total = slots * slot + ( slots - 1 ) * gap;
-        const Vec2 start = Vec2(inDisplay.x * 0.5f - total * 0.5f, inDisplay.y - inMargin - slot - 16.0f * inScale);
+        const Vec2 start = Vec2(inDisplay.x * 0.5f - total * 0.5f, inDisplay.y - inMargin - slot - 20.0f * inScale);
 
-        g_UIRenderer.AddRectFilled(start - Vec2(16.0f, 12.0f) * inScale, Vec2(total + 32.0f * inScale, slot + 40.0f * inScale), 20.0f * inScale, Vec4(0.0f, 0.0f, 0.0f, 0.35f), 20.0f * inScale);
+        g_UIRenderer.AddRectFilled(start - Vec2(16.0f, 12.0f) * inScale, Vec2(total + 32.0f * inScale, slot + 44.0f * inScale), 20.0f * inScale, Vec4(0.0f, 0.0f, 0.0f, 0.35f), 20.0f * inScale);
 
         for (size_t index = 0; index < weapons.size(); index++)
         {
@@ -4323,18 +4376,16 @@ private:
             const Vec3 color = cUpgrades[upgrade].mColor;
             const float ready = glm::clamp(GetWeaponCooldownFraction(upgrade), 0.0f, 1.0f);
 
-            g_UIRenderer.AddRectGradient(pos, Vec2(slot), 14.0f * inScale, Vec4(color * 0.25f, 0.95f), Vec4(0.05f, 0.04f, 0.08f, 0.95f));
-            g_UIRenderer.AddRect(pos, Vec2(slot), 14.0f * inScale, 2.0f * inScale, Vec4(color, 0.4f + 0.6f * ( ready >= 1.0f ? 1.0f : 0.0f )));
-
-            DrawUpgradeIcon(upgrade, pos + Vec2(slot * 0.5f), slot * 0.3f, 1.0f);
+            DrawSlot(pos, slot, color, ready >= 1.0f, inScale);
+            DrawUpgradeIcon(upgrade, pos + Vec2(slot * 0.5f), slot * 0.26f, 1.0f);
 
             if (ready < 1.0f)
-                g_UIRenderer.AddArc(pos + Vec2(slot * 0.5f), slot * 0.42f, 3.0f * inScale, -glm::half_pi<float>(), ready, Vec4(color, 0.7f));
+                g_UIRenderer.AddArc(pos + Vec2(slot * 0.5f), slot * 0.36f, 3.0f * inScale, -glm::half_pi<float>(), ready, Vec4(color, 0.7f));
 
             for (int pip = 0; pip < cMaxUpgradeLevel; pip++)
             {
-                const Vec2 pip_pos = pos + Vec2(slot * 0.5f + ( float(pip) - 2.0f ) * 10.0f * inScale, slot + 8.0f * inScale);
-                g_UIRenderer.AddCircleFilled(pip_pos, 3.0f * inScale, pip < m_UpgradeLevels[upgrade] ? Vec4(color, 1.0f) : Vec4(1.0f, 1.0f, 1.0f, 0.15f));
+                const Vec2 pip_pos = pos + Vec2(slot * 0.5f + ( float(pip) - 2.0f ) * 12.0f * inScale, slot + 10.0f * inScale);
+                DrawGem(pip_pos, 12.0f * inScale, pip < m_UpgradeLevels[upgrade] ? Vec4(glm::mix(color, Vec3(1.0f), 0.2f), 1.0f) : Vec4(0.25f, 0.22f, 0.3f, 0.6f));
             }
         }
 
@@ -4342,8 +4393,7 @@ private:
         const float dash_ready = 1.0f - m_DashCooldownTimer / cDashCooldown;
         const Vec4 dash_color = Vec4(0.4f, 0.85f, 1.0f, 1.0f);
 
-        g_UIRenderer.AddRectGradient(dash_pos, Vec2(slot), 14.0f * inScale, Vec4(0.08f, 0.2f, 0.28f, 0.95f), Vec4(0.04f, 0.04f, 0.08f, 0.95f));
-        g_UIRenderer.AddRect(dash_pos, Vec2(slot), 14.0f * inScale, 2.0f * inScale, Fade(dash_color, dash_ready >= 1.0f ? 1.0f : 0.35f));
+        DrawSlot(dash_pos, slot, Vec3(dash_color), dash_ready >= 1.0f, inScale);
 
         for (int chevron = 0; chevron < 2; chevron++)
         {
@@ -4353,22 +4403,21 @@ private:
         }
 
         if (dash_ready < 1.0f)
-            g_UIRenderer.AddArc(dash_pos + Vec2(slot * 0.5f), slot * 0.42f, 3.0f * inScale, -glm::half_pi<float>(), dash_ready, Fade(dash_color, 0.7f));
+            g_UIRenderer.AddArc(dash_pos + Vec2(slot * 0.5f), slot * 0.36f, 3.0f * inScale, -glm::half_pi<float>(), dash_ready, Fade(dash_color, 0.7f));
 
-        g_UIRenderer.AddText(dash_pos + Vec2(slot * 0.5f, slot + 2.0f * inScale), "SPACE", 11.0f * inScale, Vec4(0.7f, 0.85f, 1.0f, 0.7f), UI_TEXT_ALIGN_CENTER);
+        DrawShadowText(dash_pos + Vec2(slot * 0.5f, slot + 2.0f * inScale), "SPACE", 14.0f * inScale, Vec4(0.7f, 0.85f, 1.0f, 0.85f), UI_TEXT_ALIGN_CENTER, inScale);
 
-        const float passive_size = 40.0f * inScale;
+        const float passive_size = 48.0f * inScale;
 
         for (size_t index = 0; index < passives.size(); index++)
         {
             const int upgrade = passives[index];
-            const Vec2 pos = Vec2(inMargin + float(index) * ( passive_size + 8.0f * inScale ), inDisplay.y - inMargin - passive_size);
+            const Vec2 pos = Vec2(inMargin + float(index) * ( passive_size + 10.0f * inScale ), inDisplay.y - inMargin - passive_size);
 
-            g_UIRenderer.AddRectFilled(pos, Vec2(passive_size), 10.0f * inScale, Vec4(0.06f, 0.05f, 0.1f, 0.85f));
-            g_UIRenderer.AddRect(pos, Vec2(passive_size), 10.0f * inScale, 1.5f * inScale, Vec4(cUpgrades[upgrade].mColor, 0.5f));
-            DrawUpgradeIcon(upgrade, pos + Vec2(passive_size * 0.5f), passive_size * 0.28f, 1.0f);
-            g_UIRenderer.AddCircleFilled(pos + Vec2(passive_size - 4.0f * inScale, 4.0f * inScale), 9.0f * inScale, Vec4(0.08f, 0.07f, 0.12f, 1.0f));
-            g_UIRenderer.AddText(pos + Vec2(passive_size - 4.0f * inScale, -4.0f * inScale), std::format("{}", m_UpgradeLevels[upgrade]), 13.0f * inScale, Vec4(cUpgrades[upgrade].mColor, 1.0f), UI_TEXT_ALIGN_CENTER);
+            DrawSlot(pos, passive_size, cUpgrades[upgrade].mColor, false, inScale * 0.75f);
+            DrawUpgradeIcon(upgrade, pos + Vec2(passive_size * 0.5f), passive_size * 0.24f, 1.0f);
+            DrawGem(pos + Vec2(passive_size - 4.0f * inScale, 4.0f * inScale), 24.0f * inScale, Vec4(glm::mix(cUpgrades[upgrade].mColor, Vec3(1.0f), 0.2f), 1.0f));
+            DrawShadowText(pos + Vec2(passive_size - 4.0f * inScale, -6.0f * inScale), std::format("{}", m_UpgradeLevels[upgrade]), 15.0f * inScale, cParchment, UI_TEXT_ALIGN_CENTER, inScale);
         }
     }
 
@@ -4379,11 +4428,13 @@ private:
 
         const float alpha = glm::clamp(m_StreakTimer / 0.5f, 0.0f, 1.0f);
         const float pulse = 1.0f + 0.08f * glm::max(0.0f, 1.0f - ( cStreakWindow - m_StreakTimer ) * 8.0f);
-        const Vec2 pos = Vec2(inDisplay.x - inMargin, inMargin + 48.0f * inScale);
+        const Vec2 pos = Vec2(inDisplay.x - inMargin, inMargin + 60.0f * inScale);
 
-        DrawShadowText(pos, std::format("x{}", m_Streak), 46.0f * inScale * pulse, Vec4(1.0f, 0.8f, 0.3f, alpha), UI_TEXT_ALIGN_RIGHT, inScale);
-        g_UIRenderer.AddText(pos + Vec2(0.0f, 54.0f * inScale), "KILL STREAK", 14.0f * inScale, Vec4(1.0f, 0.9f, 0.7f, 0.7f * alpha), UI_TEXT_ALIGN_RIGHT);
-        g_UIRenderer.AddRectFilled(pos + Vec2(-120.0f * inScale, 74.0f * inScale), Vec2(120.0f * ( m_StreakTimer / cStreakWindow ), 3.0f) * inScale, 1.5f * inScale, Vec4(1.0f, 0.8f, 0.3f, 0.8f * alpha));
+        g_UIRenderer.SetFont(m_TitleFont);
+        DrawShadowText(pos, std::format("x{}", m_Streak), 50.0f * inScale * pulse, Fade(cGold, alpha), UI_TEXT_ALIGN_RIGHT, inScale);
+        g_UIRenderer.SetFont(m_HudFont);
+        DrawShadowText(pos + Vec2(0.0f, 58.0f * inScale), "KILL STREAK", 16.0f * inScale, Vec4(1.0f, 0.9f, 0.7f, 0.8f * alpha), UI_TEXT_ALIGN_RIGHT, inScale);
+        g_UIRenderer.AddRectFilled(pos + Vec2(-120.0f * inScale, 80.0f * inScale), Vec2(120.0f * ( m_StreakTimer / cStreakWindow ), 3.0f) * inScale, 1.5f * inScale, Fade(cGold, 0.8f * alpha));
     }
 
     void DrawIndicators(const Vec2& inDisplay, float inScale)
@@ -4447,8 +4498,9 @@ private:
             const String text = number.mCrit ? std::format("{}!", number.mValue) : std::format("{}", number.mValue);
             const Vec4 color = number.mCrit ? Vec4(1.0f, 0.82f, 0.25f, alpha) : Vec4(1.0f, 0.95f, 0.85f, alpha);
 
-            g_UIRenderer.AddText(screen + Vec2(2.0f, 2.0f) * inScale, text, size, Vec4(0.0f, 0.0f, 0.0f, 0.7f * alpha), UI_TEXT_ALIGN_CENTER);
-            g_UIRenderer.AddText(screen, text, size, color, UI_TEXT_ALIGN_CENTER);
+            g_UIRenderer.SetFont(m_TitleFont);
+            DrawShadowText(screen, text, size, color, UI_TEXT_ALIGN_CENTER, inScale);
+            g_UIRenderer.SetFont(m_HudFont);
         }
 
         std::erase_if(m_DamageNumbers, [](const DamageNumber& inNumber) { return inNumber.mTime >= 0.75f; });
@@ -4465,24 +4517,32 @@ private:
             const float fade_in = glm::clamp(popup.mTime / 0.15f, 0.0f, 1.0f);
             const float fade_out = glm::clamp(( popup.mDuration - popup.mTime ) / 0.4f, 0.0f, 1.0f);
             const float alpha = fade_in * fade_out;
-            const float size = ( popup.mBig ? glm::mix(34.0f, 48.0f, EaseOutBack(fade_in)) : glm::mix(22.0f, 30.0f, fade_in) ) * inScale;
+            const float size = ( popup.mBig ? glm::mix(34.0f, 46.0f, EaseOutBack(fade_in)) : glm::mix(24.0f, 30.0f, fade_in) ) * inScale;
             const float center = inDisplay.x * 0.5f;
 
-            const Vec2 extent = g_UIRenderer.MeasureText(popup.mText, size);
-            const float width = extent.x + 60.0f * inScale;
-            const float height = size * 1.25f + ( popup.mSubText.empty() ? 0.0f : 26.0f * inScale );
+            if (popup.mBig)
+                g_UIRenderer.SetFont(m_TitleFont);
 
-            g_UIRenderer.AddRectFilled(Vec2(center - width * 0.5f, popup_y - 6.0f * inScale), Vec2(width, height), height * 0.4f, Vec4(0.0f, 0.0f, 0.02f, 0.45f * alpha), 22.0f * inScale);
+            const Vec2 extent = g_UIRenderer.MeasureText(popup.mText, size);
+            const float width = extent.x + 120.0f * inScale;
+            const float height = size * 1.3f + ( popup.mSubText.empty() ? 0.0f : 28.0f * inScale );
 
             if (popup.mBig)
-                g_UIRenderer.AddRectFilled(Vec2(center - width * 0.35f, popup_y + height - 6.0f * inScale), Vec2(width * 0.7f, 2.0f * inScale), 1.0f * inScale, Fade(popup.mColor, alpha));
-
-            DrawShadowText(Vec2(center, popup_y), popup.mText, size, Fade(popup.mColor, alpha), UI_TEXT_ALIGN_CENTER, inScale);
+            {
+                DrawBanner(Vec2(center, popup_y + size * 0.62f), Vec2(width, size * 1.5f), alpha);
+                DrawShadowText(Vec2(center, popup_y), popup.mText, size, Fade(popup.mColor, alpha), UI_TEXT_ALIGN_CENTER, inScale);
+                g_UIRenderer.SetFont(m_HudFont);
+            }
+            else
+            {
+                g_UIRenderer.AddRectFilled(Vec2(center - width * 0.5f, popup_y - 6.0f * inScale), Vec2(width, height), height * 0.4f, Vec4(0.0f, 0.0f, 0.02f, 0.45f * alpha), 22.0f * inScale);
+                DrawShadowText(Vec2(center, popup_y), popup.mText, size, Fade(popup.mColor, alpha), UI_TEXT_ALIGN_CENTER, inScale);
+            }
 
             if (!popup.mSubText.empty())
-                g_UIRenderer.AddText(Vec2(center, popup_y + size * 1.15f), popup.mSubText, 17.0f * inScale, Vec4(1.0f, 1.0f, 1.0f, 0.75f * alpha), UI_TEXT_ALIGN_CENTER);
+                DrawShadowText(Vec2(center, popup_y + size * 1.3f), popup.mSubText, 18.0f * inScale, Vec4(1.0f, 1.0f, 1.0f, 0.85f * alpha), UI_TEXT_ALIGN_CENTER, inScale);
 
-            popup_y += height + 14.0f * inScale;
+            popup_y += height + ( popup.mBig ? 30.0f : 14.0f ) * inScale;
         }
 
         std::erase_if(m_Popups, [](const Popup& inPopup) { return inPopup.mTime >= inPopup.mDuration; });
@@ -4492,28 +4552,28 @@ private:
     {
         const float alpha = glm::clamp(m_RunTime / 0.5f, 0.0f, 1.0f) * glm::clamp(( 4.5f - m_RunTime ) / 1.0f, 0.0f, 1.0f);
         const float center = inDisplay.x * 0.5f;
-        const float y = inDisplay.y * 0.36f;
+        const float y = inDisplay.y * 0.34f;
 
-        DrawShadowText(Vec2(center, y), "DUSK SWARM", 88.0f * inScale, Vec4(1.0f, 0.62f, 0.3f, alpha), UI_TEXT_ALIGN_CENTER, inScale);
-        g_UIRenderer.AddRectGradient(Vec2(center - 220.0f * inScale, y + 104.0f * inScale), Vec2(440.0f, 2.0f) * inScale, 1.0f, Vec4(1.0f, 0.6f, 0.3f, 0.0f), Vec4(1.0f, 0.6f, 0.3f, alpha), true);
-        g_UIRenderer.AddText(Vec2(center, y + 116.0f * inScale), "Survive until dawn", 24.0f * inScale, Vec4(1.0f, 0.9f, 0.8f, alpha), UI_TEXT_ALIGN_CENTER);
-        g_UIRenderer.AddText(Vec2(center, inDisplay.y * 0.78f), "WASD  move      SPACE  dash      weapons fire on their own", 18.0f * inScale, Vec4(1.0f, 0.9f, 0.75f, 0.8f * alpha), UI_TEXT_ALIGN_CENTER);
+        DrawTitle(Vec2(center, y), "DUSK SWARM", 96.0f * inScale, Vec4(1.0f, 0.66f, 0.32f, alpha), inScale);
+        DrawBanner(Vec2(center, y + 150.0f * inScale), Vec2(440.0f, 48.0f) * inScale, alpha);
+        DrawShadowText(Vec2(center, y + 134.0f * inScale), "SURVIVE UNTIL DAWN", 26.0f * inScale, Fade(cParchment, alpha), UI_TEXT_ALIGN_CENTER, inScale);
+        DrawShadowText(Vec2(center, inDisplay.y * 0.78f), "WASD  MOVE      SPACE  DASH      WEAPONS FIRE ON THEIR OWN", 20.0f * inScale, Vec4(1.0f, 0.9f, 0.75f, 0.85f * alpha), UI_TEXT_ALIGN_CENTER, inScale);
     }
 
     void DrawLevelUp(const Vec2& inDisplay, float inScale)
     {
         const float time = m_Time - m_LevelUpTime;
         const float alpha = glm::clamp(time / 0.25f, 0.0f, 1.0f);
+        const float title_scale = glm::mix(0.8f, 1.0f, EaseOutBack(alpha));
 
         g_UIRenderer.AddRectFilled(Vec2(0.0f), inDisplay, 0.0f, Vec4(0.02f, 0.0f, 0.04f, 0.6f * alpha));
-        g_UIRenderer.AddRect(Vec2(0.0f), inDisplay, 0.0f, 160.0f * inScale, Vec4(0.0f, 0.0f, 0.0f, 0.5f * alpha));
 
-        const float title_y = inDisplay.y * 0.5f - 300.0f * inScale;
-        g_UIRenderer.AddCircleFilled(Vec2(inDisplay.x * 0.5f, title_y + 34.0f * inScale), 120.0f * inScale, Vec4(1.0f, 0.7f, 0.3f, 0.12f * alpha), 90.0f * inScale);
-        DrawShadowText(Vec2(inDisplay.x * 0.5f, title_y), "LEVEL UP", 64.0f * inScale * glm::mix(0.8f, 1.0f, EaseOutBack(alpha)), Vec4(1.0f, 0.78f, 0.35f, alpha), UI_TEXT_ALIGN_CENTER, inScale);
-        g_UIRenderer.AddText(Vec2(inDisplay.x * 0.5f, title_y + 76.0f * inScale), std::format("Level {}  -  choose your power", m_Level), 20.0f * inScale, Vec4(1.0f, 0.9f, 0.8f, 0.8f * alpha), UI_TEXT_ALIGN_CENTER);
+        const float title_y = inDisplay.y * 0.5f - 320.0f * inScale;
+        DrawBanner(Vec2(inDisplay.x * 0.5f, title_y + 44.0f * inScale), Vec2(520.0f, 84.0f) * inScale * title_scale, alpha);
+        DrawTitle(Vec2(inDisplay.x * 0.5f, title_y), "LEVEL UP", 64.0f * inScale * title_scale, Vec4(1.0f, 0.8f, 0.4f, alpha), inScale);
+        DrawShadowText(Vec2(inDisplay.x * 0.5f, title_y + 100.0f * inScale), std::format("Level {}  -  choose your power", m_Level), 22.0f * inScale, Vec4(1.0f, 0.9f, 0.8f, 0.85f * alpha), UI_TEXT_ALIGN_CENTER, inScale);
 
-        const Vec2 card_size = Vec2(300.0f, 380.0f) * inScale;
+        const Vec2 card_size = Vec2(300.0f, 400.0f) * inScale;
         const float gap = 32.0f * inScale;
         const float total_width = m_ChoiceCount * card_size.x + ( m_ChoiceCount - 1 ) * gap;
 
@@ -4532,48 +4592,49 @@ private:
             if (selected)
             {
                 const float pulse = 0.5f + 0.5f * glm::sin(m_Time * 5.0f);
-                g_UIRenderer.AddRectFilled(pos - Vec2(6.0f * inScale), card_size + Vec2(12.0f * inScale), 22.0f * inScale, Fade(accent, ( 0.25f + 0.2f * pulse ) * card_alpha), 26.0f * inScale);
+                g_UIRenderer.AddRectFilled(pos - Vec2(6.0f * inScale), card_size + Vec2(12.0f * inScale), 22.0f * inScale, Fade(accent, ( 0.3f + 0.25f * pulse ) * card_alpha), 30.0f * inScale);
             }
 
-            g_UIRenderer.AddRectFilled(pos + Vec2(0.0f, 10.0f) * inScale, card_size, 18.0f * inScale, Vec4(0.0f, 0.0f, 0.0f, 0.5f * card_alpha), 20.0f * inScale);
-            g_UIRenderer.AddRectGradient(pos, card_size, 18.0f * inScale, Vec4(info.mColor * 0.22f + Vec3(0.04f, 0.035f, 0.07f), 0.97f * card_alpha), Vec4(0.035f, 0.03f, 0.06f, 0.97f * card_alpha));
-            g_UIRenderer.AddRect(pos, card_size, 18.0f * inScale, ( selected ? 2.5f : 1.5f ) * inScale, Fade(accent, ( selected ? 0.95f : 0.35f ) * card_alpha));
+            DrawPanel(pos, card_size, inScale, accent, card_alpha);
+
+            if (selected)
+                g_UIRenderer.AddRect(pos + Vec2(20.0f * inScale), card_size - Vec2(40.0f * inScale), 6.0f * inScale, 2.0f * inScale, Fade(accent, 0.8f * card_alpha));
 
             const float center = pos.x + card_size.x * 0.5f;
-            const Vec2 icon_center = Vec2(center, pos.y + 104.0f * inScale);
+            const Vec2 icon_center = Vec2(center, pos.y + 112.0f * inScale);
+            const float ring_radius = 64.0f * inScale;
 
-            g_UIRenderer.AddCircleFilled(icon_center, 56.0f * inScale, Vec4(0.03f, 0.025f, 0.05f, card_alpha));
-            g_UIRenderer.AddArc(icon_center, 56.0f * inScale, 3.0f * inScale, -glm::half_pi<float>(), 1.0f, Fade(accent, 0.6f * card_alpha));
-            DrawUpgradeIcon(upgrade, icon_center, 34.0f * inScale, card_alpha);
+            g_UIRenderer.AddImage(icon_center - Vec2(ring_radius), Vec2(ring_radius * 2.0f), m_RuneRingTexture, Vec4(1.0f, 1.0f, 1.0f, card_alpha));
+            DrawUpgradeIcon(upgrade, icon_center, 30.0f * inScale, card_alpha);
 
-            g_UIRenderer.AddText(Vec2(pos.x + 16.0f * inScale, pos.y + 14.0f * inScale), std::format("{}", choice + 1), 16.0f * inScale, Vec4(1.0f, 1.0f, 1.0f, 0.4f * card_alpha));
+            DrawShadowText(Vec2(pos.x + 40.0f * inScale, pos.y + 30.0f * inScale), std::format("{}", choice + 1), 20.0f * inScale, Fade(cGold, 0.7f * card_alpha), UI_TEXT_ALIGN_CENTER, inScale);
 
-            DrawShadowText(Vec2(center, pos.y + 180.0f * inScale), info.mName, 27.0f * inScale, Vec4(glm::mix(info.mColor, Vec3(1.0f), 0.3f), card_alpha), UI_TEXT_ALIGN_CENTER, inScale);
+            DrawShadowText(Vec2(center, pos.y + 190.0f * inScale), info.mName, 28.0f * inScale, Vec4(glm::mix(info.mColor, Vec3(1.0f), 0.3f), card_alpha), UI_TEXT_ALIGN_CENTER, inScale);
 
             const bool is_new = upgrade != UPGRADE_FEAST && m_UpgradeLevels[upgrade] == 0;
             const String chip = upgrade == UPGRADE_FEAST ? String("RESTORE") : is_new ? String(info.mIsWeapon ? "NEW WEAPON" : "NEW") : std::format("LV {}  >  {}", m_UpgradeLevels[upgrade], m_UpgradeLevels[upgrade] + 1);
-            const Vec2 chip_extent = g_UIRenderer.MeasureText(chip, 14.0f * inScale);
-            const Vec2 chip_pos = Vec2(center - chip_extent.x * 0.5f - 12.0f * inScale, pos.y + 222.0f * inScale);
+            const Vec2 chip_extent = g_UIRenderer.MeasureText(chip, 15.0f * inScale);
+            const Vec2 chip_pos = Vec2(center - chip_extent.x * 0.5f - 12.0f * inScale, pos.y + 234.0f * inScale);
 
-            g_UIRenderer.AddRectFilled(chip_pos, Vec2(chip_extent.x + 24.0f * inScale, 24.0f * inScale), 12.0f * inScale, is_new ? Fade(accent, 0.9f * card_alpha) : Vec4(1.0f, 1.0f, 1.0f, 0.1f * card_alpha));
-            g_UIRenderer.AddText(Vec2(center, chip_pos.y + 4.0f * inScale), chip, 14.0f * inScale, is_new ? Vec4(0.05f, 0.04f, 0.08f, card_alpha) : Vec4(1.0f, 0.85f, 0.5f, card_alpha), UI_TEXT_ALIGN_CENTER);
+            g_UIRenderer.AddRectFilled(chip_pos, Vec2(chip_extent.x + 24.0f * inScale, 26.0f * inScale), 13.0f * inScale, is_new ? Fade(accent, 0.9f * card_alpha) : Vec4(1.0f, 1.0f, 1.0f, 0.1f * card_alpha));
+            g_UIRenderer.AddText(Vec2(center, chip_pos.y + 4.0f * inScale), chip, 15.0f * inScale, is_new ? Vec4(0.05f, 0.04f, 0.08f, card_alpha) : Fade(cGold, card_alpha), UI_TEXT_ALIGN_CENTER);
 
-            g_UIRenderer.AddText(Vec2(center, pos.y + 266.0f * inScale), info.mDescription, 17.0f * inScale, Vec4(0.9f, 0.88f, 0.86f, 0.9f * card_alpha), UI_TEXT_ALIGN_CENTER);
+            g_UIRenderer.AddText(Vec2(center, pos.y + 278.0f * inScale), info.mDescription, 18.0f * inScale, Vec4(0.92f, 0.89f, 0.85f, 0.95f * card_alpha), UI_TEXT_ALIGN_CENTER);
 
             if (upgrade != UPGRADE_FEAST)
             {
                 for (int pip = 0; pip < cMaxUpgradeLevel; pip++)
                 {
-                    const Vec2 pip_pos = Vec2(center + ( float(pip) - 2.0f ) * 22.0f * inScale, pos.y + card_size.y - 28.0f * inScale);
+                    const Vec2 pip_pos = Vec2(center + ( float(pip) - 2.0f ) * 26.0f * inScale, pos.y + card_size.y - 50.0f * inScale);
                     const bool filled = pip < m_UpgradeLevels[upgrade];
                     const bool next = pip == m_UpgradeLevels[upgrade];
                     const float blink = next ? 0.5f + 0.5f * glm::sin(m_Time * 6.0f) : 1.0f;
-                    g_UIRenderer.AddRectRotated(pip_pos, Vec2(11.0f) * inScale, glm::quarter_pi<float>(), 2.0f * inScale, filled ? Fade(accent, card_alpha) : next ? Fade(accent, blink * card_alpha) : Vec4(1.0f, 1.0f, 1.0f, 0.12f * card_alpha));
+                    DrawGem(pip_pos, 22.0f * inScale, filled ? Fade(accent, card_alpha) : next ? Fade(accent, blink * card_alpha) : Vec4(0.25f, 0.22f, 0.3f, 0.6f * card_alpha));
                 }
             }
         }
 
-        g_UIRenderer.AddText(Vec2(inDisplay.x * 0.5f, inDisplay.y * 0.5f + 250.0f * inScale), "1 / 2 / 3 to pick     A / D to browse     ENTER to confirm", 18.0f * inScale, Vec4(1.0f, 0.9f, 0.75f, 0.7f * alpha), UI_TEXT_ALIGN_CENTER);
+        DrawShadowText(Vec2(inDisplay.x * 0.5f, inDisplay.y * 0.5f + 270.0f * inScale), "1 / 2 / 3 to pick     A / D to browse     ENTER to confirm", 20.0f * inScale, Vec4(1.0f, 0.9f, 0.75f, 0.8f * alpha), UI_TEXT_ALIGN_CENTER, inScale);
     }
 
     void DrawEndScreen(const Vec2& inDisplay, float inScale)
@@ -4584,15 +4645,14 @@ private:
 
         g_UIRenderer.AddRectFilled(Vec2(0.0f), inDisplay, 0.0f, Vec4(0.02f, 0.0f, 0.02f, 0.6f * alpha));
 
-        const Vec2 size = Vec2(620.0f, 380.0f) * inScale;
+        const Vec2 size = Vec2(640.0f, 400.0f) * inScale;
         const Vec2 pos = inDisplay * 0.5f - size * 0.5f + Vec2(0.0f, ( 1.0f - EaseOutCubic(alpha) ) * 40.0f * inScale);
+        const float center = inDisplay.x * 0.5f;
 
         DrawPanel(pos, size, inScale, accent, alpha);
-
-        const float center = inDisplay.x * 0.5f;
-        g_UIRenderer.AddCircleFilled(Vec2(center, pos.y + 70.0f * inScale), 140.0f * inScale, Fade(accent, 0.08f * alpha), 100.0f * inScale);
-        DrawShadowText(Vec2(center, pos.y + 34.0f * inScale), victory ? "DAWN BREAKS" : "YOU FELL", 66.0f * inScale, Fade(accent, alpha), UI_TEXT_ALIGN_CENTER, inScale);
-        g_UIRenderer.AddText(Vec2(center, pos.y + 112.0f * inScale), victory ? "The swarm retreats from the light" : "The night claims another soul", 18.0f * inScale, Vec4(1.0f, 0.9f, 0.85f, 0.75f * alpha), UI_TEXT_ALIGN_CENTER);
+        DrawBanner(Vec2(center, pos.y + 4.0f * inScale), Vec2(560.0f, 90.0f) * inScale, alpha);
+        DrawTitle(Vec2(center, pos.y - 40.0f * inScale), victory ? "DAWN BREAKS" : "YOU FELL", 60.0f * inScale, Fade(accent, alpha), inScale);
+        DrawShadowText(Vec2(center, pos.y + 70.0f * inScale), victory ? "The swarm retreats from the light" : "The night claims another soul", 20.0f * inScale, Vec4(1.0f, 0.9f, 0.85f, 0.8f * alpha), UI_TEXT_ALIGN_CENTER, inScale);
 
         const StaticArray<std::pair<String, String>, 6> stats =
         {
@@ -4608,16 +4668,16 @@ private:
         {
             const float column = float(index % 3);
             const float row = float(index / 3);
-            const Vec2 cell = Vec2(pos.x + size.x * ( 0.2f + 0.3f * column ), pos.y + 170.0f * inScale + row * 72.0f * inScale);
+            const Vec2 cell = Vec2(pos.x + size.x * ( 0.2f + 0.3f * column ), pos.y + 130.0f * inScale + row * 86.0f * inScale);
 
-            g_UIRenderer.AddText(cell, stats[index].second, 30.0f * inScale, Vec4(1.0f, 1.0f, 1.0f, alpha), UI_TEXT_ALIGN_CENTER);
-            g_UIRenderer.AddText(cell + Vec2(0.0f, 36.0f * inScale), stats[index].first, 13.0f * inScale, Fade(accent, 0.8f * alpha), UI_TEXT_ALIGN_CENTER);
+            DrawShadowText(cell, stats[index].second, 34.0f * inScale, Fade(cParchment, alpha), UI_TEXT_ALIGN_CENTER, inScale);
+            DrawShadowText(cell + Vec2(0.0f, 42.0f * inScale), stats[index].first, 15.0f * inScale, Fade(accent, 0.9f * alpha), UI_TEXT_ALIGN_CENTER, inScale);
         }
 
-        g_UIRenderer.AddText(Vec2(center, pos.y + 318.0f * inScale), std::format("Best {}", FormatTime(m_BestTime)), 16.0f * inScale, Vec4(1.0f, 0.85f, 0.6f, 0.7f * alpha), UI_TEXT_ALIGN_CENTER);
+        DrawShadowText(Vec2(center, pos.y + 318.0f * inScale), std::format("Best {}", FormatTime(m_BestTime)), 18.0f * inScale, Fade(cGold, 0.8f * alpha), UI_TEXT_ALIGN_CENTER, inScale);
 
         const float blink = 0.6f + 0.4f * glm::sin(m_Time * 4.0f);
-        g_UIRenderer.AddText(Vec2(center, pos.y + size.y + 24.0f * inScale), "Press ENTER to play again", 22.0f * inScale, Vec4(1.0f, 0.85f, 0.4f, alpha * blink), UI_TEXT_ALIGN_CENTER);
+        DrawShadowText(Vec2(center, pos.y + size.y + 24.0f * inScale), "Press ENTER to play again", 26.0f * inScale, Fade(cGold, alpha * blink), UI_TEXT_ALIGN_CENTER, inScale);
     }
 
 private:
@@ -4632,6 +4692,17 @@ private:
     uint32_t m_PaletteTexture = 0;
     uint32_t m_PaletteEmissiveTexture = 0;
     HashMap<String, Array<PartTemplate>> m_MeshTemplates;
+
+    uint32_t m_FrameTexture = 0;
+    uint32_t m_BarFrameTexture = 0;
+    uint32_t m_BarSheenTexture = 0;
+    uint32_t m_RuneRingTexture = 0;
+    uint32_t m_HeartTexture = 0;
+    uint32_t m_SkullTexture = 0;
+    uint32_t m_BannerTexture = 0;
+    uint32_t m_GemTexture = 0;
+    int m_HudFont = 0;
+    int m_TitleFont = 0;
 
     Entity m_RootEntity = Entity::Null;
     Entity m_CameraEntity = Entity::Null;
