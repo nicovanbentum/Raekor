@@ -17,6 +17,46 @@ static constexpr uint32_t cCodepointCount = cLastCodepoint - cFirstCodepoint + 1
 
 bool UIRenderer::LoadFont(const Path& inPath)
 {
+    UIFont font;
+
+    if (!BuildFont(inPath, font))
+        return false;
+
+    if (m_Fonts.empty())
+        m_Fonts.push_back(std::move(font));
+    else
+        m_Fonts[0] = std::move(font);
+
+    m_FontsVersion++;
+    return true;
+}
+
+
+int UIRenderer::AddFont(const Path& inPath)
+{
+    for (const auto& [index, font] : gEnumerate(m_Fonts))
+    {
+        if (font.mPath == inPath)
+            return int(index);
+    }
+
+    UIFont font;
+
+    if (!BuildFont(inPath, font))
+        return 0;
+
+    if (m_Fonts.empty())
+        m_Fonts.emplace_back();
+
+    m_Fonts.push_back(std::move(font));
+    m_FontsVersion++;
+
+    return int(m_Fonts.size()) - 1;
+}
+
+
+bool UIRenderer::BuildFont(const Path& inPath, UIFont& outFont) const
+{
     File file = File(inPath, std::ios::binary | std::ios::in);
 
     if (!file.is_open())
@@ -126,15 +166,15 @@ bool UIRenderer::LoadFont(const Path& inPath)
             kerning[first * cCodepointCount + second] = stbtt_GetCodepointKernAdvance(&font_info, first + cFirstCodepoint, second + cFirstCodepoint) * scale;
     }
 
-    m_FontAtlas = std::move(atlas);
-    m_FontAtlasHeight = atlas_height;
-    m_FontAtlasVersion++;
-    m_Glyphs = std::move(glyphs);
-    m_Kerning = std::move(kerning);
+    outFont.mPath = inPath;
+    outFont.mAtlas = std::move(atlas);
+    outFont.mAtlasHeight = atlas_height;
+    outFont.mGlyphs = std::move(glyphs);
+    outFont.mKerning = std::move(kerning);
 
-    m_Ascent = ascent * scale;
-    m_Descent = descent * scale;
-    m_LineGap = line_gap * scale;
+    outFont.mAscent = ascent * scale;
+    outFont.mDescent = descent * scale;
+    outFont.mLineGap = line_gap * scale;
 
     gLogInfo("UI", "Built a {}x{} SDF font atlas from {}", cFontAtlasWidth, atlas_height, inPath.filename().string());
 
@@ -145,6 +185,59 @@ bool UIRenderer::LoadFont(const Path& inPath)
 void UIRenderer::Reset()
 {
     m_Primitives.clear();
+    m_CurrentFont = 0;
+}
+
+
+const UIFont* UIRenderer::GetCurrentFont() const
+{
+    if (m_CurrentFont > 0 && m_CurrentFont < int(m_Fonts.size()) && !m_Fonts[m_CurrentFont].mAtlas.empty())
+        return &m_Fonts[m_CurrentFont];
+
+    return HasFont() ? &m_Fonts[0] : nullptr;
+}
+
+
+void UIRenderer::AddImage(Vec2 inPos, Vec2 inSize, uint32_t inTexture, Vec4 inTint, Vec4 inUVRect, float inRadius)
+{
+    m_Primitives.push_back(UIPrimitive
+    {
+        .mColor = inTint,
+        .mRect = Vec4(inPos, inPos + inSize),
+        .mUVRect = inUVRect,
+        .mRadius = glm::min(inRadius, glm::min(inSize.x, inSize.y) * 0.5f),
+        .mType = UI_PRIMITIVE_IMAGE,
+        .mTexture = inTexture
+    });
+}
+
+
+void UIRenderer::AddImageRotated(Vec2 inCenter, Vec2 inSize, float inRotation, uint32_t inTexture, Vec4 inTint, Vec4 inUVRect)
+{
+    m_Primitives.push_back(UIPrimitive
+    {
+        .mColor = inTint,
+        .mRect = Vec4(inCenter - inSize * 0.5f, inCenter + inSize * 0.5f),
+        .mUVRect = inUVRect,
+        .mType = UI_PRIMITIVE_IMAGE,
+        .mRotation = inRotation,
+        .mTexture = inTexture
+    });
+}
+
+
+void UIRenderer::AddImageSliced(Vec2 inPos, Vec2 inSize, uint32_t inTexture, float inBorder, float inBorderUV, Vec4 inTint, Vec4 inUVRect)
+{
+    m_Primitives.push_back(UIPrimitive
+    {
+        .mColor = inTint,
+        .mRect = Vec4(inPos, inPos + inSize),
+        .mUVRect = inUVRect,
+        .mType = UI_PRIMITIVE_IMAGE_SLICED,
+        .mTexture = inTexture,
+        .mSliceBorder = inBorder,
+        .mSliceUV = inBorderUV
+    });
 }
 
 
@@ -235,30 +328,32 @@ void UIRenderer::AddArc(Vec2 inCenter, float inRadius, float inThickness, float 
 }
 
 
-const UIGlyph* UIRenderer::GetGlyph(uint32_t inCodepoint) const
+const UIGlyph* UIRenderer::GetGlyph(const UIFont& inFont, uint32_t inCodepoint) const
 {
-    const auto glyph = m_Glyphs.find(inCodepoint);
+    const auto glyph = inFont.mGlyphs.find(inCodepoint);
 
-    if (glyph != m_Glyphs.end())
+    if (glyph != inFont.mGlyphs.end())
         return &glyph->second;
 
-    const auto fallback = m_Glyphs.find('?');
-    return fallback != m_Glyphs.end() ? &fallback->second : nullptr;
+    const auto fallback = inFont.mGlyphs.find('?');
+    return fallback != inFont.mGlyphs.end() ? &fallback->second : nullptr;
 }
 
 
-float UIRenderer::GetKerning(uint32_t inFirst, uint32_t inSecond) const
+float UIRenderer::GetKerning(const UIFont& inFont, uint32_t inFirst, uint32_t inSecond) const
 {
     if (inFirst < cFirstCodepoint || inFirst > cLastCodepoint || inSecond < cFirstCodepoint || inSecond > cLastCodepoint)
         return 0.0f;
 
-    return m_Kerning[( inFirst - cFirstCodepoint ) * cCodepointCount + ( inSecond - cFirstCodepoint )];
+    return inFont.mKerning[( inFirst - cFirstCodepoint ) * cCodepointCount + ( inSecond - cFirstCodepoint )];
 }
 
 
 Vec2 UIRenderer::MeasureText(StringView inText, float inSize) const
 {
-    if (!HasFont())
+    const UIFont* font = GetCurrentFont();
+
+    if (font == nullptr)
         return Vec2(0.0f);
 
     const float scale = inSize / cFontAtlasPixelHeight;
@@ -281,29 +376,57 @@ Vec2 UIRenderer::MeasureText(StringView inText, float inSize) const
             continue;
         }
 
-        if (const UIGlyph* glyph = GetGlyph(codepoint))
-            line_width += ( glyph->mAdvance + GetKerning(previous, codepoint) ) * scale;
+        if (const UIGlyph* glyph = GetGlyph(*font, codepoint))
+            line_width += ( glyph->mAdvance + GetKerning(*font, previous, codepoint) ) * scale;
 
         previous = codepoint;
     }
 
     width = glm::max(width, line_width);
 
-    const float line_height = ( m_Ascent - m_Descent + m_LineGap ) * scale;
-    return Vec2(width, ( m_Ascent - m_Descent ) * scale + line_height * ( line_count - 1 ));
+    const float line_height = ( font->mAscent - font->mDescent + font->mLineGap ) * scale;
+    return Vec2(width, ( font->mAscent - font->mDescent ) * scale + line_height * ( line_count - 1 ));
 }
 
 
 float UIRenderer::AddText(Vec2 inPos, StringView inText, float inSize, Vec4 inColor, EUITextAlign inAlign)
 {
-    if (!HasFont() || inText.empty())
+    return EmitText(inPos, inText, inSize, inColor, inAlign, 0.0f, 0.0f);
+}
+
+
+float UIRenderer::AddTextOutlined(Vec2 inPos, StringView inText, float inSize, Vec4 inColor, Vec4 inOutlineColor, float inOutlineWidth, EUITextAlign inAlign)
+{
+    const float max_outline = float(cFontAtlasPadding) * inSize / cFontAtlasPixelHeight - 1.0f;
+
+    EmitText(inPos, inText, inSize, inOutlineColor, inAlign, glm::min(inOutlineWidth, max_outline), 0.0f);
+    return EmitText(inPos, inText, inSize, inColor, inAlign, 0.0f, 0.0f);
+}
+
+
+float UIRenderer::AddTextGlow(Vec2 inPos, StringView inText, float inSize, Vec4 inColor, Vec4 inGlowColor, float inGlowRadius, EUITextAlign inAlign)
+{
+    const float max_glow = float(cFontAtlasPadding) * inSize / cFontAtlasPixelHeight - 1.0f;
+    const float glow = glm::min(inGlowRadius, max_glow);
+
+    EmitText(inPos, inText, inSize, inGlowColor, inAlign, glow * 0.25f, glow);
+    return EmitText(inPos, inText, inSize, inColor, inAlign, 0.0f, 0.0f);
+}
+
+
+float UIRenderer::EmitText(Vec2 inPos, StringView inText, float inSize, Vec4 inColor, EUITextAlign inAlign, float inDilate, float inSoftness)
+{
+    const UIFont* font = GetCurrentFont();
+
+    if (font == nullptr || inText.empty())
         return 0.0f;
 
+    const uint32_t font_index = uint32_t(font - m_Fonts.data());
     const float scale = inSize / cFontAtlasPixelHeight;
-    const float line_height = ( m_Ascent - m_Descent + m_LineGap ) * scale;
+    const float line_height = ( font->mAscent - font->mDescent + font->mLineGap ) * scale;
 
     float widest_line = 0.0f;
-    float baseline = inPos.y + m_Ascent * scale;
+    float baseline = inPos.y + font->mAscent * scale;
 
     size_t line_start = 0;
 
@@ -329,12 +452,12 @@ float UIRenderer::AddText(Vec2 inPos, StringView inText, float inSize, Vec4 inCo
         for (const char character : line)
         {
             const uint32_t codepoint = uint8_t(character);
-            const UIGlyph* glyph = GetGlyph(codepoint);
+            const UIGlyph* glyph = GetGlyph(*font, codepoint);
 
             if (glyph == nullptr)
                 continue;
 
-            pen_x += GetKerning(previous, codepoint) * scale;
+            pen_x += GetKerning(*font, previous, codepoint) * scale;
 
             if (glyph->mSize.x > 0.0f && glyph->mSize.y > 0.0f)
             {
@@ -347,7 +470,10 @@ float UIRenderer::AddText(Vec2 inPos, StringView inText, float inSize, Vec4 inCo
                     .mRect = Vec4(glyph_min, glyph_max),
                     .mUVRect = glyph->mUVRect,
                     .mRadius = scale,
-                    .mType = UI_PRIMITIVE_GLYPH
+                    .mThickness = inDilate,
+                    .mSoftness = inSoftness,
+                    .mType = UI_PRIMITIVE_GLYPH,
+                    .mTexture = font_index
                 });
             }
 

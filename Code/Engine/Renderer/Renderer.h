@@ -178,7 +178,7 @@ private:
     Mesh                        m_ProbeDebugMesh;
     TextureID                   m_BlackTexture;
     TextureID                   m_WhiteTexture;
-    TextureID                   m_FontAtlasTexture;
+    Array<TextureID>            m_FontAtlasTextures;
     uint32_t                    m_FontAtlasVersion = 0;
     BackBufferData              m_BackBufferData[sFrameCount];
     FrameConstants              m_FrameConstants = {};

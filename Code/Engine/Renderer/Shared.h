@@ -588,6 +588,8 @@ enum EUIPrimitiveType
     UI_PRIMITIVE_RECT_GRADIENT_V,
     UI_PRIMITIVE_RECT_GRADIENT_H,
     UI_PRIMITIVE_ARC,
+    UI_PRIMITIVE_IMAGE,
+    UI_PRIMITIVE_IMAGE_SLICED,
 };
 
 struct UIPrimitive
@@ -600,15 +602,17 @@ struct UIPrimitive
     float  mSoftness;
     uint   mType;
     float  mRotation;
+    uint   mTexture;
+    float  mSliceBorder;
+    float  mSliceUV;
 };
 
 struct SDFUIRootConstants
 {
+    float2 mInvRenderSize;
     uint   mPrimitivesBuffer;
-    uint   mFontAtlasTexture;
     float  mFontDistanceRange;
     float  mFontAtlasPixelHeight;
-    float2 mInvRenderSize;
 };
 
 

@@ -166,24 +166,40 @@ void Renderer::CreateProbeDebugMesh(Device& inDevice)
 
 void Renderer::UpdateFontAtlas(Device& inDevice)
 {
-    if (!g_UIRenderer.HasFont() || g_UIRenderer.GetFontAtlasVersion() == m_FontAtlasVersion)
+    if (g_UIRenderer.GetFontsVersion() == m_FontAtlasVersion)
         return;
 
-    if (m_FontAtlasTexture.IsValid())
-        inDevice.ReleaseTexture(m_FontAtlasTexture);
-
-    m_FontAtlasTexture = inDevice.CreateTexture(Texture::Desc
+    for (TextureID texture : m_FontAtlasTextures)
     {
-        .format = DXGI_FORMAT_R8_UNORM,
-        .width  = g_UIRenderer.GetFontAtlasWidth(),
-        .height = g_UIRenderer.GetFontAtlasHeight(),
-        .usage  = Texture::Usage::SHADER_READ_ONLY,
-        .debugName = "UIFontAtlas"
-    });
+        if (texture.IsValid())
+            inDevice.ReleaseTexture(texture);
+    }
 
-    inDevice.UploadTextureData(inDevice.GetTexture(m_FontAtlasTexture), 0, 0, g_UIRenderer.GetFontAtlasWidth(), g_UIRenderer.GetFontAtlas().data());
+    m_FontAtlasTextures.clear();
 
-    m_FontAtlasVersion = g_UIRenderer.GetFontAtlasVersion();
+    for (uint32_t font = 0; font < g_UIRenderer.GetFontCount(); font++)
+    {
+        if (g_UIRenderer.GetFontAtlas(font).empty())
+        {
+            m_FontAtlasTextures.push_back(TextureID());
+            continue;
+        }
+
+        const TextureID texture = inDevice.CreateTexture(Texture::Desc
+        {
+            .format = DXGI_FORMAT_R8_UNORM,
+            .width  = g_UIRenderer.GetFontAtlasWidth(),
+            .height = g_UIRenderer.GetFontAtlasHeight(font),
+            .usage  = Texture::Usage::SHADER_READ_ONLY,
+            .debugName = "UIFontAtlas"
+        });
+
+        inDevice.UploadTextureData(inDevice.GetTexture(texture), 0, 0, g_UIRenderer.GetFontAtlasWidth(), g_UIRenderer.GetFontAtlas(font).data());
+
+        m_FontAtlasTextures.push_back(texture);
+    }
+
+    m_FontAtlasVersion = g_UIRenderer.GetFontsVersion();
 }
 
 
@@ -729,7 +745,7 @@ void Renderer::Recompile(Device& inDevice)
     }
 
     // Render UI on top
-    const SDFUIData& sdfui_data = AddSDFUIPass(m_RenderGraph, inDevice, final_output, m_FontAtlasTexture);
+    const SDFUIData& sdfui_data = AddSDFUIPass(m_RenderGraph, inDevice, final_output, m_FontAtlasTextures);
 
     switch (debug_texture)
     {

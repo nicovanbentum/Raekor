@@ -24,6 +24,20 @@ float Coverage(float inDistance, float inSoftness)
 }
 
 
+float SliceAxis(float inPosition, float inSize, float inBorder, float inBorderUV)
+{
+    const float border = min(inBorder, inSize * 0.5);
+
+    if (inPosition < border)
+        return inPosition / max(border, 1e-4) * inBorderUV;
+
+    if (inPosition > inSize - border)
+        return 1.0 - ( inSize - inPosition ) / max(border, 1e-4) * inBorderUV;
+
+    return inBorderUV + ( inPosition - border ) / max(inSize - border * 2.0, 1e-4) * ( 1.0 - inBorderUV * 2.0 );
+}
+
+
 float4 main(in VS_OUTPUT inParams) : SV_Target0
 {
     StructuredBuffer<UIPrimitive> primitives = ResourceDescriptorHeap[rc.mPrimitivesBuffer];
@@ -77,17 +91,40 @@ float4 main(in VS_OUTPUT inParams) : SV_Target0
         const float distance = length(inParams.mPixel - center) - primitive.mRadius;
         coverage = Coverage(distance, primitive.mSoftness);
     }
+    else if (primitive.mType == UI_PRIMITIVE_IMAGE || primitive.mType == UI_PRIMITIVE_IMAGE_SLICED)
+    {
+        coverage = Coverage(RoundedBoxDistance(local, half_size, primitive.mRadius), primitive.mSoftness);
+
+        float2 t = local / max(half_size * 2.0, 1e-4) + 0.5;
+
+        if (primitive.mType == UI_PRIMITIVE_IMAGE_SLICED)
+        {
+            const float2 position = local + half_size;
+            t = float2(SliceAxis(position.x, half_size.x * 2.0, primitive.mSliceBorder, primitive.mSliceUV), SliceAxis(position.y, half_size.y * 2.0, primitive.mSliceBorder, primitive.mSliceUV));
+        }
+
+        if (primitive.mTexture != 0)
+        {
+            Texture2D<float4> image = ResourceDescriptorHeap[NonUniformResourceIndex(primitive.mTexture)];
+            const float2 uv = lerp(primitive.mUVRect.xy, primitive.mUVRect.zw, t);
+
+            if (primitive.mType == UI_PRIMITIVE_IMAGE_SLICED)
+                color *= image.SampleLevel(SamplerLinearClamp, uv, 0);
+            else
+                color *= image.Sample(SamplerLinearWrap, uv);
+        }
+    }
     else if (primitive.mType == UI_PRIMITIVE_GLYPH)
     {
-        Texture2D<float> font_atlas = ResourceDescriptorHeap[rc.mFontAtlasTexture];
+        Texture2D<float> font_atlas = ResourceDescriptorHeap[NonUniformResourceIndex(primitive.mTexture)];
 
         const float2 uv = lerp(primitive.mUVRect.xy, primitive.mUVRect.zw, ( inParams.mPixel - primitive.mRect.xy ) / max(primitive.mRect.zw - primitive.mRect.xy, 1e-4));
         const float sampled = font_atlas.SampleLevel(SamplerLinearClamp, uv, 0);
 
         const float atlas_distance = ( 0.5 - sampled ) * 2.0 * rc.mFontDistanceRange;
-        const float screen_distance = atlas_distance * primitive.mRadius;
+        const float screen_distance = atlas_distance * primitive.mRadius - primitive.mThickness;
 
-        coverage = Coverage(screen_distance, 0.0);
+        coverage = Coverage(screen_distance, primitive.mSoftness);
     }
 
     return float4(color.rgb, color.a * coverage);

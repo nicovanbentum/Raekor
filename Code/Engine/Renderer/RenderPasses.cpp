@@ -1604,7 +1604,7 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, 
 
 
 
-const SDFUIData& AddSDFUIPass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inRenderTarget, const TextureID& inFontAtlas)
+const SDFUIData& AddSDFUIPass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inRenderTarget, const Array<TextureID>& inFontAtlases)
 {
     return inRenderGraph.AddGraphicsPass<SDFUIData>("SDFUI",
     [&](RenderGraphBuilder& inBuilder, IRenderPass* inRenderPass, SDFUIData& inData)
@@ -1636,7 +1636,7 @@ const SDFUIData& AddSDFUIPass(RenderGraph& inRenderGraph, Device& inDevice, Rend
         inData.mPipeline->SetName(L"PSO_SDFUI");
     },
 
-    [&inRenderGraph, &inDevice, &inFontAtlas](SDFUIData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+    [&inRenderGraph, &inDevice, &inFontAtlases](SDFUIData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
         Slice<const UIPrimitive> primitives = g_UIRenderer.GetPrimitives();
 
@@ -1646,8 +1646,23 @@ const SDFUIData& AddSDFUIPass(RenderGraph& inRenderGraph, Device& inDevice, Rend
         if (primitives.size() > SDFUIData::cMaxPrimitives)
             primitives = primitives.first(SDFUIData::cMaxPrimitives);
 
+        inData.mUploadPrimitives.assign(primitives.begin(), primitives.end());
+
+        for (UIPrimitive& primitive : inData.mUploadPrimitives)
+        {
+            if (primitive.mType == UI_PRIMITIVE_GLYPH)
+            {
+                const bool valid = primitive.mTexture < inFontAtlases.size() && inFontAtlases[primitive.mTexture].IsValid();
+                primitive.mTexture = valid ? inDevice.GetBindlessHeapIndex(inFontAtlases[primitive.mTexture]) : 0u;
+            }
+            else if (primitive.mTexture != 0)
+            {
+                primitive.mTexture = inDevice.GetBindlessHeapIndex(TextureID(primitive.mTexture));
+            }
+        }
+
         Buffer& primitives_buffer = inDevice.GetBuffer(inResources.GetBuffer(inData.mPrimitivesBuffer));
-        inDevice.UploadBufferData(inCmdList, primitives_buffer, 0, primitives.data(), primitives.size_bytes());
+        inDevice.UploadBufferData(inCmdList, primitives_buffer, 0, inData.mUploadPrimitives.data(), inData.mUploadPrimitives.size() * sizeof(UIPrimitive));
 
         const auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(primitives_buffer.GetD3D12Resource(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
         inCmdList->ResourceBarrier(1, &barrier);
@@ -1657,11 +1672,10 @@ const SDFUIData& AddSDFUIPass(RenderGraph& inRenderGraph, Device& inDevice, Rend
 
         inCmdList.PushGraphicsConstants(SDFUIRootConstants
         {
+            .mInvRenderSize = 1.0f / Vec2(inRenderGraph.GetViewport().GetDisplaySize()),
             .mPrimitivesBuffer = inResources.GetBindlessHeapIndex(inData.mPrimitivesBufferSRV),
-            .mFontAtlasTexture = inFontAtlas.IsValid() ? inDevice.GetBindlessHeapIndex(inFontAtlas) : 0u,
             .mFontDistanceRange = g_UIRenderer.GetFontDistanceRange(),
             .mFontAtlasPixelHeight = UIRenderer::cFontAtlasPixelHeight,
-            .mInvRenderSize = 1.0f / Vec2(inRenderGraph.GetViewport().GetDisplaySize()),
         });
 
         inCmdList->DrawInstanced(6, uint32_t(primitives.size()), 0, 0);

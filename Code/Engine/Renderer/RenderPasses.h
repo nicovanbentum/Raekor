@@ -547,12 +547,13 @@ struct SDFUIData
     RenderGraphResourceID mPrimitivesBuffer;
     RenderGraphResourceViewID mPrimitivesBufferSRV;
     ComPtr<ID3D12PipelineState> mPipeline;
+    Array<UIPrimitive> mUploadPrimitives;
 };
 
 
 const SDFUIData& AddSDFUIPass(RenderGraph& inRenderGraph, Device& inDevice,
     RenderGraphResourceID inRenderTarget,
-    const TextureID& inFontAtlas);
+    const Array<TextureID>& inFontAtlases);
 
 
 
