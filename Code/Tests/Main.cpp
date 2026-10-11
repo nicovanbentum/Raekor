@@ -513,6 +513,28 @@ static void sTestTransformHierarchy()
 
 	CHECK(!scene.Exists(c) && !scene.Exists(e));
 	CHECK(WorldPosition(d) == Vec3(6.0f, 0.0f, 0.0f));
+
+	const Entity rotated = CreateNode(Vec3(1.0f, 2.0f, 3.0f), d);
+	Transform& rotated_transform = scene.Get<Transform>(rotated);
+	rotated_transform.rotation = glm::angleAxis(0.7f, glm::normalize(Vec3(1.0f, 2.0f, 0.5f)));
+	rotated_transform.scale = Vec3(0.5f, 2.0f, 1.5f);
+	rotated_transform.Compose();
+
+	Transform& parent_transform = scene.Get<Transform>(d);
+	parent_transform.rotation = glm::angleAxis(-1.3f, glm::normalize(Vec3(0.2f, 1.0f, -0.4f)));
+	parent_transform.scale = Vec3(3.0f, 1.0f, 0.25f);
+	parent_transform.Compose();
+
+	scene.UpdateTransforms();
+
+	const Mat4x4 expected = parent_transform.localTransform * rotated_transform.localTransform;
+	const Mat4x4& world = scene.Get<Transform>(rotated).worldTransform;
+
+	for (int column = 0; column < 4; column++)
+	{
+		for (int row = 0; row < 4; row++)
+			CHECK(glm::abs(world[column][row] - expected[column][row]) < 1e-5f);
+	}
 }
 
 
@@ -690,6 +712,7 @@ static void sTestJobSystem()
 
 	CHECK(nested_sum.load() == 32 * 8);
 }
+
 
 
 }

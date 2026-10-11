@@ -170,6 +170,27 @@ void Scene::RebuildTransformOrder(const ComponentStorage<Transform>& inTransform
 }
 
 
+#pragma optimize("gt", on)
+static void sMultiplyTransforms(const Mat4x4& inParent, const Mat4x4& inLocal, Mat4x4& outWorld)
+{
+	const float* parent = &inParent[0][0];
+	const float* local = &inLocal[0][0];
+	float* world = &outWorld[0][0];
+
+	for (int column = 0; column < 4; column++)
+	{
+		for (int row = 0; row < 4; row++)
+		{
+			world[column * 4 + row] =
+				parent[0 * 4 + row] * local[column * 4 + 0] +
+				parent[1 * 4 + row] * local[column * 4 + 1] +
+				parent[2 * 4 + row] * local[column * 4 + 2] +
+				parent[3 * 4 + row] * local[column * 4 + 3];
+		}
+	}
+}
+
+
 void Scene::UpdateTransforms()
 {
 	PROFILE_FUNCTION_CPU();
@@ -217,9 +238,10 @@ void Scene::UpdateTransforms()
 		if (node.mParent == UINT32_MAX)
 			transform.worldTransform = local_transform;
 		else
-			transform.worldTransform = transforms[node.mParent].worldTransform * local_transform;
+			sMultiplyTransforms(transforms[node.mParent].worldTransform, local_transform, transform.worldTransform);
 	}
 }
+#pragma optimize("", on)
 
 
 void Scene::UpdateStreaming()
