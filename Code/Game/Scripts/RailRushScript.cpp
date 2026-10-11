@@ -66,6 +66,7 @@ static constexpr const char* cRuntimeRootName = "RailRush Runtime";
 static constexpr const char* cModelFile = "Assets/RailRush/RailRush.glb";
 static constexpr const char* cPaletteFile = "Assets/RailRush/Palette.png";
 static constexpr const char* cPaletteEmissiveFile = "Assets/RailRush/PaletteEmissive.png";
+static constexpr const char* cHudFontFile = "Assets/Fonts/Bangers-Regular.ttf";
 
 static constexpr StaticArray<const char*, 4> cTrainColors = { "Blue", "Red", "Green", "Silver" };
 static constexpr StaticArray<const char*, 7> cBuildingNames = { "Apartment", "Tower", "ShopRed", "ShopGreen", "Warehouse", "Office", "Brownstone" };
@@ -411,6 +412,22 @@ private:
 
         if (m_PaletteEmissiveTexture == 0)
             m_PaletteEmissiveTexture = LoadTexture(cPaletteEmissiveFile, false);
+
+        const auto LoadUITexture = [this](uint32_t& outTexture, const char* inFile)
+        {
+            if (outTexture == 0)
+                outTexture = LoadTexture(inFile, false);
+        };
+
+        LoadUITexture(m_StickerTexture, "Assets/RailRush/UI/Sticker.png");
+        LoadUITexture(m_SplatTexture, "Assets/RailRush/UI/Splat.png");
+        LoadUITexture(m_HalftoneTexture, "Assets/RailRush/UI/Halftone.png");
+        LoadUITexture(m_TapeTexture, "Assets/RailRush/UI/Tape.png");
+        LoadUITexture(m_CoinTexture, "Assets/RailRush/UI/Coin.png");
+        LoadUITexture(m_KeycapTexture, "Assets/RailRush/UI/Keycap.png");
+        LoadUITexture(m_TicketTexture, "Assets/RailRush/UI/Ticket.png");
+
+        m_HudFont = g_UIRenderer.AddFont(cHudFontFile);
     }
 
     void ReleaseModels()
@@ -1490,17 +1507,49 @@ private:
         return true;
     }
 
-    void DrawPanel(Vec2 inPos, Vec2 inSize, float inScale, Vec4 inBorder = Vec4(1.0f, 0.85f, 0.3f, 0.45f))
+    static constexpr Vec4 cInk = Vec4(0.08f, 0.1f, 0.2f, 1.0f);
+    static constexpr Vec4 cCream = Vec4(0.97f, 0.95f, 0.9f, 1.0f);
+    static constexpr Vec4 cYellow = Vec4(1.0f, 0.81f, 0.18f, 1.0f);
+    static constexpr Vec4 cPink = Vec4(1.0f, 0.31f, 0.55f, 1.0f);
+    static constexpr Vec4 cTeal = Vec4(0.25f, 0.85f, 0.85f, 1.0f);
+
+    static Vec4 Fade(const Vec4& inColor, float inAlpha)
     {
-        g_UIRenderer.AddRectFilled(inPos + Vec2(0.0f, 6.0f) * inScale, inSize, 14.0f * inScale, Vec4(0.0f, 0.0f, 0.0f, 0.3f), 14.0f * inScale);
-        g_UIRenderer.AddRectFilled(inPos, inSize, 14.0f * inScale, Vec4(0.05f, 0.07f, 0.12f, 0.78f));
-        g_UIRenderer.AddRect(inPos, inSize, 14.0f * inScale, 1.5f * inScale, inBorder);
+        return Vec4(Vec3(inColor), inColor.a * inAlpha);
     }
 
-    void DrawOutlinedText(Vec2 inPos, StringView inText, float inSize, Vec4 inColor, EUITextAlign inAlign, float inScale)
+    void DrawText(Vec2 inPos, StringView inText, float inSize, Vec4 inColor, EUITextAlign inAlign, float inScale, float inOutline = 0.1f)
     {
-        g_UIRenderer.AddText(inPos + Vec2(2.0f, 3.0f) * inScale, inText, inSize, Vec4(0.0f, 0.0f, 0.0f, 0.55f * inColor.a), inAlign);
-        g_UIRenderer.AddText(inPos, inText, inSize, inColor, inAlign);
+        const float outline = inSize * inOutline;
+        g_UIRenderer.AddTextOutlined(inPos + Vec2(0.0f, inSize * 0.07f), inText, inSize, Fade(cInk, 0.6f * inColor.a), Fade(cInk, 0.6f * inColor.a), outline, inAlign);
+        g_UIRenderer.AddTextOutlined(inPos, inText, inSize, inColor, Fade(cInk, inColor.a), outline, inAlign);
+    }
+
+    void DrawSticker(Vec2 inPos, Vec2 inSize, float inScale, float inAlpha = 1.0f)
+    {
+        g_UIRenderer.AddImageSliced(inPos, inSize, m_StickerTexture, 26.0f * inScale, 0.3f, Vec4(1.0f, 1.0f, 1.0f, inAlpha));
+
+        const float inset = 10.0f * inScale;
+        const Vec2 inner_size = inSize - Vec2(inset * 2.0f);
+        const float tile = 14.0f * inScale;
+
+        g_UIRenderer.AddImage(inPos + Vec2(inset), inner_size, m_HalftoneTexture, Vec4(0.45f, 0.6f, 1.0f, 0.14f * inAlpha), Vec4(0.0f, 0.0f, inner_size.x / tile * 0.25f, inner_size.y / tile * 0.25f), 12.0f * inScale);
+    }
+
+    void DrawTape(Vec2 inPos, Vec2 inSize, Vec4 inTint, float inScroll)
+    {
+        const float repeat = inSize.x / glm::max(inSize.y, 1.0f);
+        g_UIRenderer.AddImage(inPos, inSize, m_TapeTexture, inTint, Vec4(inScroll, 0.2f, inScroll + repeat * 0.6f, 0.8f));
+    }
+
+    float DrawKey(Vec2 inPos, StringView inLabel, float inScale)
+    {
+        const float size = 20.0f * inScale;
+        const float width = glm::max(g_UIRenderer.MeasureText(inLabel, size).x + 22.0f * inScale, 34.0f * inScale);
+
+        g_UIRenderer.AddImageSliced(inPos, Vec2(width, 34.0f * inScale), m_KeycapTexture, 9.0f * inScale, 0.25f);
+        g_UIRenderer.AddText(inPos + Vec2(width * 0.5f, 3.0f * inScale), inLabel, size, cInk, UI_TEXT_ALIGN_CENTER);
+        return width;
     }
 
     void DrawHUD(float inDeltaTime)
@@ -1508,6 +1557,8 @@ private:
         const Vec2 display = Vec2(m_App->GetViewport().GetDisplaySize());
         const float scale = glm::max(display.y / 1080.0f, 0.5f);
         const float margin = 28.0f * scale;
+
+        g_UIRenderer.SetFont(m_HudFont);
 
         for (const PowerUpPickup& pickup : m_PowerUpPickups)
         {
@@ -1518,7 +1569,7 @@ private:
             if (ProjectToScreen(pickup.mPosition + Vec3(0.0f, 0.9f, 0.0f), screen))
             {
                 const int index = int(&pickup - m_PowerUpPickups.data());
-                DrawOutlinedText(screen, cPowerUps[index].mLabel, 26.0f * scale, Vec4(1.0f), UI_TEXT_ALIGN_CENTER, scale);
+                DrawText(screen, cPowerUps[index].mLabel, 34.0f * scale, Vec4(cPowerUps[index].mColor, 1.0f), UI_TEXT_ALIGN_CENTER, scale);
             }
         }
 
@@ -1530,60 +1581,102 @@ private:
             return;
         }
 
-        const Vec2 score_pos = Vec2(display.x - margin - 260.0f * scale, margin);
-        DrawPanel(score_pos, Vec2(260.0f, 120.0f) * scale, scale);
-        g_UIRenderer.AddText(score_pos + Vec2(240.0f, 10.0f) * scale, "SCORE", 16.0f * scale, Vec4(1.0f, 0.85f, 0.4f, 1.0f), UI_TEXT_ALIGN_RIGHT);
-        g_UIRenderer.AddText(score_pos + Vec2(240.0f, 30.0f) * scale, std::format("{}", int(m_Score)), 44.0f * scale, Vec4(1.0f), UI_TEXT_ALIGN_RIGHT);
+        if (m_GuardTimer > 0.0f && m_State == STATE_RUNNING)
+            DrawGuardWarning(display, scale, margin);
 
-        g_UIRenderer.AddCircleFilled(score_pos + Vec2(150.0f, 96.0f) * scale, 9.0f * scale, Vec4(1.0f, 0.78f, 0.2f, 1.0f));
-        g_UIRenderer.AddText(score_pos + Vec2(240.0f, 84.0f) * scale, std::format("{}", m_CoinCount), 22.0f * scale, Vec4(1.0f, 0.85f, 0.4f, 1.0f), UI_TEXT_ALIGN_RIGHT);
+        DrawScore(display, scale, margin);
+        DrawDistance(scale, margin);
+        DrawPowerUpBars(display, scale, margin);
+        DrawPopups(display, scale, inDeltaTime);
 
-        g_UIRenderer.AddText(Vec2(margin, margin), std::format("{} m", int(m_Distance)), 30.0f * scale, Vec4(1.0f, 1.0f, 1.0f, 0.9f));
+        if (m_State == STATE_GAME_OVER)
+            DrawGameOver(display, scale);
+    }
+
+    void DrawScore(const Vec2& inDisplay, float inScale, float inMargin)
+    {
+        const Vec2 size = Vec2(280.0f, 150.0f) * inScale;
+        const Vec2 pos = Vec2(inDisplay.x - inMargin - size.x, inMargin);
+
+        DrawSticker(pos, size, inScale);
+        g_UIRenderer.AddText(pos + Vec2(size.x - 30.0f * inScale, 20.0f * inScale), "SCORE", 22.0f * inScale, cYellow, UI_TEXT_ALIGN_RIGHT);
+        DrawText(pos + Vec2(size.x - 28.0f * inScale, 40.0f * inScale), std::format("{}", int(m_Score)), 58.0f * inScale, cCream, UI_TEXT_ALIGN_RIGHT, inScale);
+
+        const Vec2 coin_pos = pos + Vec2(30.0f, 98.0f) * inScale;
+        g_UIRenderer.AddImage(coin_pos, Vec2(30.0f) * inScale, m_CoinTexture);
+        DrawText(coin_pos + Vec2(38.0f * inScale, -2.0f * inScale), std::format("{}", m_CoinCount), 30.0f * inScale, cYellow, UI_TEXT_ALIGN_LEFT, inScale);
+
+        const Vec2 board_pos = Vec2(pos.x + size.x - 150.0f * inScale, pos.y + size.y + 12.0f * inScale);
+        const float alpha = m_SkateboardsLeft > 0 ? 1.0f : 0.45f;
+        const float key_width = DrawKey(board_pos, "E", inScale);
+        DrawText(board_pos + Vec2(key_width + 10.0f * inScale, 0.0f), std::format("BOARD x{}", m_SkateboardsLeft), 28.0f * inScale, Fade(Vec4(cSkateboardColor, 1.0f), alpha), UI_TEXT_ALIGN_LEFT, inScale);
+    }
+
+    void DrawDistance(float inScale, float inMargin)
+    {
+        const Vec2 center = Vec2(inMargin + 110.0f * inScale, inMargin + 48.0f * inScale);
+        g_UIRenderer.AddImageRotated(center, Vec2(260.0f, 200.0f) * inScale, -0.12f, m_SplatTexture, Fade(cPink, 0.92f));
+        DrawText(center - Vec2(0.0f, 30.0f * inScale), std::format("{}M", int(m_Distance)), 54.0f * inScale, cCream, UI_TEXT_ALIGN_CENTER, inScale);
 
         if (m_PowerUpTimers[POWER_UP_MULTIPLIER] > 0.0f)
-            DrawOutlinedText(Vec2(margin, margin + 40.0f * scale), "2X SCORE", 22.0f * scale, Vec4(1.0f, 0.8f, 0.2f, 1.0f), UI_TEXT_ALIGN_LEFT, scale);
+        {
+            const float pulse = 1.0f + 0.06f * glm::sin(m_Time * 8.0f);
+            const Vec2 badge = center + Vec2(130.0f, 10.0f) * inScale;
+            g_UIRenderer.AddImageRotated(badge, Vec2(120.0f, 100.0f) * inScale * pulse, 0.4f, m_SplatTexture, cYellow);
+            DrawText(badge - Vec2(0.0f, 22.0f * inScale), "2X", 40.0f * inScale * pulse, cCream, UI_TEXT_ALIGN_CENTER, inScale);
+        }
+    }
 
-        float bar_y = display.y - margin - 30.0f * scale;
+    void DrawPowerUpBar(Vec2 inPos, float inFill, const Vec3& inColor, StringView inName, float inScale)
+    {
+        const Vec2 size = Vec2(300.0f, 34.0f) * inScale;
+
+        g_UIRenderer.AddRectFilled(inPos + Vec2(4.0f, 6.0f) * inScale, size, 8.0f * inScale, Fade(cInk, 0.5f));
+        g_UIRenderer.AddRectFilled(inPos, size, 8.0f * inScale, cInk);
+        g_UIRenderer.AddRectFilled(inPos + Vec2(4.0f * inScale), size - Vec2(8.0f * inScale), 5.0f * inScale, Vec4(inColor * 0.25f, 1.0f));
+        DrawTape(inPos + Vec2(4.0f * inScale), Vec2(( size.x - 8.0f * inScale ) * glm::clamp(inFill, 0.0f, 1.0f), size.y - 8.0f * inScale), Vec4(glm::mix(inColor, Vec3(1.0f), 0.35f), 1.0f), -m_Time * 0.6f);
+        DrawText(inPos + Vec2(14.0f, 2.0f) * inScale, inName, 26.0f * inScale, cCream, UI_TEXT_ALIGN_LEFT, inScale, 0.12f);
+    }
+
+    void DrawPowerUpBars(const Vec2& inDisplay, float inScale, float inMargin)
+    {
+        float bar_y = inDisplay.y - inMargin - 34.0f * inScale;
 
         for (int index = 0; index < POWER_UP_COUNT; index++)
         {
-            const float timer = m_PowerUpTimers[index];
-
-            if (timer <= 0.0f)
+            if (m_PowerUpTimers[index] <= 0.0f)
                 continue;
 
-            const Vec2 pos = Vec2(margin, bar_y);
-            const Vec2 size = Vec2(240.0f, 22.0f) * scale;
-            const Vec4 color = Vec4(cPowerUps[index].mColor, 1.0f);
-
-            g_UIRenderer.AddRectFilled(pos, size, size.y * 0.5f, Vec4(0.0f, 0.0f, 0.0f, 0.55f));
-            g_UIRenderer.AddRectFilled(pos, Vec2(glm::max(size.x * timer / cPowerUpDuration, size.y), size.y), size.y * 0.5f, color);
-            g_UIRenderer.AddText(pos + Vec2(10.0f, 2.0f) * scale, cPowerUps[index].mName, 15.0f * scale, Vec4(0.05f, 0.05f, 0.08f, 1.0f));
-
-            bar_y -= 32.0f * scale;
+            DrawPowerUpBar(Vec2(inMargin, bar_y), m_PowerUpTimers[index] / cPowerUpDuration, cPowerUps[index].mColor, cPowerUps[index].mName, inScale);
+            bar_y -= 46.0f * inScale;
         }
 
         if (m_SkateboardTimer > 0.0f)
-        {
-            const Vec2 pos = Vec2(margin, bar_y);
-            const Vec2 size = Vec2(240.0f, 22.0f) * scale;
+            DrawPowerUpBar(Vec2(inMargin, bar_y), m_SkateboardTimer / cSkateboardDuration, cSkateboardColor, "SKATEBOARD", inScale);
+    }
 
-            g_UIRenderer.AddRectFilled(pos, size, size.y * 0.5f, Vec4(0.0f, 0.0f, 0.0f, 0.55f));
-            g_UIRenderer.AddRectFilled(pos, Vec2(glm::max(size.x * m_SkateboardTimer / cSkateboardDuration, size.y), size.y), size.y * 0.5f, Vec4(cSkateboardColor, 1.0f));
-            g_UIRenderer.AddText(pos + Vec2(10.0f, 2.0f) * scale, "SKATEBOARD", 15.0f * scale, Vec4(0.05f, 0.05f, 0.08f, 1.0f));
-        }
+    void DrawGuardWarning(const Vec2& inDisplay, float inScale, float inMargin)
+    {
+        const float pulse = 0.5f + 0.5f * glm::sin(m_Time * 10.0f);
+        const float height = 36.0f * inScale;
+        const Vec4 tint = Vec4(1.0f, 1.0f, 1.0f, 0.55f + 0.35f * pulse);
 
-        const Vec4 board_color = m_SkateboardsLeft > 0 ? Vec4(cSkateboardColor, 1.0f) : Vec4(1.0f, 1.0f, 1.0f, 0.35f);
-        DrawOutlinedText(score_pos + Vec2(260.0f, 132.0f) * scale, std::format("[E] SKATEBOARD x{}", m_SkateboardsLeft), 18.0f * scale, board_color, UI_TEXT_ALIGN_RIGHT, scale);
+        g_UIRenderer.AddRect(Vec2(0.0f), inDisplay, 0.0f, 60.0f * inScale, Vec4(1.0f, 0.2f, 0.1f, 0.12f + 0.12f * pulse));
+        DrawTape(Vec2(0.0f, 0.0f), Vec2(inDisplay.x, height), tint, m_Time * 0.8f);
+        DrawTape(Vec2(0.0f, inDisplay.y - height), Vec2(inDisplay.x, height), tint, -m_Time * 0.8f);
 
-        if (m_GuardTimer > 0.0f && m_State == STATE_RUNNING)
-        {
-            const float pulse = 0.5f + 0.5f * glm::sin(m_Time * 10.0f);
-            g_UIRenderer.AddRect(Vec2(0.0f), display, 0.0f, 50.0f * scale, Vec4(1.0f, 0.2f, 0.1f, 0.15f + 0.15f * pulse));
-            DrawOutlinedText(Vec2(display.x * 0.5f, display.y - margin - 50.0f * scale), "ONE MORE STUMBLE AND YOU'RE CAUGHT", 22.0f * scale, Vec4(1.0f, 0.45f, 0.35f, 0.8f + 0.2f * pulse), UI_TEXT_ALIGN_CENTER, scale);
-        }
+        const String text = "ONE MORE STUMBLE AND YOU'RE CAUGHT!";
+        const float size = 30.0f * inScale;
+        const Vec2 extent = g_UIRenderer.MeasureText(text, size);
+        const Vec2 pos = Vec2(inDisplay.x * 0.5f - extent.x * 0.5f - 30.0f * inScale, inDisplay.y - height - 80.0f * inScale);
 
-        float popup_y = display.y * 0.22f;
+        DrawSticker(pos, Vec2(extent.x + 60.0f * inScale, 62.0f * inScale), inScale);
+        DrawText(Vec2(inDisplay.x * 0.5f, pos.y + 14.0f * inScale), text, size, Vec4(1.0f, 0.45f, 0.35f, 0.85f + 0.15f * pulse), UI_TEXT_ALIGN_CENTER, inScale);
+    }
+
+    void DrawPopups(const Vec2& inDisplay, float inScale, float inDeltaTime)
+    {
+        float popup_y = inDisplay.y * 0.22f;
 
         for (Popup& popup : m_Popups)
         {
@@ -1591,16 +1684,18 @@ private:
 
             const float fade_in = glm::clamp(popup.mTime / 0.12f, 0.0f, 1.0f);
             const float fade_out = glm::clamp(( 1.6f - popup.mTime ) / 0.4f, 0.0f, 1.0f);
-            const float size = glm::mix(30.0f, 44.0f, fade_in) * scale;
+            const float pop = 1.0f + 0.35f * glm::max(0.0f, 1.0f - popup.mTime * 6.0f);
+            const float size = 54.0f * inScale * pop;
+            const float alpha = fade_in * fade_out;
+            const Vec2 center = Vec2(inDisplay.x * 0.5f, popup_y);
+            const Vec2 extent = g_UIRenderer.MeasureText(popup.mText, size);
 
-            DrawOutlinedText(Vec2(display.x * 0.5f, popup_y), popup.mText, size, Vec4(Vec3(popup.mColor), fade_in * fade_out), UI_TEXT_ALIGN_CENTER, scale);
-            popup_y += 52.0f * scale;
+            g_UIRenderer.AddImageRotated(center + Vec2(0.0f, size * 0.55f), Vec2(extent.x + 140.0f * inScale, size * 2.4f), ( popup.mText.size() % 2 ? 0.06f : -0.06f ), m_SplatTexture, Vec4(Vec3(popup.mColor) * 0.75f, 0.55f * alpha));
+            DrawText(center, popup.mText, size, Vec4(Vec3(popup.mColor), alpha), UI_TEXT_ALIGN_CENTER, inScale, 0.12f);
+            popup_y += 70.0f * inScale;
         }
 
         std::erase_if(m_Popups, [](const Popup& inPopup) { return inPopup.mTime >= 1.6f; });
-
-        if (m_State == STATE_GAME_OVER)
-            DrawGameOver(display, scale);
     }
 
     void DrawCheats(const Vec2& inDisplay, float inScale, float inMargin)
@@ -1616,65 +1711,109 @@ private:
         if (text.empty())
             return;
 
-        DrawOutlinedText(Vec2(inDisplay.x - inMargin, inDisplay.y - inMargin - 26.0f * inScale), "CHEATS   " + text, 18.0f * inScale, Vec4(0.6f, 0.9f, 1.0f, 0.9f), UI_TEXT_ALIGN_RIGHT, inScale);
+        DrawText(Vec2(inDisplay.x - inMargin, inDisplay.y - inMargin - 30.0f * inScale), "CHEATS: " + text, 24.0f * inScale, cTeal, UI_TEXT_ALIGN_RIGHT, inScale);
     }
 
     void DrawReady(const Vec2& inDisplay, float inScale)
     {
         const float center = inDisplay.x * 0.5f;
+        const float bob = glm::sin(m_Time * 2.0f) * 6.0f * inScale;
+        const float title_y = inDisplay.y * 0.1f + bob;
 
-        DrawOutlinedText(Vec2(center, inDisplay.y * 0.16f), "RAIL RUSH", 96.0f * inScale, Vec4(1.0f, 0.85f, 0.25f, 1.0f), UI_TEXT_ALIGN_CENTER, inScale);
-        DrawOutlinedText(Vec2(center, inDisplay.y * 0.16f + 110.0f * inScale), "Dodge the trains. Grab the coins. Don't get caught.", 24.0f * inScale, Vec4(1.0f), UI_TEXT_ALIGN_CENTER, inScale);
+        g_UIRenderer.AddImageRotated(Vec2(center, title_y + 90.0f * inScale), Vec2(760.0f, 330.0f) * inScale, -0.05f, m_SplatTexture, Fade(cPink, 0.95f));
+        g_UIRenderer.AddImageRotated(Vec2(center + 210.0f * inScale, title_y + 40.0f * inScale), Vec2(220.0f, 170.0f) * inScale, 0.6f, m_SplatTexture, Fade(cTeal, 0.9f));
+        DrawText(Vec2(center, title_y), "RAIL RUSH", 150.0f * inScale, cYellow, UI_TEXT_ALIGN_CENTER, inScale, 0.08f);
+
+        const String tagline = "DODGE THE TRAINS. GRAB THE COINS. DON'T GET CAUGHT.";
+        const float tagline_size = 30.0f * inScale;
+        const float tagline_width = g_UIRenderer.MeasureText(tagline, tagline_size).x + 80.0f * inScale;
+        const Vec2 tape_pos = Vec2(center - tagline_width * 0.5f, title_y + 190.0f * inScale);
+
+        DrawTape(tape_pos, Vec2(tagline_width, 52.0f * inScale), Vec4(1.0f), m_Time * 0.15f);
+        g_UIRenderer.AddRectFilled(tape_pos + Vec2(20.0f, 8.0f) * inScale, Vec2(tagline_width - 40.0f * inScale, 36.0f * inScale), 4.0f * inScale, cInk);
+        g_UIRenderer.AddText(Vec2(center, tape_pos.y + 10.0f * inScale), tagline, tagline_size, cCream, UI_TEXT_ALIGN_CENTER);
 
         static constexpr std::array<std::pair<const char*, const char*>, 6> cControls =
         {
-            std::pair { "A / D",           "Switch lanes" },
-            std::pair { "W / SPACE",       "Jump" },
-            std::pair { "S",               "Slide, or slam down mid-air" },
-            std::pair { "E",               "Skateboard, survives one crash" },
-            std::pair { "G / F",           "Cheats: god mode / speed" },
-            std::pair { "ESC",             "Pause" },
+            std::pair { "A / D",     "SWITCH LANES" },
+            std::pair { "W / SPACE", "JUMP" },
+            std::pair { "S",         "SLIDE OR SLAM DOWN" },
+            std::pair { "E",         "SKATEBOARD, SURVIVES A CRASH" },
+            std::pair { "G / F",     "CHEATS: GOD MODE / SPEED" },
+            std::pair { "ESC",       "PAUSE" },
         };
 
-        const float line_height = 30.0f * inScale;
-        const Vec2 panel_size = Vec2(460.0f * inScale, cControls.size() * line_height + 30.0f * inScale);
-        const Vec2 panel_pos = Vec2(center - panel_size.x * 0.5f, inDisplay.y * 0.62f);
+        const float line_height = 44.0f * inScale;
+        const Vec2 panel_size = Vec2(560.0f * inScale, cControls.size() * line_height + 56.0f * inScale);
+        const Vec2 panel_pos = Vec2(center - panel_size.x * 0.5f, inDisplay.y * 0.47f);
 
-        DrawPanel(panel_pos, panel_size, inScale);
+        DrawSticker(panel_pos, panel_size, inScale);
 
         for (size_t index = 0; index < cControls.size(); index++)
         {
-            const Vec2 pos = panel_pos + Vec2(30.0f * inScale, 15.0f * inScale + index * line_height);
-            g_UIRenderer.AddText(pos, cControls[index].first, 20.0f * inScale, Vec4(1.0f, 0.85f, 0.4f, 1.0f));
-            g_UIRenderer.AddText(pos + Vec2(150.0f * inScale, 0.0f), cControls[index].second, 20.0f * inScale, Vec4(0.9f, 0.92f, 1.0f, 0.95f));
+            const Vec2 row = panel_pos + Vec2(44.0f * inScale, 28.0f * inScale + index * line_height);
+            float x = 0.0f;
+
+            for (const auto& key : std::views::split(StringView(cControls[index].first), StringView(" / ")))
+            {
+                if (x > 0.0f)
+                {
+                    g_UIRenderer.AddText(row + Vec2(x + 4.0f * inScale, 4.0f * inScale), "/", 22.0f * inScale, Fade(cCream, 0.6f));
+                    x += 18.0f * inScale;
+                }
+
+                x += DrawKey(row + Vec2(x, 0.0f), StringView(key.begin(), key.end()), inScale) + 4.0f * inScale;
+            }
+
+            g_UIRenderer.AddText(row + Vec2(200.0f * inScale, 3.0f * inScale), cControls[index].second, 26.0f * inScale, cCream);
         }
 
         const float blink = 0.6f + 0.4f * glm::sin(m_Time * 4.0f);
-        DrawOutlinedText(Vec2(center, panel_pos.y + panel_size.y + 30.0f * inScale), "Press SPACE to run", 30.0f * inScale, Vec4(1.0f, 0.85f, 0.4f, blink), UI_TEXT_ALIGN_CENTER, inScale);
+        DrawText(Vec2(center, panel_pos.y + panel_size.y + 24.0f * inScale), "PRESS SPACE TO RUN", 44.0f * inScale, Fade(cYellow, blink), UI_TEXT_ALIGN_CENTER, inScale);
 
         if (m_BestScore > 0)
-            g_UIRenderer.AddText(Vec2(center, panel_pos.y + panel_size.y + 80.0f * inScale), std::format("Best {}", m_BestScore), 20.0f * inScale, Vec4(1.0f, 1.0f, 1.0f, 0.8f), UI_TEXT_ALIGN_CENTER);
+            DrawText(Vec2(center, panel_pos.y + panel_size.y + 80.0f * inScale), std::format("BEST {}", m_BestScore), 28.0f * inScale, cCream, UI_TEXT_ALIGN_CENTER, inScale);
     }
 
     void DrawGameOver(const Vec2& inDisplay, float inScale)
     {
         const float alpha = glm::clamp(( m_Time - m_CrashTime - cCrashDuration ) / 0.4f, 0.0f, 1.0f);
+        const float drop = ( 1.0f - alpha ) * ( 1.0f - alpha ) * 60.0f * inScale;
 
-        g_UIRenderer.AddRectFilled(Vec2(0.0f), inDisplay, 0.0f, Vec4(0.0f, 0.0f, 0.02f, 0.5f * alpha));
+        g_UIRenderer.AddRectFilled(Vec2(0.0f), inDisplay, 0.0f, Vec4(0.0f, 0.0f, 0.04f, 0.55f * alpha));
 
-        const Vec2 size = Vec2(560.0f, 300.0f) * inScale;
-        const Vec2 pos = inDisplay * 0.5f - size * 0.5f;
-
-        g_UIRenderer.AddRectFilled(pos, size, 20.0f * inScale, Vec4(0.05f, 0.07f, 0.12f, 0.92f * alpha));
-        g_UIRenderer.AddRect(pos, size, 20.0f * inScale, 2.0f * inScale, Vec4(1.0f, 0.85f, 0.3f, 0.8f * alpha));
-
+        const Vec2 size = Vec2(620.0f, 400.0f) * inScale;
+        const Vec2 pos = inDisplay * 0.5f - size * 0.5f - Vec2(0.0f, drop);
         const float center = inDisplay.x * 0.5f;
-        g_UIRenderer.AddText(Vec2(center, pos.y + 24.0f * inScale), m_CrashReason, 40.0f * inScale, Vec4(1.0f, 0.45f, 0.35f, alpha), UI_TEXT_ALIGN_CENTER);
-        g_UIRenderer.AddText(Vec2(center, pos.y + 86.0f * inScale), std::format("{}", int(m_Score)), 64.0f * inScale, Vec4(1.0f, 1.0f, 1.0f, alpha), UI_TEXT_ALIGN_CENTER);
-        g_UIRenderer.AddText(Vec2(center, pos.y + 170.0f * inScale), std::format("{} m   {} coins   best {}", int(m_Distance), m_CoinCount, m_BestScore), 22.0f * inScale, Vec4(1.0f, 0.85f, 0.5f, alpha), UI_TEXT_ALIGN_CENTER);
+
+        g_UIRenderer.AddImageSliced(pos, size, m_TicketTexture, 32.0f * inScale, 0.12f, Vec4(1.0f, 1.0f, 1.0f, alpha));
+
+        const float stamp_size = 50.0f * inScale;
+        const Vec2 stamp_extent = g_UIRenderer.MeasureText(m_CrashReason, stamp_size);
+        const Vec2 stamp_center = Vec2(center, pos.y + 70.0f * inScale);
+
+        g_UIRenderer.AddRect(stamp_center - Vec2(stamp_extent.x * 0.5f + 20.0f * inScale, 32.0f * inScale), Vec2(stamp_extent.x + 40.0f * inScale, 66.0f * inScale), 8.0f * inScale, 4.0f * inScale, Vec4(0.85f, 0.15f, 0.2f, 0.85f * alpha));
+        g_UIRenderer.AddText(stamp_center - Vec2(0.0f, 28.0f * inScale), m_CrashReason, stamp_size, Vec4(0.85f, 0.15f, 0.2f, 0.9f * alpha), UI_TEXT_ALIGN_CENTER);
+
+        g_UIRenderer.AddText(Vec2(center, pos.y + 118.0f * inScale), "FINAL SCORE", 24.0f * inScale, Fade(cInk, 0.7f * alpha), UI_TEXT_ALIGN_CENTER);
+        g_UIRenderer.AddTextOutlined(Vec2(center, pos.y + 140.0f * inScale), std::format("{}", int(m_Score)), 92.0f * inScale, Fade(cYellow, alpha), Fade(cInk, alpha), 7.0f * inScale, UI_TEXT_ALIGN_CENTER);
+
+        const StaticArray<std::pair<String, String>, 3> stats =
+        {
+            std::pair { std::format("{}M", int(m_Distance)), String("DISTANCE") },
+            std::pair { std::format("{}", m_CoinCount), String("COINS") },
+            std::pair { std::format("{}", m_BestScore), String("BEST") },
+        };
+
+        for (size_t index = 0; index < stats.size(); index++)
+        {
+            const Vec2 cell = Vec2(pos.x + size.x * ( 0.22f + 0.28f * float(index) ), pos.y + 262.0f * inScale);
+            g_UIRenderer.AddText(cell, stats[index].first, 38.0f * inScale, Fade(cInk, alpha), UI_TEXT_ALIGN_CENTER);
+            g_UIRenderer.AddText(cell + Vec2(0.0f, 40.0f * inScale), stats[index].second, 20.0f * inScale, Vec4(0.85f, 0.15f, 0.4f, 0.8f * alpha), UI_TEXT_ALIGN_CENTER);
+        }
 
         const float blink = 0.6f + 0.4f * glm::sin(m_Time * 4.0f);
-        g_UIRenderer.AddText(Vec2(center, pos.y + 232.0f * inScale), "Press SPACE to run again", 22.0f * inScale, Vec4(1.0f, 0.85f, 0.4f, alpha * blink), UI_TEXT_ALIGN_CENTER);
+        DrawText(Vec2(center, pos.y + size.y + 20.0f * inScale), "PRESS SPACE TO RUN AGAIN", 40.0f * inScale, Fade(cYellow, alpha * blink), UI_TEXT_ALIGN_CENTER, inScale);
     }
 
 private:
@@ -1706,6 +1845,15 @@ private:
     HashMap<String, Array<PartTemplate>> m_MeshTemplates;
     uint32_t m_PaletteTexture = 0;
     uint32_t m_PaletteEmissiveTexture = 0;
+
+    uint32_t m_StickerTexture = 0;
+    uint32_t m_SplatTexture = 0;
+    uint32_t m_HalftoneTexture = 0;
+    uint32_t m_TapeTexture = 0;
+    uint32_t m_CoinTexture = 0;
+    uint32_t m_KeycapTexture = 0;
+    uint32_t m_TicketTexture = 0;
+    int m_HudFont = 0;
 
     Entity m_PaletteMaterial = Entity::Null;
     Entity m_HeadlightMaterial = Entity::Null;
