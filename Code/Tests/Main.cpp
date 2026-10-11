@@ -626,6 +626,26 @@ static void sTestTransformHierarchy()
 		for (int row = 0; row < 4; row++)
 			CHECK(glm::abs(world[column][row] - expected[column][row]) < 1e-5f);
 	}
+
+	const Entity scaled_parent = CreateNode(Vec3(0.0f), Entity::Null);
+	Transform& scaled_parent_transform = scene.Get<Transform>(scaled_parent);
+	scaled_parent_transform.rotation = glm::angleAxis(0.9f, glm::normalize(Vec3(0.3f, 1.0f, 0.2f)));
+	scaled_parent_transform.scale = Vec3(2.5f);
+	scaled_parent_transform.Compose();
+
+	const Entity scaled_child = CreateNode(Vec3(1.0f, 0.0f, 0.0f), scaled_parent);
+	Transform& scaled_child_transform = scene.Get<Transform>(scaled_child);
+	scaled_child_transform.rotation = glm::angleAxis(-0.4f, glm::normalize(Vec3(1.0f, 0.0f, 0.6f)));
+	scaled_child_transform.scale = Vec3(0.5f, 1.0f, 3.0f);
+	scaled_child_transform.Compose();
+
+	scene.UpdateTransforms();
+
+	const Quat expected_rotation = scaled_parent_transform.rotation * scaled_child_transform.rotation;
+	const Quat world_rotation = scene.Get<Transform>(scaled_child).GetRotationWorldSpace();
+
+	for (const Vec3& axis : { Vec3(1.0f, 0.0f, 0.0f), Vec3(0.0f, 1.0f, 0.0f), Vec3(0.0f, 0.0f, 1.0f) })
+		CHECK(glm::length(world_rotation * axis - expected_rotation * axis) < 1e-4f);
 }
 
 

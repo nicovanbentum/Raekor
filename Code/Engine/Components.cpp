@@ -234,11 +234,13 @@ Vec3 Transform::GetPositionWorldSpace() const
 
 Quat Transform::GetRotationWorldSpace() const
 {
+	const Vec3 world_scale = GetScaleWorldSpace();
+
 	const Mat3x3 rotation_matrix = Mat3x3
 	(
-		Vec3(worldTransform[0]) / scale[0],
-		Vec3(worldTransform[1]) / scale[1],
-		Vec3(worldTransform[2]) / scale[2]
+		Vec3(worldTransform[0]) / world_scale[0],
+		Vec3(worldTransform[1]) / world_scale[1],
+		Vec3(worldTransform[2]) / world_scale[2]
 	);
 
 	return glm::quat_cast(rotation_matrix);
