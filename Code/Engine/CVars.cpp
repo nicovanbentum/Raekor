@@ -155,4 +155,28 @@ bool CVariables::SetValue(const String& inName, const String& inValue)
 	}
 }
 
+
+bool CVariables::ExecuteCommand(const String& inCommand)
+{
+	gLogInfo("Console", "> {}", inCommand);
+
+	std::istringstream stream(inCommand);
+	String name, value;
+	stream >> name >> value;
+
+	if (SetValue(name, value))
+		return true;
+
+	if (!Exists(name))
+		gLogWarning("Console", "cvar \"{}\" does not exist.", name);
+
+	else if (value.empty())
+		gLogWarning("Console", "Please provide a value for cvar \"{}\".", name);
+
+	else
+		gLogWarning("Console", "Failed to set cvar \"{}\" to \"{}\".", name, value);
+
+	return false;
+}
+
 } // Raekor

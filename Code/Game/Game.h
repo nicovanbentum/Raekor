@@ -3,6 +3,7 @@
 #include "Assets.h"
 #include "Physics.h"
 #include "Application.h"
+#include "GameConsole.h"
 #include "Renderer/RenderSystem.h"
 
 namespace RK {
@@ -33,6 +34,9 @@ private:
 
     Camera m_Camera;
     Entity m_CameraEntity = Entity::Null;
+
+    GameConsole m_Console;
+    bool m_IgnoreTextInput = false;
 };
 
 } // RK

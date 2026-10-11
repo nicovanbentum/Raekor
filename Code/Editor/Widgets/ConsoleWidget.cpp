@@ -205,23 +205,7 @@ void ConsoleWidget::ExecuteCommand(const String& inCommand)
 	m_CommandHistory.push_back(inCommand);
 	m_ShouldScrollToBottom = true;
 
-	gLogInfo("Console", "> {}", inCommand);
-
-	std::istringstream stream(inCommand);
-	std::string name, value;
-	stream >> name >> value;
-
-	if (g_CVariables->SetValue(name, value))
-		return;
-
-	if (!g_CVariables->Exists(name))
-		gLogWarning("Console", "cvar \"{}\" does not exist.", name);
-
-	else if (value.empty())
-		gLogWarning("Console", "Please provide a value for cvar \"{}\".", name);
-
-	else
-		gLogWarning("Console", "Failed to set cvar \"{}\" to \"{}\".", name, value);
+	g_CVariables->ExecuteCommand(inCommand);
 }
 
 

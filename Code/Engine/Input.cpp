@@ -50,12 +50,18 @@ void Input::OnUpdate(float inDeltaTime)
 
 bool Input::IsKeyDown(Key key)
 {
+	if (m_Blocked)
+		return false;
+
 	return m_KeyboardState[static_cast<int>(key)];
 }
 
 
 bool Input::IsButtonDown(uint32_t button)
 {
+	if (m_Blocked)
+		return false;
+
 	uint32_t state = SDL_GetMouseState(NULL, NULL);
 	return state & SDL_BUTTON_MASK(button);
 }

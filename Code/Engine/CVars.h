@@ -72,6 +72,8 @@ public:
 
 	bool SetValue(const String& inName, const String& inValue);
 
+	bool ExecuteCommand(const String& inCommand);
+
 	size_t GetCount() const { return m_ConVars.size(); }
 	const HashMap<String, CVar>& GetCVars() const { return m_ConVars; }
 

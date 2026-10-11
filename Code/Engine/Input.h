@@ -116,7 +116,11 @@ public:
 	bool IsRelativeMouseMode();
 	void SetRelativeMouseMode(bool inEnabled);
 
+	bool IsBlocked() const { return m_Blocked; }
+	void SetBlocked(bool inBlocked) { m_Blocked = inBlocked; }
+
 private:
+	bool m_Blocked = false;
 	bool m_RelMouseMode = false;
 	const bool* m_KeyboardState;
     SDL_Gamepad* m_Controller = nullptr;

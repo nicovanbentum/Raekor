@@ -5,6 +5,7 @@
 #include "Script.h"
 #include "UIRenderer.h"
 #include "DebugRenderer.h"
+#include "GUIStyle.h"
 
 namespace RK {
 
@@ -18,9 +19,14 @@ GameApp::GameApp(const Path& inSceneFile) :
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
-    ImGui::StyleColorsDark();
     ImGui::GetIO().IniFilename = "";
-    ImGui::GetStyle().ScaleAllSizes(1.33333333f);
+
+    const float ui_scale = GUI::GetDisplayScale(m_Window);
+
+    GUI::SetDarkTheme(ui_scale);
+
+    if (!m_ConfigSettings.mFontFile.empty() && fs::exists(m_ConfigSettings.mFontFile))
+        GUI::SetFont(m_ConfigSettings.mFontFile.string(), ui_scale);
 
     m_RenderSystem.InitImGui(m_Window);
 
@@ -51,8 +57,12 @@ void GameApp::OnUpdate(float inDeltaTime)
     // clear the debug renderer vertex buffers
     g_DebugRenderer.Reset();
 
+    m_IgnoreTextInput = false;
+
+    g_Input->SetBlocked(m_Console.IsOpen());
+
     // update relative mouse mode
-    SDL_SetWindowRelativeMouseMode(m_Window, g_Input->IsRelativeMouseMode());
+    SDL_SetWindowRelativeMouseMode(m_Window, g_Input->IsRelativeMouseMode() && !m_Console.IsOpen());
 
     // update the physics system
     m_Physics.OnUpdate(m_Scene);
@@ -104,7 +114,7 @@ void GameApp::OnUpdate(float inDeltaTime)
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
-    ImGui::Begin("Game", NULL, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoResize);
+    ImGui::Begin("Game", NULL, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoInputs);
 
     auto cursor_pos = ImGui::GetCursorPos();
     
@@ -116,6 +126,8 @@ void GameApp::OnUpdate(float inDeltaTime)
     ImGui::End();
     ImGui::PopStyleVar(3);
 
+    m_Console.Draw(inDeltaTime);
+
     ImGui::EndFrame();
     ImGui::Render();
 
@@ -124,6 +136,27 @@ void GameApp::OnUpdate(float inDeltaTime)
 
 void GameApp::OnEvent(const SDL_Event& inEvent)
 {
+    if (inEvent.type == SDL_EVENT_KEY_DOWN && inEvent.key.scancode == SDL_SCANCODE_GRAVE)
+    {
+        if (!inEvent.key.repeat)
+            m_Console.Toggle();
+
+        m_IgnoreTextInput = true;
+        return;
+    }
+
+    if (inEvent.type == SDL_EVENT_TEXT_INPUT && m_IgnoreTextInput)
+    {
+        m_IgnoreTextInput = false;
+        return;
+    }
+
+    if (m_Console.IsOpen() && inEvent.type == SDL_EVENT_KEY_DOWN && inEvent.key.key == SDLK_ESCAPE)
+    {
+        m_Console.Close();
+        return;
+    }
+
     ImGui_ImplSDL3_ProcessEvent(&inEvent);
 
     if (inEvent.type == SDL_EVENT_WINDOW_MINIMIZED)
@@ -175,7 +208,23 @@ void GameApp::OnEvent(const SDL_Event& inEvent)
         }
     }
 
-    if (GetGameState() == GAME_RUNNING)
+    bool is_input_event = false;
+
+    switch (inEvent.type)
+    {
+        case SDL_EVENT_KEY_DOWN:
+        case SDL_EVENT_KEY_UP:
+        case SDL_EVENT_TEXT_INPUT:
+        case SDL_EVENT_TEXT_EDITING:
+        case SDL_EVENT_MOUSE_MOTION:
+        case SDL_EVENT_MOUSE_BUTTON_DOWN:
+        case SDL_EVENT_MOUSE_BUTTON_UP:
+        case SDL_EVENT_MOUSE_WHEEL:
+            is_input_event = true;
+            break;
+    }
+
+    if (GetGameState() == GAME_RUNNING && !( m_Console.IsOpen() && is_input_event ))
     {
         for (auto [entity, script] : m_Scene.Each<NativeScript>())
         {
