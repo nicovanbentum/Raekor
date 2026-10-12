@@ -12,6 +12,8 @@
 #include "Threading.h"
 #include "Components.h"
 
+#include "miniaudio/miniaudio.h"
+
 namespace RK {
 
 static int sFailures = 0;
@@ -349,6 +351,50 @@ static void sTestTriggerVolumes()
 	scene.Destroy(activator_entity);
 	scene.UpdateTriggers(Vec3(10.0f, 0.0f, 0.0f));
 	CHECK(!trigger.inside && trigger.exited);
+}
+
+
+static void sTestLoopingSoundLengths()
+{
+	const StaticArray<Pair<const char*, uint64_t>, 4> loops =
+	{
+		Pair<const char*, uint64_t> { "Assets/RailRush/Audio/Music.ogg", 30 * 44100 },
+		Pair<const char*, uint64_t> { "Assets/RailRush/Audio/Ambience.ogg", 24 * 44100 },
+		Pair<const char*, uint64_t> { "Assets/RailRush/Audio/TrainRumble.ogg", 4 * 52920 },
+		Pair<const char*, uint64_t> { "Assets/RailRush/Audio/SkateboardLoop.ogg", 8 * 16317 },
+	};
+
+	for (const auto& [file, expected_frames] : loops)
+	{
+		ma_decoder_config config = ma_decoder_config_init(ma_format_f32, 0, 0);
+		ma_decoder decoder;
+
+		if (ma_decoder_init_file(file, &config, &decoder) != MA_SUCCESS)
+		{
+			CHECK(!"failed to open looping sound");
+			continue;
+		}
+
+		Array<float> frames(4096 * decoder.outputChannels);
+		uint64_t frame_count = 0;
+
+		for (;;)
+		{
+			ma_uint64 frames_read = 0;
+			ma_decoder_read_pcm_frames(&decoder, frames.data(), 4096, &frames_read);
+			frame_count += frames_read;
+
+			if (frames_read < 4096)
+				break;
+		}
+
+		ma_decoder_uninit(&decoder);
+
+		if (frame_count != expected_frames)
+			gLogError("Tests", "{} decoded to {} frames, expected {}", file, frame_count, expected_frames);
+
+		CHECK(frame_count == expected_frames);
+	}
 }
 
 
@@ -949,6 +995,7 @@ int main(int argc, char** argv)
 	sTestLegacyMemberSkipping(directory);
 	sTestSceneRoundTrip(directory);
 	sTestTriggerVolumes();
+	sTestLoopingSoundLengths();
 	sTestMeshPack(directory, "Assets/Models/glTF-Sample-Models-main/2.0/AlphaBlendModeTest/glTF/AlphaBlendModeTest.gltf");
 	sTestMultiComponentEach();
 	sTestTransformHierarchy();

@@ -68,6 +68,36 @@ static constexpr const char* cPaletteFile = "Assets/RailRush/Palette.png";
 static constexpr const char* cPaletteEmissiveFile = "Assets/RailRush/PaletteEmissive.png";
 static constexpr const char* cHudFontFile = "Assets/Fonts/Bangers-Regular.ttf";
 
+static constexpr const char* cMusicSound = "Assets/RailRush/Audio/Music.ogg";
+static constexpr const char* cAmbienceSound = "Assets/RailRush/Audio/Ambience.ogg";
+static constexpr const char* cTrainRumbleSound = "Assets/RailRush/Audio/TrainRumble.ogg";
+static constexpr const char* cTrainHornSound = "Assets/RailRush/Audio/TrainHorn.ogg";
+static constexpr const char* cSkateboardLoopSound = "Assets/RailRush/Audio/SkateboardLoop.ogg";
+static constexpr const char* cCoinSound = "Assets/RailRush/Audio/Coin.ogg";
+static constexpr const char* cJumpSound = "Assets/RailRush/Audio/Jump.ogg";
+static constexpr const char* cLandSound = "Assets/RailRush/Audio/Land.ogg";
+static constexpr const char* cStepSound = "Assets/RailRush/Audio/Step.ogg";
+static constexpr const char* cSlideSound = "Assets/RailRush/Audio/Slide.ogg";
+static constexpr const char* cLaneSound = "Assets/RailRush/Audio/Lane.ogg";
+static constexpr const char* cStumbleSound = "Assets/RailRush/Audio/Stumble.ogg";
+static constexpr const char* cCrashSound = "Assets/RailRush/Audio/Crash.ogg";
+static constexpr const char* cPowerUpSound = "Assets/RailRush/Audio/PowerUp.ogg";
+static constexpr const char* cStartSound = "Assets/RailRush/Audio/Start.ogg";
+static constexpr const char* cWhistleSound = "Assets/RailRush/Audio/Whistle.ogg";
+static constexpr const char* cSkateboardOnSound = "Assets/RailRush/Audio/SkateboardOn.ogg";
+static constexpr const char* cSkateboardSmashSound = "Assets/RailRush/Audio/SkateboardSmash.ogg";
+
+static constexpr StaticArray<const char*, 13> cSoundEffects =
+{
+    cCoinSound, cJumpSound, cLandSound, cStepSound, cSlideSound, cLaneSound, cStumbleSound,
+    cCrashSound, cPowerUpSound, cStartSound, cWhistleSound, cSkateboardOnSound, cSkateboardSmashSound
+};
+
+static constexpr float cTrainHornDistance = 45.0f;
+static constexpr float cLandSoundSpeed = 6.0f;
+static constexpr float cCoinStreakTime = 0.6f;
+static constexpr int   cCoinStreakSteps = 12;
+
 static constexpr StaticArray<const char*, 4> cTrainColors = { "Blue", "Red", "Green", "Silver" };
 static constexpr StaticArray<const char*, 7> cBuildingNames = { "Apartment", "Tower", "ShopRed", "ShopGreen", "Warehouse", "Office", "Brownstone" };
 static constexpr StaticArray<const char*, 5> cPropNames = { "Bench", "TrashCan", "Vending", "Sign", "Planter" };
@@ -147,6 +177,7 @@ public:
         Entity mEntity = Entity::Null;
         StaticArray<Model, cMaxTrainUnits> mUnits;
         Entity mLights = Entity::Null;
+        Entity mHorn = Entity::Null;
         int mType = OBSTACLE_TRAIN;
         bool mActive = false;
         bool mMoving = false;
@@ -206,6 +237,7 @@ public:
         CreateGuard();
         CreatePools();
         CreateCamera();
+        CreateAudio();
 
         NewGame();
 
@@ -229,7 +261,7 @@ public:
         m_Time += inDeltaTime;
 
         if (m_State == STATE_READY && *m_AutoStart)
-            m_State = STATE_RUNNING;
+            StartRun();
 
         if (m_State == STATE_RUNNING)
         {
@@ -248,6 +280,7 @@ public:
         UpdateSegments();
         UpdateVisuals(inDeltaTime);
         UpdateCamera(inDeltaTime);
+        UpdateSounds();
         DrawHUD(inDeltaTime);
     }
 
@@ -279,7 +312,7 @@ public:
         {
             if (key == SDLK_SPACE || key == SDLK_RETURN || key == SDLK_W || key == SDLK_UP)
             {
-                m_State = STATE_RUNNING;
+                StartRun();
                 AddPopup("GO!", Vec4(1.0f, 0.85f, 0.3f, 1.0f));
             }
 
@@ -634,6 +667,33 @@ private:
                     obstacle.mUnits[unit] = CreateModel(( unit == 0 ? "TrainFront" : "TrainCar" ) + color, obstacle.mEntity);
 
                 obstacle.mLights = FindPart(obstacle.mUnits[0], "Lights").mEntity;
+
+                SoundSource& rumble = m_Scene->Add<SoundSource>(obstacle.mEntity);
+                rumble.file = cTrainRumbleSound;
+                rumble.volume = 0.9f;
+                rumble.loop = true;
+                rumble.stopOnTriggerExit = true;
+                rumble.fadeInTime = 0.5f;
+                rumble.fadeOutTime = 0.4f;
+                rumble.minDistance = 6.0f;
+                rumble.maxDistance = 90.0f;
+
+                TriggerVolume& rumble_trigger = m_Scene->Add<TriggerVolume>(obstacle.mEntity);
+                rumble_trigger.size = Vec3(cLaneCount * cLaneWidth * 2.0f, 40.0f, cActivationDistance * 2.0f);
+                rumble_trigger.activator = m_PlayerEntity;
+
+                obstacle.mHorn = CreateEntity("Horn", obstacle.mEntity);
+                SetTransform(obstacle.mHorn, Vec3(0.0f, 2.5f, 0.0f));
+
+                SoundSource& horn = m_Scene->Add<SoundSource>(obstacle.mHorn);
+                horn.file = cTrainHornSound;
+                horn.volume = 0.8f;
+                horn.minDistance = 10.0f;
+                horn.maxDistance = 150.0f;
+
+                TriggerVolume& horn_trigger = m_Scene->Add<TriggerVolume>(obstacle.mHorn);
+                horn_trigger.size = Vec3(cLaneWidth * 0.9f, 30.0f, cTrainHornDistance * 2.0f);
+                horn_trigger.activator = m_PlayerEntity;
             } break;
 
             case OBSTACLE_RAMP:
@@ -699,6 +759,88 @@ private:
         m_App->SetCameraEntity(m_CameraEntity);
     }
 
+    void CreateAudio()
+    {
+        m_MusicEntity = CreateEntity("Music");
+
+        SoundSource& music = m_Scene->Add<SoundSource>(m_MusicEntity);
+        music.file = cMusicSound;
+        music.category = SOUND_CATEGORY_MUSIC;
+        music.volume = 0.5f;
+        music.loop = true;
+        music.stream = true;
+        music.spatial = false;
+        music.fadeInTime = 1.5f;
+        music.fadeOutTime = 1.2f;
+
+        const Entity ambience_entity = CreateEntity("City Ambience");
+
+        SoundSource& ambience = m_Scene->Add<SoundSource>(ambience_entity);
+        ambience.file = cAmbienceSound;
+        ambience.category = SOUND_CATEGORY_AMBIENCE;
+        ambience.volume = 0.6f;
+        ambience.loop = true;
+        ambience.stream = true;
+        ambience.spatial = false;
+        ambience.playOnStart = true;
+        ambience.fadeInTime = 2.0f;
+
+        m_SkateboardSoundEntity = CreateEntity("Skateboard Roll", m_PlayerEntity);
+
+        SoundSource& skateboard = m_Scene->Add<SoundSource>(m_SkateboardSoundEntity);
+        skateboard.file = cSkateboardLoopSound;
+        skateboard.volume = 0.45f;
+        skateboard.loop = true;
+        skateboard.spatial = false;
+        skateboard.fadeInTime = 0.15f;
+        skateboard.fadeOutTime = 0.25f;
+
+        if (Audio* audio = GetAudio())
+        {
+            for (const char* sound : cSoundEffects)
+                audio->Preload(sound);
+        }
+    }
+
+    void PlaySfx(const char* inFile, float inVolume = 1.0f, float inPitch = 1.0f)
+    {
+        if (Audio* audio = GetAudio())
+            audio->PlayOneShot(inFile, inVolume, inPitch);
+    }
+
+    void PlayEntitySound(Entity inEntity)
+    {
+        if (Audio* audio = GetAudio())
+            audio->Play(*m_Scene, inEntity);
+    }
+
+    void StopEntitySound(Entity inEntity)
+    {
+        if (Audio* audio = GetAudio())
+            audio->Stop(*m_Scene, inEntity);
+    }
+
+    void StartRun()
+    {
+        m_State = STATE_RUNNING;
+        PlaySfx(cStartSound, 0.7f);
+    }
+
+    void UpdateSounds()
+    {
+        const bool rolling = m_State == STATE_RUNNING && m_SkateboardTimer > 0.0f && m_Grounded;
+
+        if (rolling != m_SkateboardRolling)
+        {
+            if (rolling)
+                PlayEntitySound(m_SkateboardSoundEntity);
+            else
+                StopEntitySound(m_SkateboardSoundEntity);
+
+            m_SkateboardRolling = rolling;
+        }
+    }
+
     void DestroyRuntimeEntities()
     {
         Array<Entity> roots;
@@ -718,6 +860,9 @@ private:
         m_RootEntity = Entity::Null;
         m_CameraEntity = Entity::Null;
         m_PlayerEntity = Entity::Null;
+        m_MusicEntity = Entity::Null;
+        m_SkateboardSoundEntity = Entity::Null;
+        m_SkateboardRolling = false;
         m_BodyPivot = Entity::Null;
         m_Runner = Model();
         m_Guard = Model();
@@ -796,8 +941,12 @@ private:
         m_SkateboardsLeft = cSkateboardsPerRun;
         m_GuardPosition = Vec3(GetLaneX(1), 0.0f, cGuardHiddenZ);
         m_GuardPhase = 0.0f;
+        m_CoinStreak = 0;
+        m_LastCoinTime = -cCoinStreakTime;
 
         UpdateGeneration();
+
+        PlayEntitySound(m_MusicEntity);
     }
 
     float GetSurfaceHeight(int inLane, float inZ) const
@@ -838,6 +987,8 @@ private:
 
         m_PreviousLane = m_Lane;
         m_Lane = target;
+
+        PlaySfx(cLaneSound, 0.6f, RandomFloat(0.92f, 1.08f));
     }
 
     void Stumble(int inDirection)
@@ -845,6 +996,8 @@ private:
         m_BounceTimer = 0.25f;
         m_BounceDirection = float(inDirection);
         m_Shake = glm::max(m_Shake, 0.3f);
+
+        PlaySfx(cStumbleSound, 0.8f, RandomFloat(0.95f, 1.05f));
 
         if (m_InvulnerableTimer > 0.0f)
             return;
@@ -864,6 +1017,7 @@ private:
 
         m_GuardTimer = cGuardDuration;
         AddPopup("WATCH OUT!", Vec4(1.0f, 0.4f, 0.3f, 1.0f));
+        PlaySfx(cWhistleSound, 0.55f);
     }
 
     void Jump()
@@ -871,9 +1025,13 @@ private:
         if (!m_Grounded)
             return;
 
-        m_VelocityY = m_PowerUpTimers[POWER_UP_SNEAKERS] > 0.0f ? cSneakersJumpVelocity : cJumpVelocity;
+        const bool sneakers = m_PowerUpTimers[POWER_UP_SNEAKERS] > 0.0f;
+
+        m_VelocityY = sneakers ? cSneakersJumpVelocity : cJumpVelocity;
         m_Grounded = false;
         m_SlideTimer = 0.0f;
+
+        PlaySfx(cJumpSound, 0.7f, sneakers ? 1.2f : RandomFloat(0.95f, 1.05f));
     }
 
     void UseSkateboard()
@@ -884,6 +1042,7 @@ private:
         m_SkateboardsLeft--;
         m_SkateboardTimer = cSkateboardDuration;
         AddPopup("SKATEBOARD!", Vec4(cSkateboardColor, 1.0f));
+        PlaySfx(cSkateboardOnSound, 0.8f);
     }
 
     void SmashSkateboard()
@@ -892,6 +1051,7 @@ private:
         m_InvulnerableTimer = glm::max(m_InvulnerableTimer, cSmashInvulnerability);
         m_Shake = glm::max(m_Shake, 0.6f);
         AddPopup("BOARD SMASHED!", Vec4(1.0f, 0.55f, 0.3f, 1.0f));
+        PlaySfx(cSkateboardSmashSound, 0.9f);
     }
 
     void Slide()
@@ -900,6 +1060,8 @@ private:
 
         if (!m_Grounded)
             m_VelocityY = glm::min(m_VelocityY, cSlamVelocity);
+
+        PlaySfx(cSlideSound, 0.6f, m_Grounded ? RandomFloat(0.95f, 1.05f) : 1.25f);
     }
 
     void Crash(const char* inReason)
@@ -909,6 +1071,19 @@ private:
         m_CrashReason = inReason;
         m_Shake = 0.8f;
         m_BestScore = glm::max(m_BestScore, int(m_Score));
+
+        PlaySfx(cCrashSound, 1.0f);
+
+        if (m_CaughtByGuard)
+            PlaySfx(cWhistleSound, 0.6f);
+
+        StopEntitySound(m_MusicEntity);
+
+        for (const Obstacle& obstacle : m_Obstacles)
+        {
+            if (obstacle.mType == OBSTACLE_TRAIN)
+                StopEntitySound(obstacle.mEntity);
+        }
     }
 
     void ScrollWorld(float inDistance)
@@ -991,6 +1166,9 @@ private:
 
         if (m_PlayerY <= ground)
         {
+            if (!m_Grounded && m_VelocityY < -cLandSoundSpeed)
+                PlaySfx(cLandSound, glm::min(-m_VelocityY / 20.0f, 1.0f), RandomFloat(0.92f, 1.05f));
+
             m_PlayerY = ground;
             m_VelocityY = 0.0f;
             m_Grounded = true;
@@ -1083,6 +1261,10 @@ private:
                 Park(coin.mEntity);
                 m_CoinCount++;
                 m_Score += 10.0f * multiplier;
+
+                m_CoinStreak = m_Time - m_LastCoinTime < cCoinStreakTime ? glm::min(m_CoinStreak + 1, cCoinStreakSteps) : 0;
+                m_LastCoinTime = m_Time;
+                PlaySfx(cCoinSound, 0.5f, glm::pow(2.0f, float(m_CoinStreak) / 12.0f));
             }
             else if (coin.mPosition.z < -cRecycleDistance)
             {
@@ -1106,6 +1288,7 @@ private:
                 Park(pickup.mEntity);
                 m_PowerUpTimers[index] = cPowerUpDuration;
                 AddPopup(cPowerUps[index].mName, Vec4(cPowerUps[index].mColor, 1.0f));
+                PlaySfx(cPowerUpSound, 0.8f);
             }
             else if (pickup.mPosition.z < -cRecycleDistance)
             {
@@ -1155,6 +1338,9 @@ private:
         }
 
         SetMaterial(train->mLights, inMoving ? m_HeadlightMaterial : m_DarkLightMaterial);
+
+        m_Scene->Get<SoundSource>(train->mEntity).playOnTriggerEnter = inMoving;
+        m_Scene->Get<SoundSource>(train->mHorn).playOnTriggerEnter = inMoving;
 
         if (ramp != nullptr)
         {
@@ -1326,7 +1512,15 @@ private:
         const bool sliding = running && m_SlideTimer > 0.0f;
 
         if (running && m_Grounded)
+        {
+            const float previous_phase = m_RunPhase;
             m_RunPhase += inDeltaTime * ( 6.0f + m_Speed * 0.35f );
+
+            const bool new_step = glm::floor(m_RunPhase / glm::pi<float>()) != glm::floor(previous_phase / glm::pi<float>());
+
+            if (new_step && !sliding && m_SkateboardTimer <= 0.0f)
+                PlaySfx(cStepSound, 0.3f, RandomFloat(0.85f, 1.1f));
+        }
 
         const float swing = glm::sin(m_RunPhase);
         const float bounce = m_BounceTimer > 0.0f ? glm::sin(m_BounceTimer / 0.25f * glm::pi<float>()) * 0.6f * m_BounceDirection : 0.0f;
@@ -1816,6 +2010,7 @@ private:
     Entity m_CameraEntity = Entity::Null;
     Entity m_PlayerEntity = Entity::Null;
     Entity m_BodyPivot = Entity::Null;
+    Entity m_MusicEntity = Entity::Null;
     Model m_Runner;
     StaticArray<ModelPart, 2> m_Legs;
     StaticArray<ModelPart, 2> m_Arms;
@@ -1827,6 +2022,8 @@ private:
     bool m_CaughtByGuard = false;
 
     Model m_Skateboard;
+    Entity m_SkateboardSoundEntity = Entity::Null;
+    bool m_SkateboardRolling = false;
     float m_SkateboardTimer = 0.0f;
     float m_InvulnerableTimer = 0.0f;
     int m_SkateboardsLeft = cSkateboardsPerRun;
@@ -1874,6 +2071,8 @@ private:
     float m_Score = 0.0f;
     int m_BestScore = 0;
     int m_CoinCount = 0;
+    int m_CoinStreak = 0;
+    float m_LastCoinTime = 0.0f;
     StaticArray<float, POWER_UP_COUNT> m_PowerUpTimers = {};
 
     int m_SafeLane = 1;
