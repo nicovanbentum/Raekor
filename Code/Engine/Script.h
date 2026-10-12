@@ -20,6 +20,7 @@ class RTTI;
 
 Array<RTTI*>& gGetModuleScriptTypes();
 
+class Audio;
 class Input;
 class Scene;
 class Camera;
@@ -53,6 +54,7 @@ public:
 
 	// helper functions to interface with the engine
 	Scene* GetScene();
+	Audio* GetAudio();
 	Assets* GetAssets();
 	Physics* GetPhysics();
 	IRenderInterface* GetRenderInterface();

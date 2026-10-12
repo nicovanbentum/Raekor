@@ -391,15 +391,64 @@ struct NativeScript
 };
 
 
-struct AudioStream
+enum ESoundCategory
 {
-    RTTI_DECLARE_TYPE(AudioStream);
+	SOUND_CATEGORY_EFFECTS = 0,
+	SOUND_CATEGORY_AMBIENCE,
+	SOUND_CATEGORY_MUSIC,
+	SOUND_CATEGORY_COUNT
+};
+RTTI_DECLARE_ENUM(ESoundCategory);
 
-    String file;
-    bool isPlaying = false;
 
-    void Play();
-    void Pause();
+struct SoundSource
+{
+	RTTI_DECLARE_TYPE(SoundSource);
+
+	String file;
+	ESoundCategory category = SOUND_CATEGORY_EFFECTS;
+	float volume = 1.0f;
+	float pitch = 1.0f;
+	bool loop = false;
+	bool stream = false;
+
+	bool playOnStart = false;
+	bool playOnTriggerEnter = false;
+	bool stopOnTriggerExit = false;
+	float fadeInTime = 0.0f;
+	float fadeOutTime = 0.0f;
+
+	bool spatial = true;
+	float minDistance = 1.0f;
+	float maxDistance = 50.0f;
+	float rolloff = 1.0f;
+	float dopplerFactor = 1.0f;
+
+	uint32_t voice = 0;
+};
+
+
+struct AudioListener
+{
+	RTTI_DECLARE_TYPE(AudioListener);
+};
+
+
+struct TriggerVolume
+{
+	RTTI_DECLARE_TYPE(TriggerVolume);
+
+	Vec3 size = Vec3(2.0f);
+	Entity activator = Entity::Null;
+	bool once = false;
+
+	bool inside = false;
+	bool entered = false;
+	bool exited = false;
+	bool triggered = false;
+
+	bool Contains(const Transform& inTransform, const Vec3& inPoint) const;
+	void Reset() { inside = entered = exited = triggered = false; }
 };
 
 
@@ -439,7 +488,10 @@ static constexpr auto Components = std::make_tuple(
 	ComponentDescription<Skeleton>          {"Skeleton"},
 	ComponentDescription<NativeScript>      {"Native Script"},
 	ComponentDescription<DDGISceneSettings> {"DDGI Scene Settings"},
-	ComponentDescription<Animation>			{"Animation"}
+	ComponentDescription<Animation>			{"Animation"},
+	ComponentDescription<SoundSource>       {"Sound Source"},
+	ComponentDescription<AudioListener>     {"Audio Listener"},
+	ComponentDescription<TriggerVolume>     {"Trigger Volume"}
 );
 
 void gRegisterComponentTypes();

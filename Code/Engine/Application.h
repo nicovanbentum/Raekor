@@ -2,6 +2,7 @@
 
 #include "ECS.h"
 #include "RTTI.h"
+#include "Audio.h"
 #include "Assets.h"
 #include "Camera.h"
 #include "Script.h"
@@ -84,6 +85,7 @@ public:
 	virtual Scene* GetScene() { return nullptr; }
 	virtual Assets* GetAssets() { return nullptr; }
 	virtual Physics* GetPhysics() { return nullptr; }
+	virtual Audio* GetAudio() { return nullptr; }
 	virtual UndoSystem* GetUndo() { return nullptr; }
 	virtual IRenderInterface* GetRenderInterface() { return nullptr; }
 
@@ -141,9 +143,13 @@ public:
 
     const ScriptModule& GetScriptModule() const { return m_ScriptModule; }
 
+    Audio* GetAudio() override { return &m_Audio; }
+
 protected:
+    void UpdateAudio(float inDeltaTime);
     void CallScripts(void ( INativeScript::* inFunction )( ), const char* inFunctionName);
 
+    Audio m_Audio;
     ScriptModule m_ScriptModule;
     float m_ScriptPollTime = 0.0f;
 };

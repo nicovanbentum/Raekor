@@ -41,6 +41,8 @@ public:
 	void UpdateCameras();
 	void UpdateStreaming();
 	void UpdateTransforms();
+	void UpdateTriggers(const Vec3& inDefaultActivator);
+	void ResetTriggers();
 	void UpdateAnimations(float inDeltaTime);
 	void UpdateNativeScripts(float inDeltaTime, Application* inApp);
 

@@ -99,6 +99,9 @@ void GameApp::OnUpdate(float inDeltaTime)
     if (GetGameState() == GAME_RUNNING)
         m_Scene.UpdateNativeScripts(inDeltaTime, this);
 
+    // update SoundSource, AudioListener and TriggerVolume components
+    UpdateAudio(inDeltaTime);
+
     int width, height;
     SDL_GetWindowSize(m_Window, &width, &height);
 

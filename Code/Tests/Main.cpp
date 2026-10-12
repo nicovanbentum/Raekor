@@ -214,6 +214,23 @@ static void sTestSceneRoundTrip(const Path& inDirectory)
 			light.type = LIGHT_TYPE_POINT;
 			light.color = Vec4(1.0f, 0.5f, 0.25f, float(index));
 		}
+
+		if (index % 5 == 0)
+		{
+			SoundSource& source = scene.Add<SoundSource>(entity);
+			source.file = std::format("Assets/Sound{}.ogg", index);
+			source.category = ESoundCategory(index % SOUND_CATEGORY_COUNT);
+			source.volume = 0.25f * index;
+			source.loop = index % 2 == 0;
+			source.playOnTriggerEnter = true;
+			source.maxDistance = 10.0f + index;
+			source.voice = 42;
+
+			TriggerVolume& trigger = scene.Add<TriggerVolume>(entity);
+			trigger.size = Vec3(1.0f, 2.0f, float(index));
+			trigger.activator = material_entity;
+			trigger.once = true;
+		}
 	}
 
 	scene.SaveToFile(scene_path, assets);
@@ -251,7 +268,87 @@ static void sTestSceneRoundTrip(const Path& inDirectory)
 
 		if (scene.Has<Light>(entity))
 			CHECK(loaded.Get<Light>(entity).color == scene.Get<Light>(entity).color);
+
+		CHECK(loaded.Has<SoundSource>(entity) == scene.Has<SoundSource>(entity));
+		CHECK(loaded.Has<TriggerVolume>(entity) == scene.Has<TriggerVolume>(entity));
+
+		if (scene.Has<SoundSource>(entity))
+		{
+			const SoundSource& original_source = scene.Get<SoundSource>(entity);
+			const SoundSource& loaded_source = loaded.Get<SoundSource>(entity);
+
+			CHECK(loaded_source.file == original_source.file);
+			CHECK(loaded_source.category == original_source.category);
+			CHECK(loaded_source.volume == original_source.volume);
+			CHECK(loaded_source.loop == original_source.loop);
+			CHECK(loaded_source.playOnTriggerEnter == original_source.playOnTriggerEnter);
+			CHECK(loaded_source.maxDistance == original_source.maxDistance);
+			CHECK(loaded_source.voice == 0);
+
+			const TriggerVolume& original_trigger = scene.Get<TriggerVolume>(entity);
+			const TriggerVolume& loaded_trigger = loaded.Get<TriggerVolume>(entity);
+
+			CHECK(loaded_trigger.size == original_trigger.size);
+			CHECK(loaded_trigger.activator == original_trigger.activator);
+			CHECK(loaded_trigger.once == original_trigger.once);
+		}
 	}
+}
+
+
+static void sTestTriggerVolumes()
+{
+	Scene scene = Scene(nullptr);
+
+	const Entity trigger_entity = scene.CreateSpatialEntity("Trigger");
+	const Entity activator_entity = scene.CreateSpatialEntity("Activator");
+
+	Transform& transform = scene.Get<Transform>(trigger_entity);
+	transform.position = Vec3(10.0f, 0.0f, 0.0f);
+	transform.rotation = glm::angleAxis(glm::radians(90.0f), Vec3(0.0f, 1.0f, 0.0f));
+	transform.scale = Vec3(2.0f);
+	transform.Compose();
+
+	TriggerVolume& trigger = scene.Add<TriggerVolume>(trigger_entity);
+	trigger.size = Vec3(1.0f, 1.0f, 4.0f);
+
+	scene.UpdateTransforms();
+
+	CHECK(trigger.Contains(transform, Vec3(13.5f, 0.0f, 0.0f)));
+	CHECK(!trigger.Contains(transform, Vec3(14.5f, 0.0f, 0.0f)));
+	CHECK(!trigger.Contains(transform, Vec3(10.0f, 0.0f, 1.5f)));
+
+	scene.UpdateTriggers(Vec3(0.0f));
+	CHECK(!trigger.inside && !trigger.entered && !trigger.exited);
+
+	scene.UpdateTriggers(Vec3(10.0f, 0.0f, 0.0f));
+	CHECK(trigger.inside && trigger.entered && !trigger.exited);
+
+	scene.UpdateTriggers(Vec3(11.0f, 0.0f, 0.0f));
+	CHECK(trigger.inside && !trigger.entered && !trigger.exited);
+
+	scene.UpdateTriggers(Vec3(0.0f));
+	CHECK(!trigger.inside && !trigger.entered && trigger.exited);
+
+	trigger.once = true;
+
+	scene.UpdateTriggers(Vec3(10.0f, 0.0f, 0.0f));
+	CHECK(trigger.inside && !trigger.entered);
+
+	trigger.Reset();
+	trigger.activator = activator_entity;
+
+	Transform& activator = scene.Get<Transform>(activator_entity);
+	activator.position = Vec3(10.0f, 0.0f, 0.0f);
+	activator.Compose();
+	scene.UpdateTransforms();
+
+	scene.UpdateTriggers(Vec3(0.0f));
+	CHECK(trigger.inside && trigger.entered);
+
+	scene.Destroy(activator_entity);
+	scene.UpdateTriggers(Vec3(10.0f, 0.0f, 0.0f));
+	CHECK(!trigger.inside && trigger.exited);
 }
 
 
@@ -851,6 +948,7 @@ int main(int argc, char** argv)
 	sTestComponentTableVersioning(directory);
 	sTestLegacyMemberSkipping(directory);
 	sTestSceneRoundTrip(directory);
+	sTestTriggerVolumes();
 	sTestMeshPack(directory, "Assets/Models/glTF-Sample-Models-main/2.0/AlphaBlendModeTest/glTF/AlphaBlendModeTest.gltf");
 	sTestMultiComponentEach();
 	sTestTransformHierarchy();

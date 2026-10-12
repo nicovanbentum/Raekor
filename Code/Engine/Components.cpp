@@ -131,9 +131,45 @@ RTTI_DEFINE_TYPE(Material)
 }
 
 
-RTTI_DEFINE_TYPE(AudioStream)
+RTTI_DEFINE_ENUM(ESoundCategory)
 {
+	RTTI_DEFINE_ENUM_MEMBER(SERIALIZE_ALL, "Effects", SOUND_CATEGORY_EFFECTS);
+	RTTI_DEFINE_ENUM_MEMBER(SERIALIZE_ALL, "Ambience", SOUND_CATEGORY_AMBIENCE);
+	RTTI_DEFINE_ENUM_MEMBER(SERIALIZE_ALL, "Music", SOUND_CATEGORY_MUSIC);
+}
 
+
+RTTI_DEFINE_TYPE(SoundSource)
+{
+	RTTI_DEFINE_MEMBER(SoundSource, SERIALIZE_ALL, "File", file);
+	RTTI_DEFINE_MEMBER(SoundSource, SERIALIZE_ALL, "Category", category);
+	RTTI_DEFINE_MEMBER(SoundSource, SERIALIZE_ALL, "Volume", volume);
+	RTTI_DEFINE_MEMBER(SoundSource, SERIALIZE_ALL, "Pitch", pitch);
+	RTTI_DEFINE_MEMBER(SoundSource, SERIALIZE_ALL, "Loop", loop);
+	RTTI_DEFINE_MEMBER(SoundSource, SERIALIZE_ALL, "Stream", stream);
+	RTTI_DEFINE_MEMBER(SoundSource, SERIALIZE_ALL, "Play On Start", playOnStart);
+	RTTI_DEFINE_MEMBER(SoundSource, SERIALIZE_ALL, "Play On Trigger Enter", playOnTriggerEnter);
+	RTTI_DEFINE_MEMBER(SoundSource, SERIALIZE_ALL, "Stop On Trigger Exit", stopOnTriggerExit);
+	RTTI_DEFINE_MEMBER(SoundSource, SERIALIZE_ALL, "Fade In Time", fadeInTime);
+	RTTI_DEFINE_MEMBER(SoundSource, SERIALIZE_ALL, "Fade Out Time", fadeOutTime);
+	RTTI_DEFINE_MEMBER(SoundSource, SERIALIZE_ALL, "Spatial", spatial);
+	RTTI_DEFINE_MEMBER(SoundSource, SERIALIZE_ALL, "Min Distance", minDistance);
+	RTTI_DEFINE_MEMBER(SoundSource, SERIALIZE_ALL, "Max Distance", maxDistance);
+	RTTI_DEFINE_MEMBER(SoundSource, SERIALIZE_ALL, "Rolloff", rolloff);
+	RTTI_DEFINE_MEMBER(SoundSource, SERIALIZE_ALL, "Doppler Factor", dopplerFactor);
+}
+
+
+RTTI_DEFINE_TYPE(AudioListener)
+{
+}
+
+
+RTTI_DEFINE_TYPE(TriggerVolume)
+{
+	RTTI_DEFINE_MEMBER(TriggerVolume, SERIALIZE_ALL, "Size", size);
+	RTTI_DEFINE_MEMBER(TriggerVolume, SERIALIZE_ALL, "Activator", activator);
+	RTTI_DEFINE_MEMBER(TriggerVolume, SERIALIZE_ALL, "Once", once);
 }
 
 
@@ -817,8 +853,11 @@ void RigidBody::CreateCylinderCollider(Physics& inPhysics, const MeshGeometry& i
 	shapeSettings = new JPH::CylinderShapeSettings(half_extent.y, half_extent.x);
 }
 
-void AudioStream::Play()
+
+bool TriggerVolume::Contains(const Transform& inTransform, const Vec3& inPoint) const
 {
+	const Vec3 local_point = Vec3(glm::inverse(inTransform.worldTransform) * Vec4(inPoint, 1.0f));
+	return glm::all(glm::lessThanEqual(glm::abs(local_point), size * 0.5f));
 }
 
 

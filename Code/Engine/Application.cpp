@@ -299,6 +299,9 @@ void Game::Start()
         physics->SetState(Physics::Stepping);
     }
 
+    if (Scene* scene = GetScene())
+        scene->ResetTriggers();
+
     CallScripts(&INativeScript::OnStart, "OnStart");
 
     g_Input->SetRelativeMouseMode(true);
@@ -315,6 +318,8 @@ void Game::Pause()
     if (Physics* physics = GetPhysics())
         physics->SetState(Physics::Idle);
 
+    m_Audio.Pause();
+
     g_Input->SetRelativeMouseMode(false);
 
     SetGameState(GAME_PAUSED);
@@ -328,6 +333,8 @@ void Game::Unpause()
 
     if (Physics* physics = GetPhysics())
         physics->SetState(Physics::Stepping);
+
+    m_Audio.Unpause();
 
     g_Input->SetRelativeMouseMode(true);
 
@@ -357,11 +364,34 @@ void Game::Stop()
         }
     }
 
+    m_Audio.OnStop();
+
+    if (Scene* scene = GetScene())
+        scene->ResetTriggers();
+
     SetCameraEntity(Entity::Null);
 
     g_Input->SetRelativeMouseMode(false);
 
     SetGameState(GAME_STOPPED);
+}
+
+
+void Game::UpdateAudio(float inDeltaTime)
+{
+    Scene* scene = GetScene();
+
+    if (scene == nullptr)
+        return;
+
+    const bool is_running = GetGameState() == GAME_RUNNING;
+
+    m_Audio.UpdateListener(*scene, m_Viewport, inDeltaTime);
+
+    if (is_running)
+        scene->UpdateTriggers(m_Audio.GetListenerPosition());
+
+    m_Audio.OnUpdate(*scene, inDeltaTime, is_running);
 }
 
 

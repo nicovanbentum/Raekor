@@ -16,6 +16,9 @@ list(APPEND CppFiles ${CMAKE_SOURCE_DIR}/ThirdParty/imnodes/imnodes.cpp)
 set_source_files_properties(${CMAKE_SOURCE_DIR}/ThirdParty/ufbx/ufbx.c PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
 list(APPEND CppFiles ${CMAKE_SOURCE_DIR}/ThirdParty/ufbx/ufbx.c)
 
+set_source_files_properties(${PROJECT_SOURCE_DIR}/MiniAudio.c PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+list(APPEND CppFiles ${PROJECT_SOURCE_DIR}/MiniAudio.c)
+
 set_source_files_properties(${CMAKE_SOURCE_DIR}/ThirdParty/meshoptimizer/src/clusterizer.cpp PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
 list(APPEND CppFiles ${CMAKE_SOURCE_DIR}/ThirdParty/meshoptimizer/src/clusterizer.cpp)
 

@@ -138,6 +138,46 @@ void Scene::UpdateCameras()
 }
 
 
+void Scene::UpdateTriggers(const Vec3& inDefaultActivator)
+{
+	PROFILE_FUNCTION_CPU();
+
+	for (const auto& [entity, trigger, transform] : Each<TriggerVolume, Transform>())
+	{
+		Vec3 activator_position = inDefaultActivator;
+
+		if (trigger.activator != Entity::Null)
+		{
+			const Transform* activator = GetPtr<Transform>(trigger.activator);
+
+			if (!activator)
+			{
+				trigger.entered = false;
+				trigger.exited = trigger.inside;
+				trigger.inside = false;
+				continue;
+			}
+
+			activator_position = activator->GetPositionWorldSpace();
+		}
+
+		const bool inside = trigger.Contains(transform, activator_position);
+
+		trigger.entered = inside && !trigger.inside && !( trigger.once && trigger.triggered );
+		trigger.exited = !inside && trigger.inside;
+		trigger.triggered |= trigger.entered;
+		trigger.inside = inside;
+	}
+}
+
+
+void Scene::ResetTriggers()
+{
+	for (const auto& [entity, trigger] : Each<TriggerVolume>())
+		trigger.Reset();
+}
+
+
 void Scene::RebuildTransformOrder(const ComponentStorage<Transform>& inTransforms)
 {
 	m_TransformOrder.clear();
@@ -341,6 +381,24 @@ void Scene::RenderDebugShapes(Entity inEntity, float inOpacity) const
 		else if (light.type == LIGHT_TYPE_POINT)
 		{
 			g_DebugRenderer.AddLineSphere(light.position, light.attributes.x);
+		}
+	}
+
+	if (Has<TriggerVolume, Transform>(inEntity))
+	{
+		const auto& [trigger, transform] = Get<TriggerVolume, Transform>(inEntity);
+		g_DebugRenderer.AddLineCube(-trigger.size * 0.5f, trigger.size * 0.5f, transform.worldTransform, Vec4(1.0f, 0.6f, 0.1f, 1.0f));
+	}
+
+	if (Has<SoundSource, Transform>(inEntity))
+	{
+		const auto& [source, transform] = Get<SoundSource, Transform>(inEntity);
+
+		if (source.spatial)
+		{
+			const Vec3 position = transform.GetPositionWorldSpace();
+			g_DebugRenderer.AddLineSphere(position, source.minDistance, Vec4(0.3f, 0.8f, 1.0f, 1.0f));
+			g_DebugRenderer.AddLineSphere(position, source.maxDistance, Vec4(0.3f, 0.8f, 1.0f, 0.35f));
 		}
 	}
 	// render debug shape for directional light

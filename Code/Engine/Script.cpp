@@ -14,6 +14,8 @@ RTTI_DEFINE_TYPE_NO_FACTORY(INativeScript) {}
 
 Scene* INativeScript::GetScene() { return m_App->GetScene(); }
 
+Audio* INativeScript::GetAudio() { return m_App->GetAudio(); }
+
 Assets* INativeScript::GetAssets() { return m_App->GetAssets(); }
 
 Physics* INativeScript::GetPhysics() { return m_App->GetPhysics(); }
