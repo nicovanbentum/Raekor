@@ -23,80 +23,6 @@ def gold_fill(c, sdf, width=4.0):
     c.over(shade(GOLD, light * 0.55 + grain * 0.15), coverage(sdf))
 
 
-def frame(directory):
-    c = Canvas(128, 128)
-    outer = box(c, 64, 64, 60, 60, 14)
-    c.fill(box(c, 64, 67, 60, 60, 16) - 2, (0, 0, 0), 0.5, aa=6.0)
-
-    leather = noise(c, 24, 3, 4)
-    base = mix(LEATHER_TOP, LEATHER_BOTTOM, np.clip(c.y / 128.0, 0, 1))
-    c.over(np.clip(base * (0.8 + 0.4 * leather[..., None]), 0, 1), coverage(outer) * 0.95)
-
-    c.fill(subtract(outer, box(c, 64, 64, 54, 54, 10)), IRON)
-    gold_fill(c, subtract(box(c, 64, 64, 56, 56, 12), box(c, 64, 64, 51, 51, 9)), 3.0)
-    c.fill(subtract(box(c, 64, 64, 43, 43, 4), box(c, 64, 64, 42, 42, 3)), GOLD, 0.6)
-
-    for cx in (20, 108):
-        for cy in (20, 108):
-            stud = rotated_box(c, cx, cy, 9, 9, math.pi * 0.25, 1.5)
-            c.fill(stud + 1.5, IRON)
-            gold_fill(c, stud, 4.0)
-            c.fill(circle(c, cx, cy, 3.2), RUBY)
-            c.fill(circle(c, cx - 1.0, cy - 1.2, 1.1), (1, 0.8, 0.8), 0.8)
-
-    for cx, cy, angle in ((64, 8, 0), (64, 120, 0), (8, 64, math.pi * 0.5), (120, 64, math.pi * 0.5)):
-        gem = rotated_box(c, cx, cy, 5, 5, math.pi * 0.25, 1.0)
-        gold_fill(c, gem, 3.0)
-
-    c.save(directory / "Frame.png")
-
-
-def bar_frame(directory):
-    c = Canvas(128, 128)
-    outer = box(c, 64, 64, 62, 62, 62)
-    inner = box(c, 64, 64, 44, 44, 44)
-    c.fill(subtract(outer, inner), IRON)
-    gold_fill(c, subtract(box(c, 64, 64, 54, 54, 54), box(c, 64, 64, 48, 48, 48)), 3.0)
-    c.fill(subtract(box(c, 64, 64, 46, 46, 46), inner), (0, 0, 0), 0.6)
-    c.save(directory / "BarFrame.png")
-
-
-def bar_sheen(directory):
-    c = Canvas(128, 128)
-    t = c.y / 128.0
-    highlight = np.exp(-((t - 0.28) / 0.12) ** 2) * 0.45
-    shadow = np.clip((t - 0.55) / 0.45, 0, 1) * 0.45
-    grain = noise(c, 10, 11, 3)
-    streak = (np.sin((c.x + c.y * 0.6) * 0.18) * 0.5 + 0.5) ** 8 * 0.12
-    c.over((1, 1, 1), highlight + streak)
-    c.over((0, 0, 0), shadow + (grain - 0.5) * 0.25)
-    c.save(directory / "BarSheen.png")
-
-
-def rune_ring(directory):
-    c = Canvas(128, 128)
-    c.fill(circle(c, 64, 66, 60) - 2, (0, 0, 0), 0.5, aa=6.0)
-    disc = circle(c, 64, 64, 58)
-    c.over(np.clip(mix(LEATHER_TOP, LEATHER_BOTTOM, np.clip(c.y / 128.0, 0, 1)) * 1.2, 0, 1), coverage(disc))
-    c.fill(ring(c, 64, 64, 56, 6), IRON)
-    gold_fill(c, ring(c, 64, 64, 55, 3.0), 2.0)
-    gold_fill(c, ring(c, 64, 64, 41, 2.0), 1.5)
-
-    for index in range(24):
-        a = index / 24 * math.tau
-        r0, r1 = (44, 52) if index % 3 == 0 else (46, 50)
-        ax, ay = 64 + math.cos(a) * r0, 64 + math.sin(a) * r0
-        bx, by = 64 + math.cos(a) * r1, 64 + math.sin(a) * r1
-        c.fill(segment(c, ax, ay, bx, by, 1.2 if index % 3 == 0 else 0.7), GOLD, 0.9)
-
-    for index in range(8):
-        a = index / 8 * math.tau + math.pi / 8
-        px, py = 64 + math.cos(a) * 48, 64 + math.sin(a) * 48
-        c.fill(rotated_box(c, px, py, 2.2, 2.2, a + math.pi * 0.25), hex_color("9fd8ff"), 0.9)
-
-    c.save(directory / "RuneRing.png")
-
-
 def heart(directory):
     c = Canvas(64, 64)
     shape = union(circle(c, 23, 25, 13), circle(c, 41, 25, 13), polygon(c, [(11.5, 30), (52.5, 30), (32, 54)]))
@@ -105,34 +31,6 @@ def heart(directory):
     c.over(shade(RUBY, light * 0.6), coverage(shape))
     c.fill(rotated_box(c, 22, 21, 5, 3, -0.6, 2.5), (1, 0.85, 0.85), 0.75)
     c.save(directory / "Heart.png")
-
-
-def skull(directory):
-    c = Canvas(64, 64)
-    cranium = union(circle(c, 32, 27, 19), box(c, 32, 42, 11, 9, 4))
-    c.fill(cranium - 3, (0.06, 0.05, 0.07))
-    light = bevel(cranium, 6.0)
-    c.over(shade(BONE, light * 0.4 + (noise(c, 5, 2, 2) - 0.5) * 0.15), coverage(cranium))
-    for ex in (24, 40):
-        c.fill(circle(c, ex, 30, 6), (0.08, 0.05, 0.09))
-        c.fill(circle(c, ex, 31, 2.2), hex_color("ff5a3a"), 0.9)
-    c.fill(polygon(c, [(32, 36), (29, 42), (35, 42)]), (0.08, 0.05, 0.09))
-    for tx in (26, 30, 34, 38):
-        c.fill(box(c, tx, 48, 0.6, 3.5), (0.12, 0.09, 0.1), 0.9)
-    c.save(directory / "Skull.png")
-
-
-def banner(directory):
-    c = Canvas(256, 256)
-    body = polygon(c, [(6, 64), (250, 64), (222, 128), (250, 192), (6, 192), (34, 128)])
-    c.fill(body - 4, (0, 0, 0), 0.45, aa=6.0)
-    cloth = noise(c, 18, 21, 3)
-    base = mix(hex_color("7e1420"), hex_color("3c0710"), np.clip((c.y - 64) / 128.0, 0, 1))
-    c.over(np.clip(base * (0.85 + 0.3 * cloth[..., None]), 0, 1), coverage(body))
-    trim = subtract(body, polygon(c, [(20, 74), (236, 74), (210, 128), (236, 182), (20, 182), (46, 128)]))
-    gold_fill(c, trim, 3.0)
-    c.fill(subtract(polygon(c, [(26, 80), (230, 80), (205, 128), (230, 176), (26, 176), (51, 128)]), polygon(c, [(28, 82), (228, 82), (203, 128), (228, 174), (28, 174), (53, 128)])), GOLD, 0.5)
-    c.save(directory / "Banner.png")
 
 
 def gem(directory):
@@ -522,6 +420,160 @@ def icon_dash(c):
     paint(c, quill, hex_color("efe6d0"), 0.6, 2.0, 0.05, 130)
 
 
+STONE_DARK = hex_color("3d3426")
+STONE_LIGHT = hex_color("7a6c55")
+RS_BROWN = hex_color("3e3529")
+PARCHMENT_LIGHT = hex_color("ddcca4")
+PARCHMENT_DARK = hex_color("a48c5c")
+INK = hex_color("3a2c1a")
+
+
+def stone(c, seed, block=32):
+    mottling = noise(c, 9, seed, 3)
+    base = mix(STONE_DARK, STONE_LIGHT, mottling * 0.8 + 0.1)
+    rng = np.random.default_rng(seed)
+    table = rng.uniform(0.82, 1.12, 64).astype(np.float32)
+    horizontal = np.minimum(c.y, c.height - c.y) < np.minimum(c.x, c.width - c.x)
+    along = np.where(horizontal, c.x, c.y)
+    across = np.where(horizontal, np.minimum(c.y, c.height - c.y), np.minimum(c.x, c.width - c.x))
+    block_index = (np.floor(along / block).astype(int) + horizontal.astype(int) * 17 + (c.y > c.height * 0.5).astype(int) * 7 + (c.x > c.width * 0.5).astype(int) * 3) % 64
+    base = base * table[block_index][..., None]
+    seam = np.minimum(along % block, block - along % block)
+    mitre = np.abs(np.minimum(c.y, c.height - c.y) - np.minimum(c.x, c.width - c.x))
+    return np.clip(base, 0, 1), np.minimum(seam, mitre * 0.7), across
+
+
+def panel(directory):
+    c = Canvas(256, 256)
+    outer = box(c, 128, 128, 127, 127, 6)
+    inner = box(c, 128, 128, 104, 104, 2)
+    c.fill(outer, OUTLINE)
+    band = subtract(outer + 2.0, inner + 1.0)
+    base, seam, across = stone(c, 140)
+    light = bevel(outer + 2.0, 10.0) * 0.45 - np.exp(-np.maximum(-(inner + 1.0), 0) / 3.0) * 0.25
+    stones = np.clip(base * (1.0 + light[..., None]), 0, 1)
+    stones = stones * np.where(seam < 1.2, 0.45, np.where(seam < 2.4, 1.18, 1.0))[..., None]
+    c.over(np.clip(stones, 0, 1), coverage(band))
+    for x, y in ((14, 14), (242, 14), (14, 242), (242, 242)):
+        rivet = circle(c, x, y, 5.5)
+        c.fill(rivet + 1.0, OUTLINE)
+        paint(c, rivet, hex_color("8f8676"), 0.9, 3.0, 0.05, 141)
+    c.fill(subtract(inner + 1.0, inner - 1.0), OUTLINE)
+    grain = noise(c, 3, 142, 2) * 0.6 + noise(c, 24, 143, 2) * 0.4
+    shadow = np.exp(-np.maximum(-inner, 0) / 7.0) * 0.45
+    interior = np.asarray(RS_BROWN[:3]) * (0.86 + 0.28 * grain[..., None]) * (1.0 - shadow[..., None])
+    c.over(np.clip(interior, 0, 1), coverage(inner - 1.0))
+    c.save(directory / "Panel.png")
+
+
+def parchment(directory):
+    c = Canvas(256, 256)
+    sheet = box(c, 128, 128, 126, 126, 5)
+    edge = np.clip(-sheet / 40.0, 0, 1)
+    fibres = noise(c, 2, 150, 2) * 0.5 + noise(c, 14, 151, 3) * 0.5
+    base = mix(PARCHMENT_DARK, PARCHMENT_LIGHT, np.clip(edge ** 0.6 * (0.8 + 0.3 * fibres), 0, 1))
+    c.over(base, coverage(sheet))
+    c.fill(subtract(sheet, sheet + 2.5), INK)
+    c.fill(subtract(sheet + 6.0, sheet + 7.0), INK, 0.35)
+    c.save(directory / "Parchment.png")
+
+
+def slot(directory):
+    c = Canvas(64, 64)
+    shape = box(c, 32, 32, 31, 31, 3)
+    c.fill(shape, OUTLINE)
+    inner = shape + 2.0
+    shading = -bevel(inner, 6.0) * 0.6 + (noise(c, 4, 160, 2) - 0.5) * 0.15
+    c.over(np.clip(np.asarray(hex_color("2a231b")[:3]) * (1.0 + shading[..., None]), 0, 1), coverage(inner))
+    c.save(directory / "Slot.png")
+
+
+def button(directory):
+    c = Canvas(64, 64)
+    shape = box(c, 32, 32, 31, 31, 5)
+    c.fill(shape, OUTLINE)
+    face = shape + 2.0
+    mottling = noise(c, 8, 170, 3)
+    base = mix(hex_color("4a4034"), hex_color("74695a"), mottling)
+    light = bevel(face, 5.0) * 0.7
+    c.over(np.clip(base * (1.0 + light[..., None]), 0, 1), coverage(face))
+    c.fill(subtract(face + 4.0, face + 5.0), OUTLINE, 0.3)
+    c.save(directory / "Button.png")
+
+
+def orb_frame(directory):
+    c = Canvas(128, 128)
+    plate = box(c, 34, 64, 30, 15, 4)
+    c.fill(plate, OUTLINE)
+    paint(c, plate + 2.0, hex_color("6e6352"), 0.6, 3.0, 0.15, 180)
+    c.fill(box(c, 34, 64, 25, 10, 2), hex_color("15120e"))
+    rim = ring(c, 88, 64, 31, 9)
+    c.fill(rim + 1.5, OUTLINE)
+    base = mix(STONE_DARK, STONE_LIGHT, noise(c, 6, 181, 3))
+    c.over(np.clip(base * (1.0 + bevel(rim, 6.0)[..., None] * 0.6), 0, 1), coverage(rim))
+    c.fill(ring(c, 88, 64, 26.5, 1.2), OUTLINE, 0.8)
+    c.save(directory / "OrbFrame.png")
+
+
+def orb_fill(directory):
+    c = Canvas(64, 64)
+    sphere = circle(c, 32, 32, 31.5)
+    t = np.clip(np.hypot(c.x - 26, c.y - 22) / 44.0, 0, 1)
+    c.over(np.clip(np.stack([1.0 - 0.55 * t] * 3, axis=-1), 0, 1), coverage(sphere))
+    c.fill(ellipse(c, 24, 18, 10, 5, -0.5), (1, 1, 1), 0.55)
+    c.save(directory / "OrbFill.png")
+
+
+def splat_shape(c, seed, radius):
+    rng = np.random.default_rng(seed)
+    parts = [circle(c, 32, 32, radius)]
+    for index in range(7):
+        a = index * math.tau / 7 + rng.uniform(-0.3, 0.3)
+        d = radius * rng.uniform(0.55, 0.8)
+        parts.append(circle(c, 32 + math.cos(a) * d, 32 + math.sin(a) * d, radius * rng.uniform(0.38, 0.55)))
+    return union(*parts) + (noise(c, 5, seed, 2) - 0.5) * 2.5
+
+
+def hitsplat(c, seed, radius):
+    blob = splat_shape(c, seed, radius)
+    c.fill(blob, hex_color("2a0000"))
+    inner = blob + 2.0
+    c.over(ramp(depth(inner, radius * 0.8), [(0.0, hex_color("6e0606")), (0.6, hex_color("b01212")), (1.0, hex_color("d42a1e"))]), coverage(inner))
+    c.over((1, 1, 1), np.clip(bevel(inner, 5.0), 0, 1) * coverage(inner) * 0.3)
+
+
+def hitsplats(directory):
+    c = Canvas(64, 64)
+    hitsplat(c, 190, 19)
+    c.save(directory / "Hitsplat.png")
+
+    c = Canvas(64, 64)
+    burst = star(c, 32, 32, 31, 21, 12, 0.0)
+    c.fill(burst, OUTLINE)
+    c.over(ramp(depth(burst + 2.0, 10.0), [(0.0, hex_color("a0600a")), (1.0, hex_color("ffd24a"))]), coverage(burst + 2.0))
+    hitsplat(c, 191, 17)
+    c.save(directory / "HitsplatMax.png")
+
+
+def hint_arrow(directory):
+    c = Canvas(64, 64)
+    arrow = polygon(c, [(6, 23), (34, 23), (34, 8), (60, 32), (34, 56), (34, 41), (6, 41)])
+    c.fill(arrow - 1.0, OUTLINE)
+    paint(c, arrow + 2.0, hex_color("ffd800"), 0.7, 5.0, 0.05, 200)
+    c.save(directory / "HintArrow.png")
+
+
+def runescape(directory):
+    panel(directory)
+    parchment(directory)
+    slot(directory)
+    button(directory)
+    orb_frame(directory)
+    orb_fill(directory)
+    hitsplats(directory)
+    hint_arrow(directory)
+
+
 def icons(directory):
     directory.mkdir(exist_ok=True)
 
@@ -551,14 +603,9 @@ def main():
     directory = Path(__file__).resolve().parent / "UI"
     directory.mkdir(exist_ok=True)
 
-    frame(directory)
-    bar_frame(directory)
-    bar_sheen(directory)
-    rune_ring(directory)
     heart(directory)
-    skull(directory)
-    banner(directory)
     gem(directory)
+    runescape(directory)
     icons(directory / "Icons")
 
 

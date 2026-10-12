@@ -22,6 +22,8 @@ static constexpr float cDashCooldown = 2.2f;
 static constexpr float cMaxEnemyRadius = 1.3f;
 static constexpr float cEliteChance = 0.035f;
 static constexpr float cStreakWindow = 2.5f;
+static constexpr float cXPDropDuration = 1.4f;
+static constexpr int cChatLines = 6;
 static constexpr float cAmbientTraumaCap = 0.25f;
 static constexpr float cMaxCameraKick = 0.35f;
 
@@ -53,7 +55,7 @@ static constexpr const char* cRuntimeRootName = "DuskSwarm Runtime";
 static constexpr const char* cModelFile = "Assets/DuskSwarm/DuskSwarm.glb";
 static constexpr const char* cPaletteFile = "Assets/DuskSwarm/Palette.png";
 static constexpr const char* cPaletteEmissiveFile = "Assets/DuskSwarm/PaletteEmissive.png";
-static constexpr const char* cHudFontFile = "Assets/Fonts/Cinzel.ttf";
+static constexpr const char* cHudFontFile = "Assets/Fonts/PixelifySans.ttf";
 static constexpr const char* cTitleFontFile = "Assets/Fonts/CinzelDecorative-Bold.ttf";
 
 static constexpr uint8_t cNormalMapSwizzleAG = 0b11'10'01'11;
@@ -602,6 +604,18 @@ public:
         bool mCrit = false;
     };
 
+    struct ChatMessage
+    {
+        String mText;
+        Vec4 mColor = Vec4(0.0f, 0.0f, 0.0f, 1.0f);
+    };
+
+    struct XPDrop
+    {
+        int mValue = 0;
+        float mTime = 0.0f;
+    };
+
     struct Popup
     {
         String mText;
@@ -609,7 +623,6 @@ public:
         float mTime = 0.0f;
         float mDuration = 2.2f;
         Vec4 mColor = Vec4(1.0f);
-        bool mBig = false;
     };
 
     void OnStart() override
@@ -1028,13 +1041,16 @@ private:
                 outTexture = LoadTexture(inFile, false);
         };
 
-        LoadUITexture(m_FrameTexture, "Assets/DuskSwarm/UI/Frame.png");
-        LoadUITexture(m_BarFrameTexture, "Assets/DuskSwarm/UI/BarFrame.png");
-        LoadUITexture(m_BarSheenTexture, "Assets/DuskSwarm/UI/BarSheen.png");
-        LoadUITexture(m_RuneRingTexture, "Assets/DuskSwarm/UI/RuneRing.png");
+        LoadUITexture(m_PanelTexture, "Assets/DuskSwarm/UI/Panel.png");
+        LoadUITexture(m_ParchmentTexture, "Assets/DuskSwarm/UI/Parchment.png");
+        LoadUITexture(m_SlotTexture, "Assets/DuskSwarm/UI/Slot.png");
+        LoadUITexture(m_ButtonTexture, "Assets/DuskSwarm/UI/Button.png");
+        LoadUITexture(m_OrbFrameTexture, "Assets/DuskSwarm/UI/OrbFrame.png");
+        LoadUITexture(m_OrbFillTexture, "Assets/DuskSwarm/UI/OrbFill.png");
+        LoadUITexture(m_HitsplatTexture, "Assets/DuskSwarm/UI/Hitsplat.png");
+        LoadUITexture(m_HitsplatMaxTexture, "Assets/DuskSwarm/UI/HitsplatMax.png");
+        LoadUITexture(m_HintArrowTexture, "Assets/DuskSwarm/UI/HintArrow.png");
         LoadUITexture(m_HeartTexture, "Assets/DuskSwarm/UI/Heart.png");
-        LoadUITexture(m_SkullTexture, "Assets/DuskSwarm/UI/Skull.png");
-        LoadUITexture(m_BannerTexture, "Assets/DuskSwarm/UI/Banner.png");
         LoadUITexture(m_GemTexture, "Assets/DuskSwarm/UI/Gem.png");
         LoadUITexture(m_DashIconTexture, "Assets/DuskSwarm/UI/Icons/Dash.png");
 
@@ -1779,7 +1795,6 @@ private:
         m_PlayerWalkPhase = 0.0f;
         m_PlayerDeathTimer = 0.0f;
         m_Health = cPlayerBaseHealth;
-        m_HealthTrail = cPlayerBaseHealth;
         m_InvulnerableTimer = 0.0f;
         m_DashTimer = -1.0f;
         m_DashCooldownTimer = 0.0f;
@@ -1805,7 +1820,6 @@ private:
         m_NextBoss = 0;
         m_BossEnemy = -1;
         m_BossPattern = 0;
-        m_BossHealthTrail = 0.0f;
         m_BoltTimer = 0.5f;
         m_NovaTimer = 2.0f;
         m_FireballTimer = 1.0f;
@@ -1816,6 +1830,13 @@ private:
         m_ChoiceCount = 0;
         m_DamageNumbers.clear();
         m_Popups.clear();
+        m_XPDrops.clear();
+        m_LichKills = 0;
+        m_ChatMessages.clear();
+
+        AddChat("Welcome to Dusk Swarm.", cChatBlack);
+        AddChat("WASD to move, Space to dash. Your weapons fire on their own.", cChatBlue);
+        AddChat("Survive until dawn.", cChatRed);
         m_CameraTarget = Vec3(0.0f);
         m_FacingDirection = Vec2(0.0f, -1.0f);
         m_GemStreak = 0;
@@ -2035,7 +2056,8 @@ private:
                 SpawnEnemy(ENEMY_BAT, ClampToArena(m_PlayerPosition + Vec2(glm::cos(angle), glm::sin(angle)) * 17.0f, 1.0f));
             }
 
-            AddPopup("THE SWARM DESCENDS", "Bats close in from every side", Vec4(0.8f, 0.55f, 1.0f, 1.0f), true);
+            AddPopup("The Swarm Descends", "Bats close in from every side", Vec4(0.8f, 0.55f, 1.0f, 1.0f));
+            AddChat("The swarm descends! Bats close in from every side.", cChatRed);
             PlaySfx(cSwarmSound, 0.7f);
         }
 
@@ -2048,7 +2070,7 @@ private:
             for (int index = 0; index < count; index++)
                 SpawnEnemy(ENEMY_BRUTE, GetSpawnPosition(), m_RunTime > 180.0f && index == 0);
 
-            AddPopup(count > 1 ? "BRUTES APPROACH" : "A BRUTE APPROACHES", "", Vec4(1.0f, 0.45f, 0.35f, 1.0f), false);
+            AddChat(count > 1 ? "Brutes approach." : "A brute approaches.", cChatRed);
             PlaySfx(cBruteRoarSound, 0.6f, RandomFloat(0.95f, 1.05f));
         }
 
@@ -2062,8 +2084,8 @@ private:
             if (index >= 0)
             {
                 m_BossEnemy = index;
-                m_BossHealthTrail = 1.0f;
-                AddPopup("THE LICH RISES", "Destroy it before it destroys you", Vec4(0.8f, 0.4f, 1.0f, 1.0f), true);
+                AddPopup("The Lich Rises", "Destroy it before it destroys you", Vec4(0.8f, 0.4f, 1.0f, 1.0f));
+                AddChat("The Lich rises from its grave!", cChatRed);
                 AddTrauma(0.6f);
                 PlaySfx(cLichRiseSound, 0.9f);
                 PlayMusic(true);
@@ -2551,7 +2573,7 @@ private:
                         SpawnEnemy(minion % 3 == 2 ? ENEMY_GHOUL : ENEMY_SKELETON, position);
                     }
 
-                    AddPopup("THE DEAD ANSWER", "", Vec4(0.8f, 0.5f, 1.0f, 1.0f), false);
+                    AddChat("The dead answer the Lich's call.", cChatPurple);
                 } break;
             }
 
@@ -2685,7 +2707,7 @@ private:
         m_StreakTimer = cStreakWindow;
 
         if (m_Streak > 0 && m_Streak % 50 == 0)
-            AddPopup(std::format("{} KILL STREAK", m_Streak), "", Vec4(1.0f, 0.8f, 0.3f, 1.0f), false);
+            AddChat(std::format("Kill streak: {}!", m_Streak), cChatGreen);
 
         const Vec3 center = ToWorld(enemy.mPosition, archetype.mTop * 0.5f);
 
@@ -2729,7 +2751,10 @@ private:
             {
                 m_HitStop = 0.15f;
                 AddTrauma(0.6f);
-                AddPopup("THE LICH IS SLAIN", "Its treasure is yours", Vec4(1.0f, 0.82f, 0.35f, 1.0f), true);
+                m_LichKills++;
+                AddPopup("The Lich is Slain", "Its treasure is yours", Vec4(1.0f, 0.82f, 0.35f, 1.0f));
+                AddChat("Congratulations, you have defeated the Lich!", cChatBlue);
+                AddChat(std::format("Your Lich kill count is: {}.", m_LichKills), cChatBlack);
                 m_BossKills++;
             } break;
 
@@ -3477,7 +3502,7 @@ private:
             {
                 const float heal = GetMaxHealth() * 0.35f;
                 m_Health = glm::min(GetMaxHealth(), m_Health + heal);
-                AddPopup("HEALTH RESTORED", std::format("+{} HP", int(heal)), Vec4(1.0f, 0.45f, 0.45f, 1.0f), false);
+                AddChat(std::format("You drink the potion. It heals {} hitpoints.", int(heal)), cChatBlack);
                 PlaySfx(cPotionSound, 0.7f);
                 Emit(center, ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = FX_HEAL, .mCount = 24, .mSpeedMin = 0.5f, .mSpeedMax = 1.5f, .mLifeMin = 0.6f, .mLifeMax = 1.0f, .mSizeMin = 0.15f, .mSizeMax = 0.25f, .mGravity = -4.0f, .mDrag = 1.0f, .mSpread = 0.8f, .mFlat = true });
                 SpawnRing(ToWorld(m_PlayerPosition, 0.1f), 0.3f, 2.0f, 0.5f, m_FXMaterials[FX_HEAL], 0.8f);
@@ -3488,7 +3513,7 @@ private:
                 for (Gem& gem : m_Gems)
                     gem.mAttracted |= gem.mActive;
 
-                AddPopup("MAGNETIZED", "All gems fly to you", Vec4(0.45f, 0.85f, 1.0f, 1.0f), false);
+                AddChat("The magnet pulls every gem towards you.", cChatBlack);
                 PlaySfx(cMagnetSound, 0.6f);
                 SpawnRing(ToWorld(m_PlayerPosition, 0.2f), 0.5f, 30.0f, 0.8f, m_FXMaterials[FX_ARCANE], 2.0f);
             } break;
@@ -3499,7 +3524,8 @@ private:
                 m_ScreenFlash = 1.0f;
                 m_HitStop = 0.1f;
                 AddTrauma(0.7f);
-                AddPopup("HOLY BOMB", "", Vec4(1.0f, 0.9f, 0.6f, 1.0f), true);
+                AddPopup("Holy Bomb", "", Vec4(1.0f, 0.9f, 0.6f, 1.0f));
+                AddChat("A holy blast purges the area!", cChatBlack);
             } break;
 
             case PICKUP_CHEST:
@@ -3539,24 +3565,30 @@ private:
         SpawnRing(ToWorld(inPosition, 0.1f), 0.5f, 6.0f, 0.6f, m_FXMaterials[FX_GOLD], 1.4f);
         AddTrauma(0.25f);
         PlaySfx(cTreasureSound, 0.8f);
-        AddPopup("TREASURE", rewards > 1 ? std::format("{} upgrades", rewards) : String("1 upgrade"), Vec4(1.0f, 0.82f, 0.35f, 1.0f), true);
+        AddPopup("Treasure!", rewards > 1 ? std::format("{} upgrades", rewards) : String("1 upgrade"), Vec4(1.0f, 0.82f, 0.35f, 1.0f));
+        AddChat(std::format("You open the chest and find {} upgrade{}!", rewards, rewards > 1 ? "s" : ""), cChatBlack);
     }
 
     void AddExperience(int inValue)
     {
         m_Experience += inValue;
 
+        if (!m_XPDrops.empty() && m_XPDrops.back().mTime < 0.12f)
+            m_XPDrops.back().mValue += inValue;
+        else
+            m_XPDrops.push_back(XPDrop { .mValue = inValue });
+
         while (m_Experience >= GetExperienceToNextLevel())
         {
             m_Experience -= GetExperienceToNextLevel();
             m_Level++;
             m_PendingLevelUps++;
+            AddChat(std::format("Congratulations, you just advanced a level! You are now level {}.", m_Level), cChatBlue);
         }
     }
 
     void UpdateProgress()
     {
-        m_HealthTrail = glm::max(m_Health, m_HealthTrail - GetMaxHealth() * 0.5f * ( 1.0f / 60.0f ));
 
         if (m_RunTime >= cVictoryTime)
         {
@@ -3620,7 +3652,7 @@ private:
         if (inUpgrade == UPGRADE_FEAST)
         {
             m_Health = glm::min(GetMaxHealth(), m_Health + GetMaxHealth() * 0.3f);
-            AddPopup("FEAST", "", Vec4(cUpgrades[UPGRADE_FEAST].mColor, 1.0f), false);
+            AddChat("You eat the feast. It heals some health.", cChatBlack);
             return;
         }
 
@@ -3632,7 +3664,7 @@ private:
         if (inUpgrade == UPGRADE_NOVA && m_UpgradeLevels[inUpgrade] == 1)
             m_NovaTimer = 0.5f;
 
-        AddPopup(std::format("{}  LV {}", cUpgrades[inUpgrade].mName, m_UpgradeLevels[inUpgrade]), "", Vec4(cUpgrades[inUpgrade].mColor, 1.0f), false);
+        AddChat(m_UpgradeLevels[inUpgrade] == 1 ? std::format("You have unlocked {}.", cUpgrades[inUpgrade].mName) : std::format("Your {} is now level {}.", cUpgrades[inUpgrade].mName, m_UpgradeLevels[inUpgrade]), cChatBlue);
     }
 
     void ChooseUpgrade(int inChoice)
@@ -4368,12 +4400,20 @@ private:
         m_DamageNumbers.push_back(DamageNumber { .mPosition = inPosition + Vec3(RandomFloat(-0.3f, 0.3f), 0.0f, RandomFloat(-0.3f, 0.3f)), .mTime = 0.0f, .mValue = inValue, .mCrit = inCrit });
     }
 
-    void AddPopup(const String& inText, const String& inSubText, const Vec4& inColor, bool inBig)
+    void AddChat(const String& inText, const Vec4& inColor)
+    {
+        if (m_ChatMessages.size() >= 32)
+            m_ChatMessages.erase(m_ChatMessages.begin());
+
+        m_ChatMessages.push_back(ChatMessage { .mText = inText, .mColor = inColor });
+    }
+
+    void AddPopup(const String& inText, const String& inSubText, const Vec4& inColor)
     {
         if (m_Popups.size() >= 4)
             m_Popups.erase(m_Popups.begin());
 
-        m_Popups.push_back(Popup { .mText = inText, .mSubText = inSubText, .mTime = 0.0f, .mDuration = inBig ? 3.0f : 2.2f, .mColor = inColor, .mBig = inBig });
+        m_Popups.push_back(Popup { .mText = inText, .mSubText = inSubText, .mTime = 0.0f, .mDuration = 3.0f, .mColor = inColor });
     }
 
     bool ProjectToScreen(const Vec3& inPosition, Vec2& outScreen) const
@@ -4394,58 +4434,61 @@ private:
         return Vec4(Vec3(inColor), inColor.a * inAlpha);
     }
 
-    static constexpr Vec4 cGold = Vec4(0.95f, 0.75f, 0.35f, 1.0f);
-    static constexpr Vec4 cParchment = Vec4(0.96f, 0.91f, 0.82f, 1.0f);
-    static constexpr Vec4 cShadow = Vec4(0.03f, 0.02f, 0.04f, 1.0f);
+    static constexpr Vec4 cRSYellow = Vec4(1.0f, 1.0f, 0.0f, 1.0f);
+    static constexpr Vec4 cRSOrange = Vec4(1.0f, 0.6f, 0.12f, 1.0f);
+    static constexpr Vec4 cRSWhite = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
+    static constexpr Vec4 cRSGreen = Vec4(0.0f, 1.0f, 0.0f, 1.0f);
+    static constexpr Vec4 cRSRed = Vec4(1.0f, 0.1f, 0.1f, 1.0f);
+    static constexpr Vec4 cHealthGreen = Vec4(0.0f, 0.78f, 0.0f, 1.0f);
+    static constexpr Vec4 cHealthRed = Vec4(0.72f, 0.0f, 0.0f, 1.0f);
+    static constexpr Vec4 cChatBlack = Vec4(0.0f, 0.0f, 0.0f, 1.0f);
+    static constexpr Vec4 cChatRed = Vec4(0.55f, 0.0f, 0.0f, 1.0f);
+    static constexpr Vec4 cChatBlue = Vec4(0.0f, 0.0f, 0.62f, 1.0f);
+    static constexpr Vec4 cChatGreen = Vec4(0.0f, 0.4f, 0.0f, 1.0f);
+    static constexpr Vec4 cChatPurple = Vec4(0.42f, 0.0f, 0.5f, 1.0f);
 
-    void DrawPanel(Vec2 inPos, Vec2 inSize, float inScale, Vec4 inAccent, float inAlpha = 1.0f)
+    void DrawLabel(Vec2 inPos, StringView inText, float inSize, Vec4 inColor, EUITextAlign inAlign = UI_TEXT_ALIGN_LEFT)
     {
-        g_UIRenderer.AddRectFilled(inPos + Vec2(0.0f, 10.0f) * inScale, inSize, 18.0f * inScale, Vec4(0.0f, 0.0f, 0.0f, 0.45f * inAlpha), 20.0f * inScale);
-        g_UIRenderer.AddImageSliced(inPos, inSize, m_FrameTexture, 34.0f * inScale, 0.25f, Vec4(1.0f, 1.0f, 1.0f, inAlpha));
-        g_UIRenderer.AddRectFilled(inPos + Vec2(24.0f * inScale), inSize - Vec2(48.0f * inScale), 8.0f * inScale, Fade(inAccent, 0.08f * inAlpha), 24.0f * inScale);
+        g_UIRenderer.AddText(inPos + Vec2(glm::max(1.0f, inSize * 0.08f)), inText, inSize, Vec4(0.0f, 0.0f, 0.0f, inColor.a), inAlign);
+        g_UIRenderer.AddText(inPos, inText, inSize, inColor, inAlign);
     }
 
-    void DrawBar(Vec2 inPos, Vec2 inSize, float inFill, Vec4 inStart, Vec4 inEnd, float inScale, float inTrail = -1.0f)
+    void DrawStonePanel(Vec2 inPos, Vec2 inSize, float inScale, float inAlpha = 1.0f)
     {
-        const float radius = inSize.y * 0.5f;
-        const float frame_height = inSize.y * 64.0f / 44.0f;
-        const Vec2 frame_pad = Vec2(( frame_height - inSize.y ) * 0.5f);
-
-        g_UIRenderer.AddRectFilled(inPos, inSize, radius, Vec4(0.06f, 0.05f, 0.08f, 0.95f));
-
-        if (inTrail > inFill)
-            g_UIRenderer.AddRectFilled(inPos, Vec2(glm::max(inSize.x * glm::clamp(inTrail, 0.0f, 1.0f), inSize.y), inSize.y), radius, Vec4(1.0f, 0.95f, 0.85f, 0.8f));
-
-        if (inFill > 0.0f)
-        {
-            const float width = glm::max(inSize.x * glm::clamp(inFill, 0.0f, 1.0f), inSize.y);
-            g_UIRenderer.AddRectGradient(inPos, Vec2(width, inSize.y), radius, inStart, inEnd, true);
-            g_UIRenderer.AddImage(inPos, Vec2(width, inSize.y), m_BarSheenTexture, Vec4(1.0f), Vec4(0.0f, 0.0f, width / inSize.y, 1.0f), radius);
-            g_UIRenderer.AddCircleFilled(inPos + Vec2(width - radius, radius), inSize.y * 0.9f, Fade(inEnd, 0.35f), inSize.y * 1.2f);
-        }
-
-        g_UIRenderer.AddImageSliced(inPos - frame_pad, inSize + frame_pad * 2.0f, m_BarFrameTexture, frame_height * 0.5f, 0.5f);
+        g_UIRenderer.AddRectFilled(inPos + Vec2(0.0f, 6.0f) * inScale, inSize, 8.0f * inScale, Vec4(0.0f, 0.0f, 0.0f, 0.4f * inAlpha), 12.0f * inScale);
+        g_UIRenderer.AddImageSliced(inPos, inSize, m_PanelTexture, 18.0f * inScale, 28.0f / 256.0f, Vec4(1.0f, 1.0f, 1.0f, inAlpha));
     }
 
-    void DrawShadowText(Vec2 inPos, StringView inText, float inSize, Vec4 inColor, EUITextAlign inAlign, float inScale)
+    void DrawDivider(Vec2 inPos, float inWidth, float inScale, float inAlpha)
     {
-        const Vec4 shadow = Fade(cShadow, inColor.a);
-        g_UIRenderer.AddTextOutlined(inPos + Vec2(0.0f, inSize * 0.07f), inText, inSize, Fade(shadow, 0.6f), Fade(shadow, 0.6f), inSize * 0.06f, inAlign);
-        g_UIRenderer.AddTextOutlined(inPos, inText, inSize, inColor, shadow, inSize * 0.05f, inAlign);
+        g_UIRenderer.AddRectFilled(inPos, Vec2(inWidth, glm::max(1.0f, inScale)), 0.0f, Vec4(0.0f, 0.0f, 0.0f, 0.7f * inAlpha));
+        g_UIRenderer.AddRectFilled(inPos + Vec2(0.0f, glm::max(1.0f, inScale)), Vec2(inWidth, glm::max(1.0f, inScale)), 0.0f, Vec4(0.55f, 0.48f, 0.38f, 0.6f * inAlpha));
     }
 
-    void DrawTitle(Vec2 inPos, StringView inText, float inSize, Vec4 inColor, float inScale)
+    void DrawWindow(Vec2 inPos, Vec2 inSize, StringView inTitle, float inScale, float inAlpha)
     {
-        g_UIRenderer.SetFont(m_TitleFont);
-        g_UIRenderer.AddTextGlow(inPos, inText, inSize, Fade(cShadow, inColor.a), Fade(inColor, 0.4f * inColor.a), inSize * 0.3f, UI_TEXT_ALIGN_CENTER);
-        DrawShadowText(inPos, inText, inSize, inColor, UI_TEXT_ALIGN_CENTER, inScale);
-        g_UIRenderer.SetFont(m_HudFont);
+        DrawStonePanel(inPos, inSize, inScale, inAlpha);
+        DrawLabel(Vec2(inPos.x + inSize.x * 0.5f, inPos.y + 24.0f * inScale), inTitle, 30.0f * inScale, Fade(cRSOrange, inAlpha), UI_TEXT_ALIGN_CENTER);
+        DrawDivider(Vec2(inPos.x + 26.0f * inScale, inPos.y + 64.0f * inScale), inSize.x - 52.0f * inScale, inScale, inAlpha);
     }
 
-    void DrawBanner(Vec2 inCenter, Vec2 inClothSize, float inAlpha)
+    void DrawFlatBar(Vec2 inPos, Vec2 inSize, float inFill, Vec4 inFillColor, Vec4 inBackColor, float inScale)
     {
-        const Vec2 size = Vec2(inClothSize.x, inClothSize.y * 2.0f);
-        g_UIRenderer.AddImageSliced(inCenter - size * 0.5f, size, m_BannerTexture, inClothSize.y * 0.5f, 0.25f, Vec4(1.0f, 1.0f, 1.0f, inAlpha));
+        g_UIRenderer.AddRectFilled(inPos, inSize, 0.0f, inBackColor);
+        g_UIRenderer.AddRectFilled(inPos, Vec2(inSize.x * glm::clamp(inFill, 0.0f, 1.0f), inSize.y), 0.0f, inFillColor);
+        g_UIRenderer.AddRect(inPos, inSize, 0.0f, glm::max(1.0f, inScale), Vec4(0.0f, 0.0f, 0.0f, inBackColor.a));
+    }
+
+    void DrawSlotBox(Vec2 inPos, Vec2 inSize, float inScale, float inAlpha = 1.0f)
+    {
+        g_UIRenderer.AddImageSliced(inPos, inSize, m_SlotTexture, 8.0f * inScale, 10.0f / 64.0f, Vec4(1.0f, 1.0f, 1.0f, inAlpha));
+    }
+
+    void DrawButton(Vec2 inPos, Vec2 inSize, StringView inLabel, bool inHovered, float inAlpha, float inScale)
+    {
+        const float tint = inHovered ? 1.35f : 1.0f;
+        g_UIRenderer.AddImageSliced(inPos, inSize, m_ButtonTexture, 10.0f * inScale, 12.0f / 64.0f, Vec4(tint, tint, tint, inAlpha));
+        DrawLabel(Vec2(inPos.x + inSize.x * 0.5f, inPos.y + inSize.y * 0.5f - 14.0f * inScale), inLabel, 28.0f * inScale, Fade(inHovered ? cRSYellow : cRSOrange, inAlpha), UI_TEXT_ALIGN_CENTER);
     }
 
     void DrawGem(Vec2 inCenter, float inSize, Vec4 inColor)
@@ -4455,15 +4498,37 @@ private:
 
     void DrawUpgradeIcon(int inUpgrade, Vec2 inCenter, float inSize, float inAlpha)
     {
-        g_UIRenderer.AddCircleFilled(inCenter, inSize * 0.85f, Vec4(cUpgrades[inUpgrade].mColor, 0.16f * inAlpha), inSize * 0.6f);
         g_UIRenderer.AddImage(inCenter - Vec2(inSize * 1.25f), Vec2(inSize * 2.5f), m_UpgradeIconTextures[inUpgrade], Vec4(1.0f, 1.0f, 1.0f, inAlpha));
+    }
+
+    static Vec4 GetOrbValueColor(float inFraction)
+    {
+        const float fraction = glm::clamp(inFraction, 0.0f, 1.0f);
+        return fraction > 0.5f ? glm::mix(cRSYellow, cRSGreen, ( fraction - 0.5f ) * 2.0f) : glm::mix(cRSRed, cRSYellow, fraction * 2.0f);
+    }
+
+    void DrawOrb(Vec2 inPos, float inScale, float inFill, const Vec3& inColor, uint32_t inIcon, StringView inValue, float inValueFraction)
+    {
+        const float k = 0.8f * inScale;
+        const Vec2 center = inPos + Vec2(88.0f, 40.0f) * k;
+        const float radius = 27.0f * k;
+        const float fill = glm::clamp(inFill, 0.0f, 1.0f);
+
+        g_UIRenderer.AddCircleFilled(center, radius, Vec4(0.06f, 0.05f, 0.04f, 1.0f));
+
+        if (fill > 0.0f)
+            g_UIRenderer.AddImage(Vec2(center.x - radius, center.y + radius - 2.0f * radius * fill), Vec2(2.0f * radius, 2.0f * radius * fill), m_OrbFillTexture, Vec4(inColor, 1.0f), Vec4(0.0f, 1.0f - fill, 1.0f, 1.0f));
+
+        g_UIRenderer.AddImage(inPos - Vec2(0.0f, 24.0f * k), Vec2(128.0f * k), m_OrbFrameTexture);
+        g_UIRenderer.AddImage(center - Vec2(15.0f * k), Vec2(30.0f * k), inIcon);
+        DrawLabel(inPos + Vec2(34.0f, 29.0f) * k, inValue, 22.0f * k, GetOrbValueColor(inValueFraction), UI_TEXT_ALIGN_CENTER);
     }
 
     void DrawHUD(float inDeltaTime)
     {
         const Vec2 display = Vec2(m_App->GetViewport().GetDisplaySize());
         const float scale = glm::max(display.y / 1080.0f, 0.5f);
-        const float margin = 24.0f * scale;
+        const float margin = 20.0f * scale;
 
         g_UIRenderer.SetFont(m_HudFont);
 
@@ -4480,25 +4545,22 @@ private:
 
         if (m_State == STATE_PLAYING)
         {
-            DrawDamageNumbers(inDeltaTime, scale);
-            DrawIndicators(display, scale);
+            DrawHitsplats(inDeltaTime, scale);
+            DrawHintArrows(display, scale);
         }
 
         Vec2 player_screen;
-        if (m_State == STATE_PLAYING && ProjectToScreen(ToWorld(m_PlayerPosition, -0.1f), player_screen))
+        if (m_State == STATE_PLAYING && health_fraction < 1.0f && ProjectToScreen(ToWorld(m_PlayerPosition, 2.2f), player_screen))
         {
-            const Vec2 size = Vec2(70.0f, 7.0f) * scale;
-            DrawBar(player_screen - Vec2(size.x * 0.5f, -10.0f * scale), size, health_fraction, Vec4(0.85f, 0.15f, 0.2f, 1.0f), Vec4(1.0f, 0.4f, 0.35f, 1.0f), scale, m_HealthTrail / GetMaxHealth());
-
-            if (m_DashCooldownTimer > 0.0f)
-                g_UIRenderer.AddArc(player_screen + Vec2(0.0f, 30.0f * scale), 7.0f * scale, 2.5f * scale, -glm::half_pi<float>(), 1.0f - m_DashCooldownTimer / cDashCooldown, Vec4(0.4f, 0.85f, 1.0f, 0.8f));
+            const Vec2 size = Vec2(64.0f, 8.0f) * scale;
+            DrawFlatBar(player_screen - Vec2(size.x * 0.5f, size.y), size, health_fraction, cHealthGreen, cHealthRed, scale);
         }
 
-        DrawTopBar(display, scale, margin);
-        DrawStatus(display, scale, margin);
-        DrawBossBar(display, scale);
-        DrawAbilityBar(display, scale, margin);
-        DrawStreak(display, scale, margin);
+        DrawInfoBox(scale, margin);
+        DrawExperience(display, inDeltaTime, scale, margin);
+        DrawBossBar(display, scale, margin);
+        DrawInventory(display, scale, margin);
+        DrawChatbox(display, scale, margin);
         DrawPopups(display, inDeltaTime, scale);
 
         if (m_RunTime < 4.5f && m_State == STATE_PLAYING)
@@ -4513,55 +4575,81 @@ private:
             DrawEndScreen(display, scale);
     }
 
-    void DrawTopBar(const Vec2& inDisplay, float inScale, float inMargin)
+    void DrawInfoBox(float inScale, float inMargin)
     {
-        const float xp_fill = float(m_Experience) / float(GetExperienceToNextLevel());
-        const float badge_radius = 34.0f * inScale;
-        const Vec2 bar_pos = Vec2(inMargin + badge_radius * 2.0f + 4.0f * inScale, inMargin * 0.75f + 4.0f * inScale);
-        const Vec2 bar_size = Vec2(inDisplay.x - bar_pos.x - inMargin, 12.0f * inScale);
+        Array<std::pair<String, String>> rows =
+        {
+            { "Time:", FormatTime(m_RunTime) },
+            { "Dawn in:", FormatTime(glm::max(0.0f, cVictoryTime - m_RunTime)) },
+            { "Kills:", std::format("{}", m_Kills) },
+            { "Damage:", std::format("{:.1f}k", m_DamageDealt / 1000.0f) },
+        };
 
-        DrawBar(bar_pos, bar_size, xp_fill, Vec4(0.2f, 0.55f, 1.0f, 1.0f), Vec4(0.45f, 0.95f, 1.0f, 1.0f), inScale);
+        const bool streak = m_Streak >= 10 && m_State == STATE_PLAYING;
 
-        const Vec2 badge = Vec2(inMargin + badge_radius, inMargin * 0.5f + badge_radius);
-        g_UIRenderer.AddCircleFilled(badge + Vec2(0.0f, 6.0f * inScale), badge_radius, Vec4(0.0f, 0.0f, 0.0f, 0.5f), 10.0f * inScale);
-        g_UIRenderer.AddImage(badge - Vec2(badge_radius), Vec2(badge_radius * 2.0f), m_RuneRingTexture);
-        g_UIRenderer.AddArc(badge, badge_radius * 48.0f / 64.0f, 5.0f * inScale, -glm::half_pi<float>(), xp_fill, Vec4(0.45f, 0.9f, 1.0f, 0.9f));
-        g_UIRenderer.SetFont(m_TitleFont);
-        DrawShadowText(badge - Vec2(0.0f, 21.0f * inScale), std::format("{}", m_Level), 34.0f * inScale, cParchment, UI_TEXT_ALIGN_CENTER, inScale);
-        g_UIRenderer.SetFont(m_HudFont);
+        if (streak)
+            rows.push_back({ "Streak:", std::format("x{}", m_Streak) });
 
-        const float center = inDisplay.x * 0.5f;
-        const float top = bar_pos.y + bar_size.y + 12.0f * inScale;
-        const String time_text = FormatTime(m_RunTime);
-
-        g_UIRenderer.AddRectFilled(Vec2(center - 100.0f * inScale, top), Vec2(200.0f, 84.0f) * inScale, 16.0f * inScale, Vec4(0.0f, 0.0f, 0.0f, 0.35f), 18.0f * inScale);
-        DrawShadowText(Vec2(center, top), time_text, 50.0f * inScale, cParchment, UI_TEXT_ALIGN_CENTER, inScale);
-
+        const float row_height = 26.0f * inScale;
+        const Vec2 pos = Vec2(inMargin);
+        const Vec2 size = Vec2(260.0f * inScale, 92.0f * inScale + float(rows.size()) * row_height);
         const float night = glm::clamp(m_RunTime / cVictoryTime, 0.0f, 1.0f);
-        const Vec2 dawn_pos = Vec2(center - 70.0f * inScale, top + 62.0f * inScale);
-        g_UIRenderer.AddRectFilled(dawn_pos, Vec2(140.0f, 4.0f) * inScale, 2.0f * inScale, Vec4(0.2f, 0.18f, 0.3f, 0.9f));
-        g_UIRenderer.AddRectGradient(dawn_pos, Vec2(140.0f * night, 4.0f) * inScale, 2.0f * inScale, Vec4(0.4f, 0.3f, 0.8f, 1.0f), Vec4(1.0f, 0.7f, 0.35f, 1.0f), true);
-        g_UIRenderer.AddCircleFilled(dawn_pos + Vec2(140.0f * night, 2.0f) * inScale, 5.0f * inScale, Vec4(1.0f, 0.8f, 0.45f, 1.0f), 3.0f * inScale);
-        DrawShadowText(Vec2(center, top + 70.0f * inScale), std::format("DAWN IN {}", FormatTime(glm::max(0.0f, cVictoryTime - m_RunTime))), 16.0f * inScale, Fade(cGold, 0.9f), UI_TEXT_ALIGN_CENTER, inScale);
+
+        DrawStonePanel(pos, size, inScale, 0.94f);
+        DrawLabel(Vec2(pos.x + size.x * 0.5f, pos.y + 18.0f * inScale), "Dusk Swarm", 24.0f * inScale, cRSOrange, UI_TEXT_ALIGN_CENTER);
+        DrawFlatBar(pos + Vec2(24.0f, 52.0f) * inScale, Vec2(size.x - 48.0f * inScale, 10.0f * inScale), night, cRSOrange, Vec4(0.1f, 0.08f, 0.18f, 1.0f), inScale);
+
+        for (size_t index = 0; index < rows.size(); index++)
+        {
+            const float y = pos.y + 72.0f * inScale + float(index) * row_height;
+            const bool is_streak = streak && index == rows.size() - 1;
+            const Vec4 value_color = is_streak ? Fade(cRSOrange, 0.4f + 0.6f * glm::clamp(m_StreakTimer / cStreakWindow, 0.0f, 1.0f)) : cRSYellow;
+
+            DrawLabel(Vec2(pos.x + 24.0f * inScale, y), rows[index].first, 20.0f * inScale, cRSWhite);
+            DrawLabel(Vec2(pos.x + size.x - 24.0f * inScale, y), rows[index].second, 20.0f * inScale, value_color, UI_TEXT_ALIGN_RIGHT);
+        }
     }
 
-    void DrawStatus(const Vec2& inDisplay, float inScale, float inMargin)
+    void DrawExperience(const Vec2& inDisplay, float inDeltaTime, float inScale, float inMargin)
     {
-        const Vec2 pos = Vec2(inMargin, inMargin + 84.0f * inScale);
-        const Vec2 size = Vec2(350.0f, 116.0f) * inScale;
+        const Vec2 size = Vec2(240.0f, 104.0f) * inScale;
+        const Vec2 pos = Vec2(inDisplay.x - inMargin - size.x, inMargin);
+        const int needed = GetExperienceToNextLevel();
 
-        DrawPanel(pos, size, inScale, Vec4(1.0f, 0.4f, 0.4f, 1.0f));
+        DrawStonePanel(pos, size, inScale, 0.94f);
+        DrawLabel(pos + Vec2(24.0f, 20.0f) * inScale, "Level:", 20.0f * inScale, cRSWhite);
+        DrawLabel(Vec2(pos.x + size.x - 24.0f * inScale, pos.y + 20.0f * inScale), std::format("{}", m_Level), 20.0f * inScale, cRSYellow, UI_TEXT_ALIGN_RIGHT);
+        DrawLabel(pos + Vec2(24.0f, 46.0f) * inScale, "XP:", 20.0f * inScale, cRSWhite);
+        DrawLabel(Vec2(pos.x + size.x - 24.0f * inScale, pos.y + 46.0f * inScale), std::format("{} / {}", m_Experience, needed), 20.0f * inScale, cRSYellow, UI_TEXT_ALIGN_RIGHT);
+        DrawFlatBar(pos + Vec2(24.0f, 76.0f) * inScale, Vec2(size.x - 48.0f * inScale, 10.0f * inScale), float(m_Experience) / float(needed), Vec4(0.2f, 0.65f, 1.0f, 1.0f), Vec4(0.05f, 0.06f, 0.12f, 1.0f), inScale);
 
-        g_UIRenderer.AddImage(pos + Vec2(34.0f, 20.0f) * inScale, Vec2(34.0f) * inScale, m_HeartTexture);
-        DrawBar(pos + Vec2(80.0f, 28.0f) * inScale, Vec2(240.0f, 16.0f) * inScale, m_Health / GetMaxHealth(), Vec4(0.8f, 0.1f, 0.18f, 1.0f), Vec4(1.0f, 0.45f, 0.4f, 1.0f), inScale, m_HealthTrail / GetMaxHealth());
-        DrawShadowText(pos + Vec2(320.0f, 50.0f) * inScale, std::format("{} / {}", int(glm::ceil(m_Health)), int(GetMaxHealth())), 16.0f * inScale, Vec4(1.0f, 0.85f, 0.85f, 0.95f), UI_TEXT_ALIGN_RIGHT, inScale);
+        const float orb_width = 128.0f * 0.8f * inScale;
+        const Vec2 orb_pos = Vec2(pos.x + size.x - orb_width, pos.y + size.y + 6.0f * inScale);
+        const float health_fraction = m_Health / GetMaxHealth();
+        const float dash_ready = glm::clamp(1.0f - m_DashCooldownTimer / cDashCooldown, 0.0f, 1.0f);
 
-        g_UIRenderer.AddImage(pos + Vec2(34.0f, 62.0f) * inScale, Vec2(34.0f) * inScale, m_SkullTexture);
-        DrawShadowText(pos + Vec2(80.0f, 62.0f) * inScale, std::format("{}", m_Kills), 28.0f * inScale, cParchment, UI_TEXT_ALIGN_LEFT, inScale);
-        DrawShadowText(pos + Vec2(320.0f, 72.0f) * inScale, std::format("{:.0f}K DAMAGE", m_DamageDealt / 1000.0f), 16.0f * inScale, Vec4(0.8f, 0.78f, 0.9f, 0.85f), UI_TEXT_ALIGN_RIGHT, inScale);
+        DrawOrb(orb_pos, inScale, health_fraction, Vec3(0.78f, 0.06f, 0.05f), m_HeartTexture, std::format("{}", int(glm::ceil(m_Health))), health_fraction);
+        DrawOrb(orb_pos + Vec2(0.0f, 68.0f * inScale), inScale, dash_ready, Vec3(0.95f, 0.78f, 0.2f), m_DashIconTexture, std::format("{}", int(dash_ready * 100.0f)), dash_ready);
+
+        const float drop_x = orb_pos.x - 14.0f * inScale;
+
+        for (XPDrop& drop : m_XPDrops)
+        {
+            drop.mTime += inDeltaTime;
+
+            const float alpha = glm::clamp(( cXPDropDuration - drop.mTime ) / 0.4f, 0.0f, 1.0f);
+            const float y = orb_pos.y + 110.0f * inScale - drop.mTime * 80.0f * inScale;
+            const String text = std::format("+{}", drop.mValue);
+            const float width = g_UIRenderer.MeasureText(text, 20.0f * inScale).x;
+
+            DrawGem(Vec2(drop_x - width - 14.0f * inScale, y + 10.0f * inScale), 20.0f * inScale, Vec4(0.45f, 0.85f, 1.0f, alpha));
+            DrawLabel(Vec2(drop_x, y), text, 20.0f * inScale, Fade(cRSWhite, alpha), UI_TEXT_ALIGN_RIGHT);
+        }
+
+        std::erase_if(m_XPDrops, [](const XPDrop& inDrop) { return inDrop.mTime >= cXPDropDuration; });
     }
 
-    void DrawBossBar(const Vec2& inDisplay, float inScale)
+    void DrawBossBar(const Vec2& inDisplay, float inScale, float inMargin)
     {
         if (m_BossEnemy < 0)
             return;
@@ -4571,19 +4659,18 @@ private:
         if (!boss.mActive)
             return;
 
-        const float fraction = glm::max(boss.mHealth, 0.0f) / boss.mMaxHealth;
-        m_BossHealthTrail = glm::max(fraction, m_BossHealthTrail - 0.25f * ( 1.0f / 60.0f ));
-
-        const Vec2 size = Vec2(620.0f, 18.0f) * inScale;
-        const Vec2 pos = Vec2(inDisplay.x * 0.5f - size.x * 0.5f, 190.0f * inScale);
+        const float health = glm::max(boss.mHealth, 0.0f);
+        const bool enraged = boss.mHealth < boss.mMaxHealth * 0.5f && !boss.mDying;
         const float appear = glm::clamp(( m_RunTime - cBossTimes[glm::max(m_NextBoss - 1, 0)] ) / 0.8f, 0.0f, 1.0f);
+        const Vec2 size = Vec2(480.0f, 90.0f) * inScale;
+        const Vec2 pos = Vec2(inDisplay.x * 0.5f - size.x * 0.5f, inMargin);
+        const Vec2 bar_pos = pos + Vec2(26.0f, 50.0f) * inScale;
+        const Vec2 bar_size = Vec2(size.x - 52.0f * inScale, 20.0f * inScale);
 
-        DrawBanner(Vec2(inDisplay.x * 0.5f, pos.y - 30.0f * inScale), Vec2(300.0f, 44.0f) * inScale, appear);
-        DrawTitle(Vec2(inDisplay.x * 0.5f, pos.y - 48.0f * inScale), "THE LICH", 28.0f * inScale, Vec4(0.9f, 0.7f, 1.0f, appear), inScale);
-        DrawBar(pos, Vec2(size.x * appear, size.y), fraction, Vec4(0.45f, 0.1f, 0.7f, 1.0f), Vec4(0.85f, 0.45f, 1.0f, 1.0f), inScale, m_BossHealthTrail);
-
-        if (boss.mHealth < boss.mMaxHealth * 0.5f && !boss.mDying)
-            DrawShadowText(Vec2(inDisplay.x * 0.5f, pos.y + 26.0f * inScale), "ENRAGED", 18.0f * inScale, Vec4(1.0f, 0.4f, 0.4f, 0.6f + 0.4f * glm::sin(m_Time * 8.0f)), UI_TEXT_ALIGN_CENTER, inScale);
+        DrawStonePanel(pos, size, inScale, 0.94f * appear);
+        DrawLabel(Vec2(inDisplay.x * 0.5f, pos.y + 18.0f * inScale), enraged ? "The Lich (enraged)" : "The Lich", 24.0f * inScale, Fade(enraged ? cRSRed : cRSYellow, appear), UI_TEXT_ALIGN_CENTER);
+        DrawFlatBar(bar_pos, bar_size, health / boss.mMaxHealth, Fade(cHealthGreen, appear), Fade(cHealthRed, appear), inScale);
+        DrawLabel(Vec2(inDisplay.x * 0.5f, bar_pos.y + 1.0f * inScale), std::format("{} / {}", int(glm::ceil(health)), int(boss.mMaxHealth)), 17.0f * inScale, Fade(cRSWhite, appear), UI_TEXT_ALIGN_CENTER);
     }
 
     float GetWeaponCooldownFraction(int inUpgrade) const
@@ -4602,102 +4689,76 @@ private:
         }
     }
 
-    void DrawSlot(Vec2 inPos, float inSize, const Vec3& inColor, bool inReady, float inScale)
+    void DrawInventory(const Vec2& inDisplay, float inScale, float inMargin)
     {
-        g_UIRenderer.AddImageSliced(inPos, Vec2(inSize), m_FrameTexture, 20.0f * inScale, 0.25f);
-        g_UIRenderer.AddRectGradient(inPos + Vec2(12.0f * inScale), Vec2(inSize - 24.0f * inScale), 6.0f * inScale, Vec4(inColor * 0.35f, 0.6f), Vec4(inColor * 0.05f, 0.2f));
+        Array<int> items;
 
-        if (inReady)
-            g_UIRenderer.AddRect(inPos - Vec2(2.0f * inScale), Vec2(inSize + 4.0f * inScale), 16.0f * inScale, 2.0f * inScale, Vec4(inColor, 0.8f));
-    }
-
-    void DrawAbilityBar(const Vec2& inDisplay, float inScale, float inMargin)
-    {
-        Array<int> weapons;
-        Array<int> passives;
-
-        for (int upgrade = 0; upgrade < UPGRADE_COUNT; upgrade++)
+        for (int pass = 0; pass < 2; pass++)
         {
-            if (m_UpgradeLevels[upgrade] > 0)
-                ( cUpgrades[upgrade].mIsWeapon ? weapons : passives ).push_back(upgrade);
-        }
-
-        const float slot = 72.0f * inScale;
-        const float gap = 12.0f * inScale;
-        const int slots = int(weapons.size()) + 1;
-        const float total = slots * slot + ( slots - 1 ) * gap;
-        const Vec2 start = Vec2(inDisplay.x * 0.5f - total * 0.5f, inDisplay.y - inMargin - slot - 20.0f * inScale);
-
-        g_UIRenderer.AddRectFilled(start - Vec2(16.0f, 12.0f) * inScale, Vec2(total + 32.0f * inScale, slot + 44.0f * inScale), 20.0f * inScale, Vec4(0.0f, 0.0f, 0.0f, 0.35f), 20.0f * inScale);
-
-        for (size_t index = 0; index < weapons.size(); index++)
-        {
-            const int upgrade = weapons[index];
-            const Vec2 pos = start + Vec2(float(index) * ( slot + gap ), 0.0f);
-            const Vec3 color = cUpgrades[upgrade].mColor;
-            const float ready = glm::clamp(GetWeaponCooldownFraction(upgrade), 0.0f, 1.0f);
-
-            DrawSlot(pos, slot, color, ready >= 1.0f, inScale);
-            DrawUpgradeIcon(upgrade, pos + Vec2(slot * 0.5f), slot * 0.26f, 1.0f);
-
-            if (ready < 1.0f)
-                g_UIRenderer.AddArc(pos + Vec2(slot * 0.5f), slot * 0.36f, 3.0f * inScale, -glm::half_pi<float>(), ready, Vec4(color, 0.7f));
-
-            for (int pip = 0; pip < cMaxUpgradeLevel; pip++)
+            for (int upgrade = 0; upgrade < UPGRADE_COUNT; upgrade++)
             {
-                const Vec2 pip_pos = pos + Vec2(slot * 0.5f + ( float(pip) - 2.0f ) * 12.0f * inScale, slot + 10.0f * inScale);
-                DrawGem(pip_pos, 12.0f * inScale, pip < m_UpgradeLevels[upgrade] ? Vec4(glm::mix(color, Vec3(1.0f), 0.2f), 1.0f) : Vec4(0.25f, 0.22f, 0.3f, 0.6f));
+                if (m_UpgradeLevels[upgrade] > 0 && cUpgrades[upgrade].mIsWeapon == ( pass == 0 ))
+                    items.push_back(upgrade);
             }
         }
 
-        const Vec2 dash_pos = start + Vec2(float(weapons.size()) * ( slot + gap ), 0.0f);
-        const float dash_ready = 1.0f - m_DashCooldownTimer / cDashCooldown;
-        const Vec4 dash_color = Vec4(0.4f, 0.85f, 1.0f, 1.0f);
+        if (items.empty())
+            return;
 
-        DrawSlot(dash_pos, slot, Vec3(dash_color), dash_ready >= 1.0f, inScale);
+        constexpr int cColumns = 4;
+        const float slot = 58.0f * inScale;
+        const float gap = 6.0f * inScale;
+        const float padding = 20.0f * inScale;
+        const int rows = ( int(items.size()) + cColumns - 1 ) / cColumns;
+        const Vec2 size = Vec2(padding * 2.0f + cColumns * slot + ( cColumns - 1 ) * gap, padding * 2.0f + rows * slot + ( rows - 1 ) * gap);
+        const Vec2 pos = inDisplay - Vec2(inMargin) - size;
 
-        const float dash_icon = slot * 0.65f;
-        const float dash_tint = dash_ready >= 1.0f ? 1.0f : 0.45f;
-        g_UIRenderer.AddImage(dash_pos + Vec2(( slot - dash_icon ) * 0.5f), Vec2(dash_icon), m_DashIconTexture, Vec4(Vec3(dash_tint), 1.0f));
+        DrawStonePanel(pos, size, inScale, 0.94f);
 
-        if (dash_ready < 1.0f)
-            g_UIRenderer.AddArc(dash_pos + Vec2(slot * 0.5f), slot * 0.36f, 3.0f * inScale, -glm::half_pi<float>(), dash_ready, Fade(dash_color, 0.7f));
-
-        DrawShadowText(dash_pos + Vec2(slot * 0.5f, slot + 2.0f * inScale), "SPACE", 14.0f * inScale, Vec4(0.7f, 0.85f, 1.0f, 0.85f), UI_TEXT_ALIGN_CENTER, inScale);
-
-        const float passive_size = 48.0f * inScale;
-
-        for (size_t index = 0; index < passives.size(); index++)
+        for (size_t index = 0; index < items.size(); index++)
         {
-            const int upgrade = passives[index];
-            const Vec2 pos = Vec2(inMargin + float(index) * ( passive_size + 10.0f * inScale ), inDisplay.y - inMargin - passive_size);
+            const int upgrade = items[index];
+            const int level = m_UpgradeLevels[upgrade];
+            const Vec2 slot_pos = pos + Vec2(padding) + Vec2(float(index % cColumns), float(index / cColumns)) * ( slot + gap );
 
-            DrawSlot(pos, passive_size, cUpgrades[upgrade].mColor, false, inScale * 0.75f);
-            DrawUpgradeIcon(upgrade, pos + Vec2(passive_size * 0.5f), passive_size * 0.24f, 1.0f);
-            DrawGem(pos + Vec2(passive_size - 4.0f * inScale, 4.0f * inScale), 24.0f * inScale, Vec4(glm::mix(cUpgrades[upgrade].mColor, Vec3(1.0f), 0.2f), 1.0f));
-            DrawShadowText(pos + Vec2(passive_size - 4.0f * inScale, -6.0f * inScale), std::format("{}", m_UpgradeLevels[upgrade]), 15.0f * inScale, cParchment, UI_TEXT_ALIGN_CENTER, inScale);
+            DrawSlotBox(slot_pos, Vec2(slot), inScale);
+            DrawUpgradeIcon(upgrade, slot_pos + Vec2(slot * 0.5f), slot * 0.3f, 1.0f);
+
+            const float ready = glm::clamp(GetWeaponCooldownFraction(upgrade), 0.0f, 1.0f);
+
+            if (ready < 1.0f)
+                g_UIRenderer.AddRectFilled(slot_pos + Vec2(3.0f * inScale), Vec2(slot - 6.0f * inScale, ( slot - 6.0f * inScale ) * ( 1.0f - ready )), 2.0f * inScale, Vec4(0.0f, 0.0f, 0.0f, 0.55f));
+
+            DrawLabel(slot_pos + Vec2(6.0f, 3.0f) * inScale, std::format("{}", level), 19.0f * inScale, level >= cMaxUpgradeLevel ? cRSGreen : cRSYellow);
         }
     }
 
-    void DrawStreak(const Vec2& inDisplay, float inScale, float inMargin)
+    void DrawChatbox(const Vec2& inDisplay, float inScale, float inMargin)
     {
-        if (m_Streak < 10 || m_State != STATE_PLAYING)
-            return;
+        const Vec2 size = Vec2(540.0f, 184.0f) * inScale;
+        const Vec2 pos = Vec2(inMargin, inDisplay.y - inMargin - size.y);
+        const float text_size = 18.0f * inScale;
+        const float line = 22.0f * inScale;
+        const float input_y = pos.y + size.y - 34.0f * inScale;
+        const float left = pos.x + 16.0f * inScale;
 
-        const float alpha = glm::clamp(m_StreakTimer / 0.5f, 0.0f, 1.0f);
-        const float pulse = 1.0f + 0.08f * glm::max(0.0f, 1.0f - ( cStreakWindow - m_StreakTimer ) * 8.0f);
-        const Vec2 pos = Vec2(inDisplay.x - inMargin, inMargin + 60.0f * inScale);
+        g_UIRenderer.AddImageSliced(pos, size, m_ParchmentTexture, 14.0f * inScale, 16.0f / 256.0f, Vec4(1.0f, 1.0f, 1.0f, 0.9f));
+        g_UIRenderer.AddRectFilled(Vec2(left, input_y - 6.0f * inScale), Vec2(size.x - 32.0f * inScale, glm::max(1.0f, inScale)), 0.0f, Vec4(0.23f, 0.17f, 0.1f, 0.6f));
 
-        g_UIRenderer.SetFont(m_TitleFont);
-        DrawShadowText(pos, std::format("x{}", m_Streak), 50.0f * inScale * pulse, Fade(cGold, alpha), UI_TEXT_ALIGN_RIGHT, inScale);
-        g_UIRenderer.SetFont(m_HudFont);
-        DrawShadowText(pos + Vec2(0.0f, 58.0f * inScale), "KILL STREAK", 16.0f * inScale, Vec4(1.0f, 0.9f, 0.7f, 0.8f * alpha), UI_TEXT_ALIGN_RIGHT, inScale);
-        g_UIRenderer.AddRectFilled(pos + Vec2(-120.0f * inScale, 80.0f * inScale), Vec2(120.0f * ( m_StreakTimer / cStreakWindow ), 3.0f) * inScale, 1.5f * inScale, Fade(cGold, 0.8f * alpha));
+        const float name_width = g_UIRenderer.AddText(Vec2(left, input_y), "Survivor: ", text_size, cChatBlack);
+
+        if (glm::fract(m_Time * 0.8f) < 0.5f)
+            g_UIRenderer.AddText(Vec2(left + name_width, input_y), "*", text_size, cChatBlue);
+
+        int shown = 0;
+
+        for (auto message = m_ChatMessages.rbegin(); message != m_ChatMessages.rend() && shown < cChatLines; ++message, ++shown)
+            g_UIRenderer.AddText(Vec2(left, input_y - 10.0f * inScale - line * float(shown + 1)), message->mText, text_size, message->mColor);
     }
 
-    void DrawIndicators(const Vec2& inDisplay, float inScale)
+    void DrawHintArrows(const Vec2& inDisplay, float inScale)
     {
-        const auto DrawIndicator = [&](const Vec3& inWorld, Vec4 inColor)
+        const auto DrawHintArrow = [&](const Vec3& inWorld)
         {
             Vec2 screen;
             const bool visible = ProjectToScreen(inWorld, screen);
@@ -4716,22 +4777,19 @@ private:
             const Vec2 center = inDisplay * 0.5f;
             const Vec2 extent = inDisplay * 0.5f - Vec2(edge);
             const float t = glm::min(extent.x / glm::max(glm::abs(direction.x), 0.001f), extent.y / glm::max(glm::abs(direction.y), 0.001f));
-            const Vec2 position = center + direction * t;
-            const float pulse = 1.0f + 0.12f * glm::sin(m_Time * 6.0f);
+            const Vec2 position = center + direction * ( t - 6.0f * inScale * ( 1.0f + glm::sin(m_Time * 7.0f) ) );
 
-            g_UIRenderer.AddCircleFilled(position, 16.0f * inScale * pulse, Fade(inColor, 0.25f), 10.0f * inScale);
-            g_UIRenderer.AddRectRotated(position, Vec2(16.0f, 16.0f) * inScale * pulse, glm::atan(direction.y, direction.x) + glm::quarter_pi<float>(), 3.0f * inScale, inColor);
-            g_UIRenderer.AddRectRotated(position - direction * 9.0f * inScale, Vec2(8.0f, 8.0f) * inScale, glm::quarter_pi<float>(), 2.0f * inScale, Vec4(1.0f, 1.0f, 1.0f, 0.8f));
+            g_UIRenderer.AddImageRotated(position, Vec2(48.0f * inScale), glm::atan(direction.y, direction.x), m_HintArrowTexture);
         };
 
         for (const Pickup& pickup : m_Pickups)
         {
             if (pickup.mActive && pickup.mType == PICKUP_CHEST)
-                DrawIndicator(ToWorld(pickup.mPosition, 0.5f), Vec4(1.0f, 0.8f, 0.3f, 1.0f));
+                DrawHintArrow(ToWorld(pickup.mPosition, 0.5f));
         }
 
         if (m_BossEnemy >= 0 && m_Enemies[m_BossEnemy].mActive)
-            DrawIndicator(ToWorld(m_Enemies[m_BossEnemy].mPosition, 1.5f), Vec4(0.8f, 0.4f, 1.0f, 1.0f));
+            DrawHintArrow(ToWorld(m_Enemies[m_BossEnemy].mPosition, 1.5f));
     }
 
     static String FormatTime(float inSeconds)
@@ -4740,25 +4798,23 @@ private:
         return std::format("{:02}:{:02}", seconds / 60, seconds % 60);
     }
 
-    void DrawDamageNumbers(float inDeltaTime, float inScale)
+    void DrawHitsplats(float inDeltaTime, float inScale)
     {
         for (DamageNumber& number : m_DamageNumbers)
         {
             number.mTime += inDeltaTime;
 
             Vec2 screen;
-            if (!ProjectToScreen(number.mPosition + Vec3(0.0f, number.mTime * 1.5f, 0.0f), screen))
+            if (!ProjectToScreen(number.mPosition + Vec3(0.0f, 0.6f + number.mTime * 0.4f, 0.0f), screen))
                 continue;
 
-            const float alpha = glm::clamp(( 0.75f - number.mTime ) / 0.25f, 0.0f, 1.0f);
-            const float pop = 1.0f + 0.6f * glm::max(0.0f, 1.0f - number.mTime * 8.0f);
-            const float size = ( number.mCrit ? 30.0f : 18.0f + glm::min(float(number.mValue), 20.0f) * 0.4f ) * inScale * pop;
-            const String text = number.mCrit ? std::format("{}!", number.mValue) : std::format("{}", number.mValue);
-            const Vec4 color = number.mCrit ? Vec4(1.0f, 0.82f, 0.25f, alpha) : Vec4(1.0f, 0.95f, 0.85f, alpha);
+            const float alpha = glm::clamp(( 0.75f - number.mTime ) / 0.2f, 0.0f, 1.0f);
+            const float pop = 1.0f + 0.35f * glm::max(0.0f, 1.0f - number.mTime * 10.0f);
+            const float size = ( number.mCrit ? 44.0f : 34.0f ) * inScale * pop;
+            const float text_size = 19.0f * inScale * pop;
 
-            g_UIRenderer.SetFont(m_TitleFont);
-            DrawShadowText(screen, text, size, color, UI_TEXT_ALIGN_CENTER, inScale);
-            g_UIRenderer.SetFont(m_HudFont);
+            g_UIRenderer.AddImage(screen - Vec2(size * 0.5f), Vec2(size), number.mCrit ? m_HitsplatMaxTexture : m_HitsplatTexture, Vec4(1.0f, 1.0f, 1.0f, alpha));
+            DrawLabel(screen - Vec2(0.0f, text_size * 0.55f), std::format("{}", number.mValue), text_size, Fade(cRSWhite, alpha), UI_TEXT_ALIGN_CENTER);
         }
 
         std::erase_if(m_DamageNumbers, [](const DamageNumber& inNumber) { return inNumber.mTime >= 0.75f; });
@@ -4766,7 +4822,7 @@ private:
 
     void DrawPopups(const Vec2& inDisplay, float inDeltaTime, float inScale)
     {
-        float popup_y = inDisplay.y * 0.26f;
+        float popup_y = inDisplay.y * 0.24f;
 
         for (Popup& popup : m_Popups)
         {
@@ -4775,32 +4831,19 @@ private:
             const float fade_in = glm::clamp(popup.mTime / 0.15f, 0.0f, 1.0f);
             const float fade_out = glm::clamp(( popup.mDuration - popup.mTime ) / 0.4f, 0.0f, 1.0f);
             const float alpha = fade_in * fade_out;
-            const float size = ( popup.mBig ? glm::mix(34.0f, 46.0f, EaseOutBack(fade_in)) : glm::mix(24.0f, 30.0f, fade_in) ) * inScale;
+            const float size = glm::mix(34.0f, 44.0f, EaseOutBack(fade_in)) * inScale;
             const float center = inDisplay.x * 0.5f;
 
-            if (popup.mBig)
-                g_UIRenderer.SetFont(m_TitleFont);
-
-            const Vec2 extent = g_UIRenderer.MeasureText(popup.mText, size);
-            const float width = extent.x + 120.0f * inScale;
-            const float height = size * 1.3f + ( popup.mSubText.empty() ? 0.0f : 28.0f * inScale );
-
-            if (popup.mBig)
-            {
-                DrawBanner(Vec2(center, popup_y + size * 0.62f), Vec2(width, size * 1.5f), alpha);
-                DrawShadowText(Vec2(center, popup_y), popup.mText, size, Fade(popup.mColor, alpha), UI_TEXT_ALIGN_CENTER, inScale);
-                g_UIRenderer.SetFont(m_HudFont);
-            }
-            else
-            {
-                g_UIRenderer.AddRectFilled(Vec2(center - width * 0.5f, popup_y - 6.0f * inScale), Vec2(width, height), height * 0.4f, Vec4(0.0f, 0.0f, 0.02f, 0.45f * alpha), 22.0f * inScale);
-                DrawShadowText(Vec2(center, popup_y), popup.mText, size, Fade(popup.mColor, alpha), UI_TEXT_ALIGN_CENTER, inScale);
-            }
+            DrawLabel(Vec2(center, popup_y), popup.mText, size, Fade(popup.mColor, alpha), UI_TEXT_ALIGN_CENTER);
+            popup_y += size * 1.15f;
 
             if (!popup.mSubText.empty())
-                DrawShadowText(Vec2(center, popup_y + size * 1.3f), popup.mSubText, 18.0f * inScale, Vec4(1.0f, 1.0f, 1.0f, 0.85f * alpha), UI_TEXT_ALIGN_CENTER, inScale);
+            {
+                DrawLabel(Vec2(center, popup_y), popup.mSubText, 22.0f * inScale, Fade(cRSYellow, alpha), UI_TEXT_ALIGN_CENTER);
+                popup_y += 28.0f * inScale;
+            }
 
-            popup_y += height + ( popup.mBig ? 30.0f : 14.0f ) * inScale;
+            popup_y += 18.0f * inScale;
         }
 
         std::erase_if(m_Popups, [](const Popup& inPopup) { return inPopup.mTime >= inPopup.mDuration; });
@@ -4810,132 +4853,119 @@ private:
     {
         const float alpha = glm::clamp(m_RunTime / 0.5f, 0.0f, 1.0f) * glm::clamp(( 4.5f - m_RunTime ) / 1.0f, 0.0f, 1.0f);
         const float center = inDisplay.x * 0.5f;
-        const float y = inDisplay.y * 0.34f;
+        const float y = inDisplay.y * 0.2f;
 
-        DrawTitle(Vec2(center, y), "DUSK SWARM", 96.0f * inScale, Vec4(1.0f, 0.66f, 0.32f, alpha), inScale);
-        DrawBanner(Vec2(center, y + 150.0f * inScale), Vec2(440.0f, 48.0f) * inScale, alpha);
-        DrawShadowText(Vec2(center, y + 134.0f * inScale), "SURVIVE UNTIL DAWN", 26.0f * inScale, Fade(cParchment, alpha), UI_TEXT_ALIGN_CENTER, inScale);
-        DrawShadowText(Vec2(center, inDisplay.y * 0.78f), "WASD  MOVE      SPACE  DASH      WEAPONS FIRE ON THEIR OWN", 20.0f * inScale, Vec4(1.0f, 0.9f, 0.75f, 0.85f * alpha), UI_TEXT_ALIGN_CENTER, inScale);
+        g_UIRenderer.SetFont(m_TitleFont);
+        DrawLabel(Vec2(center, y), "Dusk Swarm", 100.0f * inScale, Fade(cRSOrange, alpha), UI_TEXT_ALIGN_CENTER);
+        g_UIRenderer.SetFont(m_HudFont);
+        DrawLabel(Vec2(center, y + 124.0f * inScale), "Survive until dawn", 32.0f * inScale, Fade(cRSYellow, alpha), UI_TEXT_ALIGN_CENTER);
     }
 
     void DrawLevelUp(const Vec2& inDisplay, float inScale)
     {
         const float time = m_Time - m_LevelUpTime;
         const float alpha = glm::clamp(time / 0.25f, 0.0f, 1.0f);
-        const float title_scale = glm::mix(0.8f, 1.0f, EaseOutBack(alpha));
 
-        g_UIRenderer.AddRectFilled(Vec2(0.0f), inDisplay, 0.0f, Vec4(0.02f, 0.0f, 0.04f, 0.6f * alpha));
+        g_UIRenderer.AddRectFilled(Vec2(0.0f), inDisplay, 0.0f, Vec4(0.0f, 0.0f, 0.0f, 0.55f * alpha));
 
-        const float title_y = inDisplay.y * 0.5f - 320.0f * inScale;
-        DrawBanner(Vec2(inDisplay.x * 0.5f, title_y + 44.0f * inScale), Vec2(520.0f, 84.0f) * inScale * title_scale, alpha);
-        DrawTitle(Vec2(inDisplay.x * 0.5f, title_y), "LEVEL UP", 64.0f * inScale * title_scale, Vec4(1.0f, 0.8f, 0.4f, alpha), inScale);
-        DrawShadowText(Vec2(inDisplay.x * 0.5f, title_y + 100.0f * inScale), std::format("Level {}  -  choose your power", m_Level), 22.0f * inScale, Vec4(1.0f, 0.9f, 0.8f, 0.85f * alpha), UI_TEXT_ALIGN_CENTER, inScale);
+        const Vec2 size = Vec2(900.0f, 520.0f) * inScale;
+        const Vec2 pos = inDisplay * 0.5f - size * 0.5f + Vec2(0.0f, ( 1.0f - EaseOutCubic(alpha) ) * 30.0f * inScale);
+        const float center = inDisplay.x * 0.5f;
 
-        const Vec2 card_size = Vec2(300.0f, 400.0f) * inScale;
-        const float gap = 32.0f * inScale;
-        const float total_width = m_ChoiceCount * card_size.x + ( m_ChoiceCount - 1 ) * gap;
+        DrawWindow(pos, size, "Level Up!", inScale, alpha);
+        DrawLabel(Vec2(center, pos.y + 80.0f * inScale), std::format("Congratulations, you are now level {}. Choose a power:", m_Level), 21.0f * inScale, Fade(cRSYellow, alpha), UI_TEXT_ALIGN_CENTER);
+
+        const Vec2 box_size = Vec2(264.0f, 334.0f) * inScale;
+        const float gap = 22.0f * inScale;
+        const float total_width = m_ChoiceCount * box_size.x + ( m_ChoiceCount - 1 ) * gap;
 
         for (int choice = 0; choice < m_ChoiceCount; choice++)
         {
             const int upgrade = m_Choices[choice];
             const UpgradeInfo& info = cUpgrades[upgrade];
+            const int level = m_UpgradeLevels[upgrade];
             const bool selected = choice == m_SelectedChoice;
-            const float appear = EaseOutBack(glm::clamp(( time - 0.08f * choice ) / 0.35f, 0.0f, 1.0f));
-            const float card_alpha = glm::clamp(( time - 0.08f * choice ) / 0.2f, 0.0f, 1.0f);
-            const float lift = ( selected ? 14.0f : 0.0f ) * inScale + ( 1.0f - appear ) * 80.0f * inScale;
-            const Vec4 accent = Vec4(info.mColor, 1.0f);
+            const float card_alpha = glm::clamp(( time - 0.06f * choice ) / 0.2f, 0.0f, 1.0f) * alpha;
+            const Vec2 box_pos = Vec2(center - total_width * 0.5f + choice * ( box_size.x + gap ), pos.y + 120.0f * inScale - ( selected ? 6.0f * inScale : 0.0f ));
+            const float box_center = box_pos.x + box_size.x * 0.5f;
 
-            const Vec2 pos = Vec2(inDisplay.x * 0.5f - total_width * 0.5f + choice * ( card_size.x + gap ), inDisplay.y * 0.5f - 170.0f * inScale - lift);
+            DrawSlotBox(box_pos, box_size, inScale, card_alpha);
 
             if (selected)
             {
                 const float pulse = 0.5f + 0.5f * glm::sin(m_Time * 5.0f);
-                g_UIRenderer.AddRectFilled(pos - Vec2(6.0f * inScale), card_size + Vec2(12.0f * inScale), 22.0f * inScale, Fade(accent, ( 0.3f + 0.25f * pulse ) * card_alpha), 30.0f * inScale);
+                g_UIRenderer.AddRectFilled(box_pos, box_size, 4.0f * inScale, Vec4(1.0f, 1.0f, 0.8f, 0.06f * card_alpha));
+                g_UIRenderer.AddRect(box_pos - Vec2(2.0f * inScale), box_size + Vec2(4.0f * inScale), 4.0f * inScale, 2.0f * inScale, Fade(cRSYellow, ( 0.55f + 0.45f * pulse ) * card_alpha));
             }
 
-            DrawPanel(pos, card_size, inScale, accent, card_alpha);
+            DrawLabel(box_pos + Vec2(14.0f, 10.0f) * inScale, std::format("{}", choice + 1), 22.0f * inScale, Fade(cRSYellow, card_alpha));
+            DrawUpgradeIcon(upgrade, Vec2(box_center, box_pos.y + 78.0f * inScale), 32.0f * inScale, card_alpha);
+            DrawLabel(Vec2(box_center, box_pos.y + 140.0f * inScale), info.mName, 25.0f * inScale, Fade(cRSOrange, card_alpha), UI_TEXT_ALIGN_CENTER);
 
-            if (selected)
-                g_UIRenderer.AddRect(pos + Vec2(20.0f * inScale), card_size - Vec2(40.0f * inScale), 6.0f * inScale, 2.0f * inScale, Fade(accent, 0.8f * card_alpha));
+            const bool is_new = upgrade != UPGRADE_FEAST && level == 0;
+            const String chip = upgrade == UPGRADE_FEAST ? String("Restores health") : is_new ? String(info.mIsWeapon ? "New weapon!" : "New!") : std::format("Level {} -> {}", level, level + 1);
+            DrawLabel(Vec2(box_center, box_pos.y + 174.0f * inScale), chip, 19.0f * inScale, Fade(is_new ? cRSGreen : cRSYellow, card_alpha), UI_TEXT_ALIGN_CENTER);
+            DrawLabel(Vec2(box_center, box_pos.y + 212.0f * inScale), info.mDescription, 19.0f * inScale, Fade(cRSWhite, card_alpha), UI_TEXT_ALIGN_CENTER);
 
-            const float center = pos.x + card_size.x * 0.5f;
-            const Vec2 icon_center = Vec2(center, pos.y + 112.0f * inScale);
-            const float ring_radius = 64.0f * inScale;
+            if (upgrade == UPGRADE_FEAST)
+                continue;
 
-            g_UIRenderer.AddImage(icon_center - Vec2(ring_radius), Vec2(ring_radius * 2.0f), m_RuneRingTexture, Vec4(1.0f, 1.0f, 1.0f, card_alpha));
-            DrawUpgradeIcon(upgrade, icon_center, 30.0f * inScale, card_alpha);
-
-            DrawShadowText(Vec2(pos.x + 40.0f * inScale, pos.y + 30.0f * inScale), std::format("{}", choice + 1), 20.0f * inScale, Fade(cGold, 0.7f * card_alpha), UI_TEXT_ALIGN_CENTER, inScale);
-
-            DrawShadowText(Vec2(center, pos.y + 190.0f * inScale), info.mName, 28.0f * inScale, Vec4(glm::mix(info.mColor, Vec3(1.0f), 0.3f), card_alpha), UI_TEXT_ALIGN_CENTER, inScale);
-
-            const bool is_new = upgrade != UPGRADE_FEAST && m_UpgradeLevels[upgrade] == 0;
-            const String chip = upgrade == UPGRADE_FEAST ? String("RESTORE") : is_new ? String(info.mIsWeapon ? "NEW WEAPON" : "NEW") : std::format("LV {}  >  {}", m_UpgradeLevels[upgrade], m_UpgradeLevels[upgrade] + 1);
-            const Vec2 chip_extent = g_UIRenderer.MeasureText(chip, 15.0f * inScale);
-            const Vec2 chip_pos = Vec2(center - chip_extent.x * 0.5f - 12.0f * inScale, pos.y + 234.0f * inScale);
-
-            g_UIRenderer.AddRectFilled(chip_pos, Vec2(chip_extent.x + 24.0f * inScale, 26.0f * inScale), 13.0f * inScale, is_new ? Fade(accent, 0.9f * card_alpha) : Vec4(1.0f, 1.0f, 1.0f, 0.1f * card_alpha));
-            g_UIRenderer.AddText(Vec2(center, chip_pos.y + 4.0f * inScale), chip, 15.0f * inScale, is_new ? Vec4(0.05f, 0.04f, 0.08f, card_alpha) : Fade(cGold, card_alpha), UI_TEXT_ALIGN_CENTER);
-
-            g_UIRenderer.AddText(Vec2(center, pos.y + 278.0f * inScale), info.mDescription, 18.0f * inScale, Vec4(0.92f, 0.89f, 0.85f, 0.95f * card_alpha), UI_TEXT_ALIGN_CENTER);
-
-            if (upgrade != UPGRADE_FEAST)
+            for (int pip = 0; pip < cMaxUpgradeLevel; pip++)
             {
-                for (int pip = 0; pip < cMaxUpgradeLevel; pip++)
-                {
-                    const Vec2 pip_pos = Vec2(center + ( float(pip) - 2.0f ) * 26.0f * inScale, pos.y + card_size.y - 50.0f * inScale);
-                    const bool filled = pip < m_UpgradeLevels[upgrade];
-                    const bool next = pip == m_UpgradeLevels[upgrade];
-                    const float blink = next ? 0.5f + 0.5f * glm::sin(m_Time * 6.0f) : 1.0f;
-                    DrawGem(pip_pos, 22.0f * inScale, filled ? Fade(accent, card_alpha) : next ? Fade(accent, blink * card_alpha) : Vec4(0.25f, 0.22f, 0.3f, 0.6f * card_alpha));
-                }
+                const Vec2 pip_size = Vec2(16.0f * inScale);
+                const Vec2 pip_pos = Vec2(box_center + ( float(pip) - 2.5f ) * 24.0f * inScale + 4.0f * inScale, box_pos.y + box_size.y - 40.0f * inScale);
+                const bool next = pip == level;
+                const float blink = 0.5f + 0.5f * glm::sin(m_Time * 6.0f);
+                const Vec4 color = pip < level ? cRSOrange : next ? Fade(cRSYellow, blink) : Vec4(0.12f, 0.1f, 0.08f, 1.0f);
+
+                g_UIRenderer.AddRectFilled(pip_pos, pip_size, 2.0f * inScale, Fade(color, card_alpha));
+                g_UIRenderer.AddRect(pip_pos, pip_size, 2.0f * inScale, glm::max(1.0f, inScale), Vec4(0.0f, 0.0f, 0.0f, card_alpha));
             }
         }
 
-        DrawShadowText(Vec2(inDisplay.x * 0.5f, inDisplay.y * 0.5f + 270.0f * inScale), "1 / 2 / 3 to pick     A / D to browse     ENTER to confirm", 20.0f * inScale, Vec4(1.0f, 0.9f, 0.75f, 0.8f * alpha), UI_TEXT_ALIGN_CENTER, inScale);
+        DrawLabel(Vec2(center, pos.y + size.y - 50.0f * inScale), "Press 1, 2 or 3 to choose, or A / D and Enter", 19.0f * inScale, Fade(cRSWhite, 0.85f * alpha), UI_TEXT_ALIGN_CENTER);
     }
 
     void DrawEndScreen(const Vec2& inDisplay, float inScale)
     {
         const bool victory = m_State == STATE_VICTORY;
         const float alpha = glm::clamp(( m_PlayerDeathTimer - 0.6f ) / 0.6f, 0.0f, 1.0f);
-        const Vec4 accent = victory ? Vec4(1.0f, 0.8f, 0.4f, 1.0f) : Vec4(1.0f, 0.35f, 0.3f, 1.0f);
 
-        g_UIRenderer.AddRectFilled(Vec2(0.0f), inDisplay, 0.0f, Vec4(0.02f, 0.0f, 0.02f, 0.6f * alpha));
+        g_UIRenderer.AddRectFilled(Vec2(0.0f), inDisplay, 0.0f, Vec4(0.0f, 0.0f, 0.0f, 0.55f * alpha));
 
-        const Vec2 size = Vec2(640.0f, 400.0f) * inScale;
+        const Vec2 size = Vec2(620.0f, 430.0f) * inScale;
         const Vec2 pos = inDisplay * 0.5f - size * 0.5f + Vec2(0.0f, ( 1.0f - EaseOutCubic(alpha) ) * 40.0f * inScale);
         const float center = inDisplay.x * 0.5f;
 
-        DrawPanel(pos, size, inScale, accent, alpha);
-        DrawBanner(Vec2(center, pos.y + 4.0f * inScale), Vec2(560.0f, 90.0f) * inScale, alpha);
-        DrawTitle(Vec2(center, pos.y - 40.0f * inScale), victory ? "DAWN BREAKS" : "YOU FELL", 60.0f * inScale, Fade(accent, alpha), inScale);
-        DrawShadowText(Vec2(center, pos.y + 70.0f * inScale), victory ? "The swarm retreats from the light" : "The night claims another soul", 20.0f * inScale, Vec4(1.0f, 0.9f, 0.85f, 0.8f * alpha), UI_TEXT_ALIGN_CENTER, inScale);
+        DrawWindow(pos, size, victory ? "Congratulations!" : "Oh dear, you are dead!", inScale, alpha);
+        DrawLabel(Vec2(center, pos.y + 80.0f * inScale), victory ? "You survived until dawn. The swarm retreats." : "The night claims another soul.", 21.0f * inScale, Fade(cRSYellow, alpha), UI_TEXT_ALIGN_CENTER);
 
         const StaticArray<std::pair<String, String>, 6> stats =
         {
-            std::pair { String("SURVIVED"), FormatTime(m_RunTime) },
-            std::pair { String("LEVEL"), std::format("{}", m_Level) },
-            std::pair { String("KILLS"), std::format("{}", m_Kills) },
-            std::pair { String("BEST STREAK"), std::format("{}", m_BestStreak) },
-            std::pair { String("ELITES"), std::format("{}", m_EliteKills) },
-            std::pair { String("DAMAGE"), std::format("{:.1f}k", m_DamageDealt / 1000.0f) },
+            std::pair { String("Survived:"), FormatTime(m_RunTime) },
+            std::pair { String("Level:"), std::format("{}", m_Level) },
+            std::pair { String("Kills:"), std::format("{}", m_Kills) },
+            std::pair { String("Best streak:"), std::format("{}", m_BestStreak) },
+            std::pair { String("Elites slain:"), std::format("{}", m_EliteKills) },
+            std::pair { String("Damage:"), std::format("{:.1f}k", m_DamageDealt / 1000.0f) },
         };
+
+        const float column_width = ( size.x - 100.0f * inScale ) * 0.5f;
 
         for (size_t index = 0; index < stats.size(); index++)
         {
-            const float column = float(index % 3);
-            const float row = float(index / 3);
-            const Vec2 cell = Vec2(pos.x + size.x * ( 0.2f + 0.3f * column ), pos.y + 130.0f * inScale + row * 86.0f * inScale);
+            const float x = pos.x + 40.0f * inScale + float(index % 2) * ( column_width + 20.0f * inScale );
+            const float y = pos.y + 128.0f * inScale + float(index / 2) * 40.0f * inScale;
 
-            DrawShadowText(cell, stats[index].second, 34.0f * inScale, Fade(cParchment, alpha), UI_TEXT_ALIGN_CENTER, inScale);
-            DrawShadowText(cell + Vec2(0.0f, 42.0f * inScale), stats[index].first, 15.0f * inScale, Fade(accent, 0.9f * alpha), UI_TEXT_ALIGN_CENTER, inScale);
+            DrawLabel(Vec2(x, y), stats[index].first, 22.0f * inScale, Fade(cRSWhite, alpha));
+            DrawLabel(Vec2(x + column_width, y), stats[index].second, 22.0f * inScale, Fade(cRSYellow, alpha), UI_TEXT_ALIGN_RIGHT);
         }
 
-        DrawShadowText(Vec2(center, pos.y + 318.0f * inScale), std::format("Best {}", FormatTime(m_BestTime)), 18.0f * inScale, Fade(cGold, 0.8f * alpha), UI_TEXT_ALIGN_CENTER, inScale);
+        DrawDivider(Vec2(pos.x + 26.0f * inScale, pos.y + 262.0f * inScale), size.x - 52.0f * inScale, inScale, alpha);
+        DrawLabel(Vec2(center, pos.y + 282.0f * inScale), std::format("Personal best: {}", FormatTime(m_BestTime)), 22.0f * inScale, Fade(cRSOrange, alpha), UI_TEXT_ALIGN_CENTER);
 
         const float blink = 0.6f + 0.4f * glm::sin(m_Time * 4.0f);
-        DrawShadowText(Vec2(center, pos.y + size.y + 24.0f * inScale), "Press ENTER to play again", 26.0f * inScale, Fade(cGold, alpha * blink), UI_TEXT_ALIGN_CENTER, inScale);
+        DrawLabel(Vec2(center, pos.y + size.y - 70.0f * inScale), "Press Enter to play again", 26.0f * inScale, Fade(cRSYellow, alpha * blink), UI_TEXT_ALIGN_CENTER);
     }
 
     struct PauseLayout
@@ -5008,15 +5038,6 @@ private:
             game->Quit();
     }
 
-    void DrawMenuButton(const Vec2& inPos, const Vec2& inSize, StringView inLabel, bool inHovered, const Vec4& inHoverFill, float inAlpha, float inScale)
-    {
-        const float radius = inSize.y * 0.5f;
-
-        g_UIRenderer.AddRectFilled(inPos, inSize, radius, inHovered ? Fade(inHoverFill, 0.95f * inAlpha) : Vec4(0.08f, 0.06f, 0.1f, 0.9f * inAlpha));
-        g_UIRenderer.AddRect(inPos, inSize, radius, 2.0f * inScale, Fade(cGold, ( inHovered ? 1.0f : 0.6f ) * inAlpha));
-        DrawShadowText(Vec2(inPos.x + inSize.x * 0.5f, inPos.y + 13.0f * inScale), inLabel, 26.0f * inScale, Fade(inHovered ? cParchment : cGold, inAlpha), UI_TEXT_ALIGN_CENTER, inScale);
-    }
-
     void DrawPauseMenu()
     {
         const PauseLayout layout = GetPauseLayout();
@@ -5027,31 +5048,29 @@ private:
         const Vec2 offset = pos - layout.mPanelPos;
 
         g_UIRenderer.SetFont(m_HudFont);
-        g_UIRenderer.AddRectFilled(Vec2(0.0f), layout.mDisplay, 0.0f, Vec4(0.02f, 0.0f, 0.04f, 0.6f * alpha));
+        g_UIRenderer.AddRectFilled(Vec2(0.0f), layout.mDisplay, 0.0f, Vec4(0.0f, 0.0f, 0.0f, 0.55f * alpha));
 
-        DrawPanel(pos, layout.mPanelSize, scale, Vec4(0.6f, 0.5f, 1.0f, 1.0f), alpha);
-        DrawBanner(Vec2(center, pos.y + 4.0f * scale), Vec2(460.0f, 84.0f) * scale, alpha);
-        DrawTitle(Vec2(center, pos.y - 38.0f * scale), "PAUSED", 56.0f * scale, Fade(cGold, alpha), scale);
+        DrawWindow(pos, layout.mPanelSize, "Paused", scale, alpha);
 
         const float volume = GetMasterVolume();
         const Vec2 slider_pos = layout.mSliderPos + offset;
         const Vec2 slider_size = layout.mSliderSize;
         const bool slider_hovered = m_DraggingVolume || IsInside(m_MousePosition, layout.mSliderPos - layout.mSliderPadding, slider_size + layout.mSliderPadding * 2.0f);
 
-        DrawShadowText(Vec2(slider_pos.x, slider_pos.y - 46.0f * scale), "MASTER VOLUME", 20.0f * scale, Fade(cParchment, 0.9f * alpha), UI_TEXT_ALIGN_LEFT, scale);
-        DrawBar(slider_pos, slider_size, volume, Vec4(0.85f, 0.55f, 0.2f, alpha), Vec4(1.0f, 0.85f, 0.45f, alpha), scale);
+        DrawLabel(Vec2(slider_pos.x, slider_pos.y - 44.0f * scale), "Master volume", 22.0f * scale, Fade(cRSWhite, alpha));
+        DrawSlotBox(slider_pos - Vec2(4.0f * scale), slider_size + Vec2(8.0f * scale), scale, alpha);
+        g_UIRenderer.AddRectFilled(slider_pos, Vec2(slider_size.x * volume, slider_size.y), 2.0f * scale, Fade(cRSOrange, 0.85f * alpha));
 
-        const Vec2 knob = slider_pos + Vec2(slider_size.x * volume, slider_size.y * 0.5f);
-        const float knob_radius = ( slider_hovered ? 15.0f : 13.0f ) * scale;
-        g_UIRenderer.AddCircleFilled(knob, knob_radius + 3.0f * scale, Fade(cShadow, 0.8f * alpha));
-        g_UIRenderer.AddCircleFilled(knob, knob_radius, Fade(slider_hovered ? cParchment : cGold, alpha));
+        const Vec2 knob_size = Vec2(22.0f, slider_size.y / scale + 22.0f) * scale;
+        const float knob_tint = slider_hovered ? 1.35f : 1.0f;
+        g_UIRenderer.AddImageSliced(Vec2(slider_pos.x + slider_size.x * volume - knob_size.x * 0.5f, slider_pos.y - 11.0f * scale), knob_size, m_ButtonTexture, 8.0f * scale, 12.0f / 64.0f, Vec4(knob_tint, knob_tint, knob_tint, alpha));
 
-        DrawShadowText(Vec2(slider_pos.x + slider_size.x + 70.0f * scale, slider_pos.y - 12.0f * scale), std::format("{}%", int(glm::round(volume * 100.0f))), 30.0f * scale, Fade(cParchment, alpha), UI_TEXT_ALIGN_CENTER, scale);
+        DrawLabel(Vec2(slider_pos.x + slider_size.x + 70.0f * scale, slider_pos.y - 6.0f * scale), std::format("{}%", int(glm::round(volume * 100.0f))), 26.0f * scale, Fade(cRSYellow, alpha), UI_TEXT_ALIGN_CENTER);
 
-        DrawMenuButton(layout.mButtonPos + offset, layout.mButtonSize, "RESUME", IsInside(m_MousePosition, layout.mButtonPos, layout.mButtonSize), Vec4(0.35f, 0.24f, 0.1f, 1.0f), alpha, scale);
-        DrawMenuButton(layout.mQuitPos + offset, layout.mButtonSize, "QUIT", IsInside(m_MousePosition, layout.mQuitPos, layout.mButtonSize), Vec4(0.45f, 0.1f, 0.08f, 1.0f), alpha, scale);
+        DrawButton(layout.mButtonPos + offset, layout.mButtonSize, "Resume", IsInside(m_MousePosition, layout.mButtonPos, layout.mButtonSize), alpha, scale);
+        DrawButton(layout.mQuitPos + offset, layout.mButtonSize, "Quit", IsInside(m_MousePosition, layout.mQuitPos, layout.mButtonSize), alpha, scale);
 
-        DrawShadowText(Vec2(center, pos.y + layout.mPanelSize.y + 24.0f * scale), "A / D or drag to adjust     ENTER or ESC to resume     Q to quit", 20.0f * scale, Vec4(1.0f, 0.9f, 0.75f, 0.8f * alpha), UI_TEXT_ALIGN_CENTER, scale);
+        DrawLabel(Vec2(center, pos.y + layout.mPanelSize.y + 20.0f * scale), "A / D or drag to adjust  -  Enter or Esc to resume  -  Q to quit", 20.0f * scale, Fade(cRSWhite, 0.85f * alpha), UI_TEXT_ALIGN_CENTER);
     }
 
 private:
@@ -5077,13 +5096,16 @@ private:
     StaticArray<GroundTextures, GROUND_LAYER_COUNT> m_GroundTextures = {};
     StaticArray<Entity, GROUND_LAYER_COUNT> m_GroundMaterials;
 
-    uint32_t m_FrameTexture = 0;
-    uint32_t m_BarFrameTexture = 0;
-    uint32_t m_BarSheenTexture = 0;
-    uint32_t m_RuneRingTexture = 0;
+    uint32_t m_PanelTexture = 0;
+    uint32_t m_ParchmentTexture = 0;
+    uint32_t m_SlotTexture = 0;
+    uint32_t m_ButtonTexture = 0;
+    uint32_t m_OrbFrameTexture = 0;
+    uint32_t m_OrbFillTexture = 0;
+    uint32_t m_HitsplatTexture = 0;
+    uint32_t m_HitsplatMaxTexture = 0;
+    uint32_t m_HintArrowTexture = 0;
     uint32_t m_HeartTexture = 0;
-    uint32_t m_SkullTexture = 0;
-    uint32_t m_BannerTexture = 0;
     uint32_t m_GemTexture = 0;
     uint32_t m_DashIconTexture = 0;
     StaticArray<uint32_t, UPGRADE_COUNT + 1> m_UpgradeIconTextures = {};
@@ -5127,7 +5149,6 @@ private:
     float m_PlayerWalkPhase = 0.0f;
     float m_PlayerDeathTimer = 0.0f;
     float m_Health = cPlayerBaseHealth;
-    float m_HealthTrail = cPlayerBaseHealth;
     float m_InvulnerableTimer = 0.0f;
     float m_DashTimer = -1.0f;
     float m_DashCooldownTimer = 0.0f;
@@ -5135,6 +5156,7 @@ private:
 
     int m_Level = 1;
     int m_Experience = 0;
+    int m_LichKills = 0;
     int m_PendingLevelUps = 0;
     int m_Kills = 0;
     int m_EliteKills = 0;
@@ -5181,7 +5203,6 @@ private:
     int m_NextBoss = 0;
     int m_BossEnemy = -1;
     int m_BossPattern = 0;
-    float m_BossHealthTrail = 0.0f;
     float m_BoltTimer = 0.0f;
     float m_NovaTimer = 0.0f;
     float m_FireballTimer = 0.0f;
@@ -5191,6 +5212,8 @@ private:
 
     Array<DamageNumber> m_DamageNumbers;
     Array<Popup> m_Popups;
+    Array<ChatMessage> m_ChatMessages;
+    Array<XPDrop> m_XPDrops;
 
     Vec3 m_CameraTarget = Vec3(0.0f);
     float m_CameraDistance = 22.0f;
