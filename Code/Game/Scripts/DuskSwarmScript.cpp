@@ -647,7 +647,8 @@ public:
 
         float delta_time = glm::min(inDeltaTime, 0.05f);
 
-        m_Time += delta_time;        m_PauseTime = 0.0f;
+        m_Time += delta_time;
+        m_PauseTime = 0.0f;
         m_DraggingVolume = false;
 
         if (m_HitStop > 0.0f)
