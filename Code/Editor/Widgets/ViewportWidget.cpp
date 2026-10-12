@@ -469,6 +469,13 @@ void ViewportWidget::DrawToolbar()
 			ImGui::EndCombo();
 		}
 
+		ImGui::SeparatorText("Audio Settings");
+
+		float master_volume = m_Editor->GetAudio()->GetMasterVolume();
+
+		if (ImGui::SliderFloat("Volume", &master_volume, 0.0f, 1.0f, "%.2f"))
+			m_Editor->GetAudio()->SetMasterVolume(master_volume);
+
 		m_Editor->GetRenderInterface()->DrawDebugSettings(m_Editor);
 
 		ImGui::SeparatorText("Physics");

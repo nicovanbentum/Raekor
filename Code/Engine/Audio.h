@@ -51,6 +51,9 @@ public:
 
 	const Vec3& GetListenerPosition() const { return m_ListenerPosition; }
 
+	float GetMasterVolume() const { return m_Settings.masterVolume; }
+	void SetMasterVolume(float inValue) { m_Settings.masterVolume = inValue; }
+
 	static bool sIsSupportedFile(const Path& inFile);
 	static const char* sGetFileDialogFilters();
 

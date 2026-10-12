@@ -84,7 +84,8 @@ void DXApp::OnEvent(const SDL_Event& inEvent)
             m_RenderSystem.GetRenderer().SetShouldResize(true);
 
             const SDL_DisplayMode* mode = SDL_GetWindowFullscreenMode(m_Window);
-            gLogInfo("App", "SDL display mode: {}x{}@{}Hz", mode->w, mode->h, mode->refresh_rate);
+            if (mode)
+                gLogInfo("App", "SDL display mode: {}x{}@{}Hz", mode->w, mode->h, mode->refresh_rate);
         }
 
         switch (inEvent.key.key)
