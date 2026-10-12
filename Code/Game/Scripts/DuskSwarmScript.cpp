@@ -56,6 +56,8 @@ static constexpr const char* cPaletteEmissiveFile = "Assets/DuskSwarm/PaletteEmi
 static constexpr const char* cHudFontFile = "Assets/Fonts/Cinzel.ttf";
 static constexpr const char* cTitleFontFile = "Assets/Fonts/CinzelDecorative-Bold.ttf";
 
+static constexpr uint8_t cNormalMapSwizzleAG = 0b11'10'01'11;
+
 static constexpr const char* cMusicSound = "Assets/DuskSwarm/Audio/Music.ogg";
 static constexpr const char* cBossMusicSound = "Assets/DuskSwarm/Audio/BossMusic.ogg";
 static constexpr const char* cAmbienceSound = "Assets/DuskSwarm/Audio/Ambience.ogg";
@@ -295,6 +297,33 @@ enum EParticleMesh
     PARTICLE_CHUNK,
     PARTICLE_PUFF,
     PARTICLE_MESH_COUNT
+};
+
+
+enum EGroundLayer
+{
+    GROUND_GRASS,
+    GROUND_DIRT,
+    GROUND_STONE,
+    GROUND_MOSS,
+    GROUND_LAYER_COUNT
+};
+
+
+struct GroundLayer
+{
+    const char* mPart;
+    const char* mTextures;
+    Vec3 mTint;
+};
+
+
+static const StaticArray<GroundLayer, GROUND_LAYER_COUNT> cGroundLayers =
+{
+    GroundLayer { "Grass", "Grass", Vec3(1.0f) },
+    GroundLayer { "Dirt",  "Dirt",  Vec3(1.0f) },
+    GroundLayer { "Stone", "Stone", Vec3(1.0f) },
+    GroundLayer { "Moss",  "Grass", Vec3(1.25f, 1.3f, 1.1f) },
 };
 
 
@@ -872,7 +901,7 @@ private:
         return part != cParts.end() ? part->second : -1;
     }
 
-    uint32_t LoadTexture(const char* inFile, bool inSRGB)
+    uint32_t LoadTexture(const char* inFile, bool inSRGB, uint8_t inSwizzle = TEXTURE_SWIZZLE_RGBA)
     {
         if (!fs::exists(inFile))
             return 0;
@@ -885,7 +914,7 @@ private:
         Assets* assets = m_App->GetAssets();
         TextureAsset::Ptr asset = assets ? assets->GetAsset<TextureAsset>(cached) : nullptr;
 
-        return asset ? m_App->GetRenderInterface()->UploadTextureFromAsset(asset, inSRGB) : 0;
+        return asset ? m_App->GetRenderInterface()->UploadTextureFromAsset(asset, inSRGB, inSwizzle) : 0;
     }
 
     void LoadTextures()
@@ -895,6 +924,21 @@ private:
 
         if (m_PaletteEmissiveTexture == 0)
             m_PaletteEmissiveTexture = LoadTexture(cPaletteEmissiveFile, false);
+
+        for (int layer = 0; layer < GROUND_LAYER_COUNT; layer++)
+        {
+            GroundTextures& textures = m_GroundTextures[layer];
+            const String prefix = std::format("Assets/DuskSwarm/Ground/{}", cGroundLayers[layer].mTextures);
+
+            if (textures.mAlbedo == 0)
+                textures.mAlbedo = LoadTexture(( prefix + "Albedo.png" ).c_str(), true);
+
+            if (textures.mNormal == 0)
+                textures.mNormal = LoadTexture(( prefix + "Normal.png" ).c_str(), false, cNormalMapSwizzleAG);
+
+            if (textures.mRoughness == 0)
+                textures.mRoughness = LoadTexture(( prefix + "Roughness.png" ).c_str(), false, TEXTURE_SWIZZLE_GGGG);
+        }
 
         const auto LoadUITexture = [this](uint32_t& outTexture, const char* inFile)
         {
@@ -1012,6 +1056,18 @@ private:
             palette->emissive = m_PaletteEmissiveTexture != 0 ? Vec3(16000.0f) : Vec3(0.0f);
         }
 
+        for (int layer = 0; layer < GROUND_LAYER_COUNT; layer++)
+        {
+            m_GroundMaterials[layer] = CreateMaterial(cGroundLayers[layer].mTint, Vec3(0.0f), 1.0f);
+
+            if (Material* ground = FindComponent<Material>(m_GroundMaterials[layer]))
+            {
+                ground->gpuAlbedoMap = m_GroundTextures[layer].mAlbedo;
+                ground->gpuNormalMap = m_GroundTextures[layer].mNormal;
+                ground->gpuRoughnessMap = m_GroundTextures[layer].mRoughness;
+            }
+        }
+
         m_FlashMaterial = CreateMaterial(Vec3(1.0f), Vec3(1.0f, 0.9f, 0.85f) * 5000.0f, 0.3f);
         m_EliteFlashMaterial = CreateMaterial(Vec3(1.0f, 0.85f, 0.4f), Vec3(1.0f, 0.75f, 0.3f) * 5000.0f, 0.3f);
         m_BoltMaterial = CreateMaterial(Vec3(0.35f, 0.85f, 1.0f), Vec3(0.35f, 0.85f, 1.0f) * 12000.0f, 0.2f);
@@ -1044,7 +1100,19 @@ private:
 
     void CreateArena()
     {
-        SetTransform(CreateModel("Ground").mRoot, Vec3(0.0f), Vec3(1.0f));
+        const Model ground = CreateModel("Ground");
+        SetTransform(ground.mRoot, Vec3(0.0f), Vec3(1.0f));
+
+        for (const ModelMesh& mesh : ground.mMeshes)
+        {
+            const String& part = m_Scene->Get<Name>(mesh.mEntity).name;
+
+            for (int layer = 0; layer < GROUND_LAYER_COUNT; layer++)
+            {
+                if (part == cGroundLayers[layer].mPart && m_GroundTextures[layer].mAlbedo != 0)
+                    SetMaterial(mesh.mEntity, m_GroundMaterials[layer]);
+            }
+        }
 
         const float wall_offset = cArenaHalfSize + 0.5f;
 
@@ -4936,6 +5004,16 @@ private:
     uint32_t m_PaletteEmissiveTexture = 0;
     HashMap<String, Array<PartTemplate>> m_MeshTemplates;
 
+    struct GroundTextures
+    {
+        uint32_t mAlbedo = 0;
+        uint32_t mNormal = 0;
+        uint32_t mRoughness = 0;
+    };
+
+    StaticArray<GroundTextures, GROUND_LAYER_COUNT> m_GroundTextures = {};
+    StaticArray<Entity, GROUND_LAYER_COUNT> m_GroundMaterials;
+
     uint32_t m_FrameTexture = 0;
     uint32_t m_BarFrameTexture = 0;
     uint32_t m_BarSheenTexture = 0;
@@ -5065,6 +5143,7 @@ public:
         m_Blades.fill(Entity::Null);
         m_GemMaterials.fill(Entity::Null);
         m_FXMaterials.fill(Entity::Null);
+        m_GroundMaterials.fill(Entity::Null);
     }
 };
 

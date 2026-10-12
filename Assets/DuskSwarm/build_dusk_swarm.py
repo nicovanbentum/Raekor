@@ -92,6 +92,7 @@ class Part:
         self.family = self.bm.faces.layers.int.new("family")
         self.shade = self.bm.faces.layers.int.new("shade")
         self.recalc = True
+        self.uv_tile = None
 
     def tag(self, verts, family, shade, variation):
         faces = {face for vert in verts for face in vert.link_faces}
@@ -221,14 +222,18 @@ def build_asset(name, parts, offset, material):
 
         uv_layer = bm.loops.layers.uv.new("UVMap")
         for face in bm.faces:
-            assign_uv(face, uv_layer, face[part.family], face[part.shade])
+            if part.uv_tile:
+                for loop in face.loops:
+                    loop[uv_layer].uv = (loop.vert.co.x / part.uv_tile, loop.vert.co.y / part.uv_tile)
+            else:
+                assign_uv(face, uv_layer, face[part.family], face[part.shade])
 
         mesh = bpy.data.meshes.new(f"{name}_{part.name}")
         bm.to_mesh(mesh)
         bm.free()
 
         for polygon in mesh.polygons:
-            polygon.use_smooth = False
+            polygon.use_smooth = part.uv_tile is not None
 
         mesh.materials.append(material)
 
@@ -727,10 +732,15 @@ def beam(p, rng):
 
 
 def ground(rng):
-    p = Part("Main", (0, 0, 0), rng)
-    p.recalc = False
+    parts = {}
+    for name, tile in (("Grass", 8.0), ("Dirt", 5.0), ("Stone", 4.0), ("Moss", 8.0)):
+        part = Part(name, (0, 0, 0), rng)
+        part.recalc = False
+        part.uv_tile = tile
+        parts[name] = part
+
     half = 56.0
-    cells = 56
+    cells = 112
     step = half * 2 / cells
     blobs = [(rng.uniform(-38, 38), rng.uniform(-38, 38), rng.uniform(2.0, 5.0)) for _ in range(22)]
 
@@ -742,43 +752,94 @@ def ground(rng):
             h += t * t * (2.0 + math.sin(x * 0.35) * math.cos(y * 0.4) * 1.2)
         return h
 
-    verts = []
+    points = []
     for j in range(cells + 1):
         row = []
         for i in range(cells + 1):
             x = -half + i * step
             y = -half + j * step
             if 0 < i < cells and 0 < j < cells:
-                x += rng.uniform(-0.35, 0.35)
-                y += rng.uniform(-0.35, 0.35)
-            row.append(p.bm.verts.new((x, y, height(x, y))))
-        verts.append(row)
+                x += rng.uniform(-0.2, 0.2)
+                y += rng.uniform(-0.2, 0.2)
+            row.append(Vector((x, y, height(x, y))))
+        points.append(row)
 
-    def family_for(cx, cy):
-        edge = max(abs(cx), abs(cy))
-        if edge > 41.5:
-            return ("Moss", rng.randint(1, 4)) if rng.random() < 0.7 else ("Grass", rng.randint(0, 3))
-        if math.hypot(cx, cy) < 5.5 + rng.uniform(-0.6, 0.6):
-            return ("Stone", rng.randint(1, 5)) if math.hypot(cx, cy) < 4.0 else ("Dirt", rng.randint(2, 5))
+    def wobble(x, y):
+        return math.sin(x * 1.3 + y * 0.4) * 0.35 + math.sin(y * 1.7 - x * 0.6) * 0.3
+
+    def moss_field(x, y):
+        return 41.5 + wobble(x, y) - max(abs(x), abs(y))
+
+    def stone_field(x, y):
+        return math.hypot(x, y) - 4.0 - wobble(x, y) * 0.5
+
+    def dirt_field(x, y):
+        field = math.hypot(x, y) - 5.8 - wobble(x, y)
         for bx, by, br in blobs:
-            d = math.hypot(cx - bx, cy - by)
-            if d < br + rng.uniform(-0.8, 0.8):
-                return ("Dirt", rng.randint(1, 5))
-        if rng.random() < 0.05:
-            return ("Moss", rng.randint(2, 5))
-        return ("Grass", rng.randint(1, 6))
+            field = min(field, math.hypot(x - bx, y - by) - br - wobble(x, y) * 1.5)
+        return field
+
+    regions = (("Moss", moss_field), ("Stone", stone_field), ("Dirt", dirt_field))
+
+    def key(point):
+        return (round(point.x, 5), round(point.y, 5))
+
+    def crossing(p, q, fp, fq):
+        if key(q) < key(p):
+            p, q, fp, fq = q, p, fq, fp
+        t = fp / (fp - fq)
+        x = p.x + (q.x - p.x) * t
+        y = p.y + (q.y - p.y) * t
+        return Vector((x, y, height(x, y)))
+
+    def split(polygon, field):
+        values = [field(point.x, point.y) for point in polygon]
+        inside, outside = [], []
+        for index, point in enumerate(polygon):
+            following = (index + 1) % len(polygon)
+            fp, fq = values[index], values[following]
+            (inside if fp < 0.0 else outside).append(point)
+            if (fp < 0.0) != (fq < 0.0):
+                cut = crossing(point, polygon[following], fp, fq)
+                inside.append(cut)
+                outside.append(cut)
+        return inside, outside
+
+    shared = {name: {} for name in parts}
+
+    def emit(name, polygon):
+        cache = shared[name]
+        verts = []
+        for point in polygon:
+            point_key = key(point)
+            if point_key not in cache:
+                cache[point_key] = parts[name].bm.verts.new(point)
+            if not verts or verts[-1] is not cache[point_key]:
+                verts.append(cache[point_key])
+        if len(verts) > 1 and verts[0] is verts[-1]:
+            verts.pop()
+        if len(verts) >= 3 and len(set(verts)) == len(verts):
+            parts[name].bm.faces.new(verts)
 
     for j in range(cells):
         for i in range(cells):
-            a, b, c, d = verts[j][i], verts[j][i + 1], verts[j + 1][i + 1], verts[j + 1][i]
+            a, b, c, d = points[j][i], points[j][i + 1], points[j + 1][i + 1], points[j + 1][i]
             tris = ((a, b, c), (a, c, d)) if (i + j) % 2 == 0 else ((a, b, d), (b, c, d))
             for tri in tris:
-                face = p.bm.faces.new(tri)
-                center = face.calc_center_median()
-                family, shade = family_for(center.x, center.y)
-                face[p.family] = FAMILY_INDEX[family]
-                face[p.shade] = shade
-    return [p]
+                remaining = list(tri)
+                for name, field in regions:
+                    inside, remaining = split(remaining, field)
+                    if len(inside) >= 3:
+                        emit(name, inside)
+                    if len(remaining) < 3:
+                        break
+                else:
+                    emit("Grass", remaining)
+
+    for part in parts.values():
+        part.bm.normal_update()
+
+    return list(parts.values())
 
 
 ASSETS = [
