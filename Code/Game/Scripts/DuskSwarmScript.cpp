@@ -472,7 +472,6 @@ public:
         float mDuration = 1.0f;
         float mDamage = 0.0f;
         float mRadius = 0.0f;
-        int mTelegraph = -1;
     };
 
     struct Gem
@@ -1177,7 +1176,6 @@ private:
         m_GemMaterials[1] = CreateMaterial(Vec3(0.3f, 0.6f, 1.0f), Vec3(0.3f, 0.6f, 1.0f) * 8000.0f, 0.2f);
         m_GemMaterials[2] = CreateMaterial(Vec3(1.0f, 0.3f, 0.3f), Vec3(1.0f, 0.25f, 0.2f) * 10000.0f, 0.2f);
         m_DangerMaterial = CreateMaterial(Vec3(0.35f, 0.04f, 0.03f), Vec3(1.0f, 0.12f, 0.08f) * 900.0f, 0.6f);
-        m_TargetMaterial = CreateMaterial(Vec3(1.0f, 0.7f, 0.25f), Vec3(1.0f, 0.65f, 0.2f) * 2500.0f, 0.5f);
         m_PoisonTelegraphMaterial = CreateMaterial(Vec3(0.15f, 0.3f, 0.05f), Vec3(0.45f, 1.0f, 0.2f) * 900.0f, 0.6f);
 
         const auto Emissive = [this](Vec3 inColor, float inStrength) { return CreateMaterial(inColor, inColor * inStrength, 0.3f); };
@@ -3247,7 +3245,6 @@ private:
             meteor.mDuration = 1.0f;
             meteor.mDamage = inDamage;
             meteor.mRadius = inRadius;
-            meteor.mTelegraph = SpawnTelegraph(meteor.mTarget, inRadius, meteor.mDuration + inDelay, m_TargetMaterial);
             return;
         }
     }
@@ -3276,8 +3273,6 @@ private:
             {
                 meteor.mActive = false;
                 Park(meteor.mEntity);
-                ReleaseTelegraph(meteor.mTelegraph);
-                meteor.mTelegraph = -1;
                 Explode(meteor.mTarget + Vec3(0.0f, 0.3f, 0.0f), meteor.mRadius, meteor.mDamage, EXPLOSION_METEOR, false, 0.0f);
             }
         }
@@ -5134,7 +5129,6 @@ private:
     Entity m_EliteFlashMaterial = Entity::Null;
     Entity m_BoltMaterial = Entity::Null;
     Entity m_DangerMaterial = Entity::Null;
-    Entity m_TargetMaterial = Entity::Null;
     Entity m_PoisonTelegraphMaterial = Entity::Null;
     StaticArray<Entity, 3> m_GemMaterials;
     StaticArray<Entity, FX_MATERIAL_COUNT> m_FXMaterials;
