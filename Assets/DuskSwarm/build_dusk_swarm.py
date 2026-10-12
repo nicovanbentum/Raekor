@@ -43,6 +43,7 @@ FAMILIES = [
     ("GlowPurple", (0.72, 0.32, 1.00), True),
     ("GlowWhite",  (1.00, 1.00, 1.00), True),
     ("GlowPink",   (1.00, 0.38, 0.62), True),
+    ("Steel",      (0.56, 0.60, 0.68), False),
 ]
 
 FAMILY_INDEX = {name: index for index, (name, _, _) in enumerate(FAMILIES)}
@@ -628,9 +629,44 @@ def gem(p, rng):
     bipyramid(p, "GlowGreen", [(math.cos(a) * 0.3, math.sin(a) * 0.3, 0.0) for a in (i * math.tau / 6 for i in range(6))], (0, 0, 0.5), (0, 0, -0.5))
 
 
+def sickle(p, angle, samples=12):
+    faces = [("Steel", 4), ("GlowWhite", 0), ("GlowWhite", 0), ("Steel", 3), ("Steel", 1)]
+    rings = []
+    for index in range(samples):
+        t = index / samples
+        radius = 0.06 + 0.4 * t
+        theta = angle + 1.15 * t
+        width = 0.13 * math.sin(math.pi * (0.18 + 0.82 * t)) ** 0.8 + 0.01
+        center = Vector((math.cos(theta) * radius, math.sin(theta) * radius, 0.0))
+        tangent = Vector((-math.sin(theta) * radius + math.cos(theta) * 0.4, math.cos(theta) * radius + math.sin(theta) * 0.4, 0.0)).normalized()
+        normal = Vector((tangent.y, -tangent.x, 0.0))
+        spine = center - normal * width * 0.5
+        mid = center + normal * width * 0.25
+        edge = center + normal * width * 0.5
+        thickness = 0.024 * (1.0 - 0.6 * t)
+        rings.append([p.bm.verts.new(v) for v in (spine + Vector((0, 0, thickness)), mid + Vector((0, 0, thickness)), edge, mid - Vector((0, 0, thickness)), spine - Vector((0, 0, thickness)))])
+
+    tip = p.bm.verts.new(Vector((math.cos(angle + 1.15) * 0.48, math.sin(angle + 1.15) * 0.48, 0.0)))
+
+    def tag(face, family, shade):
+        face[p.family] = FAMILY_INDEX[family]
+        face[p.shade] = shade
+
+    for a, b in zip(rings[:-1], rings[1:]):
+        for k, (family, shade) in enumerate(faces):
+            tag(p.bm.faces.new((a[k], a[(k + 1) % 5], b[(k + 1) % 5], b[k])), family, shade)
+    for k, (family, shade) in enumerate(faces):
+        tag(p.bm.faces.new((rings[-1][k], rings[-1][(k + 1) % 5], tip)), family, shade)
+    tag(p.bm.faces.new(list(reversed(rings[0]))), "Steel", 1)
+
+
 def blade(p, rng):
-    outline = [(-0.42, 0.0), (-0.3, 0.06), (-0.05, 0.1), (0.2, 0.08), (0.42, 0.0), (0.2, -0.03), (-0.05, -0.05), (-0.3, -0.04)]
-    slab(p, "GlowOrange", outline, 0.03, ridge=0.025, var=0)
+    for index in range(3):
+        sickle(p, index * math.tau / 3)
+    cyl(p, "Gold", (0, 0, 0), 0.11, 0.11, 0.075, seg=10, var=0)
+    cyl(p, "Gold", (0, 0, 0), 0.075, 0.075, 0.1, seg=10, shade=5, var=0)
+    for side in (-1, 1):
+        ico(p, "GlowRed", (0, 0, side * 0.05), 0.045, scale=(1, 1, 0.6), var=0)
 
 
 def bolt(p, rng):

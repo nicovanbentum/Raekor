@@ -1173,7 +1173,6 @@ private:
         m_FlashMaterial = CreateMaterial(Vec3(1.0f), Vec3(1.0f, 0.9f, 0.85f) * 5000.0f, 0.3f);
         m_EliteFlashMaterial = CreateMaterial(Vec3(1.0f, 0.85f, 0.4f), Vec3(1.0f, 0.75f, 0.3f) * 5000.0f, 0.3f);
         m_BoltMaterial = CreateMaterial(Vec3(0.35f, 0.85f, 1.0f), Vec3(0.35f, 0.85f, 1.0f) * 12000.0f, 0.2f);
-        m_BladeMaterial = CreateMaterial(Vec3(1.0f, 0.6f, 0.2f), Vec3(1.0f, 0.55f, 0.15f) * 10000.0f, 0.2f);
         m_GemMaterials[0] = CreateMaterial(Vec3(0.3f, 1.0f, 0.5f), Vec3(0.3f, 1.0f, 0.5f) * 6000.0f, 0.2f);
         m_GemMaterials[1] = CreateMaterial(Vec3(0.3f, 0.6f, 1.0f), Vec3(0.3f, 0.6f, 1.0f) * 8000.0f, 0.2f);
         m_GemMaterials[2] = CreateMaterial(Vec3(1.0f, 0.3f, 0.3f), Vec3(1.0f, 0.25f, 0.2f) * 10000.0f, 0.2f);
@@ -1411,7 +1410,7 @@ private:
             Park(gems[index].mRoot);
         }
 
-        Array<Model> blades = CreateModels("Blade", cMaxBlades, m_BladeMaterial);
+        Array<Model> blades = CreateModels("Blade", cMaxBlades);
 
         for (int index = 0; index < cMaxBlades; index++)
         {
@@ -5134,7 +5133,6 @@ private:
     Entity m_FlashMaterial = Entity::Null;
     Entity m_EliteFlashMaterial = Entity::Null;
     Entity m_BoltMaterial = Entity::Null;
-    Entity m_BladeMaterial = Entity::Null;
     Entity m_DangerMaterial = Entity::Null;
     Entity m_TargetMaterial = Entity::Null;
     Entity m_PoisonTelegraphMaterial = Entity::Null;
