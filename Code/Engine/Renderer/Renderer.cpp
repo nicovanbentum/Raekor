@@ -305,7 +305,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     PROFILE_FUNCTION_CPU();
 
     // Check if any of the shader sources were updated and recompile them if necessary.
-    // the OS file stamp checks are expensive so we only turn this on in debug builds.
+    // the OS file stamp checks are expensive so this is opt-in through -enable_shader_hotload.
     static bool enable_shader_hotload = OS::sCheckCommandLineOption("-enable_shader_hotload");
     const bool shaders_hotloaded = enable_shader_hotload ? g_SystemShaders.OnHotLoad(inDevice) : false;
     if (shaders_hotloaded)
