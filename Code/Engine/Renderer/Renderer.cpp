@@ -306,8 +306,8 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
 
     // Check if any of the shader sources were updated and recompile them if necessary.
     // the OS file stamp checks are expensive so we only turn this on in debug builds.
-    static bool force_hotload = OS::sCheckCommandLineOption("-force_enable_hotload");
-    const bool shaders_hotloaded = IF_DEBUG_ELSE(g_SystemShaders.OnHotLoad(inDevice), force_hotload ? g_SystemShaders.OnHotLoad(inDevice) : false);
+    static bool enable_shader_hotload = OS::sCheckCommandLineOption("-enable_shader_hotload");
+    const bool shaders_hotloaded = enable_shader_hotload ? g_SystemShaders.OnHotLoad(inDevice) : false;
     if (shaders_hotloaded)
         gLogInfo("DX12", "Hotloaded system shaders");
 
@@ -366,6 +366,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     // make sure the backbuffer data we're about to use is no longer being used by the GPU
     if (completed_value < backbuffer_data.mFenceValue)
     {
+        PROFILE_SCOPE_CPU("WaitForBackBuffer");
         gThrowIfFailed(m_Fence->SetEventOnCompletion(backbuffer_data.mFenceValue, m_FenceEvent));
         WaitForSingleObjectEx(m_FenceEvent, INFINITE, FALSE);
     }
@@ -381,7 +382,6 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     }
 
     ResolveReadbacks(inDevice);
-
 
     // Update the total running time of the application / renderer
     m_ElapsedTime += inDeltaTime;
@@ -578,6 +578,8 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
 
 void Renderer::Recompile(Device& inDevice)
 {
+    PROFILE_FUNCTION_CPU();
+
     m_RenderGraph.Clear(inDevice);
 
     const DefaultTexturesData& default_textures = AddDefaultTexturesPass(m_RenderGraph, 
@@ -793,6 +795,8 @@ void Renderer::Recompile(Device& inDevice)
 
 void Renderer::WaitForIdle(Device& inDevice)
 {
+    PROFILE_FUNCTION_CPU();
+
     if (m_PresentJobPtr)
         m_PresentJobPtr->Wait();
 
@@ -817,6 +821,8 @@ void Renderer::WaitForIdle(Device& inDevice)
 
 uint64_t Renderer::GetViewportKey(const Viewport& inViewport) const
 {
+    PROFILE_FUNCTION_CPU();
+
     const std::array key_data =
     {
         uint64_t(inViewport.GetDisplaySize().x),
@@ -833,6 +839,8 @@ uint64_t Renderer::GetViewportKey(const Viewport& inViewport) const
 
 uint64_t Renderer::GetRenderGraphKey() const
 {
+    PROFILE_FUNCTION_CPU();
+
     const RenderSun& sun = m_RenderWorld.GetSun();
 
     const std::array key_data =
@@ -868,6 +876,8 @@ uint64_t Renderer::GetRenderGraphKey() const
 
 uint64_t Renderer::GetLightingKey() const
 {
+    PROFILE_FUNCTION_CPU();
+
     Slice<const RTMaterial> materials = m_RenderWorld.GetMaterials();
     Slice<const RTLight> lights = m_RenderWorld.GetLights();
 
@@ -884,6 +894,8 @@ uint64_t Renderer::GetLightingKey() const
 
 uint64_t Renderer::GetPathTraceKey(uint64_t inLightingKey) const
 {
+    PROFILE_FUNCTION_CPU();
+
     Slice<const RTGeometry> geometries = m_RenderWorld.GetGeometries();
 
     uint64_t hash = gHashFNV1a((const char*)&m_FrameConstants.mViewProjectionMatrix, sizeof(m_FrameConstants.mViewProjectionMatrix), inLightingKey);

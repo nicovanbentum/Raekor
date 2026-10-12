@@ -451,6 +451,8 @@ ID3D12PipelineState* ShaderCompiler::GetGraphicsPipeline(Device& inDevice, IRend
 
 bool SystemShadersDX12::OnHotLoad(Device& inDevice)
 {
+    PROFILE_FUNCTION_CPU();
+
     // g_ShaderCompiler.DisableShaderCache();
 
     for (const auto& member : this->GetRTTI())
