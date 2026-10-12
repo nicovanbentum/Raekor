@@ -22,7 +22,7 @@ void IRenderInterface::UploadMaterialTextures(Entity inEntity, Material& inMater
 	UploadTexture(inMaterial.metallicFile, false, inMaterial.gpuMetallicMapSwizzle, Material::Default.gpuMetallicMap, inMaterial.gpuMetallicMap);
 	UploadTexture(inMaterial.roughnessFile, false, inMaterial.gpuRoughnessMapSwizzle, Material::Default.gpuRoughnessMap, inMaterial.gpuRoughnessMap);
 
-	inMaterial.UpdateSamplerIndex();
+	UploadMaterialSampler(inMaterial);
 }
 
 } // namespace RK

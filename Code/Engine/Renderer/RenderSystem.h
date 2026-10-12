@@ -54,6 +54,8 @@ public:
     void CompileMaterialShaders(Entity inEntity, Material& inMaterial) override;
     void ReleaseMaterialShaders(Entity inEntity, Material& inMaterial) override;
 
+    void UploadMaterialSampler(Material& inMaterial) override;
+
     uint32_t UploadTextureFromAsset(TextureAsset::Ptr inAsset, bool inIsSRGB = false, uint8_t inSwizzle = TEXTURE_SWIZZLE_RGBA) override;
 
     void DrawDebugSettings(Application* inApp) override;

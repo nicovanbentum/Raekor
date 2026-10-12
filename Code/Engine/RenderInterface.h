@@ -73,6 +73,8 @@ public:
 	virtual void UploadMaterialTextures(Entity inEntity, Material& inMaterial, Assets& inAssets);
 	virtual void DestroyMaterialTextures(Entity inEntity, Material& inMaterial, Assets& inAssets) {}
 
+	virtual void UploadMaterialSampler(Material& inMaterial) = 0;
+
 	virtual void CompileMaterialShaders(Entity inEntity, Material& inMaterial) {}
 	virtual void ReleaseMaterialShaders(Entity inEntity, Material& inMaterial) {}
 

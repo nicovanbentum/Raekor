@@ -3,6 +3,7 @@
 
 #include "Shared.h"
 #include "Shader.h"
+#include "Samplers.h"
 #include "GPUScene.h"
 #include "GPUProfiler.h"
 #include "RenderGraph.h"
@@ -159,7 +160,7 @@ void RenderSystem::CreateDefaultTextures()
     Material::Default.gpuEmissiveMap = m_DefaultWhiteTexture.GetValue();
     Material::Default.gpuMetallicMap = m_DefaultWhiteTexture.GetValue();
     Material::Default.gpuRoughnessMap = m_DefaultWhiteTexture.GetValue();
-    Material::Default.UpdateSamplerIndex();
+    UploadMaterialSampler(Material::Default);
 }
 
 
@@ -469,6 +470,19 @@ void RenderSystem::ReleaseMaterialShaders(Entity inEntity, Material& inMaterial)
 {
     g_ShaderCompiler.ReleaseShader(inMaterial.pixelShader);
     g_ShaderCompiler.ReleaseShader(inMaterial.vertexShader);
+}
+
+
+void RenderSystem::UploadMaterialSampler(Material& inMaterial)
+{
+    const bool clamp = inMaterial.samplerAddressMode == MATERIAL_SAMPLER_ADDRESS_MODE_CLAMP;
+
+    switch (inMaterial.samplerFilter)
+    {
+        case MATERIAL_SAMPLER_FILTER_POINT:  inMaterial.gpuSampler = clamp ? MIN_MAG_MIP_POINT_CLAMP : MIN_MAG_MIP_POINT_WRAP; break;
+        case MATERIAL_SAMPLER_FILTER_LINEAR: inMaterial.gpuSampler = clamp ? MIN_MAG_MIP_LINEAR_CLAMP : MIN_MAG_MIP_LINEAR_WRAP; break;
+        default:                             inMaterial.gpuSampler = clamp ? ANISOTROPIC_CLAMP : ANISOTROPIC_WRAP; break;
+    }
 }
 
 
