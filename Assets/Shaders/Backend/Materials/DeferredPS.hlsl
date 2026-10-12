@@ -29,17 +29,18 @@ PS_OUTPUT main(in VS_OUTPUT input) {
     RTGeometry geometry = geometries[rc.mInstanceIndex];
     RTMaterial material = materials[geometry.mMaterialIndex];
     
-    Texture2D albedo_texture = ResourceDescriptorHeap[NonUniformResourceIndex(material.mAlbedoTexture)];
+    Texture2D albedo_texture = ResourceDescriptorHeap[NonUniformResourceIndex(GetAlbedoTextureIndex(material))];
     Texture2D normals_texture = ResourceDescriptorHeap[NonUniformResourceIndex(material.mNormalsTexture)];
     Texture2D emissive_texture = ResourceDescriptorHeap[NonUniformResourceIndex(material.mEmissiveTexture)];
     Texture2D metallic_texture = ResourceDescriptorHeap[NonUniformResourceIndex(material.mMetallicTexture)];
     Texture2D roughness_texture = ResourceDescriptorHeap[NonUniformResourceIndex(material.mRoughnessTexture)];
-    
-    float4 sampled_albedo = albedo_texture.Sample(SamplerAnisoWrap, input.texcoord);
-    float3 sampled_normal = normals_texture.Sample(SamplerAnisoWrap, input.texcoord).rgb; // alpha channel unused
-    float3 sampled_emissive = emissive_texture.Sample(SamplerAnisoWrap, input.texcoord).rgb; // alpha channel unused
-    float sampled_metallic = metallic_texture.Sample(SamplerAnisoWrap, input.texcoord).r; // value swizzled across all channels, just get Red
-    float sampled_roughness = roughness_texture.Sample(SamplerAnisoWrap, input.texcoord).r; // value swizzled across all channels, just get Red
+    SamplerState material_sampler = GetMaterialSampler(material);
+
+    float4 sampled_albedo = albedo_texture.Sample(material_sampler, input.texcoord);
+    float3 sampled_normal = normals_texture.Sample(material_sampler, input.texcoord).rgb; // alpha channel unused
+    float3 sampled_emissive = emissive_texture.Sample(material_sampler, input.texcoord).rgb; // alpha channel unused
+    float sampled_metallic = metallic_texture.Sample(material_sampler, input.texcoord).r; // value swizzled across all channels, just get Red
+    float sampled_roughness = roughness_texture.Sample(material_sampler, input.texcoord).r; // value swizzled across all channels, just get Red
         
     //sampled_normal = sampled_normal * 2.0 - 1.0;
     sampled_normal = ReconstructNormalBC5(sampled_normal.xy);

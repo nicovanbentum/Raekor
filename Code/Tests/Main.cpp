@@ -203,6 +203,8 @@ static void sTestSceneRoundTrip(const Path& inDirectory)
 		material.roughness = 0.123456789f;
 		material.blendMode = EMaterialBlendMode(index % MATERIAL_BLEND_MODE_COUNT);
 		material.alphaCutoff = 0.01f * index;
+		material.samplerFilter = EMaterialSamplerFilter(index % MATERIAL_SAMPLER_FILTER_COUNT);
+		material.samplerAddressMode = EMaterialSamplerAddressMode(index % MATERIAL_SAMPLER_ADDRESS_MODE_COUNT);
 
 		constexpr StaticArray builtin_meshes = { MeshAsset::cBuiltinCube, MeshAsset::cBuiltinSphere, MeshAsset::cBuiltinPlane };
 
@@ -265,6 +267,8 @@ static void sTestSceneRoundTrip(const Path& inDirectory)
 		CHECK(loaded_material.roughness == original_material.roughness);
 		CHECK(loaded_material.blendMode == original_material.blendMode);
 		CHECK(loaded_material.alphaCutoff == original_material.alphaCutoff);
+		CHECK(loaded_material.samplerFilter == original_material.samplerFilter);
+		CHECK(loaded_material.samplerAddressMode == original_material.samplerAddressMode);
 
 		CHECK(loaded.Has<Light>(entity) == scene.Has<Light>(entity));
 

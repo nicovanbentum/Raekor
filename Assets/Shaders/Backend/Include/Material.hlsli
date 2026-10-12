@@ -133,7 +133,19 @@ float3 ReconstructNormalBC5(float2 normal)
 }
 
 
-struct Surface 
+uint GetAlbedoTextureIndex(RTMaterial inMaterial)
+{
+    return inMaterial.mAlbedoTexture & MATERIAL_TEXTURE_INDEX_MASK;
+}
+
+
+SamplerState GetMaterialSampler(RTMaterial inMaterial)
+{
+    return SamplerDescriptorHeap[NonUniformResourceIndex(inMaterial.mAlbedoTexture >> MATERIAL_TEXTURE_INDEX_BITS)];
+}
+
+
+struct Surface
 {
     float4 mAlbedo;
     float3 mNormal;
@@ -161,17 +173,18 @@ struct Surface
     /* Fills in the BRDF fields from a given vertex and its material. */
     void FromHit(RTVertex inVertex, RTMaterial inMaterial, bool inApplyNormalMap = false)
     {
-        Texture2D albedo_texture = ResourceDescriptorHeap[NonUniformResourceIndex(inMaterial.mAlbedoTexture)];
+        Texture2D albedo_texture = ResourceDescriptorHeap[NonUniformResourceIndex(GetAlbedoTextureIndex(inMaterial))];
         Texture2D normals_texture = ResourceDescriptorHeap[NonUniformResourceIndex(inMaterial.mNormalsTexture)];
         Texture2D emissive_texture = ResourceDescriptorHeap[NonUniformResourceIndex(inMaterial.mEmissiveTexture)];
         Texture2D metallic_texture = ResourceDescriptorHeap[NonUniformResourceIndex(inMaterial.mMetallicTexture)];
         Texture2D roughness_texture = ResourceDescriptorHeap[NonUniformResourceIndex(inMaterial.mRoughnessTexture)];
-    
-        float4 sampled_albedo = albedo_texture.Sample(SamplerPointWrapNoMips, inVertex.mTexCoord);
-        float3 sampled_normal = normals_texture.Sample(SamplerPointWrapNoMips, inVertex.mTexCoord).rgb; // alpha channel unused
-        float3 sampled_emissive = emissive_texture.Sample(SamplerPointWrapNoMips, inVertex.mTexCoord).rgb; // alpha channel unused
-        float sampled_metallic = metallic_texture.Sample(SamplerPointWrapNoMips, inVertex.mTexCoord).r; // value swizzled across all channels, just get Red
-        float sampled_roughness = roughness_texture.Sample(SamplerPointWrapNoMips, inVertex.mTexCoord).r; // value swizzled across all channels, just get Red
+        SamplerState material_sampler = GetMaterialSampler(inMaterial);
+
+        float4 sampled_albedo = albedo_texture.SampleLevel(material_sampler, inVertex.mTexCoord, 0);
+        float3 sampled_normal = normals_texture.SampleLevel(material_sampler, inVertex.mTexCoord, 0).rgb; // alpha channel unused
+        float3 sampled_emissive = emissive_texture.SampleLevel(material_sampler, inVertex.mTexCoord, 0).rgb; // alpha channel unused
+        float sampled_metallic = metallic_texture.SampleLevel(material_sampler, inVertex.mTexCoord, 0).r; // value swizzled across all channels, just get Red
+        float sampled_roughness = roughness_texture.SampleLevel(material_sampler, inVertex.mTexCoord, 0).r; // value swizzled across all channels, just get Red
         
         mNormal = inVertex.mNormal;
 

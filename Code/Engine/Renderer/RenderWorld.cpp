@@ -2,6 +2,7 @@
 #include "RenderWorld.h"
 
 #include "Device.h"
+#include "Samplers.h"
 
 #include "Scene.h"
 #include "Profiler.h"
@@ -20,18 +21,35 @@ static ERenderBlendMode sGetRenderBlendMode(EMaterialBlendMode inBlendMode)
 }
 
 
+static ESamplerIndex sGetSamplerIndex(EMaterialSamplerFilter inFilter, EMaterialSamplerAddressMode inAddressMode)
+{
+    const bool clamp = inAddressMode == MATERIAL_SAMPLER_ADDRESS_MODE_CLAMP;
+
+    switch (inFilter)
+    {
+        case MATERIAL_SAMPLER_FILTER_POINT:  return clamp ? MIN_MAG_MIP_POINT_CLAMP : MIN_MAG_MIP_POINT_WRAP;
+        case MATERIAL_SAMPLER_FILTER_LINEAR: return clamp ? MIN_MAG_MIP_LINEAR_CLAMP : MIN_MAG_MIP_LINEAR_WRAP;
+        default:                             return clamp ? ANISOTROPIC_CLAMP : ANISOTROPIC_WRAP;
+    }
+}
+
+
 static RTMaterial sGetRenderMaterial(const Material& inMaterial, const Device& inDevice, float inExposure, bool inDisableAlbedo)
 {
+    const uint32_t sampler_bits = sGetSamplerIndex(inMaterial.samplerFilter, inMaterial.samplerAddressMode) << MATERIAL_TEXTURE_INDEX_BITS;
+
     auto GetTexture = [&inDevice](uint32_t inTexture, uint32_t inDefaultTexture)
     {
-        return inDevice.GetBindlessHeapIndex(TextureID(inTexture ? inTexture : inDefaultTexture));
+        const uint32_t index = inDevice.GetBindlessHeapIndex(TextureID(inTexture ? inTexture : inDefaultTexture));
+        RK_ASSERT(index <= MATERIAL_TEXTURE_INDEX_MASK);
+        return index;
     };
 
     RTMaterial material =
     {
         .mMetallic          = inMaterial.metallic,
         .mRoughness         = inMaterial.roughness,
-        .mAlbedoTexture     = GetTexture(inMaterial.gpuAlbedoMap, Material::Default.gpuAlbedoMap),
+        .mAlbedoTexture     = GetTexture(inMaterial.gpuAlbedoMap, Material::Default.gpuAlbedoMap) | sampler_bits,
         .mNormalsTexture    = GetTexture(inMaterial.gpuNormalMap, Material::Default.gpuNormalMap),
         .mEmissiveTexture   = GetTexture(inMaterial.gpuEmissiveMap, Material::Default.gpuEmissiveMap),
         .mMetallicTexture   = GetTexture(inMaterial.gpuMetallicMap, Material::Default.gpuMetallicMap),
@@ -44,7 +62,7 @@ static RTMaterial sGetRenderMaterial(const Material& inMaterial, const Device& i
     if (inDisableAlbedo)
     {
         material.mAlbedo = Vec4(1.0f);
-        material.mAlbedoTexture = GetTexture(Material::Default.gpuAlbedoMap, Material::Default.gpuAlbedoMap);
+        material.mAlbedoTexture = GetTexture(Material::Default.gpuAlbedoMap, Material::Default.gpuAlbedoMap) | sampler_bits;
     }
 
     return material;

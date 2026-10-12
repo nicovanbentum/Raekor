@@ -56,6 +56,9 @@
 
 #define BINDLESS_BLUE_NOISE_TEXTURE_INDEX 5
 
+#define MATERIAL_TEXTURE_INDEX_BITS 20
+#define MATERIAL_TEXTURE_INDEX_MASK ((1u << MATERIAL_TEXTURE_INDEX_BITS) - 1u)
+
 struct LineVertex
 {
     float4 mPosition;

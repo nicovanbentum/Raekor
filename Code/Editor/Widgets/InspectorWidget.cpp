@@ -934,6 +934,32 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Material& inMaterial)
 		CheckForUndo(inEntity, inMaterial, m_MaterialUndo);
 	}
 
+	constexpr std::array sampler_filter_names = { "Point", "Linear", "Anisotropic" };
+	static_assert( sampler_filter_names.size() == MATERIAL_SAMPLER_FILTER_COUNT );
+
+	int sampler_filter = inMaterial.samplerFilter;
+
+	if (ImGui::Combo("Sampler Filter", &sampler_filter, sampler_filter_names.data(), sampler_filter_names.size()))
+	{
+		inMaterial.samplerFilter = EMaterialSamplerFilter(sampler_filter);
+		scene_changed = true;
+	}
+
+	CheckForUndo(inEntity, inMaterial, m_MaterialUndo);
+
+	constexpr std::array sampler_address_mode_names = { "Wrap", "Clamp" };
+	static_assert( sampler_address_mode_names.size() == MATERIAL_SAMPLER_ADDRESS_MODE_COUNT );
+
+	int sampler_address_mode = inMaterial.samplerAddressMode;
+
+	if (ImGui::Combo("Sampler Address Mode", &sampler_address_mode, sampler_address_mode_names.data(), sampler_address_mode_names.size()))
+	{
+		inMaterial.samplerAddressMode = EMaterialSamplerAddressMode(sampler_address_mode);
+		scene_changed = true;
+	}
+
+	CheckForUndo(inEntity, inMaterial, m_MaterialUndo);
+
 	//ImGui::Text(inMaterial.vertexShaderFile.c_str());
 	//ImGui::SameLine();
 

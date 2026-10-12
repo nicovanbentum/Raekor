@@ -336,6 +336,25 @@ enum EMaterialBlendMode : uint8_t
 RTTI_DECLARE_ENUM(EMaterialBlendMode);
 
 
+enum EMaterialSamplerFilter : uint8_t
+{
+	MATERIAL_SAMPLER_FILTER_POINT = 0,
+	MATERIAL_SAMPLER_FILTER_LINEAR,
+	MATERIAL_SAMPLER_FILTER_ANISOTROPIC,
+	MATERIAL_SAMPLER_FILTER_COUNT
+};
+RTTI_DECLARE_ENUM(EMaterialSamplerFilter);
+
+
+enum EMaterialSamplerAddressMode : uint8_t
+{
+	MATERIAL_SAMPLER_ADDRESS_MODE_WRAP = 0,
+	MATERIAL_SAMPLER_ADDRESS_MODE_CLAMP,
+	MATERIAL_SAMPLER_ADDRESS_MODE_COUNT
+};
+RTTI_DECLARE_ENUM(EMaterialSamplerAddressMode);
+
+
 struct Material
 {
 	RTTI_DECLARE_TYPE(Material);
@@ -347,6 +366,8 @@ struct Material
 	float roughness = 1.0f;
 	EMaterialBlendMode blendMode = MATERIAL_BLEND_MODE_OPAQUE;
 	float alphaCutoff = 0.5f;
+	EMaterialSamplerFilter samplerFilter = MATERIAL_SAMPLER_FILTER_ANISOTROPIC;
+	EMaterialSamplerAddressMode samplerAddressMode = MATERIAL_SAMPLER_ADDRESS_MODE_WRAP;
 
 	// texture file paths
 	String albedoFile; // ptr
