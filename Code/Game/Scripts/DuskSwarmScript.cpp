@@ -4198,11 +4198,7 @@ private:
         const float roll = glm::sin(noise_time * 0.9f + 0.4f) * shake * 0.06f;
 
         const float pitch = glm::radians(58.0f);
-        const float distance = m_CameraDistance - m_CameraKick * shake_scale;
-        static float tmp_sum = 0, tmp_max = 0, tmp_kick = 0, tmp_n = 0, tmp_next = 5;
-        tmp_sum += glm::length(offset); tmp_max = glm::max(tmp_max, glm::length(offset)); tmp_kick = glm::max(tmp_kick, m_CameraKick); tmp_n++;
-        if (m_Time > tmp_next) { tmp_next += 5; gLogWarning("TempShake", "t={} avg={} max={} kick={}", m_RunTime, tmp_sum / tmp_n, tmp_max, tmp_kick); tmp_sum = tmp_max = tmp_kick = tmp_n = 0; }
-        const Vec3 position = m_CameraTarget + Vec3(0.0f, glm::sin(pitch), glm::cos(pitch)) * distance + offset;
+        const float distance = m_CameraDistance - m_CameraKick * shake_scale;        const Vec3 position = m_CameraTarget + Vec3(0.0f, glm::sin(pitch), glm::cos(pitch)) * distance + offset;
 
         transform->position = position;
         transform->rotation = glm::angleAxis(roll, glm::normalize(m_CameraTarget - position)) * glm::quatLookAtRH(glm::normalize(m_CameraTarget - position), Camera::cUp);
