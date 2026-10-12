@@ -98,6 +98,8 @@ void GameApp::OnUpdate(float inDeltaTime)
     // update NativeScript components
     if (GetGameState() == GAME_RUNNING)
         m_Scene.UpdateNativeScripts(inDeltaTime, this);
+    else if (GetGameState() == GAME_PAUSED)
+        m_Scene.UpdatePausedNativeScripts(inDeltaTime);
 
     // update SoundSource, AudioListener and TriggerVolume components
     UpdateAudio(inDeltaTime);
@@ -227,15 +229,20 @@ void GameApp::OnEvent(const SDL_Event& inEvent)
             break;
     }
 
-    if (GetGameState() == GAME_RUNNING && !( m_Console.IsOpen() && is_input_event ))
+    if (GetGameState() != GAME_STOPPED && !( m_Console.IsOpen() && is_input_event ))
     {
+        const bool paused = GetGameState() == GAME_PAUSED;
+
         for (auto [entity, script] : m_Scene.Each<NativeScript>())
         {
             if (script.script)
             {
                 try
                 {
-                    script.script->OnEvent(inEvent);
+                    if (paused)
+                        script.script->OnPausedEvent(inEvent);
+                    else
+                        script.script->OnEvent(inEvent);
                 }
                 catch (const std::exception& e)
                 {

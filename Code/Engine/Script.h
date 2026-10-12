@@ -50,6 +50,10 @@ public:
 
 	virtual void OnEvent(const SDL_Event& inEvent) = 0;
 
+	virtual void OnPausedUpdate(float inDeltaTime) {};
+
+	virtual void OnPausedEvent(const SDL_Event& inEvent) {};
+
     RK::Entity GetEntity() const { return m_Entity; }
 
 	// helper functions to interface with the engine

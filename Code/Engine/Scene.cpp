@@ -342,6 +342,27 @@ void Scene::UpdateNativeScripts(float inDeltaTime, Application* inApp)
 }
 
 
+void Scene::UpdatePausedNativeScripts(float inDeltaTime)
+{
+	PROFILE_FUNCTION_CPU();
+
+	for (auto [entity, script] : Each<NativeScript>())
+	{
+		if (!script.script)
+			continue;
+
+		try
+		{
+			script.script->OnPausedUpdate(inDeltaTime);
+		}
+		catch (const std::exception& e)
+		{
+			gLogError("Script", "{}", e.what());
+		}
+	}
+}
+
+
 void Scene::RenderDebugShapes(Entity inEntity, float inOpacity) const
 {
 	// render bounding box for meshes

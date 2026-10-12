@@ -114,6 +114,7 @@ static constexpr float cSoundMinDistance = 8.0f;
 static constexpr float cGemStreakTime = 0.35f;
 static constexpr int   cGemStreakSteps = 12;
 static constexpr float cGameOverJingleDelay = 1.6f;
+static constexpr float cVolumeStep = 0.05f;
 
 
 enum EEnemyType
@@ -646,7 +647,8 @@ public:
 
         float delta_time = glm::min(inDeltaTime, 0.05f);
 
-        m_Time += delta_time;
+        m_Time += delta_time;        m_PauseTime = 0.0f;
+        m_DraggingVolume = false;
 
         if (m_HitStop > 0.0f)
         {
@@ -739,6 +741,73 @@ public:
             case SDLK_D: m_SelectedChoice = ( m_SelectedChoice + 1 ) % m_ChoiceCount; PlaySfx(cSelectSound, 0.5f); break;
             case SDLK_SPACE:
             case SDLK_RETURN: ChooseUpgrade(m_SelectedChoice); break;
+        }
+    }
+
+    void OnPausedUpdate(float inDeltaTime) override
+    {
+        if (!m_Started)
+            return;
+
+        m_PauseTime += inDeltaTime;
+
+        DrawHUD(0.0f);
+        DrawPauseMenu();
+    }
+
+    void OnPausedEvent(const SDL_Event& inEvent) override
+    {
+        if (!m_Started)
+            return;
+
+        const PauseLayout layout = GetPauseLayout();
+
+        switch (inEvent.type)
+        {
+            case SDL_EVENT_MOUSE_MOTION:
+            {
+                m_MousePosition = Vec2(inEvent.motion.x, inEvent.motion.y);
+
+                if (m_DraggingVolume)
+                    SetVolumeFromMouse(layout);
+            } break;
+
+            case SDL_EVENT_MOUSE_BUTTON_DOWN:
+            {
+                if (inEvent.button.button != SDL_BUTTON_LEFT)
+                    break;
+
+                m_MousePosition = Vec2(inEvent.button.x, inEvent.button.y);
+
+                if (IsInside(m_MousePosition, layout.mSliderPos - layout.mSliderPadding, layout.mSliderSize + layout.mSliderPadding * 2.0f))
+                {
+                    m_DraggingVolume = true;
+                    SetVolumeFromMouse(layout);
+                }
+                else if (IsInside(m_MousePosition, layout.mButtonPos, layout.mButtonSize))
+                {
+                    Resume();
+                }
+            } break;
+
+            case SDL_EVENT_MOUSE_BUTTON_UP:
+            {
+                if (inEvent.button.button == SDL_BUTTON_LEFT)
+                    m_DraggingVolume = false;
+            } break;
+
+            case SDL_EVENT_KEY_DOWN:
+            {
+                switch (inEvent.key.key)
+                {
+                    case SDLK_LEFT:
+                    case SDLK_A: SetMasterVolume(GetMasterVolume() - cVolumeStep); break;
+                    case SDLK_RIGHT:
+                    case SDLK_D: SetMasterVolume(GetMasterVolume() + cVolumeStep); break;
+                    case SDLK_RETURN:
+                    case SDLK_SPACE: if (!inEvent.key.repeat) Resume(); break;
+                }
+            } break;
         }
     }
 
@@ -4991,6 +5060,108 @@ private:
         DrawShadowText(Vec2(center, pos.y + size.y + 24.0f * inScale), "Press ENTER to play again", 26.0f * inScale, Fade(cGold, alpha * blink), UI_TEXT_ALIGN_CENTER, inScale);
     }
 
+    struct PauseLayout
+    {
+        float mScale = 1.0f;
+        Vec2 mDisplay = Vec2(0.0f);
+        Vec2 mPanelPos = Vec2(0.0f);
+        Vec2 mPanelSize = Vec2(0.0f);
+        Vec2 mSliderPos = Vec2(0.0f);
+        Vec2 mSliderSize = Vec2(0.0f);
+        Vec2 mSliderPadding = Vec2(0.0f);
+        Vec2 mButtonPos = Vec2(0.0f);
+        Vec2 mButtonSize = Vec2(0.0f);
+    };
+
+    PauseLayout GetPauseLayout() const
+    {
+        PauseLayout layout;
+        layout.mDisplay = Vec2(m_App->GetViewport().GetDisplaySize());
+        layout.mScale = glm::max(layout.mDisplay.y / 1080.0f, 0.5f);
+
+        const float scale = layout.mScale;
+        layout.mPanelSize = Vec2(620.0f, 340.0f) * scale;
+        layout.mPanelPos = layout.mDisplay * 0.5f - layout.mPanelSize * 0.5f;
+        layout.mSliderSize = Vec2(380.0f, 16.0f) * scale;
+        layout.mSliderPos = Vec2(layout.mDisplay.x * 0.5f - layout.mSliderSize.x * 0.5f - 40.0f * scale, layout.mPanelPos.y + 150.0f * scale);
+        layout.mSliderPadding = Vec2(16.0f, 18.0f) * scale;
+        layout.mButtonSize = Vec2(240.0f, 56.0f) * scale;
+        layout.mButtonPos = Vec2(layout.mDisplay.x * 0.5f - layout.mButtonSize.x * 0.5f, layout.mPanelPos.y + 230.0f * scale);
+        return layout;
+    }
+
+    static bool IsInside(const Vec2& inPoint, const Vec2& inPos, const Vec2& inSize)
+    {
+        return inPoint.x >= inPos.x && inPoint.y >= inPos.y && inPoint.x <= inPos.x + inSize.x && inPoint.y <= inPos.y + inSize.y;
+    }
+
+    float GetMasterVolume()
+    {
+        Audio* audio = GetAudio();
+        return audio ? glm::clamp(audio->GetMasterVolume(), 0.0f, 1.0f) : 0.0f;
+    }
+
+    void SetMasterVolume(float inVolume)
+    {
+        if (Audio* audio = GetAudio())
+            audio->SetMasterVolume(glm::clamp(glm::round(inVolume * 100.0f) / 100.0f, 0.0f, 1.0f));
+    }
+
+    void SetVolumeFromMouse(const PauseLayout& inLayout)
+    {
+        SetMasterVolume(( m_MousePosition.x - inLayout.mSliderPos.x ) / inLayout.mSliderSize.x);
+    }
+
+    void Resume()
+    {
+        m_DraggingVolume = false;
+
+        if (Game* game = dynamic_cast<Game*>(m_App))
+            game->Unpause();
+    }
+
+    void DrawPauseMenu()
+    {
+        const PauseLayout layout = GetPauseLayout();
+        const float scale = layout.mScale;
+        const float alpha = glm::clamp(m_PauseTime / 0.2f, 0.0f, 1.0f);
+        const float center = layout.mDisplay.x * 0.5f;
+        const Vec2 pos = layout.mPanelPos + Vec2(0.0f, ( 1.0f - EaseOutCubic(alpha) ) * 30.0f * scale);
+        const Vec2 offset = pos - layout.mPanelPos;
+
+        g_UIRenderer.SetFont(m_HudFont);
+        g_UIRenderer.AddRectFilled(Vec2(0.0f), layout.mDisplay, 0.0f, Vec4(0.02f, 0.0f, 0.04f, 0.6f * alpha));
+
+        DrawPanel(pos, layout.mPanelSize, scale, Vec4(0.6f, 0.5f, 1.0f, 1.0f), alpha);
+        DrawBanner(Vec2(center, pos.y + 4.0f * scale), Vec2(460.0f, 84.0f) * scale, alpha);
+        DrawTitle(Vec2(center, pos.y - 38.0f * scale), "PAUSED", 56.0f * scale, Fade(cGold, alpha), scale);
+
+        const float volume = GetMasterVolume();
+        const Vec2 slider_pos = layout.mSliderPos + offset;
+        const Vec2 slider_size = layout.mSliderSize;
+        const bool slider_hovered = m_DraggingVolume || IsInside(m_MousePosition, layout.mSliderPos - layout.mSliderPadding, slider_size + layout.mSliderPadding * 2.0f);
+
+        DrawShadowText(Vec2(slider_pos.x, slider_pos.y - 46.0f * scale), "MASTER VOLUME", 20.0f * scale, Fade(cParchment, 0.9f * alpha), UI_TEXT_ALIGN_LEFT, scale);
+        DrawBar(slider_pos, slider_size, volume, Vec4(0.85f, 0.55f, 0.2f, alpha), Vec4(1.0f, 0.85f, 0.45f, alpha), scale);
+
+        const Vec2 knob = slider_pos + Vec2(slider_size.x * volume, slider_size.y * 0.5f);
+        const float knob_radius = ( slider_hovered ? 15.0f : 13.0f ) * scale;
+        g_UIRenderer.AddCircleFilled(knob, knob_radius + 3.0f * scale, Fade(cShadow, 0.8f * alpha));
+        g_UIRenderer.AddCircleFilled(knob, knob_radius, Fade(slider_hovered ? cParchment : cGold, alpha));
+
+        DrawShadowText(Vec2(slider_pos.x + slider_size.x + 70.0f * scale, slider_pos.y - 12.0f * scale), std::format("{}%", int(glm::round(volume * 100.0f))), 30.0f * scale, Fade(cParchment, alpha), UI_TEXT_ALIGN_CENTER, scale);
+
+        const Vec2 button_pos = layout.mButtonPos + offset;
+        const bool button_hovered = IsInside(m_MousePosition, layout.mButtonPos, layout.mButtonSize);
+        const float radius = layout.mButtonSize.y * 0.5f;
+
+        g_UIRenderer.AddRectFilled(button_pos, layout.mButtonSize, radius, button_hovered ? Vec4(0.35f, 0.24f, 0.1f, 0.95f * alpha) : Vec4(0.08f, 0.06f, 0.1f, 0.9f * alpha));
+        g_UIRenderer.AddRect(button_pos, layout.mButtonSize, radius, 2.0f * scale, Fade(cGold, ( button_hovered ? 1.0f : 0.6f ) * alpha));
+        DrawShadowText(Vec2(center, button_pos.y + 13.0f * scale), "RESUME", 26.0f * scale, Fade(button_hovered ? cParchment : cGold, alpha), UI_TEXT_ALIGN_CENTER, scale);
+
+        DrawShadowText(Vec2(center, pos.y + layout.mPanelSize.y + 24.0f * scale), "A / D or drag to adjust     ENTER or ESC to resume", 20.0f * scale, Vec4(1.0f, 0.9f, 0.75f, 0.8f * alpha), UI_TEXT_ALIGN_CENTER, scale);
+    }
+
 private:
     bool m_Started = false;
     EState m_State = STATE_PLAYING;
@@ -5038,6 +5209,10 @@ private:
     int m_GemStreak = 0;
     float m_LastGemTime = 0.0f;
     bool m_EndJinglePlayed = false;
+
+    float m_PauseTime = 0.0f;
+    Vec2 m_MousePosition = Vec2(-1.0f);
+    bool m_DraggingVolume = false;
 
     Entity m_PaletteMaterial = Entity::Null;
     Entity m_FlashMaterial = Entity::Null;

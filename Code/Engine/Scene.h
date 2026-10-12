@@ -45,6 +45,7 @@ public:
 	void ResetTriggers();
 	void UpdateAnimations(float inDeltaTime);
 	void UpdateNativeScripts(float inDeltaTime, Application* inApp);
+	void UpdatePausedNativeScripts(float inDeltaTime);
 
 	// debug stuff
 	void RenderDebugShapes(Entity inEntity, float inOpacity) const;
