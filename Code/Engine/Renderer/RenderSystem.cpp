@@ -159,6 +159,7 @@ void RenderSystem::CreateDefaultTextures()
     Material::Default.gpuEmissiveMap = m_DefaultWhiteTexture.GetValue();
     Material::Default.gpuMetallicMap = m_DefaultWhiteTexture.GetValue();
     Material::Default.gpuRoughnessMap = m_DefaultWhiteTexture.GetValue();
+    Material::Default.UpdateSamplerIndex();
 }
 
 

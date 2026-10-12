@@ -364,8 +364,8 @@ struct Material
 	Vec3 emissive = Vec3(0.0f);
 	float metallic = 0.0f;
 	float roughness = 1.0f;
-	EMaterialBlendMode blendMode = MATERIAL_BLEND_MODE_OPAQUE;
 	float alphaCutoff = 0.5f;
+	EMaterialBlendMode blendMode = MATERIAL_BLEND_MODE_OPAQUE;
 	EMaterialSamplerFilter samplerFilter = MATERIAL_SAMPLER_FILTER_ANISOTROPIC;
 	EMaterialSamplerAddressMode samplerAddressMode = MATERIAL_SAMPLER_ADDRESS_MODE_WRAP;
 
@@ -383,6 +383,7 @@ struct Material
 	uint64_t pixelShader = 0;
 
 	// GPU resources
+	uint8_t gpuSampler = 0;
 	uint32_t gpuAlbedoMap = 0;
 	uint32_t gpuNormalMap = 0;
 	uint32_t gpuMetallicMap = 0;
@@ -393,9 +394,6 @@ struct Material
 	uint8_t gpuEmissiveMapSwizzle = TEXTURE_SWIZZLE_RGBA;
 	uint8_t gpuMetallicMapSwizzle = TEXTURE_SWIZZLE_BBBB; // assume GLTF by default, TODO: make changes in FbxImporter?
 	uint8_t gpuRoughnessMapSwizzle = TEXTURE_SWIZZLE_GGGG; // assume GLTF by default, TODO: make changes in FbxImporter?
-	uint8_t gpuSamplerIndex = cDefaultSamplerIndex;
-
-	static constexpr uint8_t cDefaultSamplerIndex = 5;
 
 	void UpdateSamplerIndex();
 

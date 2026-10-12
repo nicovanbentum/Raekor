@@ -28,7 +28,7 @@ static RTMaterial sGetRenderMaterial(const Material& inMaterial, const Device& i
         return inDevice.GetBindlessHeapIndex(TextureID(inTexture ? inTexture : inDefaultTexture));
     };
 
-    RK_ASSERT(inMaterial.gpuSamplerIndex < SAMPLER_COUNT);
+    RK_ASSERT(inMaterial.gpuSampler < SAMPLER_COUNT);
 
     RTMaterial material =
     {
@@ -40,7 +40,7 @@ static RTMaterial sGetRenderMaterial(const Material& inMaterial, const Device& i
         .mMetallicTexture   = GetTexture(inMaterial.gpuMetallicMap, Material::Default.gpuMetallicMap),
         .mRoughnessTexture  = GetTexture(inMaterial.gpuRoughnessMap, Material::Default.gpuRoughnessMap),
         .mAlphaCutoff       = inMaterial.alphaCutoff,
-        .mSamplerIndex      = inMaterial.gpuSamplerIndex,
+        .mSamplerIndex      = inMaterial.gpuSampler,
         .mAlbedo          = inMaterial.albedo,
         .mEmissive          = Vec4(inMaterial.emissive * inExposure, 1.0f)
     };
