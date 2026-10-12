@@ -22,6 +22,8 @@ static constexpr float cDashCooldown = 2.2f;
 static constexpr float cMaxEnemyRadius = 1.3f;
 static constexpr float cEliteChance = 0.035f;
 static constexpr float cStreakWindow = 2.5f;
+static constexpr float cAmbientTraumaCap = 0.25f;
+static constexpr float cMaxCameraKick = 0.35f;
 
 static constexpr StaticArray<float, 2> cBossTimes = { 270.0f, 540.0f };
 
@@ -585,6 +587,7 @@ public:
         m_AutoPick = &g_CVariables->Create("ds_autopick", 0, true);
         m_StartTime = &g_CVariables->Create("ds_start_time", 0.0f, true);
         m_StartWeapons = &g_CVariables->Create("ds_weapons", 0, true);
+        m_ShakeScale = &g_CVariables->Create("ds_shake", 1.0f, true);
 
         LoadTextures();
         LoadModels();
@@ -1812,15 +1815,16 @@ private:
         }
     }
 
-    void AddTrauma(float inAmount)
+    void AddTrauma(float inAmount, float inCap = 1.0f)
     {
-        m_Trauma = glm::min(1.0f, m_Trauma + inAmount);
+        if (m_Trauma < inCap)
+            m_Trauma = glm::min(inCap, m_Trauma + inAmount);
     }
 
     void AddTraumaAt(const Vec3& inPosition, float inAmount)
     {
         const float distance = glm::distance(Vec2(inPosition.x, inPosition.z), m_PlayerPosition);
-        AddTrauma(inAmount * glm::clamp(1.0f - distance / 30.0f, 0.15f, 1.0f));
+        AddTrauma(inAmount * glm::clamp(1.0f - distance / 30.0f, 0.15f, 1.0f), cAmbientTraumaCap);
     }
 
     void UpdateSpawning(float inDeltaTime)
@@ -2796,7 +2800,7 @@ private:
                 SpawnRing(ground + Vec3(0.0f, 0.4f, 0.0f), 0.3f, radius * 0.7f, 0.3f, m_FXMaterials[FX_ARCANE], 0.8f);
                 Emit(ground + Vec3(0.0f, 0.3f, 0.0f), ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = FX_PURPLE, .mCount = 28, .mSpeedMin = radius * 2.0f, .mSpeedMax = radius * 3.0f, .mLifeMin = 0.25f, .mLifeMax = 0.4f, .mSizeMin = 0.25f, .mSizeMax = 0.4f, .mDrag = 4.0f, .mFlat = true });
                 SpawnLight(ground + Vec3(0.0f, 1.0f, 0.0f), Vec3(0.75f, 0.45f, 1.0f), 1500000.0f, radius * 2.5f, 0.35f);
-                AddTrauma(0.12f);
+                AddTrauma(0.08f, cAmbientTraumaCap);
             }
         }
 
@@ -3012,7 +3016,7 @@ private:
         }
 
         SpawnLight(GetStaffTip(), Vec3(0.7f, 0.85f, 1.0f), 1200000.0f, 12.0f, 0.2f);
-        AddTrauma(0.07f);
+        AddTrauma(0.05f, cAmbientTraumaCap);
         PlaySfx(cLightningSound, 0.5f, RandomFloat(0.9f, 1.1f));
         m_CastTimer = 0.3f;
     }
@@ -3162,8 +3166,8 @@ private:
 
         SpawnRing(Vec3(inPosition.x, 0.12f, inPosition.z), 0.3f, inRadius * 1.25f, 0.35f, m_FXMaterials[ring], 1.0f + scale * 0.5f);
         SpawnLight(inPosition + Vec3(0.0f, 1.0f, 0.0f), light, 900000.0f * scale * scale, inRadius * 4.0f, 0.35f);
-        AddTraumaAt(inPosition, glm::clamp(inRadius * 0.07f, 0.06f, 0.5f));
-        m_CameraKick = glm::max(m_CameraKick, glm::clamp(inRadius * 0.15f, 0.0f, 1.2f));
+        AddTraumaAt(inPosition, glm::clamp(inRadius * 0.04f, 0.04f, 0.2f));
+        m_CameraKick = glm::max(m_CameraKick, glm::min(inRadius * 0.08f, cMaxCameraKick));
     }
 
     void SpawnGem(const Vec2& inPosition, int inValue)
@@ -4187,13 +4191,17 @@ private:
         m_ScreenFlash = glm::max(0.0f, m_ScreenFlash - inDeltaTime * 2.5f);
         m_CameraKick = glm::max(0.0f, m_CameraKick - inDeltaTime * 4.0f);
 
-        const float shake = m_Trauma * m_Trauma;
+        const float shake_scale = glm::clamp(*m_ShakeScale, 0.0f, 1.0f);
+        const float shake = m_Trauma * m_Trauma * shake_scale;
         const float noise_time = m_Time * 28.0f;
         const Vec3 offset = Vec3(glm::sin(noise_time * 1.1f) + glm::sin(noise_time * 2.3f) * 0.5f, glm::sin(noise_time * 1.7f + 1.3f) + glm::sin(noise_time * 3.1f) * 0.5f, glm::sin(noise_time * 1.3f + 2.1f)) * shake * 0.9f;
         const float roll = glm::sin(noise_time * 0.9f + 0.4f) * shake * 0.06f;
 
         const float pitch = glm::radians(58.0f);
-        const float distance = m_CameraDistance - m_CameraKick;
+        const float distance = m_CameraDistance - m_CameraKick * shake_scale;
+        static float tmp_sum = 0, tmp_max = 0, tmp_kick = 0, tmp_n = 0, tmp_next = 5;
+        tmp_sum += glm::length(offset); tmp_max = glm::max(tmp_max, glm::length(offset)); tmp_kick = glm::max(tmp_kick, m_CameraKick); tmp_n++;
+        if (m_Time > tmp_next) { tmp_next += 5; gLogWarning("TempShake", "t={} avg={} max={} kick={}", m_RunTime, tmp_sum / tmp_n, tmp_max, tmp_kick); tmp_sum = tmp_max = tmp_kick = tmp_n = 0; }
         const Vec3 position = m_CameraTarget + Vec3(0.0f, glm::sin(pitch), glm::cos(pitch)) * distance + offset;
 
         transform->position = position;
@@ -5052,6 +5060,7 @@ private:
     int* m_AutoPick = nullptr;
     float* m_StartTime = nullptr;
     int* m_StartWeapons = nullptr;
+    float* m_ShakeScale = nullptr;
 
 public:
     DuskSwarmScript()
