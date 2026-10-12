@@ -4198,7 +4198,8 @@ private:
         const float roll = glm::sin(noise_time * 0.9f + 0.4f) * shake * 0.06f;
 
         const float pitch = glm::radians(58.0f);
-        const float distance = m_CameraDistance - m_CameraKick * shake_scale;        const Vec3 position = m_CameraTarget + Vec3(0.0f, glm::sin(pitch), glm::cos(pitch)) * distance + offset;
+        const float distance = m_CameraDistance - m_CameraKick * shake_scale;
+        const Vec3 position = m_CameraTarget + Vec3(0.0f, glm::sin(pitch), glm::cos(pitch)) * distance + offset;
 
         transform->position = position;
         transform->rotation = glm::angleAxis(roll, glm::normalize(m_CameraTarget - position)) * glm::quatLookAtRH(glm::normalize(m_CameraTarget - position), Camera::cUp);
