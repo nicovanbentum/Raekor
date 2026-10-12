@@ -1486,6 +1486,171 @@ bool InspectorWidget::DrawComponent(Entity inEntity, DDGISceneSettings& ioSettin
 }
 
 
+bool InspectorWidget::DrawComponent(Entity inEntity, SoundSource& ioSource)
+{
+	Scene& scene = GetScene();
+	Audio* audio = m_Editor->GetAudio();
+
+	bool scene_changed = false;
+
+	if (ImGui::Button((const char*)ICON_FA_FOLDER_OPEN "##SoundFile"))
+	{
+		const String file_path = OS::sOpenFileDialog(Audio::sGetFileDialogFilters());
+
+		if (!file_path.empty())
+		{
+			const Path relative_path = fs::relative(file_path);
+
+			m_SoundSourceUndo.entity = inEntity;
+			m_SoundSourceUndo.previous = ioSource;
+
+			ioSource.file = relative_path.empty() ? Path(file_path).generic_string() : relative_path.generic_string();
+
+			m_SoundSourceUndo.current = ioSource;
+			m_Editor->GetUndo()->PushUndo(m_SoundSourceUndo);
+
+			scene_changed = true;
+		}
+	}
+
+	ImGui::SameLine();
+
+	if (audio)
+	{
+		const bool is_playing = audio->IsPlaying(scene, inEntity);
+
+		ImGui::BeginDisabled(ioSource.file.empty());
+
+		if (ImGui::Button(is_playing ? (const char*)ICON_FA_STOP "##SoundPreview" : (const char*)ICON_FA_PLAY "##SoundPreview"))
+		{
+			if (is_playing)
+				audio->Stop(scene, inEntity, 0.0f);
+			else
+				audio->Play(scene, inEntity);
+		}
+
+		ImGui::EndDisabled();
+
+		ImGui::SetItemTooltip(is_playing ? "Stop preview" : "Preview sound");
+		ImGui::SameLine();
+	}
+
+	if (ioSource.file.empty())
+		ImGui::TextDisabled("No sound file");
+	else
+	{
+		ImGui::TextUnformatted(Path(ioSource.file).filename().string().c_str());
+		ImGui::SetItemTooltip("%s", ioSource.file.c_str());
+	}
+
+	constexpr std::array category_names = { "Effects", "Ambience", "Music" };
+	static_assert(category_names.size() == SOUND_CATEGORY_COUNT);
+
+	scene_changed |= ImGui::Combo("Category", (int*)&ioSource.category, category_names.data(), int(category_names.size()));
+	CheckForUndo(inEntity, ioSource, m_SoundSourceUndo);
+
+	scene_changed |= ImGui::SliderFloat("Volume", &ioSource.volume, 0.0f, 2.0f, "%.2f");
+	CheckForUndo(inEntity, ioSource, m_SoundSourceUndo);
+
+	scene_changed |= ImGui::SliderFloat("Pitch", &ioSource.pitch, 0.1f, 4.0f, "%.2f");
+	CheckForUndo(inEntity, ioSource, m_SoundSourceUndo);
+
+	scene_changed |= ImGui::Checkbox("Loop", &ioSource.loop);
+	CheckForUndo(inEntity, ioSource, m_SoundSourceUndo);
+
+	ImGui::SameLine();
+
+	scene_changed |= ImGui::Checkbox("Stream", &ioSource.stream);
+	CheckForUndo(inEntity, ioSource, m_SoundSourceUndo);
+	ImGui::SetItemTooltip("Stream the file from disk instead of decoding it into memory, use this for music and long ambience.");
+
+	ImGui::PushStyleVar(ImGuiStyleVar_SeparatorTextAlign, ImVec2(0.5f, 0.5f));
+	ImGui::SeparatorText("Playback");
+	ImGui::PopStyleVar();
+
+	scene_changed |= ImGui::Checkbox("Play On Start", &ioSource.playOnStart);
+	CheckForUndo(inEntity, ioSource, m_SoundSourceUndo);
+
+	scene_changed |= ImGui::Checkbox("Play On Trigger Enter", &ioSource.playOnTriggerEnter);
+	CheckForUndo(inEntity, ioSource, m_SoundSourceUndo);
+
+	scene_changed |= ImGui::Checkbox("Stop On Trigger Exit", &ioSource.stopOnTriggerExit);
+	CheckForUndo(inEntity, ioSource, m_SoundSourceUndo);
+
+	if (( ioSource.playOnTriggerEnter || ioSource.stopOnTriggerExit ) && !scene.Has<TriggerVolume>(inEntity))
+		ImGui::TextDisabled("Add a Trigger Volume to this entity to use triggers.");
+
+	scene_changed |= ImGui::DragFloat("Fade In", &ioSource.fadeInTime, 0.01f, 0.0f, 60.0f, "%.2f s");
+	CheckForUndo(inEntity, ioSource, m_SoundSourceUndo);
+
+	scene_changed |= ImGui::DragFloat("Fade Out", &ioSource.fadeOutTime, 0.01f, 0.0f, 60.0f, "%.2f s");
+	CheckForUndo(inEntity, ioSource, m_SoundSourceUndo);
+
+	ImGui::PushStyleVar(ImGuiStyleVar_SeparatorTextAlign, ImVec2(0.5f, 0.5f));
+	ImGui::SeparatorText("Spatial");
+	ImGui::PopStyleVar();
+
+	scene_changed |= ImGui::Checkbox("Spatial", &ioSource.spatial);
+	CheckForUndo(inEntity, ioSource, m_SoundSourceUndo);
+
+	if (ioSource.spatial)
+	{
+		scene_changed |= ImGui::DragFloat("Min Distance", &ioSource.minDistance, 0.05f, 0.01f, ioSource.maxDistance, "%.2f m");
+		CheckForUndo(inEntity, ioSource, m_SoundSourceUndo);
+
+		scene_changed |= ImGui::DragFloat("Max Distance", &ioSource.maxDistance, 0.1f, ioSource.minDistance, 10000.0f, "%.1f m");
+		CheckForUndo(inEntity, ioSource, m_SoundSourceUndo);
+
+		scene_changed |= ImGui::DragFloat("Rolloff", &ioSource.rolloff, 0.01f, 0.0f, 10.0f, "%.2f");
+		CheckForUndo(inEntity, ioSource, m_SoundSourceUndo);
+
+		scene_changed |= ImGui::DragFloat("Doppler", &ioSource.dopplerFactor, 0.01f, 0.0f, 10.0f, "%.2f");
+		CheckForUndo(inEntity, ioSource, m_SoundSourceUndo);
+	}
+
+	return scene_changed;
+}
+
+
+bool InspectorWidget::DrawComponent(Entity inEntity, AudioListener& ioListener)
+{
+	ImGui::TextDisabled("Sound is heard from this entity instead of the camera.");
+	return false;
+}
+
+
+bool InspectorWidget::DrawComponent(Entity inEntity, TriggerVolume& ioTrigger)
+{
+	bool scene_changed = false;
+
+	scene_changed |= ImGui::DragFloat3("Size", glm::value_ptr(ioTrigger.size), 0.01f, 0.0f, 10000.0f, "%.2f");
+	CheckForUndo(inEntity, ioTrigger, m_TriggerVolumeUndo);
+
+	const TriggerVolume previous_trigger = ioTrigger;
+
+	DrawScriptMember("Activator", ioTrigger.activator);
+	ImGui::SetItemTooltip("Entity that activates the trigger, uses the audio listener when empty.");
+
+	if (ioTrigger.activator != previous_trigger.activator)
+	{
+		m_TriggerVolumeUndo.entity = inEntity;
+		m_TriggerVolumeUndo.previous = previous_trigger;
+		m_TriggerVolumeUndo.current = ioTrigger;
+		m_Editor->GetUndo()->PushUndo(m_TriggerVolumeUndo);
+
+		scene_changed = true;
+	}
+
+	scene_changed |= ImGui::Checkbox("Once", &ioTrigger.once);
+	CheckForUndo(inEntity, ioTrigger, m_TriggerVolumeUndo);
+
+	if (m_Editor->GetGameState() != GAME_STOPPED)
+		ImGui::TextDisabled(ioTrigger.inside ? "Activator is inside" : "Activator is outside");
+
+	return scene_changed;
+}
+
+
 bool InspectorWidget::DrawComponent(Entity inEntity, DirectionalLight& inDirectionalLight)
 {
 	bool scene_changed = false;

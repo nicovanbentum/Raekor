@@ -245,6 +245,9 @@ void Editor::OnUpdate(float inDeltaTime)
     if (GetGameState() == GAME_RUNNING)
         m_Scene.UpdateNativeScripts(inDeltaTime, this);
 
+	// update SoundSource, AudioListener and TriggerVolume components
+	UpdateAudio(inDeltaTime);
+
 	// start ImGui
 	GUI::BeginFrame();
 

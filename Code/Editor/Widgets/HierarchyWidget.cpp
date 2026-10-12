@@ -502,6 +502,15 @@ const char* HierarchyWidget::GetEntityIcon(Scene& inScene, Entity inEntity) cons
 	if (inScene.Has<NativeScript>(inEntity))
 		return (const char*)ICON_FA_CODE;
 
+	if (inScene.Has<SoundSource>(inEntity))
+		return (const char*)ICON_FA_VOLUME_UP;
+
+	if (inScene.Has<AudioListener>(inEntity))
+		return (const char*)ICON_FA_HEADPHONES;
+
+	if (inScene.Has<TriggerVolume>(inEntity))
+		return (const char*)ICON_FA_VECTOR_SQUARE;
+
 	if (inScene.HasChildren(inEntity))
 		return (const char*)ICON_FA_LAYER_GROUP;
 

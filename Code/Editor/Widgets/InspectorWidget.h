@@ -21,6 +21,9 @@ struct Transform;
 struct Light;
 struct RigidBody;
 struct NativeScript;
+struct SoundSource;
+struct AudioListener;
+struct TriggerVolume;
 struct DirectionalLight;
 struct DDGISceneSettings;
 
@@ -58,6 +61,9 @@ private:
 	bool DrawComponent(Entity inEntity, NativeScript& ioNativeScript);
 	bool DrawComponent(Entity inEntity, DirectionalLight& ioDirectionalLight);
 	bool DrawComponent(Entity inEntity, DDGISceneSettings& ioDDGISceneSettings);
+	bool DrawComponent(Entity inEntity, SoundSource& ioSoundSource);
+	bool DrawComponent(Entity inEntity, AudioListener& ioAudioListener);
+	bool DrawComponent(Entity inEntity, TriggerVolume& ioTriggerVolume);
 
 	void RemoveComponent(Entity inEntity, const RTTI& inRTTI);
 
@@ -74,6 +80,8 @@ private:
 	ComponentUndo<Transform> m_TransformUndo;
 	ComponentUndo<DirectionalLight> m_DirectionalLightUndo;
 	ComponentUndo<DDGISceneSettings> m_DDGISceneSettingsUndo;
+	ComponentUndo<SoundSource> m_SoundSourceUndo;
+	ComponentUndo<TriggerVolume> m_TriggerVolumeUndo;
 };
 
 template<typename T>
