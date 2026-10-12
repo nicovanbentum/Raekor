@@ -763,6 +763,11 @@ def disc(p, rng):
     cyl(p, "GlowWhite", (0, 0, 0), 0.5, 0.5, 0.02, seg=24, var=0)
 
 
+def starburst(p, rng):
+    outline = [(math.cos(a) * r, math.sin(a) * r) for a, r in ((i * math.pi / 12, 0.5 if i % 2 == 0 else 0.25) for i in range(24))]
+    slab(p, "GlowWhite", outline, 0.02, var=0)
+
+
 def beam(p, rng):
     cyl(p, "GlowWhite", (0, 0, 0), 0.045, 0.045, 1.0, seg=5, rot=(-math.pi * 0.5, 0, 0), var=0)
 
@@ -917,6 +922,7 @@ ASSETS = [
     ("Ring", lambda r: single(r, ring)),
     ("Disc", lambda r: single(r, disc)),
     ("Beam", lambda r: single(r, beam)),
+    ("Starburst", lambda r: single(r, starburst)),
     ("Ground", ground),
 ]
 

@@ -39,6 +39,8 @@ static constexpr int cOrbPoolSize = 140;
 static constexpr int cGemPoolSize = 300;
 static constexpr int cMeteorPoolSize = 12;
 static constexpr int cRingPoolSize = 40;
+static constexpr int cNovaBurstPoolSize = 4;
+static constexpr float cNovaBurstLife = 0.5f;
 static constexpr int cTelegraphPoolSize = 24;
 static constexpr int cBeamPoolSize = 120;
 static constexpr int cLightPoolSize = 6;
@@ -538,6 +540,17 @@ public:
         Vec3   mBaseVelocity = Vec3(0.0f);
     };
 
+    struct NovaBurst
+    {
+        StaticArray<Entity, 3> mEntities = {};
+        StaticArray<Entity, 3> mMaterials = {};
+        bool mActive = false;
+        Vec3 mPosition = Vec3(0.0f);
+        float mRadius = 1.0f;
+        float mRotation = 0.0f;
+        float mLife = 0.0f;
+    };
+
     struct Ring
     {
         Entity mEntity = Entity::Null;
@@ -707,6 +720,7 @@ public:
             UpdateDying(delta_time);
             UpdateParticles(delta_time);
             UpdateRings(delta_time);
+            UpdateNovaBursts(delta_time);
             UpdateTelegraphs(delta_time);
             UpdateBeams(delta_time);
             UpdateLights(delta_time);
@@ -1465,6 +1479,30 @@ private:
             Park(rings[index].mRoot);
         }
 
+        m_NovaBursts.resize(cNovaBurstPoolSize);
+
+        const StaticArray<std::pair<const char*, Vec4>, 3> nova_layers =
+        {
+            std::pair { "Starburst", Vec4(0.6f, 0.22f, 1.0f, 900.0f) },
+            std::pair { "Starburst", Vec4(0.85f, 0.6f, 1.0f, 1400.0f) },
+            std::pair { "Disc", Vec4(1.0f, 0.95f, 1.0f, 3000.0f) },
+        };
+
+        for (NovaBurst& burst : m_NovaBursts)
+        {
+            for (size_t layer = 0; layer < nova_layers.size(); layer++)
+            {
+                const Vec3 color = Vec3(nova_layers[layer].second);
+                burst.mMaterials[layer] = CreateMaterial(color, color * nova_layers[layer].second.w, 0.5f);
+
+                if (Material* material = FindComponent<Material>(burst.mMaterials[layer]))
+                    material->blendMode = MATERIAL_BLEND_MODE_BLENDED;
+
+                burst.mEntities[layer] = CreateModels(nova_layers[layer].first, 1, burst.mMaterials[layer])[0].mRoot;
+                Park(burst.mEntities[layer]);
+            }
+        }
+
         m_Telegraphs.resize(cTelegraphPoolSize);
         Array<Model> discs = CreateModels("Disc", cTelegraphPoolSize, m_DangerMaterial);
         Array<Model> telegraph_rings = CreateModels("Ring", cTelegraphPoolSize, m_DangerMaterial);
@@ -1665,6 +1703,7 @@ private:
         m_Gems.clear();
         m_Pickups.clear();
         m_Rings.clear();
+        m_NovaBursts.clear();
         m_Telegraphs.clear();
         m_Beams.clear();
         m_Lights.clear();
@@ -1742,6 +1781,14 @@ private:
         {
             ring.mActive = false;
             Park(ring.mEntity);
+        }
+
+        for (NovaBurst& burst : m_NovaBursts)
+        {
+            burst.mActive = false;
+
+            for (Entity entity : burst.mEntities)
+                Park(entity);
         }
 
         for (Telegraph& telegraph : m_Telegraphs)
@@ -2972,8 +3019,7 @@ private:
 
                 const Vec3 ground = ToWorld(m_PlayerPosition, 0.15f);
                 PlaySfx(cNovaSound, 0.65f, RandomFloat(0.97f, 1.03f));
-                SpawnRing(ground, 0.5f, radius * 1.05f, 0.4f, m_FXMaterials[FX_PURPLE], 1.6f);
-                SpawnRing(ground + Vec3(0.0f, 0.4f, 0.0f), 0.3f, radius * 0.7f, 0.3f, m_FXMaterials[FX_ARCANE], 0.8f);
+                SpawnNovaBurst(ground, radius);
                 Emit(ground + Vec3(0.0f, 0.3f, 0.0f), ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = FX_PURPLE, .mCount = 28, .mSpeedMin = radius * 2.0f, .mSpeedMax = radius * 3.0f, .mLifeMin = 0.25f, .mLifeMax = 0.4f, .mSizeMin = 0.25f, .mSizeMax = 0.4f, .mDrag = 4.0f, .mFlat = true });
                 SpawnLight(ground + Vec3(0.0f, 1.0f, 0.0f), Vec3(0.75f, 0.45f, 1.0f), 1500000.0f, radius * 2.5f, 0.35f);
                 AddTrauma(0.08f, cAmbientTraumaCap);
@@ -3804,6 +3850,67 @@ private:
         {
             target->mMaterial = inMaterial;
             SetMaterial(target->mEntity, inMaterial);
+        }
+    }
+
+    void SpawnNovaBurst(const Vec3& inPosition, float inRadius)
+    {
+        NovaBurst* target = &m_NovaBursts[0];
+
+        for (NovaBurst& burst : m_NovaBursts)
+        {
+            if (!burst.mActive)
+            {
+                target = &burst;
+                break;
+            }
+
+            if (burst.mLife > target->mLife)
+                target = &burst;
+        }
+
+        target->mActive = true;
+        target->mPosition = inPosition;
+        target->mRadius = inRadius;
+        target->mRotation = RandomFloat(0.0f, glm::two_pi<float>());
+        target->mLife = 0.0f;
+    }
+
+    void UpdateNovaBursts(float inDeltaTime)
+    {
+        for (NovaBurst& burst : m_NovaBursts)
+        {
+            if (!burst.mActive)
+                continue;
+
+            burst.mLife += inDeltaTime;
+
+            const float t = burst.mLife / cNovaBurstLife;
+
+            if (t >= 1.0f)
+            {
+                burst.mActive = false;
+
+                for (Entity entity : burst.mEntities)
+                    Park(entity);
+
+                continue;
+            }
+
+            const float grow = EaseOutCubic(t);
+            const float outer = glm::mix(0.6f, burst.mRadius * 2.1f, grow);
+            const float twist = burst.mRotation + grow * 0.5f;
+            const StaticArray<float, 3> sizes = { outer, outer * 0.72f, glm::mix(2.0f, 0.6f, t) };
+            const StaticArray<float, 3> alphas = { 0.85f * ( 1.0f - t ), glm::pow(1.0f - t, 1.5f), 1.0f - t };
+            const StaticArray<float, 3> rotations = { twist, twist + glm::pi<float>() / 12.0f, 0.0f };
+
+            for (size_t layer = 0; layer < burst.mEntities.size(); layer++)
+            {
+                SetTransform(burst.mEntities[layer], burst.mPosition + Vec3(0.0f, 0.02f * float(layer), 0.0f), Vec3(sizes[layer], 1.0f, sizes[layer]), Quat(Vec3(0.0f, rotations[layer], 0.0f)));
+
+                if (Material* material = FindComponent<Material>(burst.mMaterials[layer]))
+                    material->albedo.a = alphas[layer];
+            }
         }
     }
 
@@ -5179,6 +5286,7 @@ private:
     StaticArray<Array<Particle>, PARTICLE_MESH_COUNT> m_Particles;
     StaticArray<int, PARTICLE_MESH_COUNT> m_ParticleCursor = {};
     Array<Ring> m_Rings;
+    Array<NovaBurst> m_NovaBursts;
     Array<Telegraph> m_Telegraphs;
     Array<Beam> m_Beams;
     Array<FlashLight> m_Lights;
