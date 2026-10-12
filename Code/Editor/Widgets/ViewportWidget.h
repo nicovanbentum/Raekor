@@ -29,6 +29,7 @@ public:
 
 	bool Changed() const { return m_Changed; }
 	bool IsHovered() const { return m_IsMouseOver; }
+	Vec2 GetImagePos() const { return Vec2(m_WindowPos.x, m_WindowPos.y); }
 	void DisableGizmo() { m_IsGizmoEnabled = false; }
 
 protected:

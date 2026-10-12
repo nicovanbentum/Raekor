@@ -111,6 +111,8 @@ protected:
 	void DrawStatusBar();
 	void DrawUnsavedChangesPopup();
 
+	SDL_Event ToViewportEvent(const SDL_Event& inEvent);
+
 	Scene m_Scene;
 	Assets m_Assets;
 	Physics m_Physics;

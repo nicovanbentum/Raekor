@@ -244,6 +244,8 @@ void Editor::OnUpdate(float inDeltaTime)
     // update NativeScript components
     if (GetGameState() == GAME_RUNNING)
         m_Scene.UpdateNativeScripts(inDeltaTime, this);
+    else if (GetGameState() == GAME_PAUSED)
+        m_Scene.UpdatePausedNativeScripts(inDeltaTime);
 
 	// update SoundSource, AudioListener and TriggerVolume components
 	UpdateAudio(inDeltaTime);
@@ -423,31 +425,39 @@ void Editor::OnEvent(const SDL_Event& event)
 
 			case SDLK_F5:
 			{
-				if (GetGameState() == GAME_PAUSED)
-					Game::Unpause();
-				else
+				if (GetGameState() == GAME_STOPPED)
 					Game::Start();
+				else
+					Game::Stop();
 			} break;
 
 			case SDLK_ESCAPE:
 			{
-				if (GetGameState() != GAME_STOPPED)
-					Game::Stop();
+				if (GetGameState() == GAME_RUNNING)
+					Game::Pause();
+				else if (GetGameState() == GAME_PAUSED)
+					Game::Unpause();
 				else
 					SetActiveEntity(Entity::Null);
 			} break;
 		}
 	}
 
-	if (GetGameState() == GAME_RUNNING)
+	if (GetGameState() != GAME_STOPPED)
 	{
+		const bool paused = GetGameState() == GAME_PAUSED;
+		const SDL_Event script_event = paused ? ToViewportEvent(event) : event;
+
 		for (auto [entity, script] : m_Scene.Each<NativeScript>())
 		{
 			if (script.script)
 			{
 				try
 				{
-					script.script->OnEvent(event);
+					if (paused)
+						script.script->OnPausedEvent(script_event);
+					else
+						script.script->OnEvent(script_event);
 				}
 				catch (const std::exception& e)
 				{
@@ -459,6 +469,43 @@ void Editor::OnEvent(const SDL_Event& event)
 
 	if (m_ConfigSettings.mShowUI && GetGameState() != GAME_RUNNING)
 		m_Widgets.OnEvent(event);
+}
+
+
+SDL_Event Editor::ToViewportEvent(const SDL_Event& inEvent)
+{
+	SDL_Event event = inEvent;
+
+	const ViewportWidget* viewport_widget = m_Widgets.GetWidget<ViewportWidget>();
+
+	if (!viewport_widget || !m_ConfigSettings.mShowUI)
+		return event;
+
+	const Vec2 offset = viewport_widget->GetImagePos();
+
+	switch (event.type)
+	{
+		case SDL_EVENT_MOUSE_MOTION:
+		{
+			event.motion.x -= offset.x;
+			event.motion.y -= offset.y;
+		} break;
+
+		case SDL_EVENT_MOUSE_BUTTON_DOWN:
+		case SDL_EVENT_MOUSE_BUTTON_UP:
+		{
+			event.button.x -= offset.x;
+			event.button.y -= offset.y;
+		} break;
+
+		case SDL_EVENT_MOUSE_WHEEL:
+		{
+			event.wheel.mouse_x -= offset.x;
+			event.wheel.mouse_y -= offset.y;
+		} break;
+	}
+
+	return event;
 }
 
 

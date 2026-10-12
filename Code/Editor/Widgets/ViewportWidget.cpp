@@ -235,6 +235,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	}
 
 	bool can_select_entity = m_IsMouseOver;
+	can_select_entity &= m_Editor->GetGameState() != GAME_PAUSED;
 	can_select_entity &= ImGui::IsMouseClicked(ImGuiMouseButton_Left);
 	can_select_entity &= ( SDL_GetModState() & ( SDL_KMOD_CTRL | SDL_KMOD_ALT | SDL_KMOD_SHIFT | SDL_KMOD_GUI ) ) == 0;
 	can_select_entity &= !ImGui::IsAnyItemHovered();
@@ -574,7 +575,7 @@ void ViewportWidget::DrawToolbar()
 	ImGui::PopStyleColor();
 
 	if (ImGui::IsItemHovered())
-		ImGui::SetTooltip(game_state == GAME_RUNNING ? "Pause" : game_state == GAME_PAUSED ? "Resume (F5)" : "Play (F5)");
+		ImGui::SetTooltip(game_state == GAME_RUNNING ? "Pause (Escape)" : game_state == GAME_PAUSED ? "Resume (Escape)" : "Play (F5)");
 
 	ImGui::SameLine();
 
@@ -588,7 +589,7 @@ void ViewportWidget::DrawToolbar()
 	ImGui::EndDisabled();
 
 	if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-		ImGui::SetTooltip("Stop (Escape)");
+		ImGui::SetTooltip("Stop (F5)");
 
 	ImGui::PopStyleColor();
 	ImGui::PopStyleVar();
