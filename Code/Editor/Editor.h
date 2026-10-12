@@ -52,6 +52,8 @@ public:
 	void OnEvent(const SDL_Event& event) override;
 	bool OnCloseRequested() override;
 
+	void Quit() override { m_StopRequested = true; }
+
 	Scene* GetScene() final { return &m_Scene; }
 	Assets* GetAssets() final { return &m_Assets; }
 	Physics* GetPhysics() final { return &m_Physics; }
@@ -125,6 +127,7 @@ protected:
 
 	bool m_ViewportChanged = false;
 	bool m_ViewportFullscreen = false;
+	bool m_StopRequested = false;
 	void* m_CompilerWindow = nullptr;
 	void* m_CompilerProcess = nullptr;
 

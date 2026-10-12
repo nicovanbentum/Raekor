@@ -136,6 +136,8 @@ public:
     virtual void Pause();
     virtual void Unpause();
 
+    virtual void Quit() { Terminate(); }
+
     bool LoadScripts(const Path& inModulePath = ScriptModule::sGetDefaultModulePath());
     void UnloadScripts();
     void ReloadScripts();

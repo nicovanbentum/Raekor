@@ -242,6 +242,12 @@ void Editor::OnUpdate(float inDeltaTime)
 	ReloadScriptsIfChanged(inDeltaTime);
 
     // update NativeScript components
+    if (m_StopRequested)
+    {
+        m_StopRequested = false;
+        Game::Stop();
+    }
+
     if (GetGameState() == GAME_RUNNING)
         m_Scene.UpdateNativeScripts(inDeltaTime, this);
     else if (GetGameState() == GAME_PAUSED)

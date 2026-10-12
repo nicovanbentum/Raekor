@@ -789,6 +789,10 @@ public:
                 {
                     Resume();
                 }
+                else if (IsInside(m_MousePosition, layout.mQuitPos, layout.mButtonSize))
+                {
+                    Quit();
+                }
             } break;
 
             case SDL_EVENT_MOUSE_BUTTON_UP:
@@ -807,6 +811,7 @@ public:
                     case SDLK_D: SetMasterVolume(GetMasterVolume() + cVolumeStep); break;
                     case SDLK_RETURN:
                     case SDLK_SPACE: if (!inEvent.key.repeat) Resume(); break;
+                    case SDLK_Q: if (!inEvent.key.repeat) Quit(); break;
                 }
             } break;
         }
@@ -5072,6 +5077,7 @@ private:
         Vec2 mSliderPadding = Vec2(0.0f);
         Vec2 mButtonPos = Vec2(0.0f);
         Vec2 mButtonSize = Vec2(0.0f);
+        Vec2 mQuitPos = Vec2(0.0f);
     };
 
     PauseLayout GetPauseLayout() const
@@ -5081,13 +5087,14 @@ private:
         layout.mScale = glm::max(layout.mDisplay.y / 1080.0f, 0.5f);
 
         const float scale = layout.mScale;
-        layout.mPanelSize = Vec2(620.0f, 340.0f) * scale;
+        layout.mPanelSize = Vec2(620.0f, 410.0f) * scale;
         layout.mPanelPos = layout.mDisplay * 0.5f - layout.mPanelSize * 0.5f;
         layout.mSliderSize = Vec2(380.0f, 16.0f) * scale;
         layout.mSliderPos = Vec2(layout.mDisplay.x * 0.5f - layout.mSliderSize.x * 0.5f - 40.0f * scale, layout.mPanelPos.y + 150.0f * scale);
         layout.mSliderPadding = Vec2(16.0f, 18.0f) * scale;
         layout.mButtonSize = Vec2(240.0f, 56.0f) * scale;
         layout.mButtonPos = Vec2(layout.mDisplay.x * 0.5f - layout.mButtonSize.x * 0.5f, layout.mPanelPos.y + 230.0f * scale);
+        layout.mQuitPos = layout.mButtonPos + Vec2(0.0f, layout.mButtonSize.y + 16.0f * scale);
         return layout;
     }
 
@@ -5121,6 +5128,23 @@ private:
             game->Unpause();
     }
 
+    void Quit()
+    {
+        m_DraggingVolume = false;
+
+        if (Game* game = dynamic_cast<Game*>(m_App))
+            game->Quit();
+    }
+
+    void DrawMenuButton(const Vec2& inPos, const Vec2& inSize, StringView inLabel, bool inHovered, const Vec4& inHoverFill, float inAlpha, float inScale)
+    {
+        const float radius = inSize.y * 0.5f;
+
+        g_UIRenderer.AddRectFilled(inPos, inSize, radius, inHovered ? Fade(inHoverFill, 0.95f * inAlpha) : Vec4(0.08f, 0.06f, 0.1f, 0.9f * inAlpha));
+        g_UIRenderer.AddRect(inPos, inSize, radius, 2.0f * inScale, Fade(cGold, ( inHovered ? 1.0f : 0.6f ) * inAlpha));
+        DrawShadowText(Vec2(inPos.x + inSize.x * 0.5f, inPos.y + 13.0f * inScale), inLabel, 26.0f * inScale, Fade(inHovered ? cParchment : cGold, inAlpha), UI_TEXT_ALIGN_CENTER, inScale);
+    }
+
     void DrawPauseMenu()
     {
         const PauseLayout layout = GetPauseLayout();
@@ -5152,15 +5176,10 @@ private:
 
         DrawShadowText(Vec2(slider_pos.x + slider_size.x + 70.0f * scale, slider_pos.y - 12.0f * scale), std::format("{}%", int(glm::round(volume * 100.0f))), 30.0f * scale, Fade(cParchment, alpha), UI_TEXT_ALIGN_CENTER, scale);
 
-        const Vec2 button_pos = layout.mButtonPos + offset;
-        const bool button_hovered = IsInside(m_MousePosition, layout.mButtonPos, layout.mButtonSize);
-        const float radius = layout.mButtonSize.y * 0.5f;
+        DrawMenuButton(layout.mButtonPos + offset, layout.mButtonSize, "RESUME", IsInside(m_MousePosition, layout.mButtonPos, layout.mButtonSize), Vec4(0.35f, 0.24f, 0.1f, 1.0f), alpha, scale);
+        DrawMenuButton(layout.mQuitPos + offset, layout.mButtonSize, "QUIT", IsInside(m_MousePosition, layout.mQuitPos, layout.mButtonSize), Vec4(0.45f, 0.1f, 0.08f, 1.0f), alpha, scale);
 
-        g_UIRenderer.AddRectFilled(button_pos, layout.mButtonSize, radius, button_hovered ? Vec4(0.35f, 0.24f, 0.1f, 0.95f * alpha) : Vec4(0.08f, 0.06f, 0.1f, 0.9f * alpha));
-        g_UIRenderer.AddRect(button_pos, layout.mButtonSize, radius, 2.0f * scale, Fade(cGold, ( button_hovered ? 1.0f : 0.6f ) * alpha));
-        DrawShadowText(Vec2(center, button_pos.y + 13.0f * scale), "RESUME", 26.0f * scale, Fade(button_hovered ? cParchment : cGold, alpha), UI_TEXT_ALIGN_CENTER, scale);
-
-        DrawShadowText(Vec2(center, pos.y + layout.mPanelSize.y + 24.0f * scale), "A / D or drag to adjust     ENTER or ESC to resume", 20.0f * scale, Vec4(1.0f, 0.9f, 0.75f, 0.8f * alpha), UI_TEXT_ALIGN_CENTER, scale);
+        DrawShadowText(Vec2(center, pos.y + layout.mPanelSize.y + 24.0f * scale), "A / D or drag to adjust     ENTER or ESC to resume     Q to quit", 20.0f * scale, Vec4(1.0f, 0.9f, 0.75f, 0.8f * alpha), UI_TEXT_ALIGN_CENTER, scale);
     }
 
 private:
