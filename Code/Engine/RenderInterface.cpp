@@ -21,6 +21,8 @@ void IRenderInterface::UploadMaterialTextures(Entity inEntity, Material& inMater
 	UploadTexture(inMaterial.emissiveFile, false, inMaterial.gpuEmissiveMapSwizzle, Material::Default.gpuEmissiveMap, inMaterial.gpuEmissiveMap);
 	UploadTexture(inMaterial.metallicFile, false, inMaterial.gpuMetallicMapSwizzle, Material::Default.gpuMetallicMap, inMaterial.gpuMetallicMap);
 	UploadTexture(inMaterial.roughnessFile, false, inMaterial.gpuRoughnessMapSwizzle, Material::Default.gpuRoughnessMap, inMaterial.gpuRoughnessMap);
+
+	inMaterial.UpdateSamplerIndex();
 }
 
 } // namespace RK

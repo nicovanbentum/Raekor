@@ -133,15 +133,9 @@ float3 ReconstructNormalBC5(float2 normal)
 }
 
 
-uint GetAlbedoTextureIndex(RTMaterial inMaterial)
-{
-    return inMaterial.mAlbedoTexture & MATERIAL_TEXTURE_INDEX_MASK;
-}
-
-
 SamplerState GetMaterialSampler(RTMaterial inMaterial)
 {
-    return SamplerDescriptorHeap[NonUniformResourceIndex(inMaterial.mAlbedoTexture >> MATERIAL_TEXTURE_INDEX_BITS)];
+    return SamplerDescriptorHeap[NonUniformResourceIndex(inMaterial.mSamplerIndex)];
 }
 
 
@@ -173,7 +167,7 @@ struct Surface
     /* Fills in the BRDF fields from a given vertex and its material. */
     void FromHit(RTVertex inVertex, RTMaterial inMaterial, bool inApplyNormalMap = false)
     {
-        Texture2D albedo_texture = ResourceDescriptorHeap[NonUniformResourceIndex(GetAlbedoTextureIndex(inMaterial))];
+        Texture2D albedo_texture = ResourceDescriptorHeap[NonUniformResourceIndex(inMaterial.mAlbedoTexture)];
         Texture2D normals_texture = ResourceDescriptorHeap[NonUniformResourceIndex(inMaterial.mNormalsTexture)];
         Texture2D emissive_texture = ResourceDescriptorHeap[NonUniformResourceIndex(inMaterial.mEmissiveTexture)];
         Texture2D metallic_texture = ResourceDescriptorHeap[NonUniformResourceIndex(inMaterial.mMetallicTexture)];

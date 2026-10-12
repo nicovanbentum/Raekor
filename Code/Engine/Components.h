@@ -393,6 +393,11 @@ struct Material
 	uint8_t gpuEmissiveMapSwizzle = TEXTURE_SWIZZLE_RGBA;
 	uint8_t gpuMetallicMapSwizzle = TEXTURE_SWIZZLE_BBBB; // assume GLTF by default, TODO: make changes in FbxImporter?
 	uint8_t gpuRoughnessMapSwizzle = TEXTURE_SWIZZLE_GGGG; // assume GLTF by default, TODO: make changes in FbxImporter?
+	uint8_t gpuSamplerIndex = cDefaultSamplerIndex;
+
+	static constexpr uint8_t cDefaultSamplerIndex = 5;
+
+	void UpdateSamplerIndex();
 
 	bool IsLoaded() const { return gpuAlbedoMap != 0 && gpuNormalMap != 0 && gpuMetallicMap != 0 && gpuRoughnessMap != 0 && gpuEmissiveMap != 0; }
 

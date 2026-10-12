@@ -29,7 +29,7 @@ PS_OUTPUT main(in VS_OUTPUT input) {
     RTGeometry geometry = geometries[rc.mInstanceIndex];
     RTMaterial material = materials[geometry.mMaterialIndex];
     
-    Texture2D albedo_texture = ResourceDescriptorHeap[NonUniformResourceIndex(GetAlbedoTextureIndex(material))];
+    Texture2D albedo_texture = ResourceDescriptorHeap[NonUniformResourceIndex(material.mAlbedoTexture)];
     Texture2D normals_texture = ResourceDescriptorHeap[NonUniformResourceIndex(material.mNormalsTexture)];
     Texture2D emissive_texture = ResourceDescriptorHeap[NonUniformResourceIndex(material.mEmissiveTexture)];
     Texture2D metallic_texture = ResourceDescriptorHeap[NonUniformResourceIndex(material.mMetallicTexture)];

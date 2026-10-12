@@ -942,6 +942,7 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Material& inMaterial)
 	if (ImGui::Combo("Sampler Filter", &sampler_filter, sampler_filter_names.data(), sampler_filter_names.size()))
 	{
 		inMaterial.samplerFilter = EMaterialSamplerFilter(sampler_filter);
+		inMaterial.UpdateSamplerIndex();
 		scene_changed = true;
 	}
 
@@ -955,6 +956,7 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Material& inMaterial)
 	if (ImGui::Combo("Sampler Address Mode", &sampler_address_mode, sampler_address_mode_names.data(), sampler_address_mode_names.size()))
 	{
 		inMaterial.samplerAddressMode = EMaterialSamplerAddressMode(sampler_address_mode);
+		inMaterial.UpdateSamplerIndex();
 		scene_changed = true;
 	}
 

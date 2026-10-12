@@ -21,7 +21,7 @@ bool PassesAlphaTest(uint inInstanceID, uint inPrimitiveIndex, float2 inBarycent
     const RTMaterial material = materials[geometry.mMaterialIndex];
     const RTVertex vertex = CalculateVertexFromGeometry(geometry, inPrimitiveIndex, inBarycentrics);
 
-    Texture2D albedo_texture = ResourceDescriptorHeap[NonUniformResourceIndex(GetAlbedoTextureIndex(material))];
+    Texture2D albedo_texture = ResourceDescriptorHeap[NonUniformResourceIndex(material.mAlbedoTexture)];
     const float alpha = material.mAlbedo.a * albedo_texture.SampleLevel(GetMaterialSampler(material), vertex.mTexCoord, 0).a;
 
     return alpha >= material.mAlphaCutoff;

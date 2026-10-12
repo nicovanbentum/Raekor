@@ -7,6 +7,7 @@
 #include "Physics.h"
 #include "Primitives.h"
 #include "DebugRenderer.h"
+#include "Renderer/Samplers.h"
 
 namespace RK {
 
@@ -216,6 +217,22 @@ Material Material::Default = Material
 {
 	.albedo = Vec4(1.0f, 0.0f, 0.5f, 1.0f) // bright pink
 };
+
+
+static_assert(Material::cDefaultSamplerIndex == DX12::ANISOTROPIC_WRAP);
+
+
+void Material::UpdateSamplerIndex()
+{
+	const bool clamp = samplerAddressMode == MATERIAL_SAMPLER_ADDRESS_MODE_CLAMP;
+
+	switch (samplerFilter)
+	{
+		case MATERIAL_SAMPLER_FILTER_POINT:  gpuSamplerIndex = clamp ? DX12::MIN_MAG_MIP_POINT_CLAMP : DX12::MIN_MAG_MIP_POINT_WRAP; break;
+		case MATERIAL_SAMPLER_FILTER_LINEAR: gpuSamplerIndex = clamp ? DX12::MIN_MAG_MIP_LINEAR_CLAMP : DX12::MIN_MAG_MIP_LINEAR_WRAP; break;
+		default:                             gpuSamplerIndex = clamp ? DX12::ANISOTROPIC_CLAMP : DX12::ANISOTROPIC_WRAP; break;
+	}
+}
 
 
 void Transform::Scale(Vec3 inScale)
