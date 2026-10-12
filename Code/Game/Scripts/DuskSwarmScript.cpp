@@ -246,6 +246,13 @@ static const StaticArray<UpgradeInfo, UPGRADE_COUNT + 1> cUpgrades =
 };
 
 
+static constexpr StaticArray<const char*, UPGRADE_COUNT + 1> cUpgradeIcons =
+{
+    "ArcaneBolt", "OrbitingBlades", "Nova", "Fireball", "ChainLightning", "MeteorStorm", "SwiftBoots",
+    "Vitality", "Magnet", "Regeneration", "Power", "Haste", "Area", "Feast"
+};
+
+
 enum EPickup
 {
     PICKUP_POTION,
@@ -1029,6 +1036,10 @@ private:
         LoadUITexture(m_SkullTexture, "Assets/DuskSwarm/UI/Skull.png");
         LoadUITexture(m_BannerTexture, "Assets/DuskSwarm/UI/Banner.png");
         LoadUITexture(m_GemTexture, "Assets/DuskSwarm/UI/Gem.png");
+        LoadUITexture(m_DashIconTexture, "Assets/DuskSwarm/UI/Icons/Dash.png");
+
+        for (int upgrade = 0; upgrade <= UPGRADE_COUNT; upgrade++)
+            LoadUITexture(m_UpgradeIconTextures[upgrade], std::format("Assets/DuskSwarm/UI/Icons/{}.png", cUpgradeIcons[upgrade]).c_str());
 
         m_HudFont = g_UIRenderer.AddFont(cHudFontFile);
         m_TitleFont = g_UIRenderer.AddFont(cTitleFontFile);
@@ -4442,146 +4453,10 @@ private:
         g_UIRenderer.AddImage(inCenter - Vec2(inSize * 0.5f), Vec2(inSize), m_GemTexture, inColor);
     }
 
-    void DrawSegment(Vec2 inA, Vec2 inB, float inWidth, Vec4 inColor)
-    {
-        const Vec2 delta = inB - inA;
-        g_UIRenderer.AddRectRotated(( inA + inB ) * 0.5f, Vec2(glm::length(delta) + inWidth, inWidth), glm::atan(delta.y, delta.x), inWidth * 0.5f, inColor);
-    }
-
     void DrawUpgradeIcon(int inUpgrade, Vec2 inCenter, float inSize, float inAlpha)
     {
-        const Vec3 color = cUpgrades[inUpgrade].mColor;
-        const Vec4 base = Vec4(color, inAlpha);
-        const Vec4 light = Vec4(glm::mix(color, Vec3(1.0f), 0.65f), inAlpha);
-        const Vec2 c = inCenter;
-        const float s = inSize;
-        const float pi = glm::pi<float>();
-
-        g_UIRenderer.AddCircleFilled(c, s * 0.85f, Vec4(color, 0.16f * inAlpha), s * 0.6f);
-
-        switch (inUpgrade)
-        {
-            case UPGRADE_BOLT:
-            {
-                g_UIRenderer.AddRectRotated(c, Vec2(s * 0.7f, s * 0.7f), pi * 0.25f, s * 0.08f, base);
-                g_UIRenderer.AddRectRotated(c, Vec2(s * 0.34f, s * 0.34f), pi * 0.25f, s * 0.04f, light);
-            } break;
-
-            case UPGRADE_BLADES:
-            {
-                for (int blade = 0; blade < 3; blade++)
-                {
-                    const float angle = float(blade) * glm::two_pi<float>() / 3.0f - pi * 0.5f;
-                    const Vec2 direction = Vec2(glm::cos(angle), glm::sin(angle));
-                    g_UIRenderer.AddRectRotated(c + direction * s * 0.42f, Vec2(s * 0.62f, s * 0.17f), angle + 1.2f, s * 0.08f, base);
-                }
-
-                g_UIRenderer.AddCircleFilled(c, s * 0.17f, light);
-            } break;
-
-            case UPGRADE_NOVA:
-            {
-                g_UIRenderer.AddArc(c, s * 0.78f, s * 0.1f, 0.0f, 1.0f, Fade(base, 0.6f));
-                g_UIRenderer.AddArc(c, s * 0.5f, s * 0.13f, 0.0f, 1.0f, base);
-                g_UIRenderer.AddCircleFilled(c, s * 0.22f, light);
-            } break;
-
-            case UPGRADE_FIREBALL:
-            {
-                for (int trail = 0; trail < 3; trail++)
-                    g_UIRenderer.AddCircleFilled(c + Vec2(-0.32f - 0.2f * trail, 0.32f + 0.2f * trail) * s, s * ( 0.18f - 0.04f * trail ), Fade(base, 0.7f - 0.2f * trail));
-
-                g_UIRenderer.AddCircleFilled(c + Vec2(0.12f, -0.12f) * s, s * 0.44f, base);
-                g_UIRenderer.AddCircleFilled(c + Vec2(0.2f, -0.2f) * s, s * 0.22f, light);
-            } break;
-
-            case UPGRADE_LIGHTNING:
-            {
-                const StaticArray<Vec2, 4> points = { Vec2(0.1f, -0.8f), Vec2(-0.25f, 0.0f), Vec2(0.25f, 0.0f), Vec2(-0.1f, 0.8f) };
-
-                for (int segment = 0; segment < 3; segment++)
-                    DrawSegment(c + points[segment] * s, c + points[segment + 1] * s, s * 0.18f, base);
-
-                for (int segment = 0; segment < 3; segment++)
-                    DrawSegment(c + points[segment] * s, c + points[segment + 1] * s, s * 0.07f, light);
-            } break;
-
-            case UPGRADE_METEOR:
-            {
-                for (int streak = 0; streak < 3; streak++)
-                {
-                    const Vec2 offset = Vec2(-0.18f + streak * 0.18f, -0.18f - streak * 0.18f) * s;
-                    DrawSegment(c + offset + Vec2(-0.55f, -0.55f) * s * 0.6f, c + offset + Vec2(0.1f, 0.1f) * s, s * 0.09f, Fade(base, 0.7f));
-                }
-
-                g_UIRenderer.AddCircleFilled(c + Vec2(0.22f, 0.22f) * s, s * 0.38f, base);
-                g_UIRenderer.AddCircleFilled(c + Vec2(0.3f, 0.14f) * s, s * 0.14f, light);
-            } break;
-
-            case UPGRADE_BOOTS:
-            {
-                g_UIRenderer.AddRectFilled(c + Vec2(-0.15f, -0.6f) * s, Vec2(0.32f, 0.75f) * s, s * 0.06f, base);
-                g_UIRenderer.AddRectFilled(c + Vec2(-0.15f, 0.05f) * s, Vec2(0.7f, 0.32f) * s, s * 0.12f, base);
-
-                for (int line = 0; line < 3; line++)
-                    g_UIRenderer.AddRectFilled(c + Vec2(-0.78f, -0.4f + 0.25f * line) * s, Vec2(0.4f, 0.08f) * s, s * 0.04f, light);
-            } break;
-
-            case UPGRADE_VITALITY:
-            {
-                g_UIRenderer.AddCircleFilled(c + Vec2(-0.22f, -0.12f) * s, s * 0.28f, base);
-                g_UIRenderer.AddCircleFilled(c + Vec2(0.22f, -0.12f) * s, s * 0.28f, base);
-                g_UIRenderer.AddRectRotated(c + Vec2(0.0f, 0.14f) * s, Vec2(0.56f, 0.56f) * s, pi * 0.25f, s * 0.06f, base);
-                g_UIRenderer.AddCircleFilled(c + Vec2(-0.26f, -0.2f) * s, s * 0.09f, light);
-            } break;
-
-            case UPGRADE_MAGNET:
-            {
-                g_UIRenderer.AddArc(c + Vec2(0.0f, -0.05f) * s, s * 0.42f, s * 0.24f, 0.0f, 0.5f, base);
-                g_UIRenderer.AddRectFilled(c + Vec2(-0.66f, -0.5f) * s, Vec2(0.24f, 0.46f) * s, s * 0.03f, base);
-                g_UIRenderer.AddRectFilled(c + Vec2(0.42f, -0.5f) * s, Vec2(0.24f, 0.46f) * s, s * 0.03f, base);
-                g_UIRenderer.AddRectFilled(c + Vec2(-0.66f, -0.62f) * s, Vec2(0.24f, 0.16f) * s, s * 0.03f, light);
-                g_UIRenderer.AddRectFilled(c + Vec2(0.42f, -0.62f) * s, Vec2(0.24f, 0.16f) * s, s * 0.03f, light);
-            } break;
-
-            case UPGRADE_REGEN:
-            {
-                g_UIRenderer.AddRectFilled(c - Vec2(0.13f, 0.5f) * s, Vec2(0.26f, 1.0f) * s, s * 0.08f, base);
-                g_UIRenderer.AddRectFilled(c - Vec2(0.5f, 0.13f) * s, Vec2(1.0f, 0.26f) * s, s * 0.08f, base);
-                g_UIRenderer.AddCircleFilled(c, s * 0.1f, light);
-            } break;
-
-            case UPGRADE_POWER:
-            {
-                DrawSegment(c + Vec2(-0.35f, 0.35f) * s, c + Vec2(0.55f, -0.55f) * s, s * 0.18f, light);
-                DrawSegment(c + Vec2(-0.45f, 0.05f) * s, c + Vec2(-0.05f, 0.45f) * s, s * 0.16f, base);
-                g_UIRenderer.AddCircleFilled(c + Vec2(-0.55f, 0.55f) * s, s * 0.14f, base);
-            } break;
-
-            case UPGRADE_HASTE:
-            {
-                g_UIRenderer.AddArc(c, s * 0.6f, s * 0.14f, 0.0f, 1.0f, base);
-                g_UIRenderer.AddRectFilled(c + Vec2(-0.05f, -0.42f) * s, Vec2(0.1f, 0.44f) * s, s * 0.05f, light);
-                g_UIRenderer.AddRectFilled(c + Vec2(-0.05f, -0.05f) * s, Vec2(0.36f, 0.1f) * s, s * 0.05f, light);
-            } break;
-
-            case UPGRADE_AREA:
-            {
-                g_UIRenderer.AddArc(c, s * 0.4f, s * 0.1f, 0.0f, 1.0f, base);
-
-                for (int arrow = 0; arrow < 4; arrow++)
-                {
-                    const float angle = arrow * pi * 0.5f;
-                    g_UIRenderer.AddRectRotated(c + Vec2(glm::cos(angle), glm::sin(angle)) * s * 0.78f, Vec2(0.24f, 0.24f) * s, pi * 0.25f, s * 0.03f, light);
-                }
-            } break;
-
-            default:
-            {
-                g_UIRenderer.AddCircleFilled(c + Vec2(-0.15f, -0.15f) * s, s * 0.4f, base);
-                DrawSegment(c + Vec2(0.0f, 0.0f) * s, c + Vec2(0.5f, 0.5f) * s, s * 0.16f, light);
-            } break;
-        }
+        g_UIRenderer.AddCircleFilled(inCenter, inSize * 0.85f, Vec4(cUpgrades[inUpgrade].mColor, 0.16f * inAlpha), inSize * 0.6f);
+        g_UIRenderer.AddImage(inCenter - Vec2(inSize * 1.25f), Vec2(inSize * 2.5f), m_UpgradeIconTextures[inUpgrade], Vec4(1.0f, 1.0f, 1.0f, inAlpha));
     }
 
     void DrawHUD(float inDeltaTime)
@@ -4781,12 +4656,9 @@ private:
 
         DrawSlot(dash_pos, slot, Vec3(dash_color), dash_ready >= 1.0f, inScale);
 
-        for (int chevron = 0; chevron < 2; chevron++)
-        {
-            const Vec2 c = dash_pos + Vec2(slot * ( 0.42f + 0.18f * chevron ), slot * 0.45f);
-            DrawSegment(c + Vec2(-8.0f, -10.0f) * inScale, c, 5.0f * inScale, Fade(dash_color, dash_ready >= 1.0f ? 1.0f : 0.4f));
-            DrawSegment(c + Vec2(-8.0f, 10.0f) * inScale, c, 5.0f * inScale, Fade(dash_color, dash_ready >= 1.0f ? 1.0f : 0.4f));
-        }
+        const float dash_icon = slot * 0.65f;
+        const float dash_tint = dash_ready >= 1.0f ? 1.0f : 0.45f;
+        g_UIRenderer.AddImage(dash_pos + Vec2(( slot - dash_icon ) * 0.5f), Vec2(dash_icon), m_DashIconTexture, Vec4(Vec3(dash_tint), 1.0f));
 
         if (dash_ready < 1.0f)
             g_UIRenderer.AddArc(dash_pos + Vec2(slot * 0.5f), slot * 0.36f, 3.0f * inScale, -glm::half_pi<float>(), dash_ready, Fade(dash_color, 0.7f));
@@ -5213,6 +5085,8 @@ private:
     uint32_t m_SkullTexture = 0;
     uint32_t m_BannerTexture = 0;
     uint32_t m_GemTexture = 0;
+    uint32_t m_DashIconTexture = 0;
+    StaticArray<uint32_t, UPGRADE_COUNT + 1> m_UpgradeIconTextures = {};
     int m_HudFont = 0;
     int m_TitleFont = 0;
 
