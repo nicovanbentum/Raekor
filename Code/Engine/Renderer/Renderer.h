@@ -50,7 +50,7 @@ private:
         int& mDebugProbes        = g_CVariables->Create("r_debug_gi_probes",      0, true);
         int& mEnableDebugOverlay = g_CVariables->Create("r_enable_debug_overlay", 1, true);
         int& mEnableRTAO         = g_CVariables->Create("r_enable_rtao",          0, true);
-        int& mEnableGTAO         = g_CVariables->Create("r_enable_gtao",          0, true);
+        int& mEnableGTAO         = g_CVariables->Create("r_enable_gtao",          1, true);
         int& mEnableSSR          = g_CVariables->Create("r_enable_ssr",           0, true);
         int& mEnableShadows      = g_CVariables->Create("r_enable_shadows",       0);
         int& mEnableReflections  = g_CVariables->Create("r_enable_reflections",   0);
