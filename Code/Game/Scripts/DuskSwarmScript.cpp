@@ -54,6 +54,63 @@ static constexpr const char* cPaletteEmissiveFile = "Assets/DuskSwarm/PaletteEmi
 static constexpr const char* cHudFontFile = "Assets/Fonts/Cinzel.ttf";
 static constexpr const char* cTitleFontFile = "Assets/Fonts/CinzelDecorative-Bold.ttf";
 
+static constexpr const char* cMusicSound = "Assets/DuskSwarm/Audio/Music.ogg";
+static constexpr const char* cBossMusicSound = "Assets/DuskSwarm/Audio/BossMusic.ogg";
+static constexpr const char* cAmbienceSound = "Assets/DuskSwarm/Audio/Ambience.ogg";
+static constexpr const char* cBoltSound = "Assets/DuskSwarm/Audio/Bolt.ogg";
+static constexpr const char* cBoltHitSound = "Assets/DuskSwarm/Audio/BoltHit.ogg";
+static constexpr const char* cBladeHitSound = "Assets/DuskSwarm/Audio/BladeHit.ogg";
+static constexpr const char* cEnemyHitSound = "Assets/DuskSwarm/Audio/EnemyHit.ogg";
+static constexpr const char* cNovaSound = "Assets/DuskSwarm/Audio/Nova.ogg";
+static constexpr const char* cFireballCastSound = "Assets/DuskSwarm/Audio/FireballCast.ogg";
+static constexpr const char* cExplosionSound = "Assets/DuskSwarm/Audio/Explosion.ogg";
+static constexpr const char* cMeteorImpactSound = "Assets/DuskSwarm/Audio/MeteorImpact.ogg";
+static constexpr const char* cLightningSound = "Assets/DuskSwarm/Audio/Lightning.ogg";
+static constexpr const char* cPoisonBurstSound = "Assets/DuskSwarm/Audio/PoisonBurst.ogg";
+static constexpr const char* cFuseSound = "Assets/DuskSwarm/Audio/Fuse.ogg";
+static constexpr const char* cHolyBlastSound = "Assets/DuskSwarm/Audio/HolyBlast.ogg";
+static constexpr const char* cSlamSound = "Assets/DuskSwarm/Audio/Slam.ogg";
+static constexpr const char* cBruteRoarSound = "Assets/DuskSwarm/Audio/BruteRoar.ogg";
+static constexpr const char* cArrowShotSound = "Assets/DuskSwarm/Audio/ArrowShot.ogg";
+static constexpr const char* cLichCastSound = "Assets/DuskSwarm/Audio/LichCast.ogg";
+static constexpr const char* cLichRiseSound = "Assets/DuskSwarm/Audio/LichRise.ogg";
+static constexpr const char* cSwarmSound = "Assets/DuskSwarm/Audio/Swarm.ogg";
+static constexpr const char* cPlayerHurtSound = "Assets/DuskSwarm/Audio/PlayerHurt.ogg";
+static constexpr const char* cPlayerDeathSound = "Assets/DuskSwarm/Audio/PlayerDeath.ogg";
+static constexpr const char* cDashSound = "Assets/DuskSwarm/Audio/Dash.ogg";
+static constexpr const char* cGemSound = "Assets/DuskSwarm/Audio/Gem.ogg";
+static constexpr const char* cLevelUpSound = "Assets/DuskSwarm/Audio/LevelUp.ogg";
+static constexpr const char* cSelectSound = "Assets/DuskSwarm/Audio/Select.ogg";
+static constexpr const char* cChooseSound = "Assets/DuskSwarm/Audio/Choose.ogg";
+static constexpr const char* cPotionSound = "Assets/DuskSwarm/Audio/Potion.ogg";
+static constexpr const char* cMagnetSound = "Assets/DuskSwarm/Audio/Magnet.ogg";
+static constexpr const char* cChestOpenSound = "Assets/DuskSwarm/Audio/ChestOpen.ogg";
+static constexpr const char* cTreasureSound = "Assets/DuskSwarm/Audio/Treasure.ogg";
+static constexpr const char* cVictorySound = "Assets/DuskSwarm/Audio/Victory.ogg";
+static constexpr const char* cGameOverSound = "Assets/DuskSwarm/Audio/GameOver.ogg";
+static constexpr const char* cGhoulDeathSound = "Assets/DuskSwarm/Audio/GhoulDeath.ogg";
+static constexpr const char* cBatDeathSound = "Assets/DuskSwarm/Audio/BatDeath.ogg";
+static constexpr const char* cBoneShatterSound = "Assets/DuskSwarm/Audio/BoneShatter.ogg";
+static constexpr const char* cWraithDeathSound = "Assets/DuskSwarm/Audio/WraithDeath.ogg";
+static constexpr const char* cBruteDeathSound = "Assets/DuskSwarm/Audio/BruteDeath.ogg";
+static constexpr const char* cLichDeathSound = "Assets/DuskSwarm/Audio/LichDeath.ogg";
+
+static constexpr StaticArray<const char*, 37> cSoundEffects =
+{
+    cBoltSound, cBoltHitSound, cBladeHitSound, cEnemyHitSound, cNovaSound, cFireballCastSound, cExplosionSound,
+    cMeteorImpactSound, cLightningSound, cPoisonBurstSound, cFuseSound, cHolyBlastSound, cSlamSound, cBruteRoarSound,
+    cArrowShotSound, cLichCastSound, cLichRiseSound, cSwarmSound, cPlayerHurtSound, cPlayerDeathSound, cDashSound,
+    cGemSound, cLevelUpSound, cSelectSound, cChooseSound, cPotionSound, cMagnetSound, cChestOpenSound,
+    cTreasureSound, cVictorySound, cGameOverSound, cGhoulDeathSound, cBatDeathSound, cBoneShatterSound,
+    cWraithDeathSound, cBruteDeathSound, cLichDeathSound
+};
+
+static constexpr float cListenerHeight = 6.0f;
+static constexpr float cSoundMinDistance = 8.0f;
+static constexpr float cGemStreakTime = 0.35f;
+static constexpr int   cGemStreakSteps = 12;
+static constexpr float cGameOverJingleDelay = 1.6f;
+
 
 enum EEnemyType
 {
@@ -128,6 +185,11 @@ static const StaticArray<EnemyArchetype, ENEMY_TYPE_COUNT> cEnemyArchetypes =
     EnemyArchetype { "Wraith",   40,  0.4f,  3.9f, 9.0f,    9.0f,  2,  0.25f, 1.9f, 0.8f,  0.6f, 0.7f,  SPAWN_FADE,  DEATH_DISSIPATE, true  },
     EnemyArchetype { "Brute",    14,  0.95f, 1.8f, 70.0f,   16.0f, 5,  0.0f,  2.6f, 0.15f, 1.0f, 1.2f,  SPAWN_RISE,  DEATH_FALL,      false },
     EnemyArchetype { "Lich",     1,   1.2f,  1.6f, 2600.0f, 20.0f, 25, 0.35f, 3.6f, 0.0f,  2.0f, 2.4f,  SPAWN_RISE,  DEATH_BOSS,      true  },
+};
+
+static constexpr StaticArray<const char*, ENEMY_TYPE_COUNT> cDeathSounds =
+{
+    cGhoulDeathSound, cBatDeathSound, cBoneShatterSound, nullptr, cWraithDeathSound, cBruteDeathSound, cLichDeathSound
 };
 
 
@@ -531,6 +593,7 @@ public:
         CreatePlayer();
         CreatePools();
         CreateCamera();
+        CreateAudio();
 
         NewGame();
 
@@ -597,6 +660,7 @@ public:
         }
 
         UpdateCamera(inDeltaTime);
+        UpdateSounds();
         DrawHUD(inDeltaTime);
     }
 
@@ -638,9 +702,9 @@ public:
             case SDLK_2: ChooseUpgrade(1); break;
             case SDLK_3: ChooseUpgrade(2); break;
             case SDLK_LEFT:
-            case SDLK_A: m_SelectedChoice = ( m_SelectedChoice + m_ChoiceCount - 1 ) % m_ChoiceCount; break;
+            case SDLK_A: m_SelectedChoice = ( m_SelectedChoice + m_ChoiceCount - 1 ) % m_ChoiceCount; PlaySfx(cSelectSound, 0.5f); break;
             case SDLK_RIGHT:
-            case SDLK_D: m_SelectedChoice = ( m_SelectedChoice + 1 ) % m_ChoiceCount; break;
+            case SDLK_D: m_SelectedChoice = ( m_SelectedChoice + 1 ) % m_ChoiceCount; PlaySfx(cSelectSound, 0.5f); break;
             case SDLK_SPACE:
             case SDLK_RETURN: ChooseUpgrade(m_SelectedChoice); break;
         }
@@ -1285,6 +1349,119 @@ private:
         m_App->SetCameraEntity(m_CameraEntity);
     }
 
+    Entity CreateMusic(StringView inName, const char* inFile, float inVolume)
+    {
+        const Entity entity = CreateEntity(inName);
+
+        SoundSource& music = m_Scene->Add<SoundSource>(entity);
+        music.file = inFile;
+        music.category = SOUND_CATEGORY_MUSIC;
+        music.volume = inVolume;
+        music.loop = true;
+        music.stream = true;
+        music.spatial = false;
+        music.fadeInTime = 2.0f;
+        music.fadeOutTime = 1.5f;
+
+        return entity;
+    }
+
+    void CreateAudio()
+    {
+        m_ListenerEntity = CreateEntity("Listener");
+        m_Scene->Add<AudioListener>(m_ListenerEntity);
+
+        m_MusicEntity = CreateMusic("Music", cMusicSound, 0.5f);
+        m_BossMusicEntity = CreateMusic("Boss Music", cBossMusicSound, 0.55f);
+
+        const Entity ambience_entity = CreateEntity("Night Ambience");
+
+        SoundSource& ambience = m_Scene->Add<SoundSource>(ambience_entity);
+        ambience.file = cAmbienceSound;
+        ambience.category = SOUND_CATEGORY_AMBIENCE;
+        ambience.volume = 0.7f;
+        ambience.loop = true;
+        ambience.stream = true;
+        ambience.spatial = false;
+        ambience.playOnStart = true;
+        ambience.fadeInTime = 2.0f;
+
+        if (Audio* audio = GetAudio())
+        {
+            for (const char* sound : cSoundEffects)
+                audio->Preload(sound);
+        }
+    }
+
+    bool CanPlaySfx(const char* inFile, float inMinInterval)
+    {
+        if (inMinInterval <= 0.0f)
+            return true;
+
+        const auto [entry, inserted] = m_SoundTimes.try_emplace(inFile, m_Time);
+
+        if (!inserted)
+        {
+            if (m_Time - entry->second < inMinInterval)
+                return false;
+
+            entry->second = m_Time;
+        }
+
+        return true;
+    }
+
+    void PlaySfx(const char* inFile, float inVolume = 1.0f, float inPitch = 1.0f, float inMinInterval = 0.0f)
+    {
+        Audio* audio = GetAudio();
+
+        if (audio && CanPlaySfx(inFile, inMinInterval))
+            audio->PlayOneShot(inFile, inVolume, inPitch);
+    }
+
+    void PlaySfxAt(const char* inFile, const Vec3& inPosition, float inVolume = 1.0f, float inPitch = 1.0f, float inMinInterval = 0.0f)
+    {
+        Audio* audio = GetAudio();
+
+        if (audio && CanPlaySfx(inFile, inMinInterval))
+            audio->PlayOneShot(inFile, inPosition, inVolume, inPitch, cSoundMinDistance);
+    }
+
+    void PlayEntitySound(Entity inEntity)
+    {
+        if (Audio* audio = GetAudio())
+            audio->Play(*m_Scene, inEntity);
+    }
+
+    void StopEntitySound(Entity inEntity)
+    {
+        if (Audio* audio = GetAudio())
+            audio->Stop(*m_Scene, inEntity);
+    }
+
+    void PlayMusic(bool inBoss)
+    {
+        StopEntitySound(inBoss ? m_MusicEntity : m_BossMusicEntity);
+        PlayEntitySound(inBoss ? m_BossMusicEntity : m_MusicEntity);
+    }
+
+    void StopMusic()
+    {
+        StopEntitySound(m_MusicEntity);
+        StopEntitySound(m_BossMusicEntity);
+    }
+
+    void UpdateSounds()
+    {
+        SetTransform(m_ListenerEntity, ToWorld(m_PlayerPosition, cListenerHeight), Vec3(1.0f));
+
+        if (m_State == STATE_GAME_OVER && !m_EndJinglePlayed && m_PlayerDeathTimer >= cGameOverJingleDelay)
+        {
+            m_EndJinglePlayed = true;
+            PlaySfx(cGameOverSound, 0.8f);
+        }
+    }
+
     void DestroyRuntimeEntities()
     {
         Array<Entity> roots;
@@ -1304,6 +1481,9 @@ private:
         m_RootEntity = Entity::Null;
         m_CameraEntity = Entity::Null;
         m_PlayerEntity = Entity::Null;
+        m_ListenerEntity = Entity::Null;
+        m_MusicEntity = Entity::Null;
+        m_BossMusicEntity = Entity::Null;
         m_PlayerModel = Model();
         m_Blades.fill(Entity::Null);
         m_Enemies.clear();
@@ -1481,6 +1661,11 @@ private:
         m_Popups.clear();
         m_CameraTarget = Vec3(0.0f);
         m_FacingDirection = Vec2(0.0f, -1.0f);
+        m_GemStreak = 0;
+        m_LastGemTime = -cGemStreakTime;
+        m_EndJinglePlayed = false;
+
+        PlayMusic(false);
 
         if (*m_StartWeapons > 0)
         {
@@ -1536,6 +1721,7 @@ private:
         m_DashTimer = cDashDuration;
         m_DashCooldownTimer = cDashCooldown;
 
+        PlaySfx(cDashSound, 0.6f, RandomFloat(0.95f, 1.05f));
         SpawnRing(GetPlayerCenter() - Vec3(0.0f, 0.8f, 0.0f), 0.3f, 2.2f, 0.25f, m_FXMaterials[FX_ARCANE], 0.6f);
         Emit(GetPlayerCenter(), ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = FX_ARCANE, .mCount = 14, .mSpeedMin = 3.0f, .mSpeedMax = 8.0f, .mLifeMin = 0.2f, .mLifeMax = 0.4f, .mSizeMin = 0.2f, .mSizeMax = 0.35f, .mDrag = 4.0f, .mFlat = true });
     }
@@ -1603,6 +1789,8 @@ private:
         m_HitFlash = 1.0f;
         AddTrauma(0.3f);
 
+        PlaySfx(cPlayerHurtSound, 0.7f, RandomFloat(0.93f, 1.07f));
+
         Emit(GetPlayerCenter(), ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = FX_DANGER, .mCount = 12, .mSpeedMin = 3.0f, .mSpeedMax = 7.0f, .mLifeMin = 0.2f, .mLifeMax = 0.4f, .mSizeMin = 0.2f, .mSizeMax = 0.3f, .mGravity = 8.0f, .mDrag = 2.0f, .mUpBias = 0.4f });
 
         if (m_Health <= 0.0f)
@@ -1614,6 +1802,9 @@ private:
             m_BestTime = glm::max(m_BestTime, m_RunTime);
             m_HitStop = 0.2f;
             AddTrauma(0.8f);
+
+            StopMusic();
+            PlaySfx(cPlayerDeathSound, 0.9f);
 
             Emit(GetPlayerCenter(), ParticleDesc { .mMesh = PARTICLE_PUFF, .mMaterial = FX_ARCANE, .mCount = 24, .mSpeedMin = 1.0f, .mSpeedMax = 4.0f, .mLifeMin = 0.6f, .mLifeMax = 1.2f, .mSizeMin = 0.3f, .mSizeMax = 0.6f, .mGravity = -1.5f, .mDrag = 1.5f, .mUpBias = 0.6f });
             SpawnRing(GetPlayerCenter() - Vec3(0.0f, 0.8f, 0.0f), 0.5f, 6.0f, 0.5f, m_FXMaterials[FX_ARCANE], 1.0f);
@@ -1687,6 +1878,7 @@ private:
             }
 
             AddPopup("THE SWARM DESCENDS", "Bats close in from every side", Vec4(0.8f, 0.55f, 1.0f, 1.0f), true);
+            PlaySfx(cSwarmSound, 0.7f);
         }
 
         if (m_RunTime >= m_NextBruteTime)
@@ -1699,6 +1891,7 @@ private:
                 SpawnEnemy(ENEMY_BRUTE, GetSpawnPosition(), m_RunTime > 180.0f && index == 0);
 
             AddPopup(count > 1 ? "BRUTES APPROACH" : "A BRUTE APPROACHES", "", Vec4(1.0f, 0.45f, 0.35f, 1.0f), false);
+            PlaySfx(cBruteRoarSound, 0.6f, RandomFloat(0.95f, 1.05f));
         }
 
         if (m_NextBoss < int(cBossTimes.size()) && m_RunTime >= cBossTimes[m_NextBoss] && m_BossEnemy < 0)
@@ -1714,6 +1907,8 @@ private:
                 m_BossHealthTrail = 1.0f;
                 AddPopup("THE LICH RISES", "Destroy it before it destroys you", Vec4(0.8f, 0.4f, 1.0f, 1.0f), true);
                 AddTrauma(0.6f);
+                PlaySfx(cLichRiseSound, 0.9f);
+                PlayMusic(true);
                 SpawnRing(ToWorld(position, 0.1f), 1.0f, 12.0f, 0.9f, m_FXMaterials[FX_PURPLE], 1.5f);
                 SpawnLight(ToWorld(position, 2.0f), Vec3(0.75f, 0.35f, 1.0f), 4000000.0f, 18.0f, 1.2f);
                 Emit(ToWorld(position, 0.5f), ParticleDesc { .mMesh = PARTICLE_CHUNK, .mMaterial = FX_DIRT, .mCount = 30, .mSpeedMin = 4.0f, .mSpeedMax = 10.0f, .mLifeMin = 0.8f, .mLifeMax = 1.4f, .mSizeMin = 0.15f, .mSizeMax = 0.35f, .mEndSize = 0.6f, .mGravity = 20.0f, .mDrag = 0.5f, .mUpBias = 1.2f, .mSpread = 1.0f });
@@ -1984,6 +2179,7 @@ private:
                             const Vec2 lead = m_PlayerPosition + m_PlayerVelocity * glm::min(distance / 13.0f, 0.8f) * 0.6f;
                             const Vec2 aim = glm::normalize(lead - enemy.mPosition + Vec2(0.0001f));
                             FireEnemyProjectile(m_Arrows, ToWorld(enemy.mPosition + aim * 0.5f, 1.1f), Vec3(aim.x, 0.0f, aim.y) * 13.0f, 7.0f * ( enemy.mElite ? 1.5f : 1.0f ), 3.0f);
+                            PlaySfxAt(cArrowShotSound, ToWorld(enemy.mPosition, 1.1f), 0.5f, RandomFloat(0.9f, 1.1f), 0.06f);
                             enemy.mAction = ACTION_NONE;
                             enemy.mAttackTimer = RandomFloat(2.2f, 3.2f);
                         }
@@ -2030,6 +2226,7 @@ private:
                         enemy.mAction = ACTION_FUSE;
                         enemy.mActionTimer = 0.9f;
                         enemy.mTelegraph = SpawnTelegraph(ToWorld(enemy.mPosition, 0.0f), 2.8f, 0.9f, m_PoisonTelegraphMaterial);
+                        PlaySfxAt(cFuseSound, ToWorld(enemy.mPosition, 0.6f), 0.6f, RandomFloat(0.95f, 1.05f), 0.1f);
                     }
                 } break;
 
@@ -2201,6 +2398,7 @@ private:
             }
 
             m_BossPattern = ( m_BossPattern + 1 ) % 3;
+            PlaySfxAt(cNovaSound, origin, 0.6f, 0.7f);
             SpawnRing(ToWorld(ioEnemy.mPosition, 0.1f), 0.5f, 4.0f, 0.4f, m_FXMaterials[FX_PURPLE], 0.8f);
             SpawnLight(origin, Vec3(0.75f, 0.35f, 1.0f), 1500000.0f, 10.0f, 0.4f);
             AddTraumaAt(origin, 0.12f);
@@ -2213,6 +2411,7 @@ private:
         {
             ioEnemy.mAction = ACTION_CAST;
             ioEnemy.mActionTimer = 0.7f;
+            PlaySfxAt(cLichCastSound, ToWorld(ioEnemy.mPosition, 1.6f), 0.8f, enraged ? 0.9f : 1.0f);
         }
 
         if (RandomFloat(0.0f, 1.0f) < 0.4f)
@@ -2260,7 +2459,12 @@ private:
         m_FreeEnemies[enemy.mType].push_back(inIndex);
 
         if (inIndex == m_BossEnemy)
+        {
             m_BossEnemy = -1;
+
+            if (m_State == STATE_PLAYING)
+                PlayMusic(false);
+        }
     }
 
     void ReleaseAura(Enemy& ioEnemy)
@@ -2293,6 +2497,7 @@ private:
             SetModelMaterial(enemy.mModel, enemy.mElite ? m_EliteFlashMaterial : m_FlashMaterial);
 
         AddDamageNumber(ToWorld(enemy.mPosition, cEnemyArchetypes[enemy.mType].mTop * ( enemy.mElite ? 1.35f : 1.0f ) + 0.3f), int(glm::ceil(damage)), crit);
+        PlaySfxAt(cEnemyHitSound, ToWorld(enemy.mPosition, 0.8f), crit ? 0.45f : 0.3f, RandomFloat(0.85f, 1.15f) * ( crit ? 0.85f : 1.0f ), 0.05f);
 
         if (enemy.mHealth <= 0.0f)
         {
@@ -2325,6 +2530,11 @@ private:
             AddPopup(std::format("{} KILL STREAK", m_Streak), "", Vec4(1.0f, 0.8f, 0.3f, 1.0f), false);
 
         const Vec3 center = ToWorld(enemy.mPosition, archetype.mTop * 0.5f);
+
+        if (enemy.mType == ENEMY_LICH)
+            PlaySfx(cLichDeathSound, 1.0f);
+        else if (const char* death_sound = cDeathSounds[enemy.mType])
+            PlaySfxAt(death_sound, center, enemy.mElite ? 0.8f : 0.5f, RandomFloat(0.9f, 1.1f) * ( enemy.mElite ? 0.8f : 1.0f ), 0.09f);
 
         switch (archetype.mDeathStyle)
         {
@@ -2557,6 +2767,7 @@ private:
 
                     const Vec2 away = inEnemy.mPosition - m_PlayerPosition;
                     DamageEnemy(inIndex, damage, glm::length(away) > 0.0001f ? glm::normalize(away) * 6.0f : Vec2(0.0f));
+                    PlaySfxAt(cBladeHitSound, ToWorld(position, 0.8f), 0.45f, RandomFloat(0.9f, 1.15f), 0.06f);
                     Emit(ToWorld(position, 0.8f), ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = FX_EMBER, .mCount = 4, .mSpeedMin = 2.0f, .mSpeedMax = 5.0f, .mLifeMin = 0.15f, .mLifeMax = 0.3f, .mSizeMin = 0.12f, .mSizeMax = 0.2f, .mGravity = 6.0f, .mDrag = 2.0f });
                 });
             }
@@ -2580,6 +2791,7 @@ private:
                 });
 
                 const Vec3 ground = ToWorld(m_PlayerPosition, 0.15f);
+                PlaySfx(cNovaSound, 0.65f, RandomFloat(0.97f, 1.03f));
                 SpawnRing(ground, 0.5f, radius * 1.05f, 0.4f, m_FXMaterials[FX_PURPLE], 1.6f);
                 SpawnRing(ground + Vec3(0.0f, 0.4f, 0.0f), 0.3f, radius * 0.7f, 0.3f, m_FXMaterials[FX_ARCANE], 0.8f);
                 Emit(ground + Vec3(0.0f, 0.3f, 0.0f), ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = FX_PURPLE, .mCount = 28, .mSpeedMin = radius * 2.0f, .mSpeedMax = radius * 3.0f, .mLifeMin = 0.25f, .mLifeMax = 0.4f, .mSizeMin = 0.25f, .mSizeMax = 0.4f, .mDrag = 4.0f, .mFlat = true });
@@ -2660,6 +2872,7 @@ private:
         }
 
         m_CastTimer = 0.25f;
+        PlaySfx(cBoltSound, 0.35f, RandomFloat(0.94f, 1.08f), 0.05f);
         Emit(GetStaffTip(), ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = FX_ARCANE, .mCount = 4, .mSpeedMin = 1.0f, .mSpeedMax = 3.0f, .mLifeMin = 0.15f, .mLifeMax = 0.25f, .mSizeMin = 0.1f, .mSizeMax = 0.18f, .mDrag = 3.0f });
     }
 
@@ -2693,6 +2906,7 @@ private:
                 projectile.mPierce--;
 
                 DamageEnemy(inIndex, projectile.mDamage, glm::normalize(projectile.mVelocity) * 4.0f);
+                PlaySfxAt(cBoltHitSound, ToWorld(projectile.mPosition, 0.9f), 0.4f, RandomFloat(0.9f, 1.1f), 0.04f);
                 Emit(ToWorld(projectile.mPosition, 0.9f), ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = FX_ARCANE, .mCount = 6, .mSpeedMin = 2.0f, .mSpeedMax = 5.0f, .mLifeMin = 0.15f, .mLifeMax = 0.3f, .mSizeMin = 0.15f, .mSizeMax = 0.25f, .mDrag = 3.0f });
             });
 
@@ -2737,6 +2951,7 @@ private:
             fireball.mDamage = inDamage;
             fireball.mRadius = inRadius;
             m_CastTimer = 0.3f;
+            PlaySfx(cFireballCastSound, 0.5f, RandomFloat(0.92f, 1.08f), 0.08f);
             return;
         }
     }
@@ -2798,6 +3013,7 @@ private:
 
         SpawnLight(GetStaffTip(), Vec3(0.7f, 0.85f, 1.0f), 1200000.0f, 12.0f, 0.2f);
         AddTrauma(0.07f);
+        PlaySfx(cLightningSound, 0.5f, RandomFloat(0.9f, 1.1f));
         m_CastTimer = 0.3f;
     }
 
@@ -2919,6 +3135,22 @@ private:
         const float scale = glm::clamp(inRadius / 2.5f, 0.6f, 2.5f);
         const int count = int(10.0f * scale);
 
+        const char* sound = cExplosionSound;
+        float volume = glm::clamp(0.4f + 0.15f * scale, 0.4f, 0.75f);
+        float pitch = RandomFloat(0.9f, 1.1f);
+
+        switch (inStyle)
+        {
+            case EXPLOSION_POISON: sound = cPoisonBurstSound;  volume = 0.65f; break;
+            case EXPLOSION_ARCANE: sound = cExplosionSound;    volume = 0.35f; pitch *= 1.5f; break;
+            case EXPLOSION_HOLY:   sound = cHolyBlastSound;    volume = 1.0f;  break;
+            case EXPLOSION_METEOR: sound = cMeteorImpactSound; volume = 0.85f; break;
+            case EXPLOSION_DUST:   sound = cSlamSound;         volume = 0.75f; break;
+            default: break;
+        }
+
+        PlaySfxAt(sound, inPosition, volume, pitch, 0.05f);
+
         if (inStyle != EXPLOSION_DUST)
             Emit(inPosition, ParticleDesc { .mMesh = PARTICLE_PUFF, .mMaterial = core, .mCount = count, .mSpeedMin = inRadius * 1.2f, .mSpeedMax = inRadius * 2.4f, .mLifeMin = 0.2f, .mLifeMax = 0.4f, .mSizeMin = 0.4f * scale, .mSizeMax = 0.8f * scale, .mEndSize = 0.2f, .mDrag = 5.0f, .mUpBias = 0.3f });
 
@@ -3011,6 +3243,11 @@ private:
                 AddExperience(gem.mValue);
 
                 const int tier = GetGemTier(gem.mValue);
+
+                m_GemStreak = m_Time - m_LastGemTime < cGemStreakTime ? ( m_GemStreak + 1 ) % ( cGemStreakSteps + 1 ) : 0;
+                m_LastGemTime = m_Time;
+                PlaySfx(cGemSound, 0.25f + 0.15f * tier, glm::pow(2.0f, float(m_GemStreak) / 12.0f) * ( tier == 2 ? 0.75f : 1.0f ), 0.04f);
+
                 Emit(GetPlayerCenter(), ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = tier == 2 ? FX_DANGER : tier == 1 ? FX_ARCANE : FX_HEAL, .mCount = 2 + tier * 3, .mSpeedMin = 1.0f, .mSpeedMax = 3.0f, .mLifeMin = 0.15f, .mLifeMax = 0.3f, .mSizeMin = 0.1f, .mSizeMax = 0.15f, .mDrag = 3.0f, .mUpBias = 0.5f });
             }
         }
@@ -3083,6 +3320,7 @@ private:
                 const float heal = GetMaxHealth() * 0.35f;
                 m_Health = glm::min(GetMaxHealth(), m_Health + heal);
                 AddPopup("HEALTH RESTORED", std::format("+{} HP", int(heal)), Vec4(1.0f, 0.45f, 0.45f, 1.0f), false);
+                PlaySfx(cPotionSound, 0.7f);
                 Emit(center, ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = FX_HEAL, .mCount = 24, .mSpeedMin = 0.5f, .mSpeedMax = 1.5f, .mLifeMin = 0.6f, .mLifeMax = 1.0f, .mSizeMin = 0.15f, .mSizeMax = 0.25f, .mGravity = -4.0f, .mDrag = 1.0f, .mSpread = 0.8f, .mFlat = true });
                 SpawnRing(ToWorld(m_PlayerPosition, 0.1f), 0.3f, 2.0f, 0.5f, m_FXMaterials[FX_HEAL], 0.8f);
             } break;
@@ -3093,6 +3331,7 @@ private:
                     gem.mAttracted |= gem.mActive;
 
                 AddPopup("MAGNETIZED", "All gems fly to you", Vec4(0.45f, 0.85f, 1.0f, 1.0f), false);
+                PlaySfx(cMagnetSound, 0.6f);
                 SpawnRing(ToWorld(m_PlayerPosition, 0.2f), 0.5f, 30.0f, 0.8f, m_FXMaterials[FX_ARCANE], 2.0f);
             } break;
 
@@ -3109,6 +3348,7 @@ private:
             {
                 ioPickup.mOpening = true;
                 ioPickup.mOpenTimer = 0.0f;
+                PlaySfx(cChestOpenSound, 0.75f);
                 SpawnLight(ToWorld(ioPickup.mPosition, 1.5f), Vec3(1.0f, 0.8f, 0.3f), 2000000.0f, 10.0f, 1.0f);
                 return;
             }
@@ -3140,6 +3380,7 @@ private:
         Emit(ToWorld(inPosition, 0.5f), ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = FX_GOLD, .mCount = 40, .mSpeedMin = 4.0f, .mSpeedMax = 10.0f, .mLifeMin = 0.6f, .mLifeMax = 1.2f, .mSizeMin = 0.2f, .mSizeMax = 0.35f, .mGravity = 10.0f, .mDrag = 0.8f, .mUpBias = 1.5f });
         SpawnRing(ToWorld(inPosition, 0.1f), 0.5f, 6.0f, 0.6f, m_FXMaterials[FX_GOLD], 1.4f);
         AddTrauma(0.25f);
+        PlaySfx(cTreasureSound, 0.8f);
         AddPopup("TREASURE", rewards > 1 ? std::format("{} upgrades", rewards) : String("1 upgrade"), Vec4(1.0f, 0.82f, 0.35f, 1.0f), true);
     }
 
@@ -3166,6 +3407,9 @@ private:
             m_PlayerDeathTimer = 0.0f;
             m_BestTime = glm::max(m_BestTime, m_RunTime);
             m_ScreenFlash = 0.6f;
+
+            StopMusic();
+            PlaySfx(cVictorySound, 0.9f);
             return;
         }
 
@@ -3205,6 +3449,8 @@ private:
         m_LevelUpTime = m_Time;
         m_State = STATE_LEVEL_UP;
 
+        PlaySfx(cLevelUpSound, 0.7f);
+
         const Vec3 ground = ToWorld(m_PlayerPosition, 0.1f);
         SpawnRing(ground, 0.4f, 4.0f, 0.5f, m_FXMaterials[FX_GOLD], 1.2f);
         SpawnLight(GetPlayerCenter(), Vec3(1.0f, 0.85f, 0.5f), 1500000.0f, 10.0f, 0.6f);
@@ -3237,6 +3483,7 @@ private:
             return;
 
         ApplyUpgrade(m_Choices[inChoice]);
+        PlaySfx(cChooseSound, 0.6f);
 
         m_ChoiceCount = 0;
         m_State = STATE_PLAYING;
@@ -4700,6 +4947,14 @@ private:
     Entity m_PlayerEntity = Entity::Null;
     Model m_PlayerModel;
     StaticArray<Entity, cMaxBlades> m_Blades;
+
+    Entity m_ListenerEntity = Entity::Null;
+    Entity m_MusicEntity = Entity::Null;
+    Entity m_BossMusicEntity = Entity::Null;
+    HashMap<const char*, float> m_SoundTimes;
+    int m_GemStreak = 0;
+    float m_LastGemTime = 0.0f;
+    bool m_EndJinglePlayed = false;
 
     Entity m_PaletteMaterial = Entity::Null;
     Entity m_FlashMaterial = Entity::Null;

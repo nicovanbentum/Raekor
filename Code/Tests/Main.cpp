@@ -356,12 +356,15 @@ static void sTestTriggerVolumes()
 
 static void sTestLoopingSoundLengths()
 {
-	const StaticArray<Pair<const char*, uint64_t>, 4> loops =
+	const StaticArray<Pair<const char*, uint64_t>, 7> loops =
 	{
 		Pair<const char*, uint64_t> { "Assets/RailRush/Audio/Music.ogg", 30 * 44100 },
 		Pair<const char*, uint64_t> { "Assets/RailRush/Audio/Ambience.ogg", 24 * 44100 },
 		Pair<const char*, uint64_t> { "Assets/RailRush/Audio/TrainRumble.ogg", 4 * 52920 },
 		Pair<const char*, uint64_t> { "Assets/RailRush/Audio/SkateboardLoop.ogg", 8 * 16317 },
+		Pair<const char*, uint64_t> { "Assets/DuskSwarm/Audio/Music.ogg", 40 * 44100 },
+		Pair<const char*, uint64_t> { "Assets/DuskSwarm/Audio/BossMusic.ogg", 32 * 44100 },
+		Pair<const char*, uint64_t> { "Assets/DuskSwarm/Audio/Ambience.ogg", 30 * 44100 },
 	};
 
 	for (const auto& [file, expected_frames] : loops)

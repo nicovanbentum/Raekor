@@ -375,7 +375,7 @@ void Audio::PlayOneShot(const String& inFile, float inVolume, float inPitch)
 }
 
 
-void Audio::PlayOneShot(const String& inFile, const Vec3& inPosition, float inVolume, float inPitch)
+void Audio::PlayOneShot(const String& inFile, const Vec3& inPosition, float inVolume, float inPitch, float inMinDistance)
 {
 	if (!m_Engine || m_OneShots.size() >= cMaxOneShots || !Preload(inFile))
 		return;
@@ -387,6 +387,7 @@ void Audio::PlayOneShot(const String& inFile, const Vec3& inPosition, float inVo
 		ma_sound_set_volume(sound, glm::max(inVolume, 0.0f));
 		ma_sound_set_pitch(sound, glm::max(inPitch, 0.01f));
 		ma_sound_set_attenuation_model(sound, ma_attenuation_model_inverse);
+		ma_sound_set_min_distance(sound, glm::max(inMinDistance, 0.01f));
 		ma_sound_set_position(sound, inPosition.x, inPosition.y, inPosition.z);
 		ma_sound_start(sound);
 

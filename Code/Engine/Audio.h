@@ -47,7 +47,7 @@ public:
 	bool Preload(const String& inFile);
 
 	void PlayOneShot(const String& inFile, float inVolume = 1.0f, float inPitch = 1.0f);
-	void PlayOneShot(const String& inFile, const Vec3& inPosition, float inVolume = 1.0f, float inPitch = 1.0f);
+	void PlayOneShot(const String& inFile, const Vec3& inPosition, float inVolume = 1.0f, float inPitch = 1.0f, float inMinDistance = 1.0f);
 
 	const Vec3& GetListenerPosition() const { return m_ListenerPosition; }
 
