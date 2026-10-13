@@ -137,11 +137,12 @@ struct GraphicsSetting
     const char* mLabel;
 };
 
-static constexpr StaticArray<GraphicsSetting, 4> cGraphicsSettings =
+static constexpr StaticArray<GraphicsSetting, 5> cGraphicsSettings =
 {
     GraphicsSetting { "r_enable_taa",     "Temporal anti-aliasing" },
     GraphicsSetting { "r_enable_ddgi",    "Global illumination" },
     GraphicsSetting { "r_enable_gtao",    "Ambient occlusion" },
+    GraphicsSetting { "r_gtao_half_res",  "Half resolution AO" },
     GraphicsSetting { "r_enable_shadows", "Ray traced shadows" },
 };
 
@@ -5206,8 +5207,8 @@ private:
         layout.mScale = glm::max(layout.mDisplay.y / 1080.0f, 0.5f);
 
         const float scale = layout.mScale;
-        layout.mPanelSize = Vec2(620.0f, 500.0f) * scale;
-        layout.mPanelPos = layout.mDisplay * 0.5f - layout.mPanelSize * 0.5f;
+        layout.mPanelSize = Vec2(620.0f, 540.0f) * scale;
+        layout.mPanelPos = layout.mDisplay * 0.5f - layout.mPanelSize * 0.5f + Vec2(0.0f, 20.0f * scale);
 
         layout.mTabSize = Vec2(200.0f, 44.0f) * scale;
         const float tab_gap = 12.0f * scale;
@@ -5224,7 +5225,7 @@ private:
         layout.mSettingsPos = Vec2(layout.mSliderPos.x, layout.mPanelPos.y + 148.0f * scale);
         layout.mSettingStep = 44.0f * scale;
         layout.mButtonSize = Vec2(240.0f, 56.0f) * scale;
-        layout.mButtonPos = Vec2(layout.mDisplay.x * 0.5f - layout.mButtonSize.x * 0.5f, layout.mPanelPos.y + 340.0f * scale);
+        layout.mButtonPos = Vec2(layout.mDisplay.x * 0.5f - layout.mButtonSize.x * 0.5f, layout.mPanelPos.y + 380.0f * scale);
         layout.mQuitPos = layout.mButtonPos + Vec2(0.0f, layout.mButtonSize.y + 16.0f * scale);
         return layout;
     }
