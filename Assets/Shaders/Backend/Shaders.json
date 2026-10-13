@@ -165,6 +165,14 @@
             }
         },
 
+        "GTAO Upsample Shader":
+        {
+            "Compute Shader":
+            {
+                "File Path": "Assets/Shaders/Backend/GTAOUpsampleCS.hlsl"
+            }
+        },
+
         "Skinning Shader":
         {
             "Compute Shader": 

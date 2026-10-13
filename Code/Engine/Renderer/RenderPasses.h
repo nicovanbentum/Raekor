@@ -284,6 +284,7 @@ const GBufferDebugData& AddGBufferDebugPass(RenderGraph& inRenderGraph, Device& 
 ////////////////////////////////////////
 struct GTAOData
 {
+    uint32_t mResolutionShift = 0;
     RenderGraphResourceID mOutputTexture;
     RenderGraphResourceViewID mDepthTexture;
     RenderGraphResourceViewID mGBufferTexture;
@@ -291,7 +292,27 @@ struct GTAOData
 
 
 const GTAOData& AddGTAOPass(RenderGraph& inRenderGraph, Device& inDevice,
-    const GBufferOutput& inGBuffer
+    const GBufferOutput& inGBuffer,
+    uint32_t inResolutionShift
+);
+
+
+////////////////////////////////////////
+/// GTAO Upsample Render Pass
+////////////////////////////////////////
+struct GTAOUpsampleData
+{
+    uint32_t mResolutionShift = 0;
+    RenderGraphResourceID mOutputTexture;
+    RenderGraphResourceViewID mInputTexture;
+    RenderGraphResourceViewID mDepthTexture;
+};
+
+
+const GTAOUpsampleData& AddGTAOUpsamplePass(RenderGraph& inRenderGraph, Device& inDevice,
+    const GBufferOutput& inGBuffer,
+    RenderGraphResourceID inInputTexture,
+    uint32_t inResolutionShift
 );
 
 

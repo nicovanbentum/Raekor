@@ -29,7 +29,10 @@ void main(uint2 threadID : SV_DispatchThreadID)
         return;
     }
 
-    const float3 center_normal = UnpackNormal(asuint(gbuffer_texture[threadID]));
+    uint2 full_size;
+    gbuffer_texture.GetDimensions(full_size.x, full_size.y);
+
+    const float3 center_normal = UnpackNormal(asuint(gbuffer_texture[min(threadID << rc.mResolutionShift, full_size - 1)]));
 
     const float variance = max(center.y - center.x * center.x, 0.0f) + 1.0f / (center.z * center.z * 16.0f);
     const float value_sigma = VALUE_SIGMA * sqrt(variance) + 1e-4f;
@@ -51,7 +54,7 @@ void main(uint2 threadID : SV_DispatchThreadID)
             if (tap.w <= 0.0f)
                 continue;
 
-            const float3 tap_normal = UnpackNormal(asuint(gbuffer_texture[coord]));
+            const float3 tap_normal = UnpackNormal(asuint(gbuffer_texture[min(uint2(coord) << rc.mResolutionShift, full_size - 1)]));
 
             const float depth_weight = exp(-abs(center.w - tap.w) / (DEPTH_SIGMA * center.w * float(rc.mStepSize) * length(float2(x, y)) + 1e-4f));
             const float normal_weight = pow(saturate(dot(center_normal, tap_normal)), NORMAL_POWER);

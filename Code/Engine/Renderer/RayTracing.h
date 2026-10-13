@@ -55,6 +55,7 @@ const RenderGraphResourceID AddAmbientOcclusionPass(RenderGraph& inRenderGraph, 
 
 struct DenoiseTemporalData
 {
+    uint32_t mResolutionShift = 0;
     RenderGraphResourceID mAccumulatedTexture;
     RenderGraphResourceID mHistoryTexture;
     RenderGraphResourceViewID mInputTextureSRV;
@@ -66,6 +67,7 @@ struct DenoiseTemporalData
 struct DenoiseSpatialData
 {
     uint32_t mStepSize = 1;
+    uint32_t mResolutionShift = 0;
     RenderGraphResourceViewID mInputTextureSRV;
     RenderGraphResourceViewID mOutputTextureUAV;
     RenderGraphResourceViewID mGBufferTextureSRV;
@@ -74,7 +76,8 @@ struct DenoiseSpatialData
 const RenderGraphResourceID AddDenoisePasses(RenderGraph& inRenderGraph, Device& inDevice,
     const GBufferOutput& inGBuffer,
     RenderGraphResourceID inSignalTexture,
-    const String& inName
+    const String& inName,
+    uint32_t inResolutionShift = 0
 );
 
 

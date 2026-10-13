@@ -71,6 +71,7 @@ RTTI_DEFINE_TYPE(SystemShadersDX12)
 
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "SSR Trace Shader", mSSRTraceShader);
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "GTAO Shader", mGTAOShader);
+    RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "GTAO Upsample Shader", mGTAOUpsampleShader);
 
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Sky Cube Shader", mSkyCubeShader);
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Convolve Cube Shader", mConvolveCubeShader);

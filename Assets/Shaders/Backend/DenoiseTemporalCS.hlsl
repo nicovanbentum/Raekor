@@ -20,8 +20,13 @@ void main(uint2 threadID : SV_DispatchThreadID)
     Texture2D<float2> velocity_texture = ResourceDescriptorHeap[rc.mVelocityTexture];
     RWTexture2D<float4> output_texture = ResourceDescriptorHeap[rc.mOutputTexture];
 
+    uint2 full_size;
+    depth_texture.GetDimensions(full_size.x, full_size.y);
+
+    const uint2 pixel = min(threadID << rc.mResolutionShift, full_size - 1);
+
     const float signal = input_texture[threadID];
-    const float depth = depth_texture[threadID];
+    const float depth = depth_texture[pixel];
 
     if (depth >= 1.0f)
     {
@@ -29,13 +34,13 @@ void main(uint2 threadID : SV_DispatchThreadID)
         return;
     }
 
-    const float2 screen_uv = (float2(threadID) + 0.5f) / float2(rc.mDispatchSize);
+    const float2 screen_uv = (float2(pixel) + 0.5f) / float2(full_size);
     const float3 ws_position = ReconstructWorldPosition(screen_uv, depth, fc.mInvViewProjectionMatrix);
 
     const float view_depth = mul(fc.mViewProjectionMatrix, float4(ws_position, 1.0f)).w;
     const float prev_view_depth = mul(fc.mPrevViewProjectionMatrix, float4(ws_position, 1.0f)).w;
 
-    const float2 prev_screen_uv = screen_uv - velocity_texture[threadID];
+    const float2 prev_screen_uv = screen_uv - velocity_texture[pixel];
 
     float4 result = float4(signal, signal * signal, 1.0f, view_depth);
 

@@ -49,13 +49,22 @@ float GetSectorAngle(uint inSector, float inNormalAngle)
 }
 
 
+static const uint2 sQuadOffsets[4] = { uint2(0, 0), uint2(1, 1), uint2(1, 0), uint2(0, 1) };
+
+
 [numthreads(8, 8, 1)]
 void main(uint3 threadID : SV_DispatchThreadID)
 {
     if (any(threadID.xy >= rc.mDispatchSize))
         return;
 
-    const float depth = g_DepthTexture[threadID.xy];
+    uint2 full_size;
+    g_DepthTexture.GetDimensions(full_size.x, full_size.y);
+
+    const uint2 quad_offset = rc.mResolutionShift > 0 ? sQuadOffsets[fc.mFrameCounter % 4] : uint2(0, 0);
+    const uint2 pixel = min((threadID.xy << rc.mResolutionShift) + quad_offset, full_size - 1);
+
+    const float depth = g_DepthTexture[pixel];
 
     if (depth >= 1.0f)
     {
@@ -63,16 +72,16 @@ void main(uint3 threadID : SV_DispatchThreadID)
         return;
     }
 
-    const float2 texel_size = 1.0f / float2(rc.mDispatchSize);
-    const float2 screen_uv = (float2(threadID.xy) + 0.5f) * texel_size;
+    const float2 texel_size = 1.0f / float2(full_size);
+    const float2 screen_uv = (float2(pixel) + 0.5f) * texel_size;
 
     const float3 vs_position = GetViewPosition(screen_uv, depth);
     const float3 vs_view = normalize(-vs_position);
 
-    const float3 ws_normal = UnpackNormal(g_GBufferTexture[threadID.xy]);
+    const float3 ws_normal = UnpackNormal(g_GBufferTexture[pixel]);
     const float3 vs_normal = normalize(mul((float3x3)fc.mViewMatrix, ws_normal));
 
-    const float radius_pixels = min(rc.mRadius * fc.mProjectionMatrix[1][1] * 0.5f * float(rc.mDispatchSize.y) / -vs_position.z, GTAO_MAX_RADIUS_PIXELS);
+    const float radius_pixels = min(rc.mRadius * fc.mProjectionMatrix[1][1] * 0.5f * float(full_size.y) / -vs_position.z, GTAO_MAX_RADIUS_PIXELS);
 
     if (radius_pixels < 1.0f)
     {

@@ -154,6 +154,7 @@ struct SystemShadersDX12 : public IResource
 
     ComputeProgram mSSRTraceShader;
     ComputeProgram mGTAOShader;
+    ComputeProgram mGTAOUpsampleShader;
 
     ComputeProgram mSkyCubeShader;
     ComputeProgram mConvolveCubeShader;

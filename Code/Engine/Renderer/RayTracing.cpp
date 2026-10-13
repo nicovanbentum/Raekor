@@ -126,15 +126,17 @@ const RenderGraphResourceID AddAmbientOcclusionPass(RenderGraph& inRenderGraph, 
 
 
 
-const RenderGraphResourceID AddDenoisePasses(RenderGraph& inRenderGraph, Device& inDevice, const GBufferOutput& inGBuffer, RenderGraphResourceID inSignalTexture, const String& inName)
+const RenderGraphResourceID AddDenoisePasses(RenderGraph& inRenderGraph, Device& inDevice, const GBufferOutput& inGBuffer, RenderGraphResourceID inSignalTexture, const String& inName, uint32_t inResolutionShift)
 {
-    auto CreateDenoiseTexture = [&inRenderGraph](RenderGraphBuilder& inRGBuilder, const char* inDebugName, Texture::Usage inUsage = Texture::Usage::SHADER_READ_WRITE, DXGI_FORMAT inFormat = DXGI_FORMAT_R16G16B16A16_FLOAT)
+    const UVec2 signal_size = ( inRenderGraph.GetViewport().GetRenderSize() + ( 1u << inResolutionShift ) - 1u ) >> inResolutionShift;
+
+    auto CreateDenoiseTexture = [signal_size](RenderGraphBuilder& inRGBuilder, const char* inDebugName, Texture::Usage inUsage = Texture::Usage::SHADER_READ_WRITE, DXGI_FORMAT inFormat = DXGI_FORMAT_R16G16B16A16_FLOAT)
     {
         return inRGBuilder.Create(Texture::Desc
         {
             .format = inFormat,
-            .width  = inRenderGraph.GetViewport().GetRenderSize().x,
-            .height = inRenderGraph.GetViewport().GetRenderSize().y,
+            .width  = signal_size.x,
+            .height = signal_size.y,
             .usage  = inUsage,
             .debugName = inDebugName
         });
@@ -143,6 +145,7 @@ const RenderGraphResourceID AddDenoisePasses(RenderGraph& inRenderGraph, Device&
     const DenoiseTemporalData& temporal_data = inRenderGraph.AddComputePass<DenoiseTemporalData>(inName + " Temporal",
     [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, DenoiseTemporalData& inData)
     {
+        inData.mResolutionShift = inResolutionShift;
         inData.mAccumulatedTexture = CreateDenoiseTexture(inRGBuilder, "RT_DenoiseAccumulated");
         inData.mHistoryTexture = CreateDenoiseTexture(inRGBuilder, "RT_DenoiseHistory", Texture::Usage::SHADER_READ_ONLY);
 
@@ -156,7 +159,7 @@ const RenderGraphResourceID AddDenoisePasses(RenderGraph& inRenderGraph, Device&
 
     [&inRenderGraph, &inDevice](DenoiseTemporalData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
-        const Viewport& viewport = inRenderGraph.GetViewport();
+        const UVec2 dispatch_size = ( inRenderGraph.GetViewport().GetRenderSize() + ( 1u << inData.mResolutionShift ) - 1u ) >> inData.mResolutionShift;
 
         inCmdList.PushComputeConstants(DenoiseRootConstants
         {
@@ -165,11 +168,12 @@ const RenderGraphResourceID AddDenoisePasses(RenderGraph& inRenderGraph, Device&
             .mOutputTexture   = inResources.GetBindlessHeapIndex(inData.mAccumulatedTexture),
             .mDepthTexture    = inResources.GetBindlessHeapIndex(inData.mDepthTextureSRV),
             .mVelocityTexture = inResources.GetBindlessHeapIndex(inData.mVelocityTextureSRV),
-            .mDispatchSize    = viewport.GetRenderSize()
+            .mResolutionShift = inData.mResolutionShift,
+            .mDispatchSize    = dispatch_size
         });
 
         inCmdList->SetPipelineState(g_SystemShaders.mDenoiseTemporalShader.GetComputePSO());
-        inCmdList->Dispatch(( viewport.GetRenderSize().x + 7 ) / 8, ( viewport.GetRenderSize().y + 7 ) / 8, 1);
+        inCmdList->Dispatch(( dispatch_size.x + 7 ) / 8, ( dispatch_size.y + 7 ) / 8, 1);
 
         ID3D12Resource* accumulated_texture_resource = inDevice.GetD3D12Resource(inResources.GetTexture(inData.mAccumulatedTexture));
         ID3D12Resource* history_texture_resource = inDevice.GetD3D12Resource(inResources.GetTexture(inData.mHistoryTexture));
@@ -205,6 +209,7 @@ const RenderGraphResourceID AddDenoisePasses(RenderGraph& inRenderGraph, Device&
             output_texture = CreateDenoiseTexture(inRGBuilder, is_last_iteration ? "RT_Denoised" : "RT_DenoiseSpatial", Texture::Usage::SHADER_READ_WRITE, is_last_iteration ? DXGI_FORMAT_R16_FLOAT : DXGI_FORMAT_R16G16B16A16_FLOAT);
 
             inData.mStepSize = 1u << iteration;
+            inData.mResolutionShift = inResolutionShift;
             inData.mOutputTextureUAV = inRGBuilder.Write(output_texture);
             inData.mInputTextureSRV = inRGBuilder.Read(input_texture);
             inData.mGBufferTextureSRV = inRGBuilder.Read(inGBuffer.mRenderTexture);
@@ -212,7 +217,7 @@ const RenderGraphResourceID AddDenoisePasses(RenderGraph& inRenderGraph, Device&
 
         [&inRenderGraph](DenoiseSpatialData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
         {
-            const Viewport& viewport = inRenderGraph.GetViewport();
+            const UVec2 dispatch_size = ( inRenderGraph.GetViewport().GetRenderSize() + ( 1u << inData.mResolutionShift ) - 1u ) >> inData.mResolutionShift;
 
             inCmdList.PushComputeConstants(DenoiseRootConstants
             {
@@ -220,11 +225,12 @@ const RenderGraphResourceID AddDenoisePasses(RenderGraph& inRenderGraph, Device&
                 .mOutputTexture  = inResources.GetBindlessHeapIndex(inData.mOutputTextureUAV),
                 .mGBufferTexture = inResources.GetBindlessHeapIndex(inData.mGBufferTextureSRV),
                 .mStepSize       = inData.mStepSize,
-                .mDispatchSize   = viewport.GetRenderSize()
+                .mResolutionShift = inData.mResolutionShift,
+                .mDispatchSize   = dispatch_size
             });
 
             inCmdList->SetPipelineState(g_SystemShaders.mDenoiseSpatialShader.GetComputePSO());
-            inCmdList->Dispatch(( viewport.GetRenderSize().x + 7 ) / 8, ( viewport.GetRenderSize().y + 7 ) / 8, 1);
+            inCmdList->Dispatch(( dispatch_size.x + 7 ) / 8, ( dispatch_size.y + 7 ) / 8, 1);
         });
 
         input_texture = output_texture;

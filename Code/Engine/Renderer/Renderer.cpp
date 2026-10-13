@@ -638,7 +638,15 @@ void Renderer::Recompile(Device& inDevice)
             rt_shadows_texture = AddRayTracedShadowsPass(m_RenderGraph, inDevice, gbuffer_output);
 
         if (m_Settings.mEnableGTAO)
-            ao_texture = AddDenoisePasses(m_RenderGraph, inDevice, gbuffer_output, AddGTAOPass(m_RenderGraph, inDevice, gbuffer_output).mOutputTexture, "GTAO");
+        {
+            const uint32_t gtao_resolution_shift = m_Settings.mGTAOHalfRes ? 1 : 0;
+            const GTAOData& gtao_data = AddGTAOPass(m_RenderGraph, inDevice, gbuffer_output, gtao_resolution_shift);
+
+            ao_texture = AddDenoisePasses(m_RenderGraph, inDevice, gbuffer_output, gtao_data.mOutputTexture, "GTAO", gtao_resolution_shift);
+
+            if (gtao_resolution_shift > 0)
+                ao_texture = AddGTAOUpsamplePass(m_RenderGraph, inDevice, gbuffer_output, ao_texture, gtao_resolution_shift).mOutputTexture;
+        }
 
         if (m_Settings.mEnableRTAO && inDevice.IsRayTracingSupported())
             ao_texture = AddAmbientOcclusionPass(m_RenderGraph, inDevice, gbuffer_output);
@@ -851,6 +859,7 @@ uint64_t Renderer::GetRenderGraphKey() const
         uint64_t(m_Settings.mEnableDebugOverlay),
         uint64_t(m_Settings.mEnableRTAO),
         uint64_t(m_Settings.mEnableGTAO),
+        uint64_t(m_Settings.mGTAOHalfRes),
         uint64_t(m_Settings.mEnableSSR),
         uint64_t(m_Settings.mEnableShadows),
         uint64_t(m_Settings.mEnableReflections),

@@ -66,6 +66,7 @@ private:
         float& mJitterScale      = g_CVariables->Create("r_jitter_scale",         1.0f, true);
         int& mDebugTexture       = g_CVariables->Create("r_debug_texture",        0,   true);
         int& mWireframe          = g_CVariables->Create("r_wireframe",            0,   true);
+        int& mGTAOHalfRes        = g_CVariables->Create("r_gtao_half_res",        1);
     } m_Settings;
 
 public:

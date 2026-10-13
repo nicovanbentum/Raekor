@@ -256,6 +256,17 @@ struct GTAORootConstants
     float mThickness;
     float mPower;
     uint2 mDispatchSize;
+    uint  mResolutionShift;
+};
+
+
+struct GTAOUpsampleRootConstants
+{
+    uint  mInputTexture;
+    uint  mDepthTexture;
+    uint  mOutputTexture;
+    uint  mResolutionShift;
+    uint2 mDispatchSize;
 };
 
 
@@ -394,7 +405,7 @@ struct DenoiseRootConstants
     uint  mGBufferTexture;
     uint  mVelocityTexture;
     uint  mStepSize;
-    uint  mPad0;
+    uint  mResolutionShift;
     uint2 mDispatchSize;
 };
 

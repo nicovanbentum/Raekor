@@ -708,16 +708,25 @@ const TransparentForwardData& AddTransparentForwardPass(RenderGraph& inRenderGra
 
 
 
-const GTAOData& AddGTAOPass(RenderGraph& inRenderGraph, Device& inDevice, const GBufferOutput& inGBuffer)
+static UVec2 sGetShiftedSize(UVec2 inSize, uint32_t inResolutionShift)
+{
+    return ( inSize + ( 1u << inResolutionShift ) - 1u ) >> inResolutionShift;
+}
+
+
+const GTAOData& AddGTAOPass(RenderGraph& inRenderGraph, Device& inDevice, const GBufferOutput& inGBuffer, uint32_t inResolutionShift)
 {
     return inRenderGraph.AddComputePass<GTAOData>("GTAO",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, GTAOData& inData)
     {
+        const UVec2 output_size = sGetShiftedSize(inRenderGraph.GetViewport().GetRenderSize(), inResolutionShift);
+
+        inData.mResolutionShift = inResolutionShift;
         inData.mOutputTexture = ioRGBuilder.Create(Texture::Desc
         {
             .format = DXGI_FORMAT_R16_FLOAT,
-            .width  = inRenderGraph.GetViewport().GetRenderSize().x,
-            .height = inRenderGraph.GetViewport().GetRenderSize().y,
+            .width  = output_size.x,
+            .height = output_size.y,
             .usage  = Texture::Usage::SHADER_READ_WRITE,
             .debugName = "GTAO"
         });
@@ -730,23 +739,65 @@ const GTAOData& AddGTAOPass(RenderGraph& inRenderGraph, Device& inDevice, const 
 
     [&inRenderGraph, &inDevice](GTAOData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
     {
-        const Viewport& viewport = inRenderGraph.GetViewport();
+        const UVec2 dispatch_size = sGetShiftedSize(inRenderGraph.GetViewport().GetRenderSize(), inData.mResolutionShift);
 
         inCmdList.PushComputeConstants(GTAORootConstants
         {
-            .mOutputTexture  = inRGResources.GetBindlessHeapIndex(inData.mOutputTexture),
-            .mDepthTexture   = inRGResources.GetBindlessHeapIndex(inData.mDepthTexture),
-            .mGBufferTexture = inRGResources.GetBindlessHeapIndex(inData.mGBufferTexture),
-            .mSliceCount     = uint32_t(RenderSettings::mGTAOSliceCount),
-            .mStepCount      = uint32_t(RenderSettings::mGTAOStepCount),
-            .mRadius         = RenderSettings::mGTAORadius,
-            .mThickness      = RenderSettings::mGTAOThickness,
-            .mPower          = RenderSettings::mGTAOPower,
-            .mDispatchSize   = viewport.GetRenderSize()
+            .mOutputTexture   = inRGResources.GetBindlessHeapIndex(inData.mOutputTexture),
+            .mDepthTexture    = inRGResources.GetBindlessHeapIndex(inData.mDepthTexture),
+            .mGBufferTexture  = inRGResources.GetBindlessHeapIndex(inData.mGBufferTexture),
+            .mSliceCount      = uint32_t(RenderSettings::mGTAOSliceCount),
+            .mStepCount       = uint32_t(RenderSettings::mGTAOStepCount),
+            .mRadius          = RenderSettings::mGTAORadius,
+            .mThickness       = RenderSettings::mGTAOThickness,
+            .mPower           = RenderSettings::mGTAOPower,
+            .mDispatchSize    = dispatch_size,
+            .mResolutionShift = inData.mResolutionShift
         });
 
         inCmdList->SetPipelineState(g_SystemShaders.mGTAOShader.GetComputePSO());
-        inCmdList.Dispatch(( viewport.GetRenderSize().x + 7 ) / 8, ( viewport.GetRenderSize().y + 7 ) / 8, 1);
+        inCmdList.Dispatch(( dispatch_size.x + 7 ) / 8, ( dispatch_size.y + 7 ) / 8, 1);
+    });
+}
+
+
+
+const GTAOUpsampleData& AddGTAOUpsamplePass(RenderGraph& inRenderGraph, Device& inDevice, const GBufferOutput& inGBuffer, RenderGraphResourceID inInputTexture, uint32_t inResolutionShift)
+{
+    return inRenderGraph.AddComputePass<GTAOUpsampleData>("GTAO Upsample",
+    [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, GTAOUpsampleData& inData)
+    {
+        inData.mResolutionShift = inResolutionShift;
+        inData.mOutputTexture = ioRGBuilder.Create(Texture::Desc
+        {
+            .format = DXGI_FORMAT_R16_FLOAT,
+            .width  = inRenderGraph.GetViewport().GetRenderSize().x,
+            .height = inRenderGraph.GetViewport().GetRenderSize().y,
+            .usage  = Texture::Usage::SHADER_READ_WRITE,
+            .debugName = "GTAO_Upsampled"
+        });
+
+        ioRGBuilder.Write(inData.mOutputTexture);
+
+        inData.mInputTexture = ioRGBuilder.Read(inInputTexture);
+        inData.mDepthTexture = ioRGBuilder.Read(inGBuffer.mDepthTexture);
+    },
+
+    [&inRenderGraph, &inDevice](GTAOUpsampleData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
+    {
+        const UVec2 dispatch_size = inRenderGraph.GetViewport().GetRenderSize();
+
+        inCmdList.PushComputeConstants(GTAOUpsampleRootConstants
+        {
+            .mInputTexture    = inRGResources.GetBindlessHeapIndex(inData.mInputTexture),
+            .mDepthTexture    = inRGResources.GetBindlessHeapIndex(inData.mDepthTexture),
+            .mOutputTexture   = inRGResources.GetBindlessHeapIndex(inData.mOutputTexture),
+            .mResolutionShift = inData.mResolutionShift,
+            .mDispatchSize    = dispatch_size
+        });
+
+        inCmdList->SetPipelineState(g_SystemShaders.mGTAOUpsampleShader.GetComputePSO());
+        inCmdList.Dispatch(( dispatch_size.x + 7 ) / 8, ( dispatch_size.y + 7 ) / 8, 1);
     });
 }
 
