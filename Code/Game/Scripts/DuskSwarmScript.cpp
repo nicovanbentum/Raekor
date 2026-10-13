@@ -1,5 +1,6 @@
 #define RAEKOR_SCRIPT
 #include "../Engine/Raekor.h"
+#include "../Engine/Profiler.h"
 #include "../Engine/GLTF.h"
 
 namespace RK {
@@ -683,6 +684,8 @@ public:
 
     void OnUpdate(float inDeltaTime) override
     {
+        PROFILE_FUNCTION_CPU();
+
         if (!m_Started)
             OnStart();
 
@@ -937,6 +940,8 @@ private:
 
     void UpdateNodes()
     {
+        PROFILE_FUNCTION_CPU();
+
         m_MeshBatchComponents.resize(m_MeshBatches.size());
 
         for (size_t batch = 0; batch < m_MeshBatches.size(); batch++)
@@ -1274,6 +1279,12 @@ private:
                 ground->gpuAlbedoMap = m_GroundTextures[layer].mAlbedo;
                 ground->gpuNormalMap = m_GroundTextures[layer].mNormal;
                 ground->gpuRoughnessMap = m_GroundTextures[layer].mRoughness;
+
+                if (layer == GROUND_GRASS)
+                {
+                    ground->samplerFilter = MATERIAL_SAMPLER_FILTER_POINT;
+                    m_App->GetRenderInterface()->UploadMaterialSampler(*ground);
+                }
             }
         }
 
@@ -1747,6 +1758,8 @@ private:
 
     void UpdateSounds()
     {
+        PROFILE_FUNCTION_CPU();
+
         SetTransform(m_ListenerEntity, ToWorld(m_PlayerPosition, cListenerHeight), Vec3(1.0f));
 
         if (m_State == STATE_GAME_OVER && !m_EndJinglePlayed && m_PlayerDeathTimer >= cGameOverJingleDelay)
@@ -2031,6 +2044,8 @@ private:
 
     void UpdatePlayer(float inDeltaTime)
     {
+        PROFILE_FUNCTION_CPU();
+
         const Vec2 input = GetInputDirection();
 
         if (m_DashTimer > 0.0f)
@@ -2128,6 +2143,8 @@ private:
 
     void UpdateSpawning(float inDeltaTime)
     {
+        PROFILE_FUNCTION_CPU();
+
         const float minutes = m_RunTime / 60.0f;
         float spawn_rate = 1.2f + minutes * 1.7f + minutes * minutes * 0.3f;
 
@@ -2305,6 +2322,8 @@ private:
 
     void BuildGrid()
     {
+        PROFILE_FUNCTION_CPU();
+
         m_GridStart.assign(cGridDim * cGridDim + 1, 0);
         m_GridCells.resize(m_Enemies.size());
 
@@ -2398,6 +2417,8 @@ private:
 
     void UpdateEnemies(float inDeltaTime)
     {
+        PROFILE_FUNCTION_CPU();
+
         m_Pushes.assign(m_Enemies.size(), Vec2(0.0f));
 
         for (size_t index = 0; index < m_Enemies.size(); index++)
@@ -2916,6 +2937,8 @@ private:
 
     void UpdateDying(float inDeltaTime)
     {
+        PROFILE_FUNCTION_CPU();
+
         for (size_t index = 0; index < m_Enemies.size(); index++)
         {
             Enemy& enemy = m_Enemies[index];
@@ -2981,6 +3004,8 @@ private:
 
     void UpdateEnemyProjectiles(float inDeltaTime)
     {
+        PROFILE_FUNCTION_CPU();
+
         const Vec3 player = GetPlayerCenter();
 
         for (Array<EnemyProjectile>* pool : { &m_Arrows, &m_Orbs })
@@ -3034,6 +3059,8 @@ private:
 
     void UpdateWeapons(float inDeltaTime)
     {
+        PROFILE_FUNCTION_CPU();
+
         const float damage_multiplier = GetDamageMultiplier();
         const float cooldown_multiplier = GetCooldownMultiplier();
         const float area = GetAreaMultiplier();
@@ -3181,6 +3208,8 @@ private:
 
     void UpdateProjectiles(float inDeltaTime)
     {
+        PROFILE_FUNCTION_CPU();
+
         for (Projectile& projectile : m_Projectiles)
         {
             if (!projectile.mActive)
@@ -3261,6 +3290,8 @@ private:
 
     void UpdateFireballs(float inDeltaTime)
     {
+        PROFILE_FUNCTION_CPU();
+
         for (Fireball& fireball : m_Fireballs)
         {
             if (!fireball.mActive)
@@ -3374,6 +3405,8 @@ private:
 
     void UpdateMeteors(float inDeltaTime)
     {
+        PROFILE_FUNCTION_CPU();
+
         for (Meteor& meteor : m_Meteors)
         {
             if (!meteor.mActive)
@@ -3516,6 +3549,8 @@ private:
 
     void UpdateGems(float inDeltaTime)
     {
+        PROFILE_FUNCTION_CPU();
+
         const float magnet_radius = GetMagnetRadius();
 
         for (Gem& gem : m_Gems)
@@ -3572,6 +3607,8 @@ private:
 
     void UpdatePickups(float inDeltaTime)
     {
+        PROFILE_FUNCTION_CPU();
+
         for (Pickup& pickup : m_Pickups)
         {
             if (!pickup.mActive)
@@ -3701,6 +3738,7 @@ private:
 
     void UpdateProgress()
     {
+        PROFILE_FUNCTION_CPU();
 
         if (m_RunTime >= cVictoryTime)
         {
@@ -3843,6 +3881,8 @@ private:
 
     void UpdateParticles(float inDeltaTime)
     {
+        PROFILE_FUNCTION_CPU();
+
         for (Array<Particle>& pool : m_Particles)
         {
             for (Particle& particle : pool)
@@ -3914,6 +3954,8 @@ private:
 
     void UpdateNovaBursts(float inDeltaTime)
     {
+        PROFILE_FUNCTION_CPU();
+
         for (NovaBurst& burst : m_NovaBursts)
         {
             if (!burst.mActive)
@@ -3988,6 +4030,8 @@ private:
 
     void UpdateTelegraphs(float inDeltaTime)
     {
+        PROFILE_FUNCTION_CPU();
+
         for (Telegraph& telegraph : m_Telegraphs)
         {
             if (!telegraph.mActive)
@@ -4028,6 +4072,8 @@ private:
 
     void UpdateBeams(float inDeltaTime)
     {
+        PROFILE_FUNCTION_CPU();
+
         for (Beam& beam : m_Beams)
         {
             if (!beam.mActive)
@@ -4082,6 +4128,8 @@ private:
 
     void UpdateLights(float inDeltaTime)
     {
+        PROFILE_FUNCTION_CPU();
+
         for (FlashLight& flash : m_Lights)
         {
             if (!flash.mActive)
@@ -4385,6 +4433,8 @@ private:
 
     void UpdateVisuals(float inDeltaTime)
     {
+        PROFILE_FUNCTION_CPU();
+
         if (m_State == STATE_PLAYING)
             m_PlayerYaw = LerpAngle(m_PlayerYaw, GetYaw(m_FacingDirection), 1.0f - glm::exp(-inDeltaTime * 14.0f));
 
@@ -4478,6 +4528,8 @@ private:
 
     void UpdateCamera(float inDeltaTime)
     {
+        PROFILE_FUNCTION_CPU();
+
         Transform* transform = FindComponent<Transform>(m_CameraEntity);
 
         if (transform == nullptr)
@@ -4641,6 +4693,8 @@ private:
 
     void DrawHUD(float inDeltaTime)
     {
+        PROFILE_FUNCTION_CPU();
+
         const Vec2 display = Vec2(m_App->GetViewport().GetDisplaySize());
         const float scale = glm::max(display.y / 1080.0f, 0.5f);
         const float margin = 20.0f * scale;
