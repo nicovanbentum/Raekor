@@ -827,6 +827,10 @@ public:
                     m_DraggingVolume = true;
                     SetVolumeFromMouse(layout);
                 }
+                else if (IsInside(m_MousePosition, layout.mGodModePos, layout.mGodModeSize))
+                {
+                    ToggleGodMode();
+                }
                 else if (IsInside(m_MousePosition, layout.mButtonPos, layout.mButtonSize))
                 {
                     Resume();
@@ -854,6 +858,7 @@ public:
                     case SDLK_RETURN:
                     case SDLK_SPACE: if (!inEvent.key.repeat) Resume(); break;
                     case SDLK_Q: if (!inEvent.key.repeat) Quit(); break;
+                    case SDLK_G: if (!inEvent.key.repeat) ToggleGodMode(); break;
                 }
             } break;
         }
@@ -5087,6 +5092,8 @@ private:
         Vec2 mSliderPos = Vec2(0.0f);
         Vec2 mSliderSize = Vec2(0.0f);
         Vec2 mSliderPadding = Vec2(0.0f);
+        Vec2 mGodModePos = Vec2(0.0f);
+        Vec2 mGodModeSize = Vec2(0.0f);
         Vec2 mButtonPos = Vec2(0.0f);
         Vec2 mButtonSize = Vec2(0.0f);
         Vec2 mQuitPos = Vec2(0.0f);
@@ -5099,13 +5106,15 @@ private:
         layout.mScale = glm::max(layout.mDisplay.y / 1080.0f, 0.5f);
 
         const float scale = layout.mScale;
-        layout.mPanelSize = Vec2(620.0f, 410.0f) * scale;
+        layout.mPanelSize = Vec2(620.0f, 480.0f) * scale;
         layout.mPanelPos = layout.mDisplay * 0.5f - layout.mPanelSize * 0.5f;
         layout.mSliderSize = Vec2(380.0f, 16.0f) * scale;
         layout.mSliderPos = Vec2(layout.mDisplay.x * 0.5f - layout.mSliderSize.x * 0.5f - 40.0f * scale, layout.mPanelPos.y + 150.0f * scale);
         layout.mSliderPadding = Vec2(16.0f, 18.0f) * scale;
+        layout.mGodModeSize = Vec2(220.0f, 32.0f) * scale;
+        layout.mGodModePos = Vec2(layout.mSliderPos.x, layout.mPanelPos.y + 200.0f * scale);
         layout.mButtonSize = Vec2(240.0f, 56.0f) * scale;
-        layout.mButtonPos = Vec2(layout.mDisplay.x * 0.5f - layout.mButtonSize.x * 0.5f, layout.mPanelPos.y + 230.0f * scale);
+        layout.mButtonPos = Vec2(layout.mDisplay.x * 0.5f - layout.mButtonSize.x * 0.5f, layout.mPanelPos.y + 290.0f * scale);
         layout.mQuitPos = layout.mButtonPos + Vec2(0.0f, layout.mButtonSize.y + 16.0f * scale);
         return layout;
     }
@@ -5130,6 +5139,12 @@ private:
     void SetVolumeFromMouse(const PauseLayout& inLayout)
     {
         SetMasterVolume(( m_MousePosition.x - inLayout.mSliderPos.x ) / inLayout.mSliderSize.x);
+    }
+
+    void ToggleGodMode()
+    {
+        *m_GodMode = *m_GodMode ? 0 : 1;
+        PlaySfx(cSelectSound, 0.5f);
     }
 
     void Resume()
@@ -5177,10 +5192,22 @@ private:
 
         DrawLabel(Vec2(slider_pos.x + slider_size.x + 70.0f * scale, slider_pos.y - 6.0f * scale), std::format("{}%", int(glm::round(volume * 100.0f))), 26.0f * scale, Fade(cRSYellow, alpha), UI_TEXT_ALIGN_CENTER);
 
+        const bool god_mode = *m_GodMode != 0;
+        const bool god_mode_hovered = IsInside(m_MousePosition, layout.mGodModePos, layout.mGodModeSize);
+        const Vec2 god_mode_pos = layout.mGodModePos + offset;
+        const Vec2 box_size = Vec2(layout.mGodModeSize.y);
+
+        DrawSlotBox(god_mode_pos, box_size, scale, alpha);
+
+        if (god_mode)
+            g_UIRenderer.AddRectFilled(god_mode_pos + Vec2(7.0f * scale), box_size - Vec2(14.0f * scale), 2.0f * scale, Fade(cRSOrange, 0.9f * alpha));
+
+        DrawLabel(god_mode_pos + Vec2(box_size.x + 14.0f * scale, 4.0f * scale), "God mode", 22.0f * scale, Fade(god_mode_hovered ? cRSYellow : cRSWhite, alpha));
+
         DrawButton(layout.mButtonPos + offset, layout.mButtonSize, "Resume", IsInside(m_MousePosition, layout.mButtonPos, layout.mButtonSize), alpha, scale);
         DrawButton(layout.mQuitPos + offset, layout.mButtonSize, "Quit", IsInside(m_MousePosition, layout.mQuitPos, layout.mButtonSize), alpha, scale);
 
-        DrawLabel(Vec2(center, pos.y + layout.mPanelSize.y + 20.0f * scale), "A / D or drag to adjust  -  Enter or Esc to resume  -  Q to quit", 20.0f * scale, Fade(cRSWhite, 0.85f * alpha), UI_TEXT_ALIGN_CENTER);
+        DrawLabel(Vec2(center, pos.y + layout.mPanelSize.y + 20.0f * scale), "A / D or drag to adjust  -  G for god mode  -  Enter or Esc to resume  -  Q to quit", 20.0f * scale, Fade(cRSWhite, 0.85f * alpha), UI_TEXT_ALIGN_CENTER);
     }
 
 private:
