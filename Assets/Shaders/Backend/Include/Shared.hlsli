@@ -306,7 +306,6 @@ struct SkinningRootConstants
 
 struct GbufferRootConstants
 {
-    uint     mEntity;
     uint     mInstanceIndex;
 };
 

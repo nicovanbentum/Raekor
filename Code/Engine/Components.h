@@ -228,6 +228,39 @@ struct Mesh
 };
 
 
+struct MeshInstanced
+{
+	RTTI_DECLARE_TYPE(MeshInstanced);
+
+	struct Instance
+	{
+		RTTI_DECLARE_TYPE(MeshInstanced::Instance);
+
+		Mat4x4 transform = Mat4x4(1.0f);
+		Entity material = Entity::Null;
+		bool visible = true;
+
+		Mat4x4 worldTransform = Mat4x4(1.0f);
+		Mat4x4 prevWorldTransform = Mat4x4(1.0f);
+		bool worldVisible = false;
+	};
+
+	String source;
+	uint32_t index = 0;
+	Entity material = Entity::Null;
+	Array<Instance> instances;
+
+	MeshAsset::Ptr asset;
+
+	void SetAsset(const MeshAsset::Ptr& inAsset, uint32_t inIndex);
+
+	MeshGeometry* GetGeometry() const { return asset ? asset->GetMesh(index) : nullptr; }
+	BBox3D GetBounds() const;
+
+	bool IsLoaded() const;
+};
+
+
 struct RigidBody
 {
 	RTTI_DECLARE_TYPE(RigidBody);
@@ -501,7 +534,8 @@ static constexpr auto Components = std::make_tuple(
 	ComponentDescription<Name>              {"Name"},
 	ComponentDescription<Transform>         {"Transform"},
 	ComponentDescription<Mesh>              {"Mesh"},
-	ComponentDescription<Camera>            {"Camera"},
+	ComponentDescription<MeshInstanced>     {"Mesh Instanced"},
+	ComponentDescription<Camera>           {"Camera"},
 	ComponentDescription<SoftBody>          {"Soft Body"},
 	ComponentDescription<Material>          {"Material"},
 	ComponentDescription<Light>				{"Light"},

@@ -280,6 +280,18 @@ void Scene::UpdateTransforms()
 		else
 			sMultiplyTransforms(transforms[node.mParent].worldTransform, local_transform, transform.worldTransform);
 	}
+
+	for (const auto& [entity, mesh_instanced, transform] : Each<MeshInstanced, Transform>())
+	{
+		for (MeshInstanced::Instance& instance : mesh_instanced.instances)
+		{
+			const Mat4x4 prev_world_transform = instance.worldTransform;
+			sMultiplyTransforms(transform.worldTransform, instance.transform, instance.worldTransform);
+
+			instance.prevWorldTransform = instance.worldVisible ? prev_world_transform : instance.worldTransform;
+			instance.worldVisible = instance.visible;
+		}
+	}
 }
 #pragma optimize("", on)
 
@@ -525,7 +537,13 @@ Entity Scene::Clone(Entity inEntity, Entity inParent)
 				m_Renderer->UploadSkeletonBuffers(copy, *skeleton, mesh);
 		}
 	}
-	
+
+	if (MeshInstanced* mesh_instanced = GetPtr<MeshInstanced>(copy))
+	{
+		if (m_Renderer && mesh_instanced->asset)
+			m_Renderer->UploadMeshBuffers(*mesh_instanced->asset);
+	}
+
 	if (Has<RigidBody>(copy))
 	{
 		RigidBody& collider = Get<RigidBody>(copy);
@@ -607,13 +625,19 @@ void Scene::LoadMeshAssets(Assets& ioAssets)
 	Array<String> sources;
 	uint32_t missing_source_count = 0;
 
-	for (const Mesh& mesh : GetStorage<Mesh>())
+	auto AddSource = [&](const String& inSource)
 	{
-		if (mesh.source.empty())
+		if (inSource.empty())
 			missing_source_count++;
-		else if (std::find(sources.begin(), sources.end(), mesh.source) == sources.end())
-			sources.push_back(mesh.source);
-	}
+		else if (std::find(sources.begin(), sources.end(), inSource) == sources.end())
+			sources.push_back(inSource);
+	};
+
+	for (const Mesh& mesh : GetStorage<Mesh>())
+		AddSource(mesh.source);
+
+	for (const MeshInstanced& mesh_instanced : GetStorage<MeshInstanced>())
+		AddSource(mesh_instanced.source);
 
 	if (missing_source_count > 0)
 		gLogWarning("Scene", "{} meshes in {} have no source file and can't be loaded, regenerate the scene from its source file", missing_source_count, m_ActiveSceneFilePath.string());
@@ -634,6 +658,18 @@ void Scene::LoadMeshAssets(Assets& ioAssets)
 		{
 			gLogWarning("Scene", "Mesh {} of entity {} is out of range, {} only contains {} meshes", mesh.index, uint32_t(entity), mesh.source, mesh.asset->GetMeshCount());
 			mesh.asset = nullptr;
+		}
+	}
+
+	for (const auto& [entity, mesh_instanced] : Each<MeshInstanced>())
+	{
+		const auto source = std::find(sources.begin(), sources.end(), mesh_instanced.source);
+		mesh_instanced.asset = source != sources.end() ? assets[source - sources.begin()] : nullptr;
+
+		if (mesh_instanced.asset && mesh_instanced.index >= mesh_instanced.asset->GetMeshCount())
+		{
+			gLogWarning("Scene", "Mesh {} of entity {} is out of range, {} only contains {} meshes", mesh_instanced.index, uint32_t(entity), mesh_instanced.source, mesh_instanced.asset->GetMeshCount());
+			mesh_instanced.asset = nullptr;
 		}
 	}
 
@@ -889,6 +925,7 @@ void Scene::UploadDirectionalLightCubeMaps(Assets& ioAssets)
 void Scene::UploadMeshes()
 {
 	UploadMeshes(GetEntities<Mesh>());
+	UploadMeshes(GetEntities<MeshInstanced>());
 }
 
 
@@ -905,6 +942,12 @@ void Scene::UploadMeshes(Slice<const Entity> inEntities)
 		{
 			if (mesh->asset && std::find(assets.begin(), assets.end(), mesh->asset.get()) == assets.end())
 				assets.push_back(mesh->asset.get());
+		}
+
+		if (const MeshInstanced* mesh_instanced = GetPtr<MeshInstanced>(entity))
+		{
+			if (mesh_instanced->asset && std::find(assets.begin(), assets.end(), mesh_instanced->asset.get()) == assets.end())
+				assets.push_back(mesh_instanced->asset.get());
 		}
 	}
 
@@ -942,6 +985,12 @@ void Scene::ReleaseResources()
 
 		if (Skeleton* skeleton = GetPtr<Skeleton>(entity))
 			m_Renderer->DestroySkeletonBuffers(entity, *skeleton);
+	}
+
+	for (const auto& [entity, mesh_instanced] : Each<MeshInstanced>())
+	{
+		if (mesh_instanced.asset)
+			m_Renderer->DestroyMeshBuffers(*mesh_instanced.asset);
 	}
 }
 
@@ -1021,6 +1070,14 @@ Array<Entity> Scene::Merge(Scene& ioOther)
 	{
 		if (Mesh* mesh = GetPtr<Mesh>(entity))
 			RemapEntity(mesh->material);
+
+		if (MeshInstanced* mesh_instanced = GetPtr<MeshInstanced>(entity))
+		{
+			RemapEntity(mesh_instanced->material);
+
+			for (MeshInstanced::Instance& instance : mesh_instanced->instances)
+				RemapEntity(instance.material);
+		}
 
 		if (Skeleton* skeleton = GetPtr<Skeleton>(entity))
 			RemapEntity(skeleton->animation);

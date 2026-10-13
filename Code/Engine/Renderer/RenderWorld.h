@@ -44,6 +44,13 @@ struct RenderInstance
 };
 
 
+struct RenderBatch
+{
+    uint32_t mFirstInstance = 0;
+    uint32_t mInstanceCount = 0;
+};
+
+
 struct RenderSkinnedMesh
 {
     Entity   mEntity = Entity::Null;
@@ -89,6 +96,7 @@ public:
     void Extract(const Scene& inScene, const Device& inDevice, float inExposure, bool inDisableAlbedo);
 
     Slice<const RenderInstance> GetInstances() const { return m_Instances; }
+    Slice<const RenderBatch> GetBatches() const { return m_Batches; }
     Slice<const RenderSkinnedMesh> GetSkinnedMeshes() const { return m_SkinnedMeshes; }
     Slice<const Mat4x4> GetBoneMatrices() const { return m_BoneMatrices; }
 
@@ -104,7 +112,18 @@ public:
 private:
     uint32_t AddName(const char* inName);
 
+    struct InstancedDraw
+    {
+        uint32_t mInstance;
+        uint32_t mMaterialIndex;
+        ERenderBlendMode mBlendMode;
+        uint64_t mVertexShader;
+        uint64_t mPixelShader;
+    };
+
     Array<RenderInstance> m_Instances;
+    Array<RenderBatch> m_Batches;
+    Array<InstancedDraw> m_InstancedDraws;
     Array<RenderSkinnedMesh> m_SkinnedMeshes;
     Array<Mat4x4> m_BoneMatrices;
     Array<RTGeometry> m_Geometries;

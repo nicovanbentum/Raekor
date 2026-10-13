@@ -531,6 +531,50 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Mesh& ioMesh)
 }
 
 
+bool InspectorWidget::DrawComponent(Entity inEntity, MeshInstanced& ioMeshInstanced)
+{
+	const MeshGeometry* geometry = ioMeshInstanced.GetGeometry();
+
+	ImGui::Text("Source: %s", ioMeshInstanced.source.empty() ? "Runtime" : ioMeshInstanced.source.c_str());
+	ImGui::Text("Index: %u", ioMeshInstanced.index);
+
+	if (geometry)
+	{
+		ImGui::Text("%s", geometry->name.c_str());
+		ImGui::Text("%i Vertices", int(geometry->positions.size()));
+		ImGui::Text("%i Triangles", int(geometry->indices.size() / 3));
+	}
+	else
+	{
+		ImGui::TextDisabled("No mesh data loaded");
+	}
+
+	const int visible_count = int(std::count_if(ioMeshInstanced.instances.begin(), ioMeshInstanced.instances.end(), [](const MeshInstanced::Instance& inInstance) { return inInstance.visible; }));
+	ImGui::Text("%i Instances, %i visible", int(ioMeshInstanced.instances.size()), visible_count);
+
+	Scene& scene = GetScene();
+	bool scene_changed = false;
+
+	const Name* material_name = scene.Has<Material>(ioMeshInstanced.material) ? scene.GetPtr<Name>(ioMeshInstanced.material) : nullptr;
+
+	if (ImGui::DragDropTargetButton("Material", material_name ? material_name->name.c_str() : "None", material_name != nullptr))
+		SetActiveEntity(ioMeshInstanced.material);
+
+	if (ImGui::BeginDragDropTarget())
+	{
+		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("drag_drop_entity"))
+		{
+			scene_changed = true;
+			ioMeshInstanced.material = *reinterpret_cast<const Entity*>( payload->Data );
+		}
+
+		ImGui::EndDragDropTarget();
+	}
+
+	return scene_changed;
+}
+
+
 bool InspectorWidget::DrawComponent(Entity inEntity, Camera& ioCamera)
 {
 	const bool is_active_camera = m_Editor->GetCameraEntity() == inEntity;

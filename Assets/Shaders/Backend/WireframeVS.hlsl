@@ -10,10 +10,10 @@ struct VS_OUTPUT
 FRAME_CONSTANTS(fc)
 ROOT_CONSTANTS(WireframeRootConstants, rc)
 
-VS_OUTPUT main(in uint inVertexID : SV_VertexID)
+VS_OUTPUT main(in uint inVertexID : SV_VertexID, in uint inInstanceID : SV_InstanceID)
 {
     StructuredBuffer<RTGeometry> geometries = ResourceDescriptorHeap[fc.mInstancesBuffer];
-    RTGeometry geometry = geometries[rc.mInstanceIndex];
+    RTGeometry geometry = geometries[rc.mInstanceIndex + inInstanceID];
 
     StructuredBuffer<RTVertex> vertex_buffer = ResourceDescriptorHeap[geometry.mVertexBuffer];
 

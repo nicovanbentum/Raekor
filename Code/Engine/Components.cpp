@@ -84,6 +84,23 @@ RTTI_DEFINE_TYPE(Mesh)
 }
 
 
+RTTI_DEFINE_TYPE(MeshInstanced::Instance)
+{
+	RTTI_DEFINE_MEMBER(MeshInstanced::Instance, SERIALIZE_ALL, "Transform", transform);
+	RTTI_DEFINE_MEMBER(MeshInstanced::Instance, SERIALIZE_ALL, "Material", material);
+	RTTI_DEFINE_MEMBER(MeshInstanced::Instance, SERIALIZE_ALL, "Visible", visible);
+}
+
+
+RTTI_DEFINE_TYPE(MeshInstanced)
+{
+	RTTI_DEFINE_MEMBER(MeshInstanced, SERIALIZE_ALL, "Source", source);
+	RTTI_DEFINE_MEMBER(MeshInstanced, SERIALIZE_ALL, "Index", index);
+	RTTI_DEFINE_MEMBER(MeshInstanced, SERIALIZE_ALL, "Material", material);
+	RTTI_DEFINE_MEMBER(MeshInstanced, SERIALIZE_ALL, "Instances", instances);
+}
+
+
 RTTI_DEFINE_TYPE(RigidBody) 
 {
     RTTI_DEFINE_MEMBER(RigidBody, SERIALIZE_ALL, "Shape", shape);
@@ -204,6 +221,7 @@ void gRegisterComponentTypes()
 {
 	g_RTTIFactory.Register(RTTI_OF<Entity>());
 	g_RTTIFactory.Register(RTTI_OF<Skeleton::Bone>());
+	g_RTTIFactory.Register(RTTI_OF<MeshInstanced::Instance>());
 
 	std::apply([](const auto& ... inComponents)
 	{
@@ -683,6 +701,37 @@ BBox3D Mesh::GetBounds() const
 
 
 bool Mesh::IsLoaded() const
+{
+	const MeshGeometry* geometry = GetGeometry();
+	return geometry && geometry->IsUploaded();
+}
+
+
+void MeshInstanced::SetAsset(const MeshAsset::Ptr& inAsset, uint32_t inIndex)
+{
+	asset = inAsset;
+	index = inIndex;
+	source = inAsset ? inAsset->GetSource() : String();
+}
+
+
+BBox3D MeshInstanced::GetBounds() const
+{
+	const MeshGeometry* geometry = GetGeometry();
+
+	if (geometry == nullptr)
+		return BBox3D();
+
+	BBox3D bounds;
+
+	for (const Instance& instance : instances)
+		bounds.Combine(geometry->bbox.Transformed(instance.transform));
+
+	return bounds;
+}
+
+
+bool MeshInstanced::IsLoaded() const
 {
 	const MeshGeometry* geometry = GetGeometry();
 	return geometry && geometry->IsUploaded();

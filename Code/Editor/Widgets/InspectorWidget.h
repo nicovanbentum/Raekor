@@ -14,6 +14,7 @@ class Animation;
 
 struct Name;
 struct Mesh;
+struct MeshInstanced;
 struct Skeleton;
 struct SoftBody;
 struct Material;
@@ -50,6 +51,7 @@ private:
 
 	bool DrawComponent(Entity inEntity, Name& ioName);
 	bool DrawComponent(Entity inEntity, Mesh& ioMesh);
+	bool DrawComponent(Entity inEntity, MeshInstanced& ioMeshInstanced);
 	bool DrawComponent(Entity inEntity, Light& ioLight);
 	bool DrawComponent(Entity inEntity, Camera& ioCamera);
 	bool DrawComponent(Entity inEntity, SoftBody& ioSoftBody);

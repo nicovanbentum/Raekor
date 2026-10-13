@@ -60,6 +60,7 @@ void RenderWorld::Extract(const Scene& inScene, const Device& inDevice, float in
     PROFILE_FUNCTION_CPU();
 
     m_Instances.clear();
+    m_Batches.clear();
     m_SkinnedMeshes.clear();
     m_BoneMatrices.clear();
     m_Geometries.clear();
@@ -106,6 +107,8 @@ void RenderWorld::Extract(const Scene& inScene, const Device& inDevice, float in
 
             const bool is_skinned = skeleton && skeleton->gpuBuffersUploaded;
 
+            m_Batches.push_back(RenderBatch { .mFirstInstance = uint32_t(m_Instances.size()), .mInstanceCount = 1 });
+
             RenderInstance& instance = m_Instances.emplace_back();
             instance.mEntity = entity;
             instance.mIndexBuffer = gToBufferID(geometry->indexBuffer);
@@ -130,6 +133,96 @@ void RenderWorld::Extract(const Scene& inScene, const Device& inDevice, float in
                 .mWorldTransform     = instance.mWorldTransform,
                 .mPrevWorldTransform = instance.mPrevWorldTransform
             });
+        }
+    }
+
+    {
+        PROFILE_SCOPE_CPU("Extract Instanced Meshes");
+
+        for (const auto& [entity, mesh_instanced] : inScene.Each<MeshInstanced>())
+        {
+            const MeshGeometry* geometry = mesh_instanced.GetGeometry();
+
+            if (geometry == nullptr || !geometry->IsUploaded())
+                continue;
+
+            m_InstancedDraws.clear();
+
+            for (uint32_t instance_index = 0; instance_index < mesh_instanced.instances.size(); instance_index++)
+            {
+                const MeshInstanced::Instance& instance = mesh_instanced.instances[instance_index];
+
+                if (!instance.worldVisible)
+                    continue;
+
+                const Entity material_entity = instance.material != Entity::Null ? instance.material : mesh_instanced.material;
+                const Material* material = inScene.GetPtr<Material>(material_entity);
+
+                m_InstancedDraws.push_back(InstancedDraw
+                {
+                    .mInstance      = instance_index,
+                    .mMaterialIndex = material ? inScene.GetPackedIndex<Material>(material_entity) : default_material_index,
+                    .mBlendMode     = sGetRenderBlendMode(material ? material->blendMode : Material::Default.blendMode),
+                    .mVertexShader  = material ? material->vertexShader : 0,
+                    .mPixelShader   = material ? material->pixelShader : 0
+                });
+            }
+
+            if (m_InstancedDraws.empty())
+                continue;
+
+            std::stable_sort(m_InstancedDraws.begin(), m_InstancedDraws.end(), [](const InstancedDraw& inLeft, const InstancedDraw& inRight)
+            {
+                return std::tie(inLeft.mBlendMode, inLeft.mVertexShader, inLeft.mPixelShader) < std::tie(inRight.mBlendMode, inRight.mVertexShader, inRight.mPixelShader);
+            });
+
+            const Name* name = inScene.GetPtr<Name>(entity);
+            const uint32_t name_offset = AddName(name ? name->name.c_str() : geometry->name.c_str());
+
+            const BufferID index_buffer = gToBufferID(geometry->indexBuffer);
+            const BufferID vertex_buffer = gToBufferID(geometry->vertexBuffer);
+            const uint32_t index_buffer_heap_index = inDevice.GetBindlessHeapIndex(index_buffer);
+            const uint32_t vertex_buffer_heap_index = inDevice.GetBindlessHeapIndex(vertex_buffer);
+            const Vec4 bounds_center = Vec4(geometry->bbox.GetCenter(), 1.0f);
+
+            for (size_t draw_index = 0; draw_index < m_InstancedDraws.size(); draw_index++)
+            {
+                const InstancedDraw& draw = m_InstancedDraws[draw_index];
+
+                if (draw_index == 0 || std::tie(draw.mBlendMode, draw.mVertexShader, draw.mPixelShader) != std::tie(m_InstancedDraws[draw_index - 1].mBlendMode, m_InstancedDraws[draw_index - 1].mVertexShader, m_InstancedDraws[draw_index - 1].mPixelShader))
+                    m_Batches.push_back(RenderBatch { .mFirstInstance = uint32_t(m_Instances.size()) });
+
+                m_Batches.back().mInstanceCount++;
+
+                const MeshInstanced::Instance& source = mesh_instanced.instances[draw.mInstance];
+
+                m_Instances.push_back(RenderInstance
+                {
+                    .mEntity             = entity,
+                    .mIndexBuffer        = index_buffer,
+                    .mVertexBuffer       = vertex_buffer,
+                    .mBottomLevelAS      = gToBufferID(geometry->BottomLevelAS),
+                    .mIndexCount         = uint32_t(geometry->indices.size()),
+                    .mMaterialIndex      = draw.mMaterialIndex,
+                    .mNameOffset         = name_offset,
+                    .mVertexShader       = draw.mVertexShader,
+                    .mPixelShader        = draw.mPixelShader,
+                    .mBlendMode          = draw.mBlendMode,
+                    .mBoundsCenter       = Vec3(source.worldTransform * bounds_center),
+                    .mWorldTransform     = source.worldTransform,
+                    .mPrevWorldTransform = source.prevWorldTransform
+                });
+
+                m_Geometries.push_back(RTGeometry
+                {
+                    .mEntity             = entity,
+                    .mIndexBuffer        = index_buffer_heap_index,
+                    .mVertexBuffer       = vertex_buffer_heap_index,
+                    .mMaterialIndex      = draw.mMaterialIndex,
+                    .mWorldTransform     = source.worldTransform,
+                    .mPrevWorldTransform = source.prevWorldTransform
+                });
+            }
         }
     }
 
