@@ -30,6 +30,13 @@ GameApp::GameApp(const Path& inSceneFile) :
 
     m_RenderSystem.InitImGui(m_Window);
 
+    if (OS::sCheckCommandLineOption("-fullscreen"))
+    {
+        SDL_SetWindowFullscreen(m_Window, true);
+        SDL_SyncWindow(m_Window);
+        m_RenderSystem.GetRenderer().SetShouldResize(true);
+    }
+
     if (!inSceneFile.empty() && fs::exists(inSceneFile))
     {
         m_Scene.OpenFromFile(inSceneFile.string(), m_Assets, this);
