@@ -369,21 +369,44 @@ public:
         STATE_VICTORY
     };
 
-    struct RigPart
+    enum class Node : uint32_t
+    {
+        Null = UINT32_MAX
+    };
+
+    struct SceneNode
+    {
+        Node mParent = Node::Null;
+        uint32_t mBatch = UINT32_MAX;
+        uint32_t mInstance = 0;
+        Entity mMaterial = Entity::Null;
+        Mat4x4 mLocal = Mat4x4(1.0f);
+        Mat4x4 mWorld = Mat4x4(1.0f);
+        bool mHidden = false;
+        bool mVisible = false;
+    };
+
+    struct MeshBatch
     {
         Entity mEntity = Entity::Null;
+        const MeshGeometry* mGeometry = nullptr;
+    };
+
+    struct RigPart
+    {
+        Node mNode = Node::Null;
         Vec3 mRest = Vec3(0.0f);
     };
 
     struct ModelMesh
     {
-        Entity mEntity = Entity::Null;
+        Node mNode = Node::Null;
         Entity mMaterial = Entity::Null;
     };
 
     struct Model
     {
-        Entity mRoot = Entity::Null;
+        Node mRoot = Node::Null;
         StaticArray<RigPart, RIG_PART_COUNT> mParts;
         Array<ModelMesh> mMeshes;
     };
@@ -429,7 +452,7 @@ public:
 
     struct Projectile
     {
-        Entity mEntity = Entity::Null;
+        Node mNode = Node::Null;
         bool mActive = false;
         Vec2 mPosition = Vec2(0.0f);
         Vec2 mVelocity = Vec2(0.0f);
@@ -441,7 +464,7 @@ public:
 
     struct Fireball
     {
-        Entity mEntity = Entity::Null;
+        Node mNode = Node::Null;
         bool mActive = false;
         Vec3 mStart = Vec3(0.0f);
         Vec3 mTarget = Vec3(0.0f);
@@ -454,7 +477,7 @@ public:
 
     struct EnemyProjectile
     {
-        Entity mEntity = Entity::Null;
+        Node mNode = Node::Null;
         bool mActive = false;
         Vec3 mPosition = Vec3(0.0f);
         Vec3 mVelocity = Vec3(0.0f);
@@ -465,7 +488,7 @@ public:
 
     struct Meteor
     {
-        Entity mEntity = Entity::Null;
+        Node mNode = Node::Null;
         bool mActive = false;
         Vec3 mStart = Vec3(0.0f);
         Vec3 mTarget = Vec3(0.0f);
@@ -489,7 +512,7 @@ public:
     struct Pickup
     {
         Model mModel;
-        Entity mGlow = Entity::Null;
+        Node mGlow = Node::Null;
         int mType = PICKUP_POTION;
         bool mActive = false;
         bool mOpening = false;
@@ -501,7 +524,7 @@ public:
 
     struct Particle
     {
-        Entity mEntity = Entity::Null;
+        Node mNode = Node::Null;
         Entity mMaterial = Entity::Null;
         bool mActive = false;
         bool mStretch = false;
@@ -541,7 +564,7 @@ public:
 
     struct NovaBurst
     {
-        StaticArray<Entity, 3> mEntities = {};
+        StaticArray<Node, 3> mNodes = {};
         StaticArray<Entity, 3> mMaterials = {};
         bool mActive = false;
         Vec3 mPosition = Vec3(0.0f);
@@ -552,8 +575,8 @@ public:
 
     struct Telegraph
     {
-        Entity mDisc = Entity::Null;
-        Entity mRing = Entity::Null;
+        Node mDisc = Node::Null;
+        Node mRing = Node::Null;
         bool mActive = false;
         Vec3 mPosition = Vec3(0.0f);
         float mRadius = 1.0f;
@@ -563,7 +586,7 @@ public:
 
     struct Beam
     {
-        Entity mEntity = Entity::Null;
+        Node mNode = Node::Null;
         bool mActive = false;
         Vec3 mStart = Vec3(0.0f);
         Vec3 mEnd = Vec3(0.0f);
@@ -584,7 +607,7 @@ public:
 
     struct EliteAura
     {
-        Entity mEntity = Entity::Null;
+        Node mNode = Node::Null;
         bool mActive = false;
     };
 
@@ -714,6 +737,7 @@ public:
 
         UpdateCamera(inDeltaTime);
         UpdateSounds();
+        UpdateNodes();
         DrawHUD(inDeltaTime);
     }
 
@@ -856,19 +880,90 @@ private:
         return entity;
     }
 
-    Entity CreateShape(StringView inName, Entity inMaterial, Vec3 inPosition, Vec3 inScale, Entity inParent)
+    uint32_t GetMeshBatch(const Mesh& inMesh)
     {
-        const Entity entity = CreateEntity(inName, inParent);
-        SetTransform(entity, inPosition, inScale);
+        const MeshGeometry* geometry = inMesh.GetGeometry();
 
-        Mesh& mesh = m_Scene->Add<Mesh>(entity);
-        mesh.SetAsset(MeshAsset::Find(*m_App->GetAssets(), MeshAsset::cBuiltinCube), 0);
-        mesh.material = inMaterial;
+        if (geometry == nullptr)
+            return UINT32_MAX;
 
-        if (mesh.asset)
-            m_App->GetRenderInterface()->UploadMeshBuffers(*mesh.asset);
+        for (uint32_t batch = 0; batch < m_MeshBatches.size(); batch++)
+        {
+            if (m_MeshBatches[batch].mGeometry == geometry)
+                return batch;
+        }
 
-        return entity;
+        const Entity entity = CreateEntity(geometry->name);
+
+        MeshInstanced& mesh_instanced = m_Scene->Add<MeshInstanced>(entity);
+        mesh_instanced.SetAsset(inMesh.asset, inMesh.index);
+        mesh_instanced.material = m_PaletteMaterial;
+
+        m_App->GetRenderInterface()->UploadMeshBuffers(*mesh_instanced.asset);
+
+        m_MeshBatches.push_back(MeshBatch { .mEntity = entity, .mGeometry = geometry });
+        return uint32_t(m_MeshBatches.size() - 1);
+    }
+
+    Node CreateNode(Node inParent = Node::Null)
+    {
+        m_Nodes.emplace_back().mParent = inParent;
+        return Node(m_Nodes.size() - 1);
+    }
+
+    Node CreateMeshNode(const Mesh& inMesh, Entity inMaterial, Node inParent)
+    {
+        const uint32_t batch = GetMeshBatch(inMesh);
+        const Node node = CreateNode(inParent);
+
+        SceneNode& scene_node = m_Nodes[uint32_t(node)];
+        scene_node.mMaterial = inMaterial;
+
+        if (batch != UINT32_MAX)
+        {
+            MeshInstanced& mesh_instanced = m_Scene->Get<MeshInstanced>(m_MeshBatches[batch].mEntity);
+            scene_node.mBatch = batch;
+            scene_node.mInstance = uint32_t(mesh_instanced.instances.size());
+            mesh_instanced.instances.emplace_back().material = inMaterial;
+        }
+
+        return node;
+    }
+
+    void UpdateNodes()
+    {
+        m_MeshBatchComponents.resize(m_MeshBatches.size());
+
+        for (size_t batch = 0; batch < m_MeshBatches.size(); batch++)
+            m_MeshBatchComponents[batch] = FindComponent<MeshInstanced>(m_MeshBatches[batch].mEntity);
+
+        for (SceneNode& node : m_Nodes)
+        {
+            if (node.mParent == Node::Null)
+            {
+                node.mWorld = node.mLocal;
+                node.mVisible = !node.mHidden;
+            }
+            else
+            {
+                const SceneNode& parent = m_Nodes[uint32_t(node.mParent)];
+                node.mWorld = parent.mWorld * node.mLocal;
+                node.mVisible = parent.mVisible && !node.mHidden;
+            }
+
+            if (node.mBatch == UINT32_MAX || m_MeshBatchComponents[node.mBatch] == nullptr)
+                continue;
+
+            MeshInstanced::Instance& instance = m_MeshBatchComponents[node.mBatch]->instances[node.mInstance];
+            instance.transform = node.mWorld;
+            instance.material = node.mMaterial;
+            instance.visible = node.mVisible;
+        }
+    }
+
+    static Mat4x4 ComposeTransform(const Vec3& inPosition, const Vec3& inScale, const Quat& inRotation)
+    {
+        return glm::scale(glm::translate(Mat4x4(1.0f), inPosition) * glm::toMat4(inRotation), inScale);
     }
 
     void SetTransform(Entity inEntity, const Vec3& inPosition, const Vec3& inScale, const Quat& inRotation = Quat(1.0f, 0.0f, 0.0f, 0.0f))
@@ -882,35 +977,46 @@ private:
         }
     }
 
-    void Park(Entity inEntity)
+    void SetTransform(Node inNode, const Vec3& inPosition, const Vec3& inScale, const Quat& inRotation = Quat(1.0f, 0.0f, 0.0f, 0.0f))
     {
-        SetTransform(inEntity, cParkedPosition, Vec3(0.01f));
+        if (inNode == Node::Null)
+            return;
+
+        SceneNode& node = m_Nodes[uint32_t(inNode)];
+        node.mLocal = ComposeTransform(inPosition, inScale, inRotation);
+        node.mHidden = false;
     }
 
-    void SetMaterial(Entity inEntity, Entity inMaterial)
+    void Park(Node inNode)
     {
-        if (Mesh* mesh = FindComponent<Mesh>(inEntity))
-            mesh->material = inMaterial;
+        if (inNode != Node::Null)
+            m_Nodes[uint32_t(inNode)].mHidden = true;
+    }
+
+    void SetMaterial(Node inNode, Entity inMaterial)
+    {
+        if (inNode != Node::Null && m_Nodes[uint32_t(inNode)].mBatch != UINT32_MAX)
+            m_Nodes[uint32_t(inNode)].mMaterial = inMaterial;
     }
 
     void SetModelMaterial(const Model& inModel, Entity inMaterial)
     {
         for (const ModelMesh& mesh : inModel.mMeshes)
-            SetMaterial(mesh.mEntity, inMaterial);
+            SetMaterial(mesh.mNode, inMaterial);
     }
 
     void RestoreModelMaterials(const Model& inModel)
     {
         for (const ModelMesh& mesh : inModel.mMeshes)
-            SetMaterial(mesh.mEntity, mesh.mMaterial);
+            SetMaterial(mesh.mNode, mesh.mMaterial);
     }
 
     void Pose(const Model& inModel, int inPart, const Vec3& inOffset, const Vec3& inEuler, float inScale = 1.0f)
     {
         const RigPart& part = inModel.mParts[inPart];
 
-        if (part.mEntity != Entity::Null)
-            SetTransform(part.mEntity, part.mRest + inOffset, Vec3(inScale), Quat(inEuler));
+        if (part.mNode != Node::Null)
+            SetTransform(part.mNode, part.mRest + inOffset, Vec3(inScale), Quat(inEuler));
     }
 
     float RandomFloat(float inMin, float inMax)
@@ -1092,23 +1198,28 @@ private:
         }
     }
 
-    Array<Model> CreateModels(const String& inName, int inCount, Entity inMaterial = Entity::Null, Entity inParent = Entity::Null)
+    Array<Model> CreateModels(const String& inName, int inCount, Entity inMaterial = Entity::Null)
     {
         Array<Model> models(inCount);
         const Entity material = inMaterial != Entity::Null ? inMaterial : m_PaletteMaterial;
 
         for (Model& model : models)
-            model.mRoot = CreateEntity(inName, inParent);
+            model.mRoot = CreateNode();
 
         const auto templates = m_MeshTemplates.find(inName);
 
         if (templates == m_MeshTemplates.end())
         {
+            Mesh cube;
+            cube.SetAsset(MeshAsset::Find(*m_App->GetAssets(), MeshAsset::cBuiltinCube), 0);
+
             for (Model& model : models)
             {
-                const Entity fallback = CreateShape(inName, material, Vec3(0.0f, 0.5f, 0.0f), Vec3(0.6f), model.mRoot);
-                model.mParts[RIG_BODY] = RigPart { .mEntity = fallback, .mRest = Vec3(0.0f, 0.5f, 0.0f) };
-                model.mMeshes.push_back(ModelMesh { .mEntity = fallback, .mMaterial = material });
+                const Node fallback = CreateMeshNode(cube, material, model.mRoot);
+                SetTransform(fallback, Vec3(0.0f, 0.5f, 0.0f), Vec3(0.6f));
+
+                model.mParts[RIG_BODY] = RigPart { .mNode = fallback, .mRest = Vec3(0.0f, 0.5f, 0.0f) };
+                model.mMeshes.push_back(ModelMesh { .mNode = fallback, .mMaterial = material });
             }
 
             return models;
@@ -1120,29 +1231,22 @@ private:
 
             for (Model& model : models)
             {
-                const Entity entity = CreateEntity(part.mName, model.mRoot);
-                SetTransform(entity, part.mJoint, Vec3(1.0f));
+                const Node node = CreateMeshNode(part.mMesh, material, model.mRoot);
+                SetTransform(node, part.mJoint, Vec3(1.0f));
 
-                Mesh& mesh = m_Scene->Add<Mesh>(entity);
-                mesh = part.mMesh;
-                mesh.material = material;
+                if (role >= 0 && model.mParts[role].mNode == Node::Null)
+                    model.mParts[role] = RigPart { .mNode = node, .mRest = part.mJoint };
 
-                if (mesh.asset)
-                    m_App->GetRenderInterface()->UploadMeshBuffers(*mesh.asset);
-
-                if (role >= 0 && model.mParts[role].mEntity == Entity::Null)
-                    model.mParts[role] = RigPart { .mEntity = entity, .mRest = part.mJoint };
-
-                model.mMeshes.push_back(ModelMesh { .mEntity = entity, .mMaterial = material });
+                model.mMeshes.push_back(ModelMesh { .mNode = node, .mMaterial = material });
             }
         }
 
         return models;
     }
 
-    Model CreateModel(const String& inName, Entity inMaterial = Entity::Null, Entity inParent = Entity::Null)
+    Model CreateModel(const String& inName, Entity inMaterial = Entity::Null)
     {
-        return CreateModels(inName, 1, inMaterial, inParent)[0];
+        return CreateModels(inName, 1, inMaterial)[0];
     }
 
     void CreateMaterials()
@@ -1201,14 +1305,16 @@ private:
         const Model ground = CreateModel("Ground");
         SetTransform(ground.mRoot, Vec3(0.0f), Vec3(1.0f));
 
-        for (const ModelMesh& mesh : ground.mMeshes)
+        const auto ground_parts = m_MeshTemplates.find("Ground");
+
+        for (size_t index = 0; ground_parts != m_MeshTemplates.end() && index < ground.mMeshes.size(); index++)
         {
-            const String& part = m_Scene->Get<Name>(mesh.mEntity).name;
+            const String& part = ground_parts->second[index].mName;
 
             for (int layer = 0; layer < GROUND_LAYER_COUNT; layer++)
             {
                 if (part == cGroundLayers[layer].mPart && m_GroundTextures[layer].mAlbedo != 0)
-                    SetMaterial(mesh.mEntity, m_GroundMaterials[layer]);
+                    SetMaterial(ground.mMeshes[index].mNode, m_GroundMaterials[layer]);
             }
         }
 
@@ -1322,7 +1428,7 @@ private:
     void CreatePlayer()
     {
         m_PlayerEntity = CreateEntity("Player");
-        m_PlayerModel = CreateModel("Hero", Entity::Null, m_PlayerEntity);
+        m_PlayerModel = CreateModel("Hero");
 
         const Entity torch = CreateEntity("Torch", m_PlayerEntity);
         SetTransform(torch, Vec3(0.0f, 3.0f, 0.0f), Vec3(1.0f));
@@ -1356,7 +1462,7 @@ private:
 
         for (int index = 0; index < cProjectilePoolSize; index++)
         {
-            m_Projectiles[index].mEntity = bolts[index].mRoot;
+            m_Projectiles[index].mNode = bolts[index].mRoot;
             Park(bolts[index].mRoot);
         }
 
@@ -1365,7 +1471,7 @@ private:
 
         for (int index = 0; index < cFireballPoolSize; index++)
         {
-            m_Fireballs[index].mEntity = fireballs[index].mRoot;
+            m_Fireballs[index].mNode = fireballs[index].mRoot;
             Park(fireballs[index].mRoot);
         }
 
@@ -1374,7 +1480,7 @@ private:
 
         for (int index = 0; index < cArrowPoolSize; index++)
         {
-            m_Arrows[index].mEntity = arrows[index].mRoot;
+            m_Arrows[index].mNode = arrows[index].mRoot;
             m_Arrows[index].mRadius = 0.25f;
             Park(arrows[index].mRoot);
         }
@@ -1384,7 +1490,7 @@ private:
 
         for (int index = 0; index < cOrbPoolSize; index++)
         {
-            m_Orbs[index].mEntity = orbs[index].mRoot;
+            m_Orbs[index].mNode = orbs[index].mRoot;
             m_Orbs[index].mRadius = 0.35f;
             Park(orbs[index].mRoot);
         }
@@ -1394,7 +1500,7 @@ private:
 
         for (int index = 0; index < cMeteorPoolSize; index++)
         {
-            m_Meteors[index].mEntity = meteors[index].mRoot;
+            m_Meteors[index].mNode = meteors[index].mRoot;
             Park(meteors[index].mRoot);
         }
 
@@ -1448,7 +1554,7 @@ private:
             for (Model& model : models)
             {
                 Particle& particle = m_Particles[mesh].emplace_back();
-                particle.mEntity = model.mRoot;
+                particle.mNode = model.mRoot;
                 particle.mMaterial = m_FXMaterials[FX_SPARK];
                 Park(model.mRoot);
             }
@@ -1473,8 +1579,8 @@ private:
                 if (Material* material = FindComponent<Material>(burst.mMaterials[layer]))
                     material->blendMode = MATERIAL_BLEND_MODE_BLENDED;
 
-                burst.mEntities[layer] = CreateModels(nova_layers[layer].first, 1, burst.mMaterials[layer])[0].mRoot;
-                Park(burst.mEntities[layer]);
+                burst.mNodes[layer] = CreateModels(nova_layers[layer].first, 1, burst.mMaterials[layer])[0].mRoot;
+                Park(burst.mNodes[layer]);
             }
         }
 
@@ -1495,7 +1601,7 @@ private:
 
         for (int index = 0; index < cBeamPoolSize; index++)
         {
-            m_Beams[index].mEntity = beams[index].mRoot;
+            m_Beams[index].mNode = beams[index].mRoot;
             Park(beams[index].mRoot);
         }
 
@@ -1504,7 +1610,7 @@ private:
 
         for (int index = 0; index < cEliteAuraPoolSize; index++)
         {
-            m_EliteAuras[index].mEntity = auras[index].mRoot;
+            m_EliteAuras[index].mNode = auras[index].mRoot;
             Park(auras[index].mRoot);
         }
 
@@ -1668,7 +1774,10 @@ private:
         m_MusicEntity = Entity::Null;
         m_BossMusicEntity = Entity::Null;
         m_PlayerModel = Model();
-        m_Blades.fill(Entity::Null);
+        m_Blades.fill(Node::Null);
+        m_Nodes.clear();
+        m_MeshBatches.clear();
+        m_MeshBatchComponents.clear();
         m_Enemies.clear();
         m_Projectiles.clear();
         m_Fireballs.clear();
@@ -1705,13 +1814,13 @@ private:
         for (Projectile& projectile : m_Projectiles)
         {
             projectile.mActive = false;
-            Park(projectile.mEntity);
+            Park(projectile.mNode);
         }
 
         for (Fireball& fireball : m_Fireballs)
         {
             fireball.mActive = false;
-            Park(fireball.mEntity);
+            Park(fireball.mNode);
         }
 
         for (Array<EnemyProjectile>* pool : { &m_Arrows, &m_Orbs })
@@ -1719,14 +1828,14 @@ private:
             for (EnemyProjectile& projectile : *pool)
             {
                 projectile.mActive = false;
-                Park(projectile.mEntity);
+                Park(projectile.mNode);
             }
         }
 
         for (Meteor& meteor : m_Meteors)
         {
             meteor.mActive = false;
-            Park(meteor.mEntity);
+            Park(meteor.mNode);
         }
 
         for (Gem& gem : m_Gems)
@@ -1747,7 +1856,7 @@ private:
             for (Particle& particle : particles)
             {
                 particle.mActive = false;
-                Park(particle.mEntity);
+                Park(particle.mNode);
             }
         }
 
@@ -1755,8 +1864,8 @@ private:
         {
             burst.mActive = false;
 
-            for (Entity entity : burst.mEntities)
-                Park(entity);
+            for (Node node : burst.mNodes)
+                Park(node);
         }
 
         for (Telegraph& telegraph : m_Telegraphs)
@@ -1765,13 +1874,13 @@ private:
         for (Beam& beam : m_Beams)
         {
             beam.mActive = false;
-            Park(beam.mEntity);
+            Park(beam.mNode);
         }
 
         for (EliteAura& aura : m_EliteAuras)
         {
             aura.mActive = false;
-            Park(aura.mEntity);
+            Park(aura.mNode);
         }
 
         for (FlashLight& flash : m_Lights)
@@ -1793,7 +1902,7 @@ private:
             }
         }
 
-        for (Entity blade : m_Blades)
+        for (Node blade : m_Blades)
             Park(blade);
 
         m_UpgradeLevels.fill(0);
@@ -2660,7 +2769,7 @@ private:
         if (ioEnemy.mAura >= 0)
         {
             m_EliteAuras[ioEnemy.mAura].mActive = false;
-            Park(m_EliteAuras[ioEnemy.mAura].mEntity);
+            Park(m_EliteAuras[ioEnemy.mAura].mNode);
             ioEnemy.mAura = -1;
         }
     }
@@ -2903,7 +3012,7 @@ private:
                 if (hit || outside || projectile.mLife <= 0.0f)
                 {
                     projectile.mActive = false;
-                    Park(projectile.mEntity);
+                    Park(projectile.mNode);
 
                     if (hit || orbs)
                         Emit(projectile.mPosition, ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = orbs ? FX_PURPLE : FX_SPARK, .mCount = 6, .mSpeedMin = 1.5f, .mSpeedMax = 4.0f, .mLifeMin = 0.15f, .mLifeMax = 0.3f, .mSizeMin = 0.12f, .mSizeMax = 0.2f, .mDrag = 3.0f });
@@ -2913,7 +3022,7 @@ private:
 
                 const float spin = orbs ? m_Time * 6.0f : 0.0f;
                 const Quat rotation = LookRotation(projectile.mVelocity) * Quat(Vec3(0.0f, 0.0f, spin));
-                SetTransform(projectile.mEntity, projectile.mPosition, Vec3(orbs ? 1.0f + 0.15f * glm::sin(m_Time * 20.0f) : 1.0f), rotation);
+                SetTransform(projectile.mNode, projectile.mPosition, Vec3(orbs ? 1.0f + 0.15f * glm::sin(m_Time * 20.0f) : 1.0f), rotation);
             }
         }
     }
@@ -3104,7 +3213,7 @@ private:
             if (projectile.mPierce <= 0 || projectile.mLifetime <= 0.0f || outside)
             {
                 projectile.mActive = false;
-                Park(projectile.mEntity);
+                Park(projectile.mNode);
             }
         }
     }
@@ -3162,12 +3271,12 @@ private:
             if (RandomFloat(0.0f, 1.0f) < 0.5f)
                 Emit(fireball.mPosition, ParticleDesc { .mMesh = PARTICLE_PUFF, .mMaterial = FX_SMOKE, .mCount = 1, .mSpeedMin = 0.2f, .mSpeedMax = 0.5f, .mLifeMin = 0.4f, .mLifeMax = 0.7f, .mSizeMin = 0.2f, .mSizeMax = 0.35f, .mEndSize = 1.6f, .mGravity = -1.5f, .mDrag = 1.0f });
 
-            SetTransform(fireball.mEntity, fireball.mPosition, Vec3(1.0f + 0.15f * glm::sin(m_Time * 30.0f)), Quat(Vec3(m_Time * 7.0f, m_Time * 5.0f, 0.0f)));
+            SetTransform(fireball.mNode, fireball.mPosition, Vec3(1.0f + 0.15f * glm::sin(m_Time * 30.0f)), Quat(Vec3(m_Time * 7.0f, m_Time * 5.0f, 0.0f)));
 
             if (t >= 1.0f)
             {
                 fireball.mActive = false;
-                Park(fireball.mEntity);
+                Park(fireball.mNode);
                 Explode(fireball.mTarget, fireball.mRadius, fireball.mDamage, EXPLOSION_FIRE, false, 0.0f);
             }
         }
@@ -3273,7 +3382,7 @@ private:
             const float t = glm::min(meteor.mTime / meteor.mDuration, 1.0f);
             const Vec3 position = glm::mix(meteor.mStart, meteor.mTarget + Vec3(0.0f, 0.4f, 0.0f), t * t);
 
-            SetTransform(meteor.mEntity, position, Vec3(1.0f), Quat(Vec3(m_Time * 4.0f, m_Time * 3.0f, 0.0f)));
+            SetTransform(meteor.mNode, position, Vec3(1.0f), Quat(Vec3(m_Time * 4.0f, m_Time * 3.0f, 0.0f)));
 
             Emit(position, ParticleDesc { .mMesh = PARTICLE_PUFF, .mMaterial = FX_FIRE, .mCount = 3, .mSpeedMin = 0.3f, .mSpeedMax = 1.0f, .mLifeMin = 0.25f, .mLifeMax = 0.45f, .mSizeMin = 0.4f, .mSizeMax = 0.7f, .mDrag = 2.0f, .mSpread = 0.3f });
             Emit(position, ParticleDesc { .mMesh = PARTICLE_PUFF, .mMaterial = FX_SMOKE, .mCount = 1, .mSpeedMin = 0.2f, .mSpeedMax = 0.6f, .mLifeMin = 0.6f, .mLifeMax = 1.0f, .mSizeMin = 0.4f, .mSizeMax = 0.6f, .mEndSize = 2.0f, .mGravity = -1.0f, .mDrag = 1.0f, .mSpread = 0.3f });
@@ -3281,7 +3390,7 @@ private:
             if (t >= 1.0f)
             {
                 meteor.mActive = false;
-                Park(meteor.mEntity);
+                Park(meteor.mNode);
                 Explode(meteor.mTarget + Vec3(0.0f, 0.3f, 0.0f), meteor.mRadius, meteor.mDamage, EXPLOSION_METEOR, false, 0.0f);
             }
         }
@@ -3722,7 +3831,7 @@ private:
             if (particle.mMaterial != material)
             {
                 particle.mMaterial = material;
-                SetMaterial(particle.mEntity, material);
+                SetMaterial(particle.mNode, material);
             }
         }
     }
@@ -3741,7 +3850,7 @@ private:
                 if (particle.mLife >= particle.mMaxLife)
                 {
                     particle.mActive = false;
-                    Park(particle.mEntity);
+                    Park(particle.mNode);
                     continue;
                 }
 
@@ -3765,11 +3874,11 @@ private:
                 if (particle.mStretch)
                 {
                     const float speed = glm::length(particle.mVelocity);
-                    SetTransform(particle.mEntity, particle.mPosition, Vec3(size, size, size * ( 1.0f + speed * 0.12f )), LookRotation(particle.mVelocity));
+                    SetTransform(particle.mNode, particle.mPosition, Vec3(size, size, size * ( 1.0f + speed * 0.12f )), LookRotation(particle.mVelocity));
                 }
                 else
                 {
-                    SetTransform(particle.mEntity, particle.mPosition, Vec3(size), glm::angleAxis(particle.mAngle, particle.mAxis));
+                    SetTransform(particle.mNode, particle.mPosition, Vec3(size), glm::angleAxis(particle.mAngle, particle.mAxis));
                 }
             }
         }
@@ -3813,8 +3922,8 @@ private:
             {
                 burst.mActive = false;
 
-                for (Entity entity : burst.mEntities)
-                    Park(entity);
+                for (Node node : burst.mNodes)
+                    Park(node);
 
                 continue;
             }
@@ -3826,9 +3935,9 @@ private:
             const StaticArray<float, 3> alphas = { 0.85f * ( 1.0f - t ), glm::pow(1.0f - t, 1.5f), 1.0f - t };
             const StaticArray<float, 3> rotations = { twist, twist + glm::pi<float>() / 12.0f, 0.0f };
 
-            for (size_t layer = 0; layer < burst.mEntities.size(); layer++)
+            for (size_t layer = 0; layer < burst.mNodes.size(); layer++)
             {
-                SetTransform(burst.mEntities[layer], burst.mPosition + Vec3(0.0f, 0.02f * float(layer), 0.0f), Vec3(sizes[layer], 1.0f, sizes[layer]), Quat(Vec3(0.0f, rotations[layer], 0.0f)));
+                SetTransform(burst.mNodes[layer], burst.mPosition + Vec3(0.0f, 0.02f * float(layer), 0.0f), Vec3(sizes[layer], 1.0f, sizes[layer]), Quat(Vec3(0.0f, rotations[layer], 0.0f)));
 
                 if (Material* material = FindComponent<Material>(burst.mMaterials[layer]))
                     material->albedo.a = alphas[layer];
@@ -3924,13 +4033,13 @@ private:
             if (beam.mLife >= beam.mMaxLife)
             {
                 beam.mActive = false;
-                Park(beam.mEntity);
+                Park(beam.mNode);
                 continue;
             }
 
             const Vec3 delta = beam.mEnd - beam.mStart;
             const float width = beam.mWidth * ( 1.0f - beam.mLife / beam.mMaxLife ) * RandomFloat(0.6f, 1.4f);
-            SetTransform(beam.mEntity, ( beam.mStart + beam.mEnd ) * 0.5f, Vec3(width, width, glm::length(delta)), LookRotation(delta));
+            SetTransform(beam.mNode, ( beam.mStart + beam.mEnd ) * 0.5f, Vec3(width, width, glm::length(delta)), LookRotation(delta));
         }
     }
 
@@ -4010,7 +4119,9 @@ private:
             height = 0.0f;
         }
 
-        SetTransform(m_PlayerEntity, ToWorld(m_PlayerPosition, height), Vec3(1.0f), Quat(Vec3(0.0f, m_PlayerYaw, 0.0f)) * Quat(Vec3(pitch, 0.0f, 0.0f)));
+        const Quat rotation = Quat(Vec3(0.0f, m_PlayerYaw, 0.0f)) * Quat(Vec3(pitch, 0.0f, 0.0f));
+        SetTransform(m_PlayerEntity, ToWorld(m_PlayerPosition, height), Vec3(1.0f), rotation);
+        SetTransform(model.mRoot, ToWorld(m_PlayerPosition, height), Vec3(1.0f), rotation);
 
         Pose(model, RIG_BODY, Vec3(0.0f, breathe, 0.0f), Vec3(0.0f, 0.0f, s * 0.05f * move));
         Pose(model, RIG_HEAD, Vec3(0.0f, breathe, 0.0f), Vec3(-c * 0.05f * move, 0.0f, 0.0f));
@@ -4224,14 +4335,14 @@ private:
                 {
                     const RigPart& rig = model.mParts[part];
 
-                    if (rig.mEntity == Entity::Null)
+                    if (rig.mNode == Node::Null)
                         continue;
 
                     const Vec3 velocity = ioEnemy.mShatterVelocity[part];
                     Vec3 offset = velocity * time - Vec3(0.0f, 9.0f * time * time, 0.0f);
                     offset.y = glm::max(offset.y, -rig.mRest.y + 0.08f);
 
-                    SetTransform(rig.mEntity, rig.mRest + offset, Vec3(shrink), glm::angleAxis(time * 9.0f, ioEnemy.mShatterAxis[part]));
+                    SetTransform(rig.mNode, rig.mRest + offset, Vec3(shrink), glm::angleAxis(time * 9.0f, ioEnemy.mShatterAxis[part]));
                 }
             } break;
 
@@ -4294,7 +4405,7 @@ private:
             if (enemy.mAura >= 0)
             {
                 const float radius = cEnemyArchetypes[enemy.mType].mRadius * 1.6f * ( 1.0f + 0.08f * glm::sin(m_Time * 6.0f) );
-                SetTransform(m_EliteAuras[enemy.mAura].mEntity, ToWorld(enemy.mPosition, 0.1f), Vec3(radius * 2.0f, 1.2f, radius * 2.0f), Quat(Vec3(0.0f, m_Time * 2.0f, 0.0f)));
+                SetTransform(m_EliteAuras[enemy.mAura].mNode, ToWorld(enemy.mPosition, 0.1f), Vec3(radius * 2.0f, 1.2f, radius * 2.0f), Quat(Vec3(0.0f, m_Time * 2.0f, 0.0f)));
 
                 if (RandomFloat(0.0f, 1.0f) < 0.2f)
                     Emit(ToWorld(enemy.mPosition, 0.3f), ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = FX_GOLD, .mCount = 1, .mSpeedMin = 0.5f, .mSpeedMax = 1.5f, .mLifeMin = 0.4f, .mLifeMax = 0.7f, .mSizeMin = 0.1f, .mSizeMax = 0.16f, .mGravity = -3.0f, .mDrag = 1.0f, .mSpread = 0.8f, .mFlat = true });
@@ -4304,7 +4415,7 @@ private:
         for (const Projectile& projectile : m_Projectiles)
         {
             if (projectile.mActive)
-                SetTransform(projectile.mEntity, ToWorld(projectile.mPosition, 0.9f), Vec3(1.0f), Quat(Vec3(0.0f, GetYaw(projectile.mVelocity), 0.0f)) * Quat(Vec3(0.0f, 0.0f, m_Time * 12.0f)));
+                SetTransform(projectile.mNode, ToWorld(projectile.mPosition, 0.9f), Vec3(1.0f), Quat(Vec3(0.0f, GetYaw(projectile.mVelocity), 0.0f)) * Quat(Vec3(0.0f, 0.0f, m_Time * 12.0f)));
         }
 
         for (const Gem& gem : m_Gems)
@@ -5115,7 +5226,11 @@ private:
     Entity m_CameraEntity = Entity::Null;
     Entity m_PlayerEntity = Entity::Null;
     Model m_PlayerModel;
-    StaticArray<Entity, cMaxBlades> m_Blades;
+    StaticArray<Node, cMaxBlades> m_Blades;
+
+    Array<SceneNode> m_Nodes;
+    Array<MeshBatch> m_MeshBatches;
+    Array<MeshInstanced*> m_MeshBatchComponents;
 
     Entity m_ListenerEntity = Entity::Null;
     Entity m_MusicEntity = Entity::Null;
@@ -5229,7 +5344,7 @@ private:
 public:
     DuskSwarmScript()
     {
-        m_Blades.fill(Entity::Null);
+        m_Blades.fill(Node::Null);
         m_GemMaterials.fill(Entity::Null);
         m_FXMaterials.fill(Entity::Null);
         m_GroundMaterials.fill(Entity::Null);
