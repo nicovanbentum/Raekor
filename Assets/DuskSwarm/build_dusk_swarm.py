@@ -249,25 +249,42 @@ def hero(rng):
     arm_l, arm_r = Part("ArmL", (-0.31, 0, 1.14), rng), Part("ArmR", (0.31, 0, 1.14), rng)
     leg_l, leg_r = Part("LegL", (-0.11, 0, 0.42), rng), Part("LegR", (0.11, 0, 0.42), rng)
 
-    cyl(body, "Cloak", (0, 0, 0.72), 0.36, 0.22, 0.7, seg=8)
-    cyl(body, "Gold", (0, 0, 0.38), 0.365, 0.365, 0.05, seg=8, var=0)
-    cyl(body, "Gold", (0, 0, 0.86), 0.29, 0.29, 0.07, seg=8, var=0)
-    box(body, "Cloak", (0, 0, 1.12), (0.58, 0.32, 0.18))
-    box(body, "Cloak", (0, -0.18, 0.78), (0.5, 0.05, 0.82), rot=(-0.12, 0, 0), shade=2)
-    for side in (-1, 1):
-        ico(body, "Gold", (side * 0.3, 0, 1.2), 0.11, var=0)
+    cyl(body, "Cloak", (0, 0, 0.62), 0.33, 0.25, 0.5, seg=8, var=0)
+    cyl(body, "Gold", (0, 0, 0.385), 0.335, 0.335, 0.04, seg=8, var=0)
+    cyl(body, "Cloak", (0, 0, 1.0), 0.24, 0.31, 0.36, seg=4, rot=(0, 0, math.pi * 0.25), scale=(1.0, 0.72, 1.0), var=0)
+    box(body, "Leather", (0, 0, 0.84), (0.5, 0.36, 0.07), var=0)
+    box(body, "Gold", (0, 0.18, 0.84), (0.09, 0.03, 0.08), var=0)
+    box(body, "Gold", (0, 0.17, 1.02), (0.06, 0.02, 0.28), var=0)
+    box(body, "Gold", (0, 0.15, 0.62), (0.06, 0.02, 0.4), rot=(-0.13, 0, 0), var=0)
+    box(body, "Cloak", (0, 0, 1.2), (0.62, 0.34, 0.08), shade=4, var=0)
+    box(body, "Gold", (0, 0.04, 1.2), (0.3, 0.3, 0.1), var=0)
 
-    ico(head, "Skin", (0, 0.02, 1.36), 0.18)
-    cyl(head, "Cloak", (0, -0.04, 1.48), 0.27, 0.0, 0.6, seg=6, rot=(-0.15, 0, 0), shade=2)
+    box(head, "Skin", (0, 0.02, 1.38), (0.25, 0.25, 0.26), var=0)
+    box(head, "Skin", (0, 0.05, 1.27), (0.21, 0.2, 0.08), shade=2, var=0)
+    box(head, "Skin", (0, 0.16, 1.37), (0.05, 0.05, 0.07), shade=4, var=0)
     for side in (-1, 1):
-        box(head, "GlowCyan", (side * 0.065, 0.17, 1.38), (0.07, 0.04, 0.045), var=0)
+        box(head, "Iron", (side * 0.06, 0.145, 1.42), (0.04, 0.02, 0.03), shade=0, var=0)
+        box(head, "Bone", (side * 0.06, 0.15, 1.46), (0.07, 0.03, 0.025), shade=6, var=0)
+        box(head, "Skin", (side * 0.13, 0.02, 1.39), (0.03, 0.07, 0.08), shade=2, var=0)
+    box(head, "Bone", (0, 0.12, 1.29), (0.24, 0.1, 0.12), shade=6, var=0)
+    cyl(head, "Bone", (0, 0.15, 1.12), 0.13, 0.02, 0.32, seg=4, rot=(math.pi + 0.15, 0, math.pi * 0.25), scale=(1.0, 0.6, 1.0), shade=6, var=0)
+    box(head, "Bone", (0, 0.17, 1.33), (0.1, 0.03, 0.025), shade=7, var=0)
+    cyl(head, "Cloak", (0, 0, 1.52), 0.33, 0.3, 0.035, seg=10, var=0)
+    cyl(head, "Gold", (0, 0, 1.56), 0.17, 0.165, 0.05, seg=8, var=0)
+    cyl(head, "Cloak", (0, -0.02, 1.76), 0.16, 0.06, 0.38, seg=8, rot=(-0.12, 0, 0), var=0)
+    cyl(head, "Cloak", (0, -0.07, 2.0), 0.062, 0.0, 0.2, seg=6, rot=(-0.55, 0, 0), shade=4, var=0)
+    box(head, "Gold", (0, 0.1, 1.72), (0.05, 0.02, 0.05), rot=(0.12, 0, math.pi * 0.25), var=0)
 
     for part, side in ((arm_l, -1), (arm_r, 1)):
-        box(part, "Cloak", (side * 0.34, 0.02, 0.92), (0.14, 0.15, 0.46), rot=(0.1, side * 0.1, 0))
-        box(part, "Gold", (side * 0.35, 0.03, 0.72), (0.16, 0.17, 0.05), var=0)
-        ico(part, "Skin", (side * 0.36, 0.05, 0.64), 0.07)
+        box(part, "Cloak", (side * 0.35, 0.0, 1.0), (0.15, 0.17, 0.3), rot=(0.05, side * 0.08, 0), var=0)
+        cyl(part, "Cloak", (side * 0.36, 0.03, 0.8), 0.09, 0.15, 0.2, seg=6, var=0)
+        cyl(part, "Gold", (side * 0.36, 0.03, 0.695), 0.153, 0.153, 0.03, seg=6, var=0)
+        box(part, "Skin", (side * 0.36, 0.05, 0.63), (0.12, 0.12, 0.12), var=0)
+        box(part, "Skin", (side * 0.36, 0.11, 0.62), (0.05, 0.05, 0.08), shade=2, var=0)
 
     cyl(arm_r, "Wood", (0.38, 0.12, 0.86), 0.035, 0.03, 1.7, seg=5)
+    for z in (0.4, 0.62):
+        cyl(arm_r, "Leather", (0.38, 0.12, z), 0.042, 0.042, 0.05, seg=5, var=0)
     cyl(arm_r, "Gold", (0.38, 0.12, 1.62), 0.06, 0.06, 0.06, seg=5, var=0)
     ico(arm_r, "GlowCyan", (0.38, 0.12, 1.75), 0.1, var=0)
     for index in range(3):
@@ -275,8 +292,10 @@ def hero(rng):
         cyl(arm_r, "Gold", (0.38 + math.cos(a) * 0.07, 0.12 + math.sin(a) * 0.07, 1.74), 0.02, 0.0, 0.2, seg=3, rot=(math.sin(a) * -0.4, math.cos(a) * 0.4, 0), var=0)
 
     for part, side in ((leg_l, -1), (leg_r, 1)):
-        box(part, "Cloak", (side * 0.11, 0, 0.3), (0.14, 0.15, 0.3), shade=1)
-        box(part, "Leather", (side * 0.11, 0.03, 0.1), (0.16, 0.25, 0.2))
+        box(part, "Cloak", (side * 0.11, 0, 0.3), (0.15, 0.16, 0.26), shade=1, var=0)
+        box(part, "Leather", (side * 0.11, 0.0, 0.14), (0.17, 0.2, 0.14), var=0)
+        box(part, "Leather", (side * 0.11, 0.07, 0.05), (0.17, 0.3, 0.1), shade=2, var=0)
+        box(part, "Leather", (side * 0.11, 0.0, 0.215), (0.19, 0.22, 0.04), shade=5, var=0)
 
     return [body, head, arm_l, arm_r, leg_l, leg_r]
 
