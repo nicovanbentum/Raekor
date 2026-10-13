@@ -38,7 +38,6 @@ static constexpr int cArrowPoolSize = 60;
 static constexpr int cOrbPoolSize = 140;
 static constexpr int cGemPoolSize = 300;
 static constexpr int cMeteorPoolSize = 12;
-static constexpr int cRingPoolSize = 40;
 static constexpr int cNovaBurstPoolSize = 4;
 static constexpr float cNovaBurstLife = 0.5f;
 static constexpr int cTelegraphPoolSize = 24;
@@ -551,19 +550,6 @@ public:
         float mLife = 0.0f;
     };
 
-    struct Ring
-    {
-        Entity mEntity = Entity::Null;
-        Entity mMaterial = Entity::Null;
-        bool mActive = false;
-        Vec3 mPosition = Vec3(0.0f);
-        float mStartRadius = 0.0f;
-        float mEndRadius = 1.0f;
-        float mThickness = 1.0f;
-        float mLife = 0.0f;
-        float mMaxLife = 0.5f;
-    };
-
     struct Telegraph
     {
         Entity mDisc = Entity::Null;
@@ -719,7 +705,6 @@ public:
         {
             UpdateDying(delta_time);
             UpdateParticles(delta_time);
-            UpdateRings(delta_time);
             UpdateNovaBursts(delta_time);
             UpdateTelegraphs(delta_time);
             UpdateBeams(delta_time);
@@ -1469,16 +1454,6 @@ private:
             }
         }
 
-        m_Rings.resize(cRingPoolSize);
-        Array<Model> rings = CreateModels("Ring", cRingPoolSize, m_FXMaterials[FX_WHITE]);
-
-        for (int index = 0; index < cRingPoolSize; index++)
-        {
-            m_Rings[index].mEntity = rings[index].mRoot;
-            m_Rings[index].mMaterial = m_FXMaterials[FX_WHITE];
-            Park(rings[index].mRoot);
-        }
-
         m_NovaBursts.resize(cNovaBurstPoolSize);
 
         const StaticArray<std::pair<const char*, Vec4>, 3> nova_layers =
@@ -1702,7 +1677,6 @@ private:
         m_Meteors.clear();
         m_Gems.clear();
         m_Pickups.clear();
-        m_Rings.clear();
         m_NovaBursts.clear();
         m_Telegraphs.clear();
         m_Beams.clear();
@@ -1775,12 +1749,6 @@ private:
                 particle.mActive = false;
                 Park(particle.mEntity);
             }
-        }
-
-        for (Ring& ring : m_Rings)
-        {
-            ring.mActive = false;
-            Park(ring.mEntity);
         }
 
         for (NovaBurst& burst : m_NovaBursts)
@@ -1944,7 +1912,6 @@ private:
         m_DashCooldownTimer = cDashCooldown;
 
         PlaySfx(cDashSound, 0.6f, RandomFloat(0.95f, 1.05f));
-        SpawnRing(GetPlayerCenter() - Vec3(0.0f, 0.8f, 0.0f), 0.3f, 2.2f, 0.25f, m_FXMaterials[FX_ARCANE], 0.6f);
         Emit(GetPlayerCenter(), ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = FX_ARCANE, .mCount = 14, .mSpeedMin = 3.0f, .mSpeedMax = 8.0f, .mLifeMin = 0.2f, .mLifeMax = 0.4f, .mSizeMin = 0.2f, .mSizeMax = 0.35f, .mDrag = 4.0f, .mFlat = true });
     }
 
@@ -2029,7 +1996,6 @@ private:
             PlaySfx(cPlayerDeathSound, 0.9f);
 
             Emit(GetPlayerCenter(), ParticleDesc { .mMesh = PARTICLE_PUFF, .mMaterial = FX_ARCANE, .mCount = 24, .mSpeedMin = 1.0f, .mSpeedMax = 4.0f, .mLifeMin = 0.6f, .mLifeMax = 1.2f, .mSizeMin = 0.3f, .mSizeMax = 0.6f, .mGravity = -1.5f, .mDrag = 1.5f, .mUpBias = 0.6f });
-            SpawnRing(GetPlayerCenter() - Vec3(0.0f, 0.8f, 0.0f), 0.5f, 6.0f, 0.5f, m_FXMaterials[FX_ARCANE], 1.0f);
             SpawnLight(GetPlayerCenter(), Vec3(0.35f, 0.85f, 1.0f), 2000000.0f, 14.0f, 0.6f);
         }
     }
@@ -2133,7 +2099,6 @@ private:
                 AddTrauma(0.6f);
                 PlaySfx(cLichRiseSound, 0.9f);
                 PlayMusic(true);
-                SpawnRing(ToWorld(position, 0.1f), 1.0f, 12.0f, 0.9f, m_FXMaterials[FX_PURPLE], 1.5f);
                 SpawnLight(ToWorld(position, 2.0f), Vec3(0.75f, 0.35f, 1.0f), 4000000.0f, 18.0f, 1.2f);
                 Emit(ToWorld(position, 0.5f), ParticleDesc { .mMesh = PARTICLE_CHUNK, .mMaterial = FX_DIRT, .mCount = 30, .mSpeedMin = 4.0f, .mSpeedMax = 10.0f, .mLifeMin = 0.8f, .mLifeMax = 1.4f, .mSizeMin = 0.15f, .mSizeMax = 0.35f, .mEndSize = 0.6f, .mGravity = 20.0f, .mDrag = 0.5f, .mUpBias = 1.2f, .mSpread = 1.0f });
             }
@@ -2623,7 +2588,6 @@ private:
 
             m_BossPattern = ( m_BossPattern + 1 ) % 3;
             PlaySfxAt(cNovaSound, origin, 0.6f, 0.7f);
-            SpawnRing(ToWorld(ioEnemy.mPosition, 0.1f), 0.5f, 4.0f, 0.4f, m_FXMaterials[FX_PURPLE], 0.8f);
             SpawnLight(origin, Vec3(0.75f, 0.35f, 1.0f), 1500000.0f, 10.0f, 0.4f);
             AddTraumaAt(origin, 0.12f);
             return;
@@ -2810,7 +2774,6 @@ private:
         {
             m_EliteKills++;
             SpawnPickup(PICKUP_CHEST, enemy.mPosition);
-            SpawnRing(ToWorld(enemy.mPosition, 0.1f), 0.5f, 5.0f, 0.5f, m_FXMaterials[FX_GOLD], 1.0f);
             SpawnLight(center, Vec3(1.0f, 0.8f, 0.3f), 1500000.0f, 10.0f, 0.5f);
             AddTraumaAt(center, 0.2f);
         }
@@ -3342,16 +3305,16 @@ private:
         if (inHurtsPlayer && glm::distance(center, m_PlayerPosition) < inRadius + cPlayerRadius)
             DamagePlayer(inPlayerDamage);
 
-        int core = FX_FIRE, spark = FX_EMBER, ring = FX_FIRE, chunk = FX_DIRT;
+        int core = FX_FIRE, spark = FX_EMBER, chunk = FX_DIRT;
         Vec3 light = Vec3(1.0f, 0.55f, 0.2f);
         bool smoke = true;
 
         switch (inStyle)
         {
-            case EXPLOSION_POISON: core = FX_POISON; spark = FX_POISON; ring = FX_POISON; chunk = FX_GOO;  light = Vec3(0.5f, 1.0f, 0.3f);  break;
-            case EXPLOSION_ARCANE: core = FX_PURPLE; spark = FX_PURPLE; ring = FX_PURPLE; chunk = FX_BONE; light = Vec3(0.75f, 0.4f, 1.0f); smoke = false; break;
-            case EXPLOSION_HOLY:   core = FX_WHITE;  spark = FX_GOLD;   ring = FX_GOLD;   chunk = FX_DIRT; light = Vec3(1.0f, 0.9f, 0.6f);  smoke = false; break;
-            case EXPLOSION_DUST:   core = FX_DIRT;   spark = FX_DIRT;   ring = FX_DANGER; chunk = FX_DIRT; light = Vec3(1.0f, 0.4f, 0.2f);  break;
+            case EXPLOSION_POISON: core = FX_POISON; spark = FX_POISON; chunk = FX_GOO;  light = Vec3(0.5f, 1.0f, 0.3f);  break;
+            case EXPLOSION_ARCANE: core = FX_PURPLE; spark = FX_PURPLE; chunk = FX_BONE; light = Vec3(0.75f, 0.4f, 1.0f); smoke = false; break;
+            case EXPLOSION_HOLY:   core = FX_WHITE;  spark = FX_GOLD;   chunk = FX_DIRT; light = Vec3(1.0f, 0.9f, 0.6f);  smoke = false; break;
+            case EXPLOSION_DUST:   core = FX_DIRT;   spark = FX_DIRT;   chunk = FX_DIRT; light = Vec3(1.0f, 0.4f, 0.2f);  break;
             default: break;
         }
 
@@ -3383,7 +3346,6 @@ private:
         if (smoke)
             Emit(inPosition, ParticleDesc { .mMesh = PARTICLE_PUFF, .mMaterial = inStyle == EXPLOSION_DUST ? FX_DIRT : FX_SMOKE, .mCount = count / 2 + 2, .mSpeedMin = 0.8f, .mSpeedMax = 2.5f * scale, .mLifeMin = 0.7f, .mLifeMax = 1.3f, .mSizeMin = 0.4f * scale, .mSizeMax = 0.7f * scale, .mEndSize = 1.8f, .mGravity = -1.2f, .mDrag = 2.0f, .mUpBias = 0.5f, .mSpread = inRadius * 0.3f });
 
-        SpawnRing(Vec3(inPosition.x, 0.12f, inPosition.z), 0.3f, inRadius * 1.25f, 0.35f, m_FXMaterials[ring], 1.0f + scale * 0.5f);
         SpawnLight(inPosition + Vec3(0.0f, 1.0f, 0.0f), light, 900000.0f * scale * scale, inRadius * 4.0f, 0.35f);
         AddTraumaAt(inPosition, glm::clamp(inRadius * 0.04f, 0.04f, 0.2f));
         m_CameraKick = glm::max(m_CameraKick, glm::min(inRadius * 0.08f, cMaxCameraKick));
@@ -3490,7 +3452,6 @@ private:
             pickup.mTime = 0.0f;
             pickup.mOpenTimer = 0.0f;
 
-            SpawnRing(ToWorld(pickup.mPosition, 0.1f), 0.2f, 1.6f, 0.4f, m_FXMaterials[FX_GOLD], 0.8f);
             return;
         }
     }
@@ -3545,7 +3506,6 @@ private:
                 AddChat(std::format("You drink the potion. It heals {} hitpoints.", int(heal)), cChatBlack);
                 PlaySfx(cPotionSound, 0.7f);
                 Emit(center, ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = FX_HEAL, .mCount = 24, .mSpeedMin = 0.5f, .mSpeedMax = 1.5f, .mLifeMin = 0.6f, .mLifeMax = 1.0f, .mSizeMin = 0.15f, .mSizeMax = 0.25f, .mGravity = -4.0f, .mDrag = 1.0f, .mSpread = 0.8f, .mFlat = true });
-                SpawnRing(ToWorld(m_PlayerPosition, 0.1f), 0.3f, 2.0f, 0.5f, m_FXMaterials[FX_HEAL], 0.8f);
             } break;
 
             case PICKUP_MAGNET:
@@ -3555,7 +3515,6 @@ private:
 
                 AddChat("The magnet pulls every gem towards you.", cChatBlack);
                 PlaySfx(cMagnetSound, 0.6f);
-                SpawnRing(ToWorld(m_PlayerPosition, 0.2f), 0.5f, 30.0f, 0.8f, m_FXMaterials[FX_ARCANE], 2.0f);
             } break;
 
             case PICKUP_BOMB:
@@ -3602,7 +3561,6 @@ private:
         }
 
         Emit(ToWorld(inPosition, 0.5f), ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = FX_GOLD, .mCount = 40, .mSpeedMin = 4.0f, .mSpeedMax = 10.0f, .mLifeMin = 0.6f, .mLifeMax = 1.2f, .mSizeMin = 0.2f, .mSizeMax = 0.35f, .mGravity = 10.0f, .mDrag = 0.8f, .mUpBias = 1.5f });
-        SpawnRing(ToWorld(inPosition, 0.1f), 0.5f, 6.0f, 0.6f, m_FXMaterials[FX_GOLD], 1.4f);
         AddTrauma(0.25f);
         PlaySfx(cTreasureSound, 0.8f);
         AddPopup("Treasure!", rewards > 1 ? std::format("{} upgrades", rewards) : String("1 upgrade"), Vec4(1.0f, 0.82f, 0.35f, 1.0f));
@@ -3682,7 +3640,6 @@ private:
         PlaySfx(cLevelUpSound, 0.7f);
 
         const Vec3 ground = ToWorld(m_PlayerPosition, 0.1f);
-        SpawnRing(ground, 0.4f, 4.0f, 0.5f, m_FXMaterials[FX_GOLD], 1.2f);
         SpawnLight(GetPlayerCenter(), Vec3(1.0f, 0.85f, 0.5f), 1500000.0f, 10.0f, 0.6f);
         Emit(ground, ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = FX_GOLD, .mCount = 30, .mSpeedMin = 3.0f, .mSpeedMax = 7.0f, .mLifeMin = 0.5f, .mLifeMax = 0.9f, .mSizeMin = 0.2f, .mSizeMax = 0.3f, .mDrag = 1.0f, .mUpBias = 4.0f, .mSpread = 0.6f });
     }
@@ -3818,41 +3775,6 @@ private:
         }
     }
 
-    void SpawnRing(const Vec3& inPosition, float inStartRadius, float inEndRadius, float inLife, Entity inMaterial, float inThickness)
-    {
-        Ring* target = &m_Rings[0];
-        float oldest = -1.0f;
-
-        for (Ring& ring : m_Rings)
-        {
-            if (!ring.mActive)
-            {
-                target = &ring;
-                break;
-            }
-
-            if (ring.mLife / ring.mMaxLife > oldest)
-            {
-                oldest = ring.mLife / ring.mMaxLife;
-                target = &ring;
-            }
-        }
-
-        target->mActive = true;
-        target->mPosition = inPosition;
-        target->mStartRadius = inStartRadius;
-        target->mEndRadius = inEndRadius;
-        target->mThickness = inThickness;
-        target->mLife = 0.0f;
-        target->mMaxLife = inLife;
-
-        if (target->mMaterial != inMaterial)
-        {
-            target->mMaterial = inMaterial;
-            SetMaterial(target->mEntity, inMaterial);
-        }
-    }
-
     void SpawnNovaBurst(const Vec3& inPosition, float inRadius)
     {
         NovaBurst* target = &m_NovaBursts[0];
@@ -3911,30 +3833,6 @@ private:
                 if (Material* material = FindComponent<Material>(burst.mMaterials[layer]))
                     material->albedo.a = alphas[layer];
             }
-        }
-    }
-
-    void UpdateRings(float inDeltaTime)
-    {
-        for (Ring& ring : m_Rings)
-        {
-            if (!ring.mActive)
-                continue;
-
-            ring.mLife += inDeltaTime;
-
-            const float t = ring.mLife / ring.mMaxLife;
-
-            if (t >= 1.0f)
-            {
-                ring.mActive = false;
-                Park(ring.mEntity);
-                continue;
-            }
-
-            const float radius = glm::mix(ring.mStartRadius, ring.mEndRadius, EaseOutCubic(t));
-            const float thickness = ring.mThickness * ( 1.0f - t ) * 2.0f;
-            SetTransform(ring.mEntity, ring.mPosition, Vec3(radius * 2.0f, thickness, radius * 2.0f));
         }
     }
 
@@ -5285,7 +5183,6 @@ private:
 
     StaticArray<Array<Particle>, PARTICLE_MESH_COUNT> m_Particles;
     StaticArray<int, PARTICLE_MESH_COUNT> m_ParticleCursor = {};
-    Array<Ring> m_Rings;
     Array<NovaBurst> m_NovaBursts;
     Array<Telegraph> m_Telegraphs;
     Array<Beam> m_Beams;
