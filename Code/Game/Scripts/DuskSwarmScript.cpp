@@ -121,6 +121,31 @@ static constexpr float cGameOverJingleDelay = 1.6f;
 static constexpr float cVolumeStep = 0.05f;
 
 
+enum EPauseTab
+{
+    PAUSE_TAB_GENERAL,
+    PAUSE_TAB_GRAPHICS,
+    PAUSE_TAB_COUNT
+};
+
+static constexpr StaticArray<const char*, PAUSE_TAB_COUNT> cPauseTabNames = { "General", "Graphics" };
+
+
+struct GraphicsSetting
+{
+    const char* mCVar;
+    const char* mLabel;
+};
+
+static constexpr StaticArray<GraphicsSetting, 4> cGraphicsSettings =
+{
+    GraphicsSetting { "r_enable_taa",     "Temporal anti-aliasing" },
+    GraphicsSetting { "r_enable_ddgi",    "Global illumination" },
+    GraphicsSetting { "r_enable_gtao",    "Ambient occlusion" },
+    GraphicsSetting { "r_enable_shadows", "Ray traced shadows" },
+};
+
+
 enum EEnemyType
 {
     ENEMY_GHOUL,
@@ -825,23 +850,37 @@ public:
 
                 m_MousePosition = Vec2(inEvent.button.x, inEvent.button.y);
 
-                if (IsInside(m_MousePosition, layout.mSliderPos - layout.mSliderPadding, layout.mSliderSize + layout.mSliderPadding * 2.0f))
+                for (int tab = 0; tab < PAUSE_TAB_COUNT; tab++)
                 {
-                    m_DraggingVolume = true;
-                    SetVolumeFromMouse(layout);
+                    if (IsInside(m_MousePosition, layout.mTabPos[tab], layout.mTabSize))
+                        SetPauseTab(tab);
                 }
-                else if (IsInside(m_MousePosition, layout.mGodModePos, layout.mGodModeSize))
+
+                if (m_PauseTab == PAUSE_TAB_GENERAL)
                 {
-                    ToggleGodMode();
+                    if (IsInside(m_MousePosition, layout.mSliderPos - layout.mSliderPadding, layout.mSliderSize + layout.mSliderPadding * 2.0f))
+                    {
+                        m_DraggingVolume = true;
+                        SetVolumeFromMouse(layout);
+                    }
+                    else if (IsInside(m_MousePosition, layout.mGodModePos, layout.mCheckboxSize))
+                    {
+                        ToggleGodMode();
+                    }
                 }
-                else if (IsInside(m_MousePosition, layout.mButtonPos, layout.mButtonSize))
+                else
                 {
+                    for (int setting = 0; setting < int(cGraphicsSettings.size()); setting++)
+                    {
+                        if (IsInside(m_MousePosition, layout.GetSettingPos(setting), layout.mCheckboxSize))
+                            ToggleGraphicsSetting(setting);
+                    }
+                }
+
+                if (IsInside(m_MousePosition, layout.mButtonPos, layout.mButtonSize))
                     Resume();
-                }
                 else if (IsInside(m_MousePosition, layout.mQuitPos, layout.mButtonSize))
-                {
                     Quit();
-                }
             } break;
 
             case SDL_EVENT_MOUSE_BUTTON_UP:
@@ -862,6 +901,7 @@ public:
                     case SDLK_SPACE: if (!inEvent.key.repeat) Resume(); break;
                     case SDLK_Q: if (!inEvent.key.repeat) Quit(); break;
                     case SDLK_G: if (!inEvent.key.repeat) ToggleGodMode(); break;
+                    case SDLK_TAB: if (!inEvent.key.repeat) SetPauseTab(( m_PauseTab + 1 ) % PAUSE_TAB_COUNT); break;
                 }
             } break;
         }
@@ -5146,11 +5186,17 @@ private:
         Vec2 mSliderPos = Vec2(0.0f);
         Vec2 mSliderSize = Vec2(0.0f);
         Vec2 mSliderPadding = Vec2(0.0f);
+        StaticArray<Vec2, PAUSE_TAB_COUNT> mTabPos = {};
+        Vec2 mTabSize = Vec2(0.0f);
+        Vec2 mCheckboxSize = Vec2(0.0f);
         Vec2 mGodModePos = Vec2(0.0f);
-        Vec2 mGodModeSize = Vec2(0.0f);
+        Vec2 mSettingsPos = Vec2(0.0f);
+        float mSettingStep = 0.0f;
         Vec2 mButtonPos = Vec2(0.0f);
         Vec2 mButtonSize = Vec2(0.0f);
         Vec2 mQuitPos = Vec2(0.0f);
+
+        Vec2 GetSettingPos(int inSetting) const { return mSettingsPos + Vec2(0.0f, mSettingStep * float(inSetting)); }
     };
 
     PauseLayout GetPauseLayout() const
@@ -5160,15 +5206,25 @@ private:
         layout.mScale = glm::max(layout.mDisplay.y / 1080.0f, 0.5f);
 
         const float scale = layout.mScale;
-        layout.mPanelSize = Vec2(620.0f, 480.0f) * scale;
+        layout.mPanelSize = Vec2(620.0f, 500.0f) * scale;
         layout.mPanelPos = layout.mDisplay * 0.5f - layout.mPanelSize * 0.5f;
+
+        layout.mTabSize = Vec2(200.0f, 44.0f) * scale;
+        const float tab_gap = 12.0f * scale;
+        const float tabs_x = layout.mDisplay.x * 0.5f - ( layout.mTabSize.x * float(PAUSE_TAB_COUNT) + tab_gap * float(PAUSE_TAB_COUNT - 1) ) * 0.5f;
+
+        for (int tab = 0; tab < PAUSE_TAB_COUNT; tab++)
+            layout.mTabPos[tab] = Vec2(tabs_x + ( layout.mTabSize.x + tab_gap ) * float(tab), layout.mPanelPos.y + 84.0f * scale);
+
         layout.mSliderSize = Vec2(380.0f, 16.0f) * scale;
-        layout.mSliderPos = Vec2(layout.mDisplay.x * 0.5f - layout.mSliderSize.x * 0.5f - 40.0f * scale, layout.mPanelPos.y + 150.0f * scale);
+        layout.mSliderPos = Vec2(layout.mDisplay.x * 0.5f - layout.mSliderSize.x * 0.5f - 40.0f * scale, layout.mPanelPos.y + 200.0f * scale);
         layout.mSliderPadding = Vec2(16.0f, 18.0f) * scale;
-        layout.mGodModeSize = Vec2(220.0f, 32.0f) * scale;
-        layout.mGodModePos = Vec2(layout.mSliderPos.x, layout.mPanelPos.y + 200.0f * scale);
+        layout.mCheckboxSize = Vec2(360.0f, 32.0f) * scale;
+        layout.mGodModePos = Vec2(layout.mSliderPos.x, layout.mPanelPos.y + 250.0f * scale);
+        layout.mSettingsPos = Vec2(layout.mSliderPos.x, layout.mPanelPos.y + 148.0f * scale);
+        layout.mSettingStep = 44.0f * scale;
         layout.mButtonSize = Vec2(240.0f, 56.0f) * scale;
-        layout.mButtonPos = Vec2(layout.mDisplay.x * 0.5f - layout.mButtonSize.x * 0.5f, layout.mPanelPos.y + 290.0f * scale);
+        layout.mButtonPos = Vec2(layout.mDisplay.x * 0.5f - layout.mButtonSize.x * 0.5f, layout.mPanelPos.y + 340.0f * scale);
         layout.mQuitPos = layout.mButtonPos + Vec2(0.0f, layout.mButtonSize.y + 16.0f * scale);
         return layout;
     }
@@ -5198,6 +5254,30 @@ private:
     void ToggleGodMode()
     {
         *m_GodMode = *m_GodMode ? 0 : 1;
+        PlaySfx(cSelectSound, 0.5f);
+    }
+
+    static int* GetGraphicsSetting(int inSetting)
+    {
+        return g_CVariables->TryGetValue<int>(cGraphicsSettings[inSetting].mCVar);
+    }
+
+    void ToggleGraphicsSetting(int inSetting)
+    {
+        if (int* value = GetGraphicsSetting(inSetting))
+        {
+            *value = *value ? 0 : 1;
+            PlaySfx(cSelectSound, 0.5f);
+        }
+    }
+
+    void SetPauseTab(int inTab)
+    {
+        if (inTab == m_PauseTab)
+            return;
+
+        m_PauseTab = inTab;
+        m_DraggingVolume = false;
         PlaySfx(cSelectSound, 0.5f);
     }
 
@@ -5231,37 +5311,72 @@ private:
 
         DrawWindow(pos, layout.mPanelSize, "Paused", scale, alpha);
 
-        const float volume = GetMasterVolume();
-        const Vec2 slider_pos = layout.mSliderPos + offset;
-        const Vec2 slider_size = layout.mSliderSize;
-        const bool slider_hovered = m_DraggingVolume || IsInside(m_MousePosition, layout.mSliderPos - layout.mSliderPadding, slider_size + layout.mSliderPadding * 2.0f);
+        for (int tab = 0; tab < PAUSE_TAB_COUNT; tab++)
+        {
+            const bool active = tab == m_PauseTab;
+            const bool hovered = IsInside(m_MousePosition, layout.mTabPos[tab], layout.mTabSize);
+            const float tint = active ? 1.35f : hovered ? 1.1f : 0.7f;
+            const Vec2 tab_pos = layout.mTabPos[tab] + offset;
 
-        DrawLabel(Vec2(slider_pos.x, slider_pos.y - 44.0f * scale), "Master volume", 22.0f * scale, Fade(cRSWhite, alpha));
-        DrawSlotBox(slider_pos - Vec2(4.0f * scale), slider_size + Vec2(8.0f * scale), scale, alpha);
-        g_UIRenderer.AddRectFilled(slider_pos, Vec2(slider_size.x * volume, slider_size.y), 2.0f * scale, Fade(cRSOrange, 0.85f * alpha));
+            g_UIRenderer.AddImageSliced(tab_pos, layout.mTabSize, m_ButtonTexture, 10.0f * scale, 12.0f / 64.0f, Vec4(tint, tint, tint, alpha));
+            DrawLabel(Vec2(tab_pos.x + layout.mTabSize.x * 0.5f, tab_pos.y + layout.mTabSize.y * 0.5f - 12.0f * scale), cPauseTabNames[tab], 24.0f * scale, Fade(active || hovered ? cRSYellow : cRSOrange, ( active ? 1.0f : 0.75f ) * alpha), UI_TEXT_ALIGN_CENTER);
+        }
 
-        const Vec2 knob_size = Vec2(22.0f, slider_size.y / scale + 22.0f) * scale;
-        const float knob_tint = slider_hovered ? 1.35f : 1.0f;
-        g_UIRenderer.AddImageSliced(Vec2(slider_pos.x + slider_size.x * volume - knob_size.x * 0.5f, slider_pos.y - 11.0f * scale), knob_size, m_ButtonTexture, 8.0f * scale, 12.0f / 64.0f, Vec4(knob_tint, knob_tint, knob_tint, alpha));
-
-        DrawLabel(Vec2(slider_pos.x + slider_size.x + 70.0f * scale, slider_pos.y - 6.0f * scale), std::format("{}%", int(glm::round(volume * 100.0f))), 26.0f * scale, Fade(cRSYellow, alpha), UI_TEXT_ALIGN_CENTER);
-
-        const bool god_mode = *m_GodMode != 0;
-        const bool god_mode_hovered = IsInside(m_MousePosition, layout.mGodModePos, layout.mGodModeSize);
-        const Vec2 god_mode_pos = layout.mGodModePos + offset;
-        const Vec2 box_size = Vec2(layout.mGodModeSize.y);
-
-        DrawSlotBox(god_mode_pos, box_size, scale, alpha);
-
-        if (god_mode)
-            g_UIRenderer.AddRectFilled(god_mode_pos + Vec2(7.0f * scale), box_size - Vec2(14.0f * scale), 2.0f * scale, Fade(cRSOrange, 0.9f * alpha));
-
-        DrawLabel(god_mode_pos + Vec2(box_size.x + 14.0f * scale, 4.0f * scale), "God mode", 22.0f * scale, Fade(god_mode_hovered ? cRSYellow : cRSWhite, alpha));
+        if (m_PauseTab == PAUSE_TAB_GENERAL)
+            DrawPauseGeneralTab(layout, offset, alpha);
+        else
+            DrawPauseGraphicsTab(layout, offset, alpha);
 
         DrawButton(layout.mButtonPos + offset, layout.mButtonSize, "Resume", IsInside(m_MousePosition, layout.mButtonPos, layout.mButtonSize), alpha, scale);
         DrawButton(layout.mQuitPos + offset, layout.mButtonSize, "Quit", IsInside(m_MousePosition, layout.mQuitPos, layout.mButtonSize), alpha, scale);
 
-        DrawLabel(Vec2(center, pos.y + layout.mPanelSize.y + 20.0f * scale), "A / D or drag to adjust  -  G for god mode  -  Enter or Esc to resume  -  Q to quit", 20.0f * scale, Fade(cRSWhite, 0.85f * alpha), UI_TEXT_ALIGN_CENTER);
+        const char* hint = m_PauseTab == PAUSE_TAB_GENERAL ? "A / D or drag to adjust  -  G for god mode  -  Tab to switch  -  Esc to resume  -  Q to quit" : "Click to toggle  -  Tab to switch  -  Esc to resume  -  Q to quit";
+        DrawLabel(Vec2(center, pos.y + layout.mPanelSize.y + 20.0f * scale), hint, 20.0f * scale, Fade(cRSWhite, 0.85f * alpha), UI_TEXT_ALIGN_CENTER);
+    }
+
+    void DrawCheckbox(const Vec2& inLayoutPos, const Vec2& inSize, const Vec2& inOffset, StringView inLabel, bool inChecked, float inAlpha, float inScale)
+    {
+        const bool hovered = IsInside(m_MousePosition, inLayoutPos, inSize);
+        const Vec2 pos = inLayoutPos + inOffset;
+        const Vec2 box_size = Vec2(inSize.y);
+
+        DrawSlotBox(pos, box_size, inScale, inAlpha);
+
+        if (inChecked)
+            g_UIRenderer.AddRectFilled(pos + Vec2(7.0f * inScale), box_size - Vec2(14.0f * inScale), 2.0f * inScale, Fade(cRSOrange, 0.9f * inAlpha));
+
+        DrawLabel(pos + Vec2(box_size.x + 14.0f * inScale, 4.0f * inScale), inLabel, 22.0f * inScale, Fade(hovered ? cRSYellow : cRSWhite, inAlpha));
+    }
+
+    void DrawPauseGraphicsTab(const PauseLayout& inLayout, const Vec2& inOffset, float inAlpha)
+    {
+        for (int setting = 0; setting < int(cGraphicsSettings.size()); setting++)
+        {
+            const int* value = GetGraphicsSetting(setting);
+            DrawCheckbox(inLayout.GetSettingPos(setting), inLayout.mCheckboxSize, inOffset, cGraphicsSettings[setting].mLabel, value && *value != 0, inAlpha, inLayout.mScale);
+        }
+    }
+
+    void DrawPauseGeneralTab(const PauseLayout& inLayout, const Vec2& inOffset, float inAlpha)
+    {
+        const float scale = inLayout.mScale;
+
+        const float volume = GetMasterVolume();
+        const Vec2 slider_pos = inLayout.mSliderPos + inOffset;
+        const Vec2 slider_size = inLayout.mSliderSize;
+        const bool slider_hovered = m_DraggingVolume || IsInside(m_MousePosition, inLayout.mSliderPos - inLayout.mSliderPadding, slider_size + inLayout.mSliderPadding * 2.0f);
+
+        DrawLabel(Vec2(slider_pos.x, slider_pos.y - 44.0f * scale), "Master volume", 22.0f * scale, Fade(cRSWhite, inAlpha));
+        DrawSlotBox(slider_pos - Vec2(4.0f * scale), slider_size + Vec2(8.0f * scale), scale, inAlpha);
+        g_UIRenderer.AddRectFilled(slider_pos, Vec2(slider_size.x * volume, slider_size.y), 2.0f * scale, Fade(cRSOrange, 0.85f * inAlpha));
+
+        const Vec2 knob_size = Vec2(22.0f, slider_size.y / scale + 22.0f) * scale;
+        const float knob_tint = slider_hovered ? 1.35f : 1.0f;
+        g_UIRenderer.AddImageSliced(Vec2(slider_pos.x + slider_size.x * volume - knob_size.x * 0.5f, slider_pos.y - 11.0f * scale), knob_size, m_ButtonTexture, 8.0f * scale, 12.0f / 64.0f, Vec4(knob_tint, knob_tint, knob_tint, inAlpha));
+
+        DrawLabel(Vec2(slider_pos.x + slider_size.x + 70.0f * scale, slider_pos.y - 6.0f * scale), std::format("{}%", int(glm::round(volume * 100.0f))), 26.0f * scale, Fade(cRSYellow, inAlpha), UI_TEXT_ALIGN_CENTER);
+
+        DrawCheckbox(inLayout.mGodModePos, inLayout.mCheckboxSize, inOffset, "God mode", *m_GodMode != 0, inAlpha, scale);
     }
 
 private:
@@ -5322,6 +5437,7 @@ private:
     bool m_EndJinglePlayed = false;
 
     float m_PauseTime = 0.0f;
+    int m_PauseTab = PAUSE_TAB_GENERAL;
     Vec2 m_MousePosition = Vec2(-1.0f);
     bool m_DraggingVolume = false;
 
