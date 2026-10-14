@@ -2,6 +2,7 @@
 #include "../Engine/Raekor.h"
 #include "../Engine/Profiler.h"
 #include "../Engine/GLTF.h"
+#include "MeshNodes.h"
 
 namespace RK {
 
@@ -396,28 +397,7 @@ public:
         STATE_VICTORY
     };
 
-    enum class Node : uint32_t
-    {
-        Null = UINT32_MAX
-    };
-
-    struct SceneNode
-    {
-        Node mParent = Node::Null;
-        uint32_t mBatch = UINT32_MAX;
-        uint32_t mInstance = 0;
-        Entity mMaterial = Entity::Null;
-        Mat4x4 mLocal = Mat4x4(1.0f);
-        Mat4x4 mWorld = Mat4x4(1.0f);
-        bool mHidden = false;
-        bool mVisible = false;
-    };
-
-    struct MeshBatch
-    {
-        Entity mEntity = Entity::Null;
-        const MeshGeometry* mGeometry = nullptr;
-    };
+    using Node = MeshNodes::Node;
 
     struct RigPart
     {
@@ -680,6 +660,7 @@ public:
         m_Random.seed(uint32_t(std::chrono::steady_clock::now().time_since_epoch().count()));
 
         m_RootEntity = m_Scene->CreateSpatialEntity(cRuntimeRootName);
+        m_Nodes.Init(m_Scene, m_App->GetRenderInterface(), m_RootEntity);
 
         m_GodMode = &g_CVariables->Create("ds_god", 0, true);
         m_AutoPick = &g_CVariables->Create("ds_autopick", 0, true);
@@ -766,7 +747,7 @@ public:
 
         UpdateCamera(inDeltaTime);
         UpdateSounds();
-        UpdateNodes();
+        m_Nodes.Update();
         DrawHUD(inDeltaTime);
     }
 
@@ -929,94 +910,6 @@ private:
         return entity;
     }
 
-    uint32_t GetMeshBatch(const Mesh& inMesh)
-    {
-        const MeshGeometry* geometry = inMesh.GetGeometry();
-
-        if (geometry == nullptr)
-            return UINT32_MAX;
-
-        for (uint32_t batch = 0; batch < m_MeshBatches.size(); batch++)
-        {
-            if (m_MeshBatches[batch].mGeometry == geometry)
-                return batch;
-        }
-
-        const Entity entity = CreateEntity(geometry->name);
-
-        MeshInstanced& mesh_instanced = m_Scene->Add<MeshInstanced>(entity);
-        mesh_instanced.SetAsset(inMesh.asset, inMesh.index);
-        mesh_instanced.material = m_PaletteMaterial;
-
-        m_App->GetRenderInterface()->UploadMeshBuffers(*mesh_instanced.asset);
-
-        m_MeshBatches.push_back(MeshBatch { .mEntity = entity, .mGeometry = geometry });
-        return uint32_t(m_MeshBatches.size() - 1);
-    }
-
-    Node CreateNode(Node inParent = Node::Null)
-    {
-        m_Nodes.emplace_back().mParent = inParent;
-        return Node(m_Nodes.size() - 1);
-    }
-
-    Node CreateMeshNode(const Mesh& inMesh, Entity inMaterial, Node inParent)
-    {
-        const uint32_t batch = GetMeshBatch(inMesh);
-        const Node node = CreateNode(inParent);
-
-        SceneNode& scene_node = m_Nodes[uint32_t(node)];
-        scene_node.mMaterial = inMaterial;
-
-        if (batch != UINT32_MAX)
-        {
-            MeshInstanced& mesh_instanced = m_Scene->Get<MeshInstanced>(m_MeshBatches[batch].mEntity);
-            scene_node.mBatch = batch;
-            scene_node.mInstance = uint32_t(mesh_instanced.instances.size());
-            mesh_instanced.instances.emplace_back().material = inMaterial;
-        }
-
-        return node;
-    }
-
-    void UpdateNodes()
-    {
-        PROFILE_FUNCTION_CPU();
-
-        m_MeshBatchComponents.resize(m_MeshBatches.size());
-
-        for (size_t batch = 0; batch < m_MeshBatches.size(); batch++)
-            m_MeshBatchComponents[batch] = FindComponent<MeshInstanced>(m_MeshBatches[batch].mEntity);
-
-        for (SceneNode& node : m_Nodes)
-        {
-            if (node.mParent == Node::Null)
-            {
-                node.mWorld = node.mLocal;
-                node.mVisible = !node.mHidden;
-            }
-            else
-            {
-                const SceneNode& parent = m_Nodes[uint32_t(node.mParent)];
-                node.mWorld = parent.mWorld * node.mLocal;
-                node.mVisible = parent.mVisible && !node.mHidden;
-            }
-
-            if (node.mBatch == UINT32_MAX || m_MeshBatchComponents[node.mBatch] == nullptr)
-                continue;
-
-            MeshInstanced::Instance& instance = m_MeshBatchComponents[node.mBatch]->instances[node.mInstance];
-            instance.transform = node.mWorld;
-            instance.material = node.mMaterial;
-            instance.visible = node.mVisible;
-        }
-    }
-
-    static Mat4x4 ComposeTransform(const Vec3& inPosition, const Vec3& inScale, const Quat& inRotation)
-    {
-        return glm::scale(glm::translate(Mat4x4(1.0f), inPosition) * glm::toMat4(inRotation), inScale);
-    }
-
     void SetTransform(Entity inEntity, const Vec3& inPosition, const Vec3& inScale, const Quat& inRotation = Quat(1.0f, 0.0f, 0.0f, 0.0f))
     {
         if (Transform* transform = FindComponent<Transform>(inEntity))
@@ -1030,24 +923,17 @@ private:
 
     void SetTransform(Node inNode, const Vec3& inPosition, const Vec3& inScale, const Quat& inRotation = Quat(1.0f, 0.0f, 0.0f, 0.0f))
     {
-        if (inNode == Node::Null)
-            return;
-
-        SceneNode& node = m_Nodes[uint32_t(inNode)];
-        node.mLocal = ComposeTransform(inPosition, inScale, inRotation);
-        node.mHidden = false;
+        m_Nodes.SetTransform(inNode, inPosition, inScale, inRotation);
     }
 
     void Park(Node inNode)
     {
-        if (inNode != Node::Null)
-            m_Nodes[uint32_t(inNode)].mHidden = true;
+        m_Nodes.Park(inNode);
     }
 
     void SetMaterial(Node inNode, Entity inMaterial)
     {
-        if (inNode != Node::Null && m_Nodes[uint32_t(inNode)].mBatch != UINT32_MAX)
-            m_Nodes[uint32_t(inNode)].mMaterial = inMaterial;
+        m_Nodes.SetMaterial(inNode, inMaterial);
     }
 
     void SetModelMaterial(const Model& inModel, Entity inMaterial)
@@ -1255,7 +1141,7 @@ private:
         const Entity material = inMaterial != Entity::Null ? inMaterial : m_PaletteMaterial;
 
         for (Model& model : models)
-            model.mRoot = CreateNode();
+            model.mRoot = m_Nodes.Create();
 
         const auto templates = m_MeshTemplates.find(inName);
 
@@ -1266,7 +1152,7 @@ private:
 
             for (Model& model : models)
             {
-                const Node fallback = CreateMeshNode(cube, material, model.mRoot);
+                const Node fallback = m_Nodes.CreateMesh(cube, material, model.mRoot);
                 SetTransform(fallback, Vec3(0.0f, 0.5f, 0.0f), Vec3(0.6f));
 
                 model.mParts[RIG_BODY] = RigPart { .mNode = fallback, .mRest = Vec3(0.0f, 0.5f, 0.0f) };
@@ -1282,7 +1168,7 @@ private:
 
             for (Model& model : models)
             {
-                const Node node = CreateMeshNode(part.mMesh, material, model.mRoot);
+                const Node node = m_Nodes.CreateMesh(part.mMesh, material, model.mRoot);
                 SetTransform(node, part.mJoint, Vec3(1.0f));
 
                 if (role >= 0 && model.mParts[role].mNode == Node::Null)
@@ -1834,9 +1720,7 @@ private:
         m_BossMusicEntity = Entity::Null;
         m_PlayerModel = Model();
         m_Blades.fill(Node::Null);
-        m_Nodes.clear();
-        m_MeshBatches.clear();
-        m_MeshBatchComponents.clear();
+        m_Nodes.Clear();
         m_Enemies.clear();
         m_Projectiles.clear();
         m_Fireballs.clear();
@@ -5425,9 +5309,7 @@ private:
     Model m_PlayerModel;
     StaticArray<Node, cMaxBlades> m_Blades;
 
-    Array<SceneNode> m_Nodes;
-    Array<MeshBatch> m_MeshBatches;
-    Array<MeshInstanced*> m_MeshBatchComponents;
+    MeshNodes m_Nodes;
 
     Entity m_ListenerEntity = Entity::Null;
     Entity m_MusicEntity = Entity::Null;
