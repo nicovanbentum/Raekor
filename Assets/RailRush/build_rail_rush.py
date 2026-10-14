@@ -111,7 +111,7 @@ class Part:
         self.recalc_faces = []
 
     def tag(self, verts, family, shade, variation):
-        faces = {face for vert in verts for face in vert.link_faces}
+        faces = dict.fromkeys(face for vert in verts for face in vert.link_faces)
         for face in faces:
             face[self.family] = FAMILY_INDEX[family]
             value = shade + (self.rng.randint(-variation, variation) if variation else 0)
@@ -692,7 +692,6 @@ def brownstone(rng, side):
     p = Part("Main", (0, 0, 0), rng)
     depth, height = 6.5, 10.6
     building_shell(p, side, depth, height, "Red")
-    box(p, "Red", (side * depth * 0.5, height * 0.5, 0), (depth, height, BUILDING_LENGTH - 0.02), shade=1, var=0)
     for floor in range(3):
         y = 2.0 + floor * 3.3
         for bay in range(4):
