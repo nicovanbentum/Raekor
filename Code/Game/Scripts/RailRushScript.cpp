@@ -1,6 +1,7 @@
 #define RAEKOR_SCRIPT
 #include "../Engine/Raekor.h"
 #include "../Engine/GLTF.h"
+#include "MeshNodes.h"
 
 namespace RK {
 
@@ -152,16 +153,18 @@ public:
         STATE_GAME_OVER
     };
 
+    using Node = MeshNodes::Node;
+
     struct ModelPart
     {
         String mName;
-        Entity mEntity = Entity::Null;
+        Node mNode = Node::Null;
         Vec3 mRest = Vec3(0.0f);
     };
 
     struct Model
     {
-        Entity mRoot = Entity::Null;
+        Node mRoot = Node::Null;
         Array<ModelPart> mParts;
     };
 
@@ -175,8 +178,9 @@ public:
     struct Obstacle
     {
         Entity mEntity = Entity::Null;
+        Node mNode = Node::Null;
         StaticArray<Model, cMaxTrainUnits> mUnits;
-        Entity mLights = Entity::Null;
+        Node mLights = Node::Null;
         Entity mHorn = Entity::Null;
         int mType = OBSTACLE_TRAIN;
         bool mActive = false;
@@ -188,7 +192,7 @@ public:
 
     struct Coin
     {
-        Entity mEntity = Entity::Null;
+        Node mNode = Node::Null;
         bool mActive = false;
         bool mAttracted = false;
         float mSpinPhase = 0.0f;
@@ -197,7 +201,7 @@ public:
 
     struct PowerUpPickup
     {
-        Entity mEntity = Entity::Null;
+        Node mNode = Node::Null;
         bool mActive = false;
         Vec3 mPosition = Vec3(0.0f);
     };
@@ -205,9 +209,9 @@ public:
     struct Segment
     {
         float mZ = 0.0f;
-        Entity mRoot = Entity::Null;
-        StaticArray<Entity, cBuildingsPerSide * 2> mBuildings;
-        StaticArray<Entity, cPropsPerSide * 2> mProps;
+        Node mRoot = Node::Null;
+        StaticArray<Node, cBuildingsPerSide * 2> mBuildings;
+        StaticArray<Node, cPropsPerSide * 2> mProps;
     };
 
     struct Popup
@@ -224,6 +228,7 @@ public:
         m_Random.seed(uint32_t(std::chrono::steady_clock::now().time_since_epoch().count()));
 
         m_RootEntity = m_Scene->CreateSpatialEntity(cRuntimeRootName);
+        m_Nodes.Init(m_Scene, m_App->GetRenderInterface(), m_RootEntity);
 
         m_GodMode = &g_CVariables->Create("rr_god", 0, true);
         m_AutoStart = &g_CVariables->Create("rr_autostart", 0, true);
@@ -281,6 +286,7 @@ public:
         UpdateVisuals(inDeltaTime);
         UpdateCamera(inDeltaTime);
         UpdateSounds();
+        m_Nodes.Update();
         DrawHUD(inDeltaTime);
     }
 
@@ -366,21 +372,6 @@ private:
         return entity;
     }
 
-    Entity CreateShape(StringView inName, Entity inMaterial, Vec3 inPosition, Vec3 inScale, Entity inParent = Entity::Null)
-    {
-        const Entity entity = CreateEntity(inName, inParent);
-        SetTransform(entity, inPosition, inScale);
-
-        Mesh& mesh = m_Scene->Add<Mesh>(entity);
-        mesh.SetAsset(MeshAsset::Find(*m_App->GetAssets(), MeshAsset::cBuiltinCube), 0);
-        mesh.material = inMaterial;
-
-        if (mesh.asset)
-            m_App->GetRenderInterface()->UploadMeshBuffers(*mesh.asset);
-
-        return entity;
-    }
-
     void SetTransform(Entity inEntity, const Vec3& inPosition, const Vec3& inScale = Vec3(1.0f), const Quat& inRotation = Quat(Vec3(0.0f)))
     {
         if (Transform* transform = FindComponent<Transform>(inEntity))
@@ -392,15 +383,40 @@ private:
         }
     }
 
+    void SetTransform(Node inNode, const Vec3& inPosition, const Vec3& inScale = Vec3(1.0f), const Quat& inRotation = Quat(Vec3(0.0f)))
+    {
+        m_Nodes.SetTransform(inNode, inPosition, inScale, inRotation);
+    }
+
     void Park(Entity inEntity)
     {
         SetTransform(inEntity, cParkedPosition, Vec3(0.1f));
     }
 
-    void SetMaterial(Entity inEntity, Entity inMaterial)
+    void Park(Node inNode)
     {
-        if (Mesh* mesh = FindComponent<Mesh>(inEntity))
-            mesh->material = inMaterial;
+        m_Nodes.Park(inNode);
+    }
+
+    void SetMaterial(Node inNode, Entity inMaterial)
+    {
+        m_Nodes.SetMaterial(inNode, inMaterial);
+    }
+
+    void SetObstacleTransform(const Obstacle& inObstacle, const Vec3& inPosition)
+    {
+        SetTransform(inObstacle.mNode, inPosition);
+
+        if (inObstacle.mEntity != Entity::Null)
+            SetTransform(inObstacle.mEntity, inPosition);
+    }
+
+    void ParkObstacle(const Obstacle& inObstacle)
+    {
+        Park(inObstacle.mNode);
+
+        if (inObstacle.mEntity != Entity::Null)
+            Park(inObstacle.mEntity);
     }
 
     float RandomFloat(float inMin, float inMax)
@@ -500,49 +516,44 @@ private:
         return templates != m_MeshTemplates.end() && !templates->second.empty() ? &templates->second.front() : nullptr;
     }
 
-    void SetMesh(Entity inEntity, const PartTemplate* inTemplate)
+    void SetMesh(Node inNode, const PartTemplate* inTemplate)
     {
-        Mesh* mesh = FindComponent<Mesh>(inEntity);
-
-        if (mesh == nullptr || inTemplate == nullptr)
-            return;
-
-        const Entity material = mesh->material;
-
-        *mesh = inTemplate->mMesh;
-        mesh->material = material;
-
-        if (mesh->asset)
-            m_App->GetRenderInterface()->UploadMeshBuffers(*mesh->asset);
+        if (inTemplate != nullptr)
+            m_Nodes.SetMesh(inNode, &inTemplate->mMesh);
     }
 
-    Entity CreateMeshEntity(StringView inName, const PartTemplate* inTemplate, Entity inParent)
+    Node CreateMeshNode(const PartTemplate* inTemplate, Node inParent)
     {
-        const Entity entity = CreateEntity(inName, inParent);
-        m_Scene->Add<Mesh>(entity).material = m_PaletteMaterial;
-        SetMesh(entity, inTemplate);
-        return entity;
+        const Node node = m_Nodes.Create(inParent);
+        SetMaterial(node, m_PaletteMaterial);
+        SetMesh(node, inTemplate);
+        return node;
     }
 
-    Model CreateModel(const String& inName, Entity inParent = Entity::Null)
+    Model CreateModel(const String& inName, Node inParent = Node::Null)
     {
         Model model;
-        model.mRoot = CreateEntity(inName, inParent);
+        model.mRoot = m_Nodes.Create(inParent);
 
         const auto templates = m_MeshTemplates.find(inName);
 
         if (templates == m_MeshTemplates.end())
         {
-            const Entity fallback = CreateShape(inName, m_PaletteMaterial, Vec3(0.0f, 0.5f, 0.0f), Vec3(1.0f), model.mRoot);
-            model.mParts.push_back(ModelPart { .mName = "Main", .mEntity = fallback, .mRest = Vec3(0.0f, 0.5f, 0.0f) });
+            Mesh cube;
+            cube.SetAsset(MeshAsset::Find(*m_App->GetAssets(), MeshAsset::cBuiltinCube), 0);
+
+            const Node fallback = m_Nodes.CreateMesh(cube, m_PaletteMaterial, model.mRoot);
+            SetTransform(fallback, Vec3(0.0f, 0.5f, 0.0f));
+
+            model.mParts.push_back(ModelPart { .mName = "Main", .mNode = fallback, .mRest = Vec3(0.0f, 0.5f, 0.0f) });
             return model;
         }
 
         for (const PartTemplate& part : templates->second)
         {
-            const Entity entity = CreateMeshEntity(part.mName, &part, model.mRoot);
-            SetTransform(entity, part.mJoint);
-            model.mParts.push_back(ModelPart { .mName = part.mName, .mEntity = entity, .mRest = part.mJoint });
+            const Node node = CreateMeshNode(&part, model.mRoot);
+            SetTransform(node, part.mJoint);
+            model.mParts.push_back(ModelPart { .mName = part.mName, .mNode = node, .mRest = part.mJoint });
         }
 
         return model;
@@ -579,7 +590,7 @@ private:
     {
         for (Segment& segment : m_Segments)
         {
-            segment.mRoot = CreateEntity("Track Segment");
+            segment.mRoot = m_Nodes.Create();
 
             CreateModel("Track", segment.mRoot);
             CreateModel("PlatformL", segment.mRoot);
@@ -588,11 +599,11 @@ private:
             SetTransform(CreateModel("LampPostL", segment.mRoot).mRoot, Vec3(cTrackHalfWidth + 1.2f, cPlatformTop, 4.0f));
             SetTransform(CreateModel("LampPostR", segment.mRoot).mRoot, Vec3(-cTrackHalfWidth - 1.2f, cPlatformTop, 19.0f));
 
-            for (Entity& building : segment.mBuildings)
-                building = CreateMeshEntity("Building", nullptr, segment.mRoot);
+            for (Node& building : segment.mBuildings)
+                building = CreateMeshNode(nullptr, segment.mRoot);
 
-            for (Entity& prop : segment.mProps)
-                prop = CreateMeshEntity("Prop", nullptr, segment.mRoot);
+            for (Node& prop : segment.mProps)
+                prop = CreateMeshNode(nullptr, segment.mRoot);
         }
     }
 
@@ -613,7 +624,7 @@ private:
 
         for (int index = 0; index < cPropsPerSide * 2; index++)
         {
-            const Entity prop = inSegment.mProps[index];
+            const Node prop = inSegment.mProps[index];
             const float side = index < cPropsPerSide ? 1.0f : -1.0f;
 
             if (RandomFloat(0.0f, 1.0f) < 0.25f)
@@ -633,14 +644,15 @@ private:
     void CreatePlayer()
     {
         m_PlayerEntity = CreateEntity("Runner");
-        m_BodyPivot = CreateEntity("Body", m_PlayerEntity);
+        m_PlayerNode = m_Nodes.Create();
+        m_BodyPivot = m_Nodes.Create(m_PlayerNode);
         m_Runner = CreateModel("Runner", m_BodyPivot);
 
         m_Legs = { FindPart(m_Runner, "LegL"), FindPart(m_Runner, "LegR") };
         m_Arms = { FindPart(m_Runner, "ArmL"), FindPart(m_Runner, "ArmR") };
         m_Shoes = { FindPart(m_Runner, "ShoeL"), FindPart(m_Runner, "ShoeR") };
 
-        m_Skateboard = CreateModel("Skateboard", m_PlayerEntity);
+        m_Skateboard = CreateModel("Skateboard", m_PlayerNode);
         Park(m_Skateboard.mRoot);
     }
 
@@ -662,11 +674,12 @@ private:
                 const String color = cTrainColors[inIndex % cTrainColors.size()];
 
                 obstacle.mEntity = CreateEntity("Train");
+                obstacle.mNode = m_Nodes.Create();
 
                 for (int unit = 0; unit < cMaxTrainUnits; unit++)
-                    obstacle.mUnits[unit] = CreateModel(( unit == 0 ? "TrainFront" : "TrainCar" ) + color, obstacle.mEntity);
+                    obstacle.mUnits[unit] = CreateModel(( unit == 0 ? "TrainFront" : "TrainCar" ) + color, obstacle.mNode);
 
-                obstacle.mLights = FindPart(obstacle.mUnits[0], "Lights").mEntity;
+                obstacle.mLights = FindPart(obstacle.mUnits[0], "Lights").mNode;
 
                 SoundSource& rumble = m_Scene->Add<SoundSource>(obstacle.mEntity);
                 rumble.file = cTrainRumbleSound;
@@ -699,23 +712,23 @@ private:
             case OBSTACLE_RAMP:
             {
                 obstacle.mLength = cRampLength;
-                obstacle.mEntity = CreateModel("Ramp").mRoot;
+                obstacle.mNode = CreateModel("Ramp").mRoot;
             } break;
 
             case OBSTACLE_LOW_BARRIER:
             {
                 obstacle.mLength = cBarrierDepth;
-                obstacle.mEntity = CreateModel("LowBarrier").mRoot;
+                obstacle.mNode = CreateModel("LowBarrier").mRoot;
             } break;
 
             case OBSTACLE_HIGH_BARRIER:
             {
                 obstacle.mLength = cBarrierDepth;
-                obstacle.mEntity = CreateModel("HighBarrier").mRoot;
+                obstacle.mNode = CreateModel("HighBarrier").mRoot;
             } break;
         }
 
-        Park(obstacle.mEntity);
+        ParkObstacle(obstacle);
         return obstacle;
     }
 
@@ -738,14 +751,14 @@ private:
         m_Coins.resize(cCoinPoolSize);
         for (Coin& coin : m_Coins)
         {
-            coin.mEntity = CreateModel("Coin").mRoot;
-            Park(coin.mEntity);
+            coin.mNode = CreateModel("Coin").mRoot;
+            Park(coin.mNode);
         }
 
         for (int index = 0; index < POWER_UP_COUNT; index++)
         {
-            m_PowerUpPickups[index].mEntity = CreateModel(cPowerUps[index].mModel).mRoot;
-            Park(m_PowerUpPickups[index].mEntity);
+            m_PowerUpPickups[index].mNode = CreateModel(cPowerUps[index].mModel).mRoot;
+            Park(m_PowerUpPickups[index].mNode);
         }
     }
 
@@ -863,7 +876,8 @@ private:
         m_MusicEntity = Entity::Null;
         m_SkateboardSoundEntity = Entity::Null;
         m_SkateboardRolling = false;
-        m_BodyPivot = Entity::Null;
+        m_PlayerNode = Node::Null;
+        m_BodyPivot = Node::Null;
         m_Runner = Model();
         m_Guard = Model();
         m_Skateboard = Model();
@@ -872,6 +886,7 @@ private:
         m_Shoes.fill(ModelPart());
         m_Obstacles.clear();
         m_Coins.clear();
+        m_Nodes.Clear();
 
         for (Segment& segment : m_Segments)
             segment = Segment();
@@ -887,19 +902,19 @@ private:
         for (Obstacle& obstacle : m_Obstacles)
         {
             obstacle.mActive = false;
-            Park(obstacle.mEntity);
+            ParkObstacle(obstacle);
         }
 
         for (Coin& coin : m_Coins)
         {
             coin.mActive = false;
-            Park(coin.mEntity);
+            Park(coin.mNode);
         }
 
         for (PowerUpPickup& pickup : m_PowerUpPickups)
         {
             pickup.mActive = false;
-            Park(pickup.mEntity);
+            Park(pickup.mNode);
         }
 
         for (int index = 0; index < cSegmentCount; index++)
@@ -1226,7 +1241,7 @@ private:
             if (obstacle.mZ + obstacle.mLength < -cRecycleDistance)
             {
                 obstacle.mActive = false;
-                Park(obstacle.mEntity);
+                ParkObstacle(obstacle);
             }
         }
     }
@@ -1258,7 +1273,7 @@ private:
             if (delta.x < 0.9f && delta.y < 1.1f && delta.z < 0.9f)
             {
                 coin.mActive = false;
-                Park(coin.mEntity);
+                Park(coin.mNode);
                 m_CoinCount++;
                 m_Score += 10.0f * multiplier;
 
@@ -1269,7 +1284,7 @@ private:
             else if (coin.mPosition.z < -cRecycleDistance)
             {
                 coin.mActive = false;
-                Park(coin.mEntity);
+                Park(coin.mNode);
             }
         }
 
@@ -1285,7 +1300,7 @@ private:
             if (delta.x < 1.0f && delta.y < 1.3f && delta.z < 1.0f)
             {
                 pickup.mActive = false;
-                Park(pickup.mEntity);
+                Park(pickup.mNode);
                 m_PowerUpTimers[index] = cPowerUpDuration;
                 AddPopup(cPowerUps[index].mName, Vec4(cPowerUps[index].mColor, 1.0f));
                 PlaySfx(cPowerUpSound, 0.8f);
@@ -1293,7 +1308,7 @@ private:
             else if (pickup.mPosition.z < -cRecycleDistance)
             {
                 pickup.mActive = false;
-                Park(pickup.mEntity);
+                Park(pickup.mNode);
             }
         }
     }
@@ -1537,7 +1552,11 @@ private:
         const bool flicker = m_InvulnerableTimer > 0.0f && glm::mod(m_Time, 0.16f) < 0.08f;
         const float body_yaw = riding && !sliding ? 0.95f : 0.0f;
 
-        SetTransform(m_PlayerEntity, Vec3(m_PlayerX - bounce, m_PlayerY + bob + ride_height, 0.0f),Vec3(1.0f), Quat(Vec3(pitch, 0.0f, 0.0f)));
+        const Vec3 player_position = Vec3(m_PlayerX - bounce, m_PlayerY + bob + ride_height, 0.0f);
+        const Quat player_rotation = Quat(Vec3(pitch, 0.0f, 0.0f));
+
+        SetTransform(m_PlayerEntity, player_position, Vec3(1.0f), player_rotation);
+        SetTransform(m_PlayerNode, player_position, Vec3(1.0f), player_rotation);
         SetTransform(m_BodyPivot, Vec3(0.0f, sliding ? 0.25f : 0.0f, 0.0f), Vec3(flicker ? 0.0f : 1.0f), Quat(Vec3(sliding ? -1.2f : 0.0f, body_yaw, -lean)));
 
         if (riding)
@@ -1574,10 +1593,10 @@ private:
                 arm = -swing * 0.8f * direction;
             }
 
-            SetTransform(m_Legs[side].mEntity, m_Legs[side].mRest, Vec3(1.0f), Quat(Vec3(leg, 0.0f, 0.0f)));
-            SetTransform(m_Shoes[side].mEntity, m_Shoes[side].mRest, Vec3(1.0f), Quat(Vec3(leg, 0.0f, 0.0f)));
-            SetTransform(m_Arms[side].mEntity, m_Arms[side].mRest, Vec3(1.0f), Quat(Vec3(arm, 0.0f, arm_roll)));
-            SetMaterial(m_Shoes[side].mEntity, m_PowerUpTimers[POWER_UP_SNEAKERS] > 0.0f ? m_GlowingSneakerMaterial : m_PaletteMaterial);
+            SetTransform(m_Legs[side].mNode, m_Legs[side].mRest, Vec3(1.0f), Quat(Vec3(leg, 0.0f, 0.0f)));
+            SetTransform(m_Shoes[side].mNode, m_Shoes[side].mRest, Vec3(1.0f), Quat(Vec3(leg, 0.0f, 0.0f)));
+            SetTransform(m_Arms[side].mNode, m_Arms[side].mRest, Vec3(1.0f), Quat(Vec3(arm, 0.0f, arm_roll)));
+            SetMaterial(m_Shoes[side].mNode, m_PowerUpTimers[POWER_UP_SNEAKERS] > 0.0f ? m_GlowingSneakerMaterial : m_PaletteMaterial);
         }
 
         UpdateGuard(inDeltaTime);
@@ -1585,19 +1604,19 @@ private:
         for (const Obstacle& obstacle : m_Obstacles)
         {
             if (obstacle.mActive)
-                SetTransform(obstacle.mEntity, Vec3(GetLaneX(obstacle.mLane), 0.0f, obstacle.mZ));
+                SetObstacleTransform(obstacle, Vec3(GetLaneX(obstacle.mLane), 0.0f, obstacle.mZ));
         }
 
         for (const Coin& coin : m_Coins)
         {
             if (coin.mActive)
-                SetTransform(coin.mEntity, coin.mPosition, Vec3(1.0f), Quat(Vec3(0.0f, m_Time * 4.0f + coin.mSpinPhase, 0.0f)));
+                SetTransform(coin.mNode, coin.mPosition, Vec3(1.0f), Quat(Vec3(0.0f, m_Time * 4.0f + coin.mSpinPhase, 0.0f)));
         }
 
         for (const PowerUpPickup& pickup : m_PowerUpPickups)
         {
             if (pickup.mActive)
-                SetTransform(pickup.mEntity, pickup.mPosition + Vec3(0.0f, 0.15f * glm::sin(m_Time * 3.0f), 0.0f), Vec3(1.1f), Quat(Vec3(0.0f, m_Time * 2.0f, 0.0f)));
+                SetTransform(pickup.mNode, pickup.mPosition + Vec3(0.0f, 0.15f * glm::sin(m_Time * 3.0f), 0.0f), Vec3(1.1f), Quat(Vec3(0.0f, m_Time * 2.0f, 0.0f)));
         }
     }
 
@@ -1634,8 +1653,8 @@ private:
 
             const float arm_angle = caught ? -1.5f : -swing * 0.9f * direction;
 
-            SetTransform(leg.mEntity, leg.mRest, Vec3(1.0f), Quat(Vec3(swing * 0.8f * direction, 0.0f, 0.0f)));
-            SetTransform(arm.mEntity, arm.mRest, Vec3(1.0f), Quat(Vec3(arm_angle, 0.0f, side == 0 ? 0.1f : -0.1f)));
+            SetTransform(leg.mNode, leg.mRest, Vec3(1.0f), Quat(Vec3(swing * 0.8f * direction, 0.0f, 0.0f)));
+            SetTransform(arm.mNode, arm.mRest, Vec3(1.0f), Quat(Vec3(arm_angle, 0.0f, side == 0 ? 0.1f : -0.1f)));
         }
     }
 
@@ -2009,7 +2028,8 @@ private:
     Entity m_RootEntity = Entity::Null;
     Entity m_CameraEntity = Entity::Null;
     Entity m_PlayerEntity = Entity::Null;
-    Entity m_BodyPivot = Entity::Null;
+    Node m_PlayerNode = Node::Null;
+    Node m_BodyPivot = Node::Null;
     Entity m_MusicEntity = Entity::Null;
     Model m_Runner;
     StaticArray<ModelPart, 2> m_Legs;
@@ -2022,6 +2042,7 @@ private:
     bool m_CaughtByGuard = false;
 
     Model m_Skateboard;
+    MeshNodes m_Nodes;
     Entity m_SkateboardSoundEntity = Entity::Null;
     bool m_SkateboardRolling = false;
     float m_SkateboardTimer = 0.0f;
