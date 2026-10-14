@@ -679,10 +679,22 @@ public:
 		return GetComponentStorage<Component>()->Get(inEntity);
 	}
 
-	template<typename Component>
+	template<typename ...Components>
 	uint32_t Count() const
 	{
-		return uint32_t(GetComponentStorage<Component>()->Length());
+		if constexpr (sizeof...( Components ) == 1)
+		{
+			return uint32_t(GetComponentStorage<Components...>()->Length());
+		}
+		else
+		{
+			uint32_t count = 0;
+
+			for ([[maybe_unused]] const auto& entry : Each<Components...>())
+				count++;
+
+			return count;
+		}
 	}
 
 	template<typename Component>

@@ -676,6 +676,18 @@ static void sTestMultiComponentEach()
 		CHECK(name_transform_mesh_matches);
 		CHECK(const_transform_mesh_matches);
 
+		const bool name_transform_count_matches = const_ecs.Count<Name, Transform>() == name_transform.size();
+		const bool transform_name_count_matches = const_ecs.Count<Transform, Name>() == name_transform.size();
+		const bool mesh_transform_count_matches = const_ecs.Count<Mesh, Transform>() == mesh_transform.size();
+		const bool name_transform_mesh_count_matches = const_ecs.Count<Name, Transform, Mesh>() == name_transform_mesh.size();
+		const bool mesh_count_matches = const_ecs.Count<Mesh>() == Expected.template operator()<Mesh>().size();
+
+		CHECK(name_transform_count_matches);
+		CHECK(transform_name_count_matches);
+		CHECK(mesh_transform_count_matches);
+		CHECK(name_transform_mesh_count_matches);
+		CHECK(mesh_count_matches);
+
 		for (const auto& [entity, name, transform, mesh] : ecs.Each<Name, Transform, Mesh>())
 		{
 			CHECK(&name == &ecs.Get<Name>(entity));
