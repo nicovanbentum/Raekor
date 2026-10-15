@@ -122,6 +122,8 @@ static constexpr float cGameOverJingleDelay = 1.6f;
 static constexpr float cVolumeStep = 0.05f;
 static constexpr float cEyeHeight = 1.6f;
 static constexpr float cMouseSensitivity = 0.0025f;
+static constexpr float cMinSensitivityScale = 0.2f;
+static constexpr float cMaxSensitivityScale = 3.0f;
 static constexpr float cMaxLookPitch = 1.4f;
 static constexpr float cThirdPersonFov = 50.0f;
 static constexpr float cFirstPersonFov = 75.0f;
@@ -135,6 +137,17 @@ enum EPauseTab
 };
 
 static constexpr StaticArray<const char*, PAUSE_TAB_COUNT> cPauseTabNames = { "General", "Graphics" };
+
+
+enum ESlider
+{
+    SLIDER_NONE = -1,
+    SLIDER_VOLUME,
+    SLIDER_SENSITIVITY,
+    SLIDER_COUNT
+};
+
+static constexpr StaticArray<const char*, SLIDER_COUNT> cSliderNames = { "Master volume", "Mouse sensitivity" };
 
 
 struct GraphicsSetting
@@ -672,6 +685,7 @@ public:
         m_StartTime = &g_CVariables->Create("ds_start_time", 0.0f, true);
         m_StartWeapons = &g_CVariables->Create("ds_weapons", 0, true);
         m_ShakeScale = &g_CVariables->Create("ds_shake", 1.0f, true);
+        m_SensitivityScale = &g_CVariables->Create("ds_mouse_sens", 1.0f, true);
 
         LoadTextures();
         LoadModels();
@@ -705,7 +719,7 @@ public:
 
         m_Time += delta_time;
         m_PauseTime = 0.0f;
-        m_DraggingVolume = false;
+        m_DraggingSlider = SLIDER_NONE;
 
         if (m_HitStop > 0.0f)
         {
@@ -766,8 +780,9 @@ public:
 
         if (inEvent.type == SDL_EVENT_MOUSE_MOTION && m_FirstPerson && m_State == STATE_PLAYING)
         {
-            m_LookYaw -= inEvent.motion.xrel * cMouseSensitivity;
-            m_LookPitch = glm::clamp(m_LookPitch - inEvent.motion.yrel * cMouseSensitivity, -cMaxLookPitch, cMaxLookPitch);
+            const float sensitivity = cMouseSensitivity * GetSensitivityScale();
+            m_LookYaw -= inEvent.motion.xrel * sensitivity;
+            m_LookPitch = glm::clamp(m_LookPitch - inEvent.motion.yrel * sensitivity, -cMaxLookPitch, cMaxLookPitch);
         }
 
         if (inEvent.type != SDL_EVENT_KEY_DOWN || inEvent.key.repeat)
@@ -838,8 +853,8 @@ public:
             {
                 m_MousePosition = Vec2(inEvent.motion.x, inEvent.motion.y);
 
-                if (m_DraggingVolume)
-                    SetVolumeFromMouse(layout);
+                if (m_DraggingSlider != SLIDER_NONE)
+                    SetSliderFromMouse(layout, m_DraggingSlider);
             } break;
 
             case SDL_EVENT_MOUSE_BUTTON_DOWN:
@@ -857,15 +872,17 @@ public:
 
                 if (m_PauseTab == PAUSE_TAB_GENERAL)
                 {
-                    if (IsInside(m_MousePosition, layout.mSliderPos - layout.mSliderPadding, layout.mSliderSize + layout.mSliderPadding * 2.0f))
+                    for (int slider = 0; slider < SLIDER_COUNT; slider++)
                     {
-                        m_DraggingVolume = true;
-                        SetVolumeFromMouse(layout);
+                        if (IsInside(m_MousePosition, layout.GetSliderPos(slider) - layout.mSliderPadding, layout.mSliderSize + layout.mSliderPadding * 2.0f))
+                        {
+                            m_DraggingSlider = slider;
+                            SetSliderFromMouse(layout, slider);
+                        }
                     }
-                    else if (IsInside(m_MousePosition, layout.mGodModePos, layout.mCheckboxSize))
-                    {
+
+                    if (IsInside(m_MousePosition, layout.mGodModePos, layout.mCheckboxSize))
                         ToggleGodMode();
-                    }
                 }
                 else
                 {
@@ -885,7 +902,7 @@ public:
             case SDL_EVENT_MOUSE_BUTTON_UP:
             {
                 if (inEvent.button.button == SDL_BUTTON_LEFT)
-                    m_DraggingVolume = false;
+                    m_DraggingSlider = SLIDER_NONE;
             } break;
 
             case SDL_EVENT_KEY_DOWN:
@@ -5131,6 +5148,7 @@ private:
         Vec2 mSliderPos = Vec2(0.0f);
         Vec2 mSliderSize = Vec2(0.0f);
         Vec2 mSliderPadding = Vec2(0.0f);
+        float mSliderStep = 0.0f;
         StaticArray<Vec2, PAUSE_TAB_COUNT> mTabPos = {};
         Vec2 mTabSize = Vec2(0.0f);
         Vec2 mCheckboxSize = Vec2(0.0f);
@@ -5142,6 +5160,7 @@ private:
         Vec2 mQuitPos = Vec2(0.0f);
 
         Vec2 GetSettingPos(int inSetting) const { return mSettingsPos + Vec2(0.0f, mSettingStep * float(inSetting)); }
+        Vec2 GetSliderPos(int inSlider) const { return mSliderPos + Vec2(0.0f, mSliderStep * float(inSlider)); }
     };
 
     PauseLayout GetPauseLayout() const
@@ -5151,8 +5170,8 @@ private:
         layout.mScale = glm::max(layout.mDisplay.y / 1080.0f, 0.5f);
 
         const float scale = layout.mScale;
-        layout.mPanelSize = Vec2(620.0f, 540.0f) * scale;
-        layout.mPanelPos = layout.mDisplay * 0.5f - layout.mPanelSize * 0.5f + Vec2(0.0f, 20.0f * scale);
+        layout.mPanelSize = Vec2(620.0f, 580.0f) * scale;
+        layout.mPanelPos = layout.mDisplay * 0.5f - layout.mPanelSize * 0.5f + Vec2(0.0f, 40.0f * scale);
 
         layout.mTabSize = Vec2(200.0f, 44.0f) * scale;
         const float tab_gap = 12.0f * scale;
@@ -5164,12 +5183,13 @@ private:
         layout.mSliderSize = Vec2(380.0f, 16.0f) * scale;
         layout.mSliderPos = Vec2(layout.mDisplay.x * 0.5f - layout.mSliderSize.x * 0.5f - 40.0f * scale, layout.mPanelPos.y + 200.0f * scale);
         layout.mSliderPadding = Vec2(16.0f, 18.0f) * scale;
+        layout.mSliderStep = 88.0f * scale;
         layout.mCheckboxSize = Vec2(360.0f, 32.0f) * scale;
-        layout.mGodModePos = Vec2(layout.mSliderPos.x, layout.mPanelPos.y + 250.0f * scale);
+        layout.mGodModePos = Vec2(layout.mSliderPos.x, layout.mPanelPos.y + 338.0f * scale);
         layout.mSettingsPos = Vec2(layout.mSliderPos.x, layout.mPanelPos.y + 148.0f * scale);
         layout.mSettingStep = 44.0f * scale;
         layout.mButtonSize = Vec2(240.0f, 56.0f) * scale;
-        layout.mButtonPos = Vec2(layout.mDisplay.x * 0.5f - layout.mButtonSize.x * 0.5f, layout.mPanelPos.y + 380.0f * scale);
+        layout.mButtonPos = Vec2(layout.mDisplay.x * 0.5f - layout.mButtonSize.x * 0.5f, layout.mPanelPos.y + 420.0f * scale);
         layout.mQuitPos = layout.mButtonPos + Vec2(0.0f, layout.mButtonSize.y + 16.0f * scale);
         return layout;
     }
@@ -5191,9 +5211,41 @@ private:
             audio->SetMasterVolume(glm::clamp(glm::round(inVolume * 100.0f) / 100.0f, 0.0f, 1.0f));
     }
 
-    void SetVolumeFromMouse(const PauseLayout& inLayout)
+    float GetSensitivityScale() const
     {
-        SetMasterVolume(( m_MousePosition.x - inLayout.mSliderPos.x ) / inLayout.mSliderSize.x);
+        return m_SensitivityScale ? glm::clamp(*m_SensitivityScale, cMinSensitivityScale, cMaxSensitivityScale) : 1.0f;
+    }
+
+    void SetSensitivityScale(float inScale)
+    {
+        if (m_SensitivityScale)
+            *m_SensitivityScale = glm::clamp(glm::round(inScale * 10.0f) / 10.0f, cMinSensitivityScale, cMaxSensitivityScale);
+    }
+
+    float GetSliderValue(int inSlider)
+    {
+        if (inSlider == SLIDER_VOLUME)
+            return GetMasterVolume();
+
+        return ( GetSensitivityScale() - cMinSensitivityScale ) / ( cMaxSensitivityScale - cMinSensitivityScale );
+    }
+
+    String GetSliderText(int inSlider)
+    {
+        if (inSlider == SLIDER_VOLUME)
+            return std::format("{}%", int(glm::round(GetMasterVolume() * 100.0f)));
+
+        return std::format("{:.1f}x", GetSensitivityScale());
+    }
+
+    void SetSliderFromMouse(const PauseLayout& inLayout, int inSlider)
+    {
+        const float value = glm::clamp(( m_MousePosition.x - inLayout.GetSliderPos(inSlider).x ) / inLayout.mSliderSize.x, 0.0f, 1.0f);
+
+        if (inSlider == SLIDER_VOLUME)
+            SetMasterVolume(value);
+        else
+            SetSensitivityScale(glm::mix(cMinSensitivityScale, cMaxSensitivityScale, value));
     }
 
     void ToggleGodMode()
@@ -5222,13 +5274,13 @@ private:
             return;
 
         m_PauseTab = inTab;
-        m_DraggingVolume = false;
+        m_DraggingSlider = SLIDER_NONE;
         PlaySfx(cSelectSound, 0.5f);
     }
 
     void Resume()
     {
-        m_DraggingVolume = false;
+        m_DraggingSlider = SLIDER_NONE;
 
         if (Game* game = dynamic_cast<Game*>(m_App))
             game->Unpause();
@@ -5236,7 +5288,7 @@ private:
 
     void Quit()
     {
-        m_DraggingVolume = false;
+        m_DraggingSlider = SLIDER_NONE;
 
         if (Game* game = dynamic_cast<Game*>(m_App))
             game->Quit();
@@ -5306,20 +5358,23 @@ private:
     {
         const float scale = inLayout.mScale;
 
-        const float volume = GetMasterVolume();
-        const Vec2 slider_pos = inLayout.mSliderPos + inOffset;
-        const Vec2 slider_size = inLayout.mSliderSize;
-        const bool slider_hovered = m_DraggingVolume || IsInside(m_MousePosition, inLayout.mSliderPos - inLayout.mSliderPadding, slider_size + inLayout.mSliderPadding * 2.0f);
+        for (int slider = 0; slider < SLIDER_COUNT; slider++)
+        {
+            const float value = GetSliderValue(slider);
+            const Vec2 slider_pos = inLayout.GetSliderPos(slider) + inOffset;
+            const Vec2 slider_size = inLayout.mSliderSize;
+            const bool slider_hovered = m_DraggingSlider == slider || ( m_DraggingSlider == SLIDER_NONE && IsInside(m_MousePosition, inLayout.GetSliderPos(slider) - inLayout.mSliderPadding, slider_size + inLayout.mSliderPadding * 2.0f) );
 
-        DrawLabel(Vec2(slider_pos.x, slider_pos.y - 44.0f * scale), "Master volume", 22.0f * scale, Fade(cRSWhite, inAlpha));
-        DrawSlotBox(slider_pos - Vec2(4.0f * scale), slider_size + Vec2(8.0f * scale), scale, inAlpha);
-        g_UIRenderer.AddRectFilled(slider_pos, Vec2(slider_size.x * volume, slider_size.y), 2.0f * scale, Fade(cRSOrange, 0.85f * inAlpha));
+            DrawLabel(Vec2(slider_pos.x, slider_pos.y - 44.0f * scale), cSliderNames[slider], 22.0f * scale, Fade(cRSWhite, inAlpha));
+            DrawSlotBox(slider_pos - Vec2(4.0f * scale), slider_size + Vec2(8.0f * scale), scale, inAlpha);
+            g_UIRenderer.AddRectFilled(slider_pos, Vec2(slider_size.x * value, slider_size.y), 2.0f * scale, Fade(cRSOrange, 0.85f * inAlpha));
 
-        const Vec2 knob_size = Vec2(22.0f, slider_size.y / scale + 22.0f) * scale;
-        const float knob_tint = slider_hovered ? 1.35f : 1.0f;
-        g_UIRenderer.AddImageSliced(Vec2(slider_pos.x + slider_size.x * volume - knob_size.x * 0.5f, slider_pos.y - 11.0f * scale), knob_size, m_ButtonTexture, 8.0f * scale, 12.0f / 64.0f, Vec4(knob_tint, knob_tint, knob_tint, inAlpha));
+            const Vec2 knob_size = Vec2(22.0f, slider_size.y / scale + 22.0f) * scale;
+            const float knob_tint = slider_hovered ? 1.35f : 1.0f;
+            g_UIRenderer.AddImageSliced(Vec2(slider_pos.x + slider_size.x * value - knob_size.x * 0.5f, slider_pos.y - 11.0f * scale), knob_size, m_ButtonTexture, 8.0f * scale, 12.0f / 64.0f, Vec4(knob_tint, knob_tint, knob_tint, inAlpha));
 
-        DrawLabel(Vec2(slider_pos.x + slider_size.x + 70.0f * scale, slider_pos.y - 6.0f * scale), std::format("{}%", int(glm::round(volume * 100.0f))), 26.0f * scale, Fade(cRSYellow, inAlpha), UI_TEXT_ALIGN_CENTER);
+            DrawLabel(Vec2(slider_pos.x + slider_size.x + 70.0f * scale, slider_pos.y - 6.0f * scale), GetSliderText(slider), 26.0f * scale, Fade(cRSYellow, inAlpha), UI_TEXT_ALIGN_CENTER);
+        }
 
         DrawCheckbox(inLayout.mGodModePos, inLayout.mCheckboxSize, inOffset, "God mode", *m_GodMode != 0, inAlpha, scale);
     }
@@ -5382,7 +5437,7 @@ private:
     float m_PauseTime = 0.0f;
     int m_PauseTab = PAUSE_TAB_GENERAL;
     Vec2 m_MousePosition = Vec2(-1.0f);
-    bool m_DraggingVolume = false;
+    int m_DraggingSlider = SLIDER_NONE;
 
     Entity m_PaletteMaterial = Entity::Null;
     Entity m_FlashMaterial = Entity::Null;
@@ -5483,6 +5538,7 @@ private:
     float* m_StartTime = nullptr;
     int* m_StartWeapons = nullptr;
     float* m_ShakeScale = nullptr;
+    float* m_SensitivityScale = nullptr;
 
 public:
     DuskSwarmScript()
