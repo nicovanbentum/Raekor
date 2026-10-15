@@ -120,6 +120,11 @@ static constexpr float cGemStreakTime = 0.35f;
 static constexpr int   cGemStreakSteps = 12;
 static constexpr float cGameOverJingleDelay = 1.6f;
 static constexpr float cVolumeStep = 0.05f;
+static constexpr float cEyeHeight = 1.6f;
+static constexpr float cMouseSensitivity = 0.0025f;
+static constexpr float cMaxLookPitch = 1.4f;
+static constexpr float cThirdPersonFov = 50.0f;
+static constexpr float cFirstPersonFov = 75.0f;
 
 
 enum EPauseTab
@@ -756,13 +761,25 @@ public:
         if (!m_Started)
             return;
 
-        if (inEvent.type == SDL_EVENT_MOUSE_WHEEL)
+        if (inEvent.type == SDL_EVENT_MOUSE_WHEEL && !m_FirstPerson)
             m_CameraDistance = glm::clamp(m_CameraDistance - inEvent.wheel.y * 1.5f, 14.0f, 34.0f);
+
+        if (inEvent.type == SDL_EVENT_MOUSE_MOTION && m_FirstPerson && m_State == STATE_PLAYING)
+        {
+            m_LookYaw -= inEvent.motion.xrel * cMouseSensitivity;
+            m_LookPitch = glm::clamp(m_LookPitch - inEvent.motion.yrel * cMouseSensitivity, -cMaxLookPitch, cMaxLookPitch);
+        }
 
         if (inEvent.type != SDL_EVENT_KEY_DOWN || inEvent.key.repeat)
             return;
 
         const SDL_Keycode key = inEvent.key.key;
+
+        if (key == SDLK_T)
+        {
+            ToggleFirstPerson();
+            return;
+        }
 
         if (m_State == STATE_GAME_OVER || m_State == STATE_VICTORY)
         {
@@ -1576,7 +1593,7 @@ private:
         m_CameraEntity = CreateEntity("Swarm Camera");
 
         Camera& camera = m_Scene->Add<Camera>(m_CameraEntity);
-        camera.SetFov(50.0f);
+        camera.SetFov(m_FirstPerson ? cFirstPersonFov : cThirdPersonFov);
 
         m_App->SetCameraEntity(m_CameraEntity);
     }
@@ -1900,6 +1917,7 @@ private:
 
         AddChat("Welcome to Dusk Swarm.", cChatBlack);
         AddChat("WASD to move, Space to dash. Your weapons fire on their own.", cChatBlue);
+        AddChat("Press T to toggle first person.", cChatBlue);
         AddChat("Survive until dawn.", cChatRed);
         m_CameraTarget = Vec3(0.0f);
         m_FacingDirection = Vec2(0.0f, -1.0f);
@@ -1950,7 +1968,27 @@ private:
         if (m_Input->IsKeyDown(Key::A) || m_Input->IsKeyDown(Key::LEFT))  input.x -= 1.0f;
         if (m_Input->IsKeyDown(Key::D) || m_Input->IsKeyDown(Key::RIGHT)) input.x += 1.0f;
 
+        if (m_FirstPerson)
+            input = GetLookRight() * input.x - GetLookForward() * input.y;
+
         return glm::length(input) > 0.0f ? glm::normalize(input) : input;
+    }
+
+    Vec2 GetLookForward() const { return Vec2(-glm::sin(m_LookYaw), -glm::cos(m_LookYaw)); }
+    Vec2 GetLookRight() const { return Vec2(glm::cos(m_LookYaw), -glm::sin(m_LookYaw)); }
+
+    void ToggleFirstPerson()
+    {
+        m_FirstPerson = !m_FirstPerson;
+
+        if (m_FirstPerson)
+        {
+            m_LookYaw = m_PlayerYaw;
+            m_LookPitch = 0.0f;
+        }
+
+        if (Camera* camera = FindComponent<Camera>(m_CameraEntity))
+            camera->SetFov(m_FirstPerson ? cFirstPersonFov : cThirdPersonFov);
     }
 
     void TryDash()
@@ -1992,7 +2030,9 @@ private:
         m_PlayerPosition = ResolveObstacles(m_PlayerPosition, cPlayerRadius);
         m_PlayerPosition = ClampToArena(m_PlayerPosition, cPlayerRadius);
 
-        if (glm::length(input) > 0.0f)
+        if (m_FirstPerson)
+            m_FacingDirection = GetLookForward();
+        else if (glm::length(input) > 0.0f)
             m_FacingDirection = input;
 
         const float max_health = GetMaxHealth();
@@ -4365,6 +4405,9 @@ private:
 
         AnimatePlayer(inDeltaTime);
 
+        if (m_FirstPerson)
+            Park(m_PlayerModel.mRoot);
+
         const bool player_flash = m_InvulnerableTimer > 0.0f && glm::fract(m_Time * 12.0f) < 0.5f;
 
         if (player_flash)
@@ -4474,6 +4517,19 @@ private:
         const float noise_time = m_Time * 28.0f;
         const Vec3 offset = Vec3(glm::sin(noise_time * 1.1f) + glm::sin(noise_time * 2.3f) * 0.5f, glm::sin(noise_time * 1.7f + 1.3f) + glm::sin(noise_time * 3.1f) * 0.5f, glm::sin(noise_time * 1.3f + 2.1f)) * shake * 0.9f;
         const float roll = glm::sin(noise_time * 0.9f + 0.4f) * shake * 0.06f;
+
+        if (m_FirstPerson)
+        {
+            const float bob = glm::abs(glm::sin(m_PlayerWalkPhase)) * 0.05f * glm::clamp(glm::length(m_PlayerVelocity) / cPlayerBaseSpeed, 0.0f, 1.0f);
+            const float eye_height = m_State == STATE_GAME_OVER ? glm::mix(cEyeHeight, 0.3f, EaseOutCubic(m_PlayerDeathTimer / 0.5f)) : cEyeHeight + bob;
+            const Vec2 look = GetLookForward();
+            const Vec3 forward = Vec3(look.x * glm::cos(m_LookPitch), glm::sin(m_LookPitch), look.y * glm::cos(m_LookPitch));
+
+            transform->position = ToWorld(m_PlayerPosition, eye_height) + offset * 0.15f;
+            transform->rotation = glm::angleAxis(roll, forward) * glm::quatLookAtRH(forward, Camera::cUp);
+            transform->Compose();
+            return;
+        }
 
         const float pitch = glm::radians(58.0f);
         const float distance = m_CameraDistance - m_CameraKick * shake_scale;
@@ -4644,7 +4700,7 @@ private:
         }
 
         Vec2 player_screen;
-        if (m_State == STATE_PLAYING && health_fraction < 1.0f && ProjectToScreen(ToWorld(m_PlayerPosition, 2.2f), player_screen))
+        if (m_State == STATE_PLAYING && !m_FirstPerson && health_fraction < 1.0f && ProjectToScreen(ToWorld(m_PlayerPosition, 2.2f), player_screen))
         {
             const Vec2 size = Vec2(64.0f, 8.0f) * scale;
             DrawFlatBar(player_screen - Vec2(size.x * 0.5f, size.y), size, health_fraction, cHealthGreen, cHealthRed, scale);
@@ -4862,11 +4918,15 @@ private:
                 return;
 
             Vec2 player_screen;
-            if (!ProjectToScreen(GetPlayerCenter(), player_screen))
+            if (!m_FirstPerson && !ProjectToScreen(GetPlayerCenter(), player_screen))
                 return;
 
             Vec2 direction = Vec2(inWorld.x - m_PlayerPosition.x, inWorld.z - m_PlayerPosition.y);
-            direction = glm::length(direction) > 0.001f ? glm::normalize(direction) : Vec2(1.0f, 0.0f);
+
+            if (m_FirstPerson)
+                direction = Vec2(glm::dot(direction, GetLookRight()), -glm::dot(direction, GetLookForward()));
+
+            direction =glm::length(direction) > 0.001f ? glm::normalize(direction) : Vec2(1.0f, 0.0f);
 
             const Vec2 center = inDisplay * 0.5f;
             const Vec2 extent = inDisplay * 0.5f - Vec2(edge);
@@ -5410,6 +5470,9 @@ private:
     Vec3 m_CameraTarget = Vec3(0.0f);
     float m_CameraDistance = 22.0f;
     float m_CameraKick = 0.0f;
+    bool m_FirstPerson = false;
+    float m_LookYaw = 0.0f;
+    float m_LookPitch = 0.0f;
     float m_Trauma = 0.0f;
     float m_HitStop = 0.0f;
     float m_HitFlash = 0.0f;
