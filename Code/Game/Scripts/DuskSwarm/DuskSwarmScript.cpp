@@ -647,7 +647,7 @@ void DuskSwarmScript::NewGame()
     AddChat("WASD to move, Space to jump, Shift to dash.", cChatBlue);
     AddChat("Your weapons fire on their own.", cChatBlue);
     AddChat("Press T to toggle first person.", cChatBlue);
-    AddChat("Survive until dawn.", cChatRed);
+    AddChat("Survive three nights until the final dawn.", cChatRed);
     m_CameraTarget = Vec3(0.0f);
     m_FacingDirection = Vec2(0.0f, -1.0f);
     m_GemStreak = 0;

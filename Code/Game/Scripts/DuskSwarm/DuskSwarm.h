@@ -146,13 +146,18 @@ struct SkyKey
     float mAngle;
 };
 
-inline constexpr StaticArray<SkyKey, 5> cSkyKeys =
+inline constexpr StaticArray<SkyKey, 10> cSkyKeys =
 {
-    SkyKey { 0.0f,   2.4f },
-    SkyKey { 70.0f,  glm::pi<float>() },
-    SkyKey { 550.0f, glm::two_pi<float>() },
-    SkyKey { 600.0f, glm::two_pi<float>() + 0.2f },
-    SkyKey { 650.0f, glm::two_pi<float>() + 0.6f },
+    SkyKey { 0.0f,   2.0f },
+    SkyKey { 54.5f,  glm::pi<float>() * 1.0f },
+    SkyKey { 132.5f, glm::pi<float>() * 2.0f },
+    SkyKey { 282.5f, glm::pi<float>() * 3.0f },
+    SkyKey { 360.5f, glm::pi<float>() * 4.0f },
+    SkyKey { 510.5f, glm::pi<float>() * 5.0f },
+    SkyKey { 588.5f, glm::pi<float>() * 6.0f },
+    SkyKey { 600.0f, glm::pi<float>() * 6.0f + 0.24f },
+    SkyKey { 650.0f, glm::pi<float>() * 6.0f + 1.29f },
+    SkyKey { 700.0f, glm::pi<float>() * 6.0f + 1.57f },
 };
 
 inline constexpr float cSkyInclination = 0.45f;

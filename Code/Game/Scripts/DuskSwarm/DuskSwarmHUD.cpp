@@ -295,7 +295,7 @@ void DuskSwarmScript::DrawInfoBox(float inScale, float inMargin)
     Array<std::pair<String, String>> rows =
     {
         { "Time:", FormatTime(m_RunTime) },
-        { "Dawn in:", FormatTime(glm::max(0.0f, cVictoryTime - m_RunTime)) },
+        { "Final dawn:", FormatTime(glm::max(0.0f, cVictoryTime - m_RunTime)) },
         { "Kills:", std::format("{}", m_Kills) },
         { "Damage:", std::format("{:.1f}k", m_DamageDealt / 1000.0f) },
     };
@@ -586,7 +586,7 @@ void DuskSwarmScript::DrawIntro(const Vec2& inDisplay, float inScale)
     g_UIRenderer.SetFont(m_TitleFont);
     DrawLabel(Vec2(center, y), "Dusk Swarm", 100.0f * inScale, Fade(cRSOrange, alpha), UI_TEXT_ALIGN_CENTER);
     g_UIRenderer.SetFont(m_HudFont);
-    DrawLabel(Vec2(center, y + 124.0f * inScale), "Survive until dawn", 32.0f * inScale, Fade(cRSYellow, alpha), UI_TEXT_ALIGN_CENTER);
+    DrawLabel(Vec2(center, y + 124.0f * inScale), "Survive three nights", 32.0f * inScale, Fade(cRSYellow, alpha), UI_TEXT_ALIGN_CENTER);
 }
 
 
@@ -668,7 +668,7 @@ void DuskSwarmScript::DrawEndScreen(const Vec2& inDisplay, float inScale)
     const float center = inDisplay.x * 0.5f;
 
     DrawWindow(pos, size, victory ? "Congratulations!" : "Oh dear, you are dead!", inScale, alpha);
-    DrawLabel(Vec2(center, pos.y + 80.0f * inScale), victory ? "You survived until dawn. The swarm retreats." : "The night claims another soul.", 21.0f * inScale, Fade(cRSYellow, alpha), UI_TEXT_ALIGN_CENTER);
+    DrawLabel(Vec2(center, pos.y + 80.0f * inScale), victory ? "You survived the third night. The swarm retreats." : "The night claims another soul.", 21.0f * inScale, Fade(cRSYellow, alpha), UI_TEXT_ALIGN_CENTER);
 
     const StaticArray<std::pair<String, String>, 6> stats =
     {
