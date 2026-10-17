@@ -87,6 +87,8 @@ public:
         float mDamage = 0.0f;
         int mPierce = 0;
         int mLastHit = -1;
+        float mHeight = 0.9f;
+        bool mHoming = true;
     };
 
     struct Fireball
@@ -586,6 +588,7 @@ private:
     Model m_PlayerModel;
     Model m_WandModel;
     Vec3 m_WandTip = Vec3(0.0f);
+    bool m_AimHintShown = false;
     StaticArray<Node, cMaxBlades> m_Blades;
 
     MeshNodes m_Nodes;

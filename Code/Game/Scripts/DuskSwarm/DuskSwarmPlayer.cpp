@@ -27,6 +27,13 @@ void DuskSwarmScript::ToggleFirstPerson()
     {
         m_LookYaw = m_PlayerYaw;
         m_LookPitch = 0.0f;
+        m_WandTip = ToWorld(m_PlayerPosition, cEyeHeight);
+
+        if (!m_AimHintShown)
+        {
+            m_AimHintShown = true;
+            AddChat("Hold left click to cast Arcane Bolt at your crosshair.", cChatBlue);
+        }
     }
 
     if (Camera* camera = FindComponent<Camera>(m_CameraEntity))

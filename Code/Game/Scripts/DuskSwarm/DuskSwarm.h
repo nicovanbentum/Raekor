@@ -133,6 +133,9 @@ inline constexpr Vec3 cWandOffset = Vec3(0.21f, -0.22f, -0.52f) * cWandScale;
 inline constexpr Vec3 cWandTip = Vec3(0.0f, 0.0f, -0.44f) * cWandScale;
 inline constexpr float cWandYaw = 0.06f;
 inline constexpr float cWandPitch = 0.12f;
+inline constexpr float cBoltSpeed = 17.0f;
+inline constexpr float cAimedBoltSpeed = 24.0f;
+inline constexpr float cAimedBoltCooldownScale = 0.5f;
 
 
 struct SkyKey

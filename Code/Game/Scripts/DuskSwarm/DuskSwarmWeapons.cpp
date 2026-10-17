@@ -15,9 +15,11 @@ void DuskSwarmScript::UpdateWeapons(float inDeltaTime)
     {
         m_BoltTimer -= inDeltaTime;
 
-        if (m_BoltTimer <= 0.0f)
+        const bool can_fire = m_FirstPerson ? m_Input->IsButtonDown(SDL_BUTTON_LEFT) : true;
+
+        if (m_BoltTimer <= 0.0f && can_fire)
         {
-            m_BoltTimer = ( 0.95f - 0.1f * ( level - 1 ) ) * cooldown_multiplier;
+            m_BoltTimer = ( 0.95f - 0.1f * ( level - 1 ) ) * cooldown_multiplier * ( m_FirstPerson ? cAimedBoltCooldownScale : 1.0f );
             FireBolts(level, damage_multiplier);
         }
     }
@@ -121,8 +123,11 @@ void DuskSwarmScript::UpdateWeapons(float inDeltaTime)
 
 void DuskSwarmScript::FireBolts(int inLevel, float inDamageMultiplier)
 {
-    const int target = FindNearestEnemy(m_PlayerPosition, 18.0f);
-    const Vec2 aim = target >= 0 ? glm::normalize(m_Enemies[target].mPosition - m_PlayerPosition + Vec2(0.0001f)) : m_FacingDirection;
+    const bool aimed = m_FirstPerson;
+    const int target = aimed ? -1 : FindNearestEnemy(m_PlayerPosition, 18.0f);
+    const Vec2 aim = aimed ? GetLookForward() : target >= 0 ? glm::normalize(m_Enemies[target].mPosition - m_PlayerPosition + Vec2(0.0001f)) : m_FacingDirection;
+    const Vec3 tip = GetStaffTip();
+    const float speed = aimed ? cAimedBoltSpeed : cBoltSpeed;
 
     const int count = 1 + ( inLevel >= 3 ) + ( inLevel >= 5 );
     const float spread = 0.18f;
@@ -138,9 +143,11 @@ void DuskSwarmScript::FireBolts(int inLevel, float inDamageMultiplier)
                 continue;
 
             projectile.mActive = true;
-            projectile.mPosition = m_PlayerPosition + direction * 0.6f;
-            projectile.mVelocity = direction * 17.0f;
-            projectile.mLifetime = 1.4f;
+            projectile.mPosition = aimed ? Vec2(tip.x, tip.z) : m_PlayerPosition + direction * 0.6f;
+            projectile.mVelocity = direction * speed;
+            projectile.mLifetime = aimed ? 1.2f : 1.4f;
+            projectile.mHeight = aimed ? tip.y : 0.9f;
+            projectile.mHoming = !aimed;
             projectile.mDamage = ( 3.0f + 1.0f * ( inLevel - 1 ) ) * inDamageMultiplier;
             projectile.mPierce = 1 + inLevel / 2;
             projectile.mLastHit = -1;
@@ -150,7 +157,8 @@ void DuskSwarmScript::FireBolts(int inLevel, float inDamageMultiplier)
 
     m_CastTimer = 0.25f;
     PlaySfx(cBoltSound, 0.35f, RandomFloat(0.94f, 1.08f), 0.05f);
-    Emit(GetStaffTip(), ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = FX_ARCANE, .mCount = 4, .mSpeedMin = 1.0f, .mSpeedMax = 3.0f, .mLifeMin = 0.15f, .mLifeMax = 0.25f, .mSizeMin = 0.1f, .mSizeMax = 0.18f, .mDrag = 3.0f });
+    const float spark_scale = aimed ? 0.25f : 1.0f;
+    Emit(tip, ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = FX_ARCANE, .mCount = 4, .mSpeedMin = 1.0f * spark_scale, .mSpeedMax = 3.0f * spark_scale, .mLifeMin = 0.15f, .mLifeMax = 0.25f, .mSizeMin = 0.1f * spark_scale, .mSizeMax = 0.18f * spark_scale, .mDrag = 3.0f });
 }
 
 
@@ -163,19 +171,22 @@ void DuskSwarmScript::UpdateProjectiles(float inDeltaTime)
         if (!projectile.mActive)
             continue;
 
-        const int target = FindNearestEnemy(projectile.mPosition, 6.0f, projectile.mLastHit);
+        const int target = projectile.mHoming ? FindNearestEnemy(projectile.mPosition, 6.0f, projectile.mLastHit) : -1;
 
         if (target >= 0)
         {
-            const Vec2 desired = glm::normalize(m_Enemies[target].mPosition - projectile.mPosition + Vec2(0.0001f)) * 17.0f;
-            projectile.mVelocity = glm::normalize(glm::mix(projectile.mVelocity, desired, 1.0f - glm::exp(-inDeltaTime * 4.0f))) * 17.0f;
+            const Vec2 desired = glm::normalize(m_Enemies[target].mPosition - projectile.mPosition + Vec2(0.0001f)) * cBoltSpeed;
+            projectile.mVelocity = glm::normalize(glm::mix(projectile.mVelocity, desired, 1.0f - glm::exp(-inDeltaTime * 4.0f))) * cBoltSpeed;
         }
 
         projectile.mPosition += projectile.mVelocity * inDeltaTime;
         projectile.mLifetime -= inDeltaTime;
 
+        if (!projectile.mHoming)
+            projectile.mHeight = glm::mix(projectile.mHeight, 1.0f, 1.0f - glm::exp(-inDeltaTime * 5.0f));
+
         if (RandomFloat(0.0f, 1.0f) < 0.5f)
-            Emit(ToWorld(projectile.mPosition, 0.9f), ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = FX_ARCANE, .mCount = 1, .mSpeedMin = 0.2f, .mSpeedMax = 0.8f, .mLifeMin = 0.12f, .mLifeMax = 0.22f, .mSizeMin = 0.1f, .mSizeMax = 0.15f, .mDrag = 2.0f });
+            Emit(ToWorld(projectile.mPosition, projectile.mHeight),ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = FX_ARCANE, .mCount = 1, .mSpeedMin = 0.2f, .mSpeedMax = 0.8f, .mLifeMin = 0.12f, .mLifeMax = 0.22f, .mSizeMin = 0.1f, .mSizeMax = 0.15f, .mDrag = 2.0f });
 
         ForEachEnemyNear(projectile.mPosition, 0.2f, [&](int inIndex, Enemy& inEnemy)
         {
@@ -186,8 +197,8 @@ void DuskSwarmScript::UpdateProjectiles(float inDeltaTime)
             projectile.mPierce--;
 
             DamageEnemy(inIndex, projectile.mDamage, glm::normalize(projectile.mVelocity) * 4.0f);
-            PlaySfxAt(cBoltHitSound, ToWorld(projectile.mPosition, 0.9f), 0.4f, RandomFloat(0.9f, 1.1f), 0.04f);
-            Emit(ToWorld(projectile.mPosition, 0.9f), ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = FX_ARCANE, .mCount = 6, .mSpeedMin = 2.0f, .mSpeedMax = 5.0f, .mLifeMin = 0.15f, .mLifeMax = 0.3f, .mSizeMin = 0.15f, .mSizeMax = 0.25f, .mDrag = 3.0f });
+            PlaySfxAt(cBoltHitSound, ToWorld(projectile.mPosition, projectile.mHeight), 0.4f, RandomFloat(0.9f, 1.1f), 0.04f);
+            Emit(ToWorld(projectile.mPosition, projectile.mHeight),ParticleDesc { .mMesh = PARTICLE_SPARK, .mMaterial = FX_ARCANE, .mCount = 6, .mSpeedMin = 2.0f, .mSpeedMax = 5.0f, .mLifeMin = 0.15f, .mLifeMax = 0.3f, .mSizeMin = 0.15f, .mSizeMax = 0.25f, .mDrag = 3.0f });
         });
 
         const bool outside = glm::any(glm::greaterThan(glm::abs(projectile.mPosition), Vec2(cArenaHalfSize)));

@@ -334,7 +334,7 @@ void DuskSwarmScript::UpdateVisuals(float inDeltaTime)
     for (const Projectile& projectile : m_Projectiles)
     {
         if (projectile.mActive)
-            SetTransform(projectile.mNode, ToWorld(projectile.mPosition, 0.9f), Vec3(1.0f), Quat(Vec3(0.0f, GetYaw(projectile.mVelocity), 0.0f)) * Quat(Vec3(0.0f, 0.0f, m_Time * 12.0f)));
+            SetTransform(projectile.mNode, ToWorld(projectile.mPosition, projectile.mHeight),Vec3(1.0f), Quat(Vec3(0.0f, GetYaw(projectile.mVelocity), 0.0f)) * Quat(Vec3(0.0f, 0.0f, m_Time * 12.0f)));
     }
 
     for (const Gem& gem : m_Gems)
