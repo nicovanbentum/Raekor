@@ -129,6 +129,32 @@ static constexpr float cThirdPersonFov = 50.0f;
 static constexpr float cFirstPersonFov = 75.0f;
 
 
+struct SkyKey
+{
+    float mTime;
+    float mAngle;
+};
+
+static constexpr StaticArray<SkyKey, 5> cSkyKeys =
+{
+    SkyKey { 0.0f,   2.4f },
+    SkyKey { 70.0f,  glm::pi<float>() },
+    SkyKey { 550.0f, glm::two_pi<float>() },
+    SkyKey { 600.0f, glm::two_pi<float>() + 0.2f },
+    SkyKey { 650.0f, glm::two_pi<float>() + 0.6f },
+};
+
+static constexpr float cSkyInclination = 0.45f;
+static constexpr float cSkyFadeHeight = 0.12f;
+static constexpr float cHorizonSkyBrightness = 0.35f;
+static constexpr float cHorizonIlluminance = 0.15f;
+static constexpr Vec3 cSunsetColor = Vec3(1.0f, 0.36f, 0.14f);
+static constexpr Vec3 cSunColor = Vec3(1.0f, 0.62f, 0.38f);
+static constexpr Vec3 cMoonColor = Vec3(0.08f, 0.11f, 0.22f);
+static constexpr float cSunIlluminance = 60000.0f;
+static constexpr float cMoonIlluminance = 12000.0f;
+
+
 enum EPauseTab
 {
     PAUSE_TAB_GENERAL,
@@ -695,14 +721,17 @@ public:
         CreatePools();
         CreateCamera();
         CreateAudio();
+        CreateSky();
 
         NewGame();
+        UpdateSky();
 
         m_Started = true;
     }
 
     void OnStop() override
     {
+        RestoreSky();
         DestroyRuntimeEntities();
 
         m_Started = false;
@@ -765,6 +794,7 @@ public:
         }
 
         UpdateCamera(inDeltaTime);
+        UpdateSky();
         UpdateSounds();
         m_Nodes.Update();
         DrawHUD(inDeltaTime);
@@ -1727,6 +1757,93 @@ private:
         {
             m_EndJinglePlayed = true;
             PlaySfx(cGameOverSound, 0.8f);
+        }
+    }
+
+    void CreateSky()
+    {
+        m_SunEntity = Entity::Null;
+        m_RestoreSun = false;
+
+        for (const auto& [entity, light] : m_Scene->Each<DirectionalLight>())
+        {
+            m_SunEntity = entity;
+            m_RestoreSun = true;
+            m_SavedSunColor = light.color;
+            m_SavedSunIlluminance = light.illuminance;
+            break;
+        }
+
+        if (m_SunEntity == Entity::Null)
+        {
+            m_SunEntity = CreateEntity("Sun");
+            m_Scene->Add<DirectionalLight>(m_SunEntity);
+        }
+
+        if (const Transform* transform = FindComponent<Transform>(m_SunEntity))
+            m_SavedSunRotation = transform->rotation;
+    }
+
+    void RestoreSky()
+    {
+        if (m_RestoreSun)
+        {
+            if (DirectionalLight* light = FindComponent<DirectionalLight>(m_SunEntity))
+            {
+                light->color = m_SavedSunColor;
+                light->illuminance = m_SavedSunIlluminance;
+            }
+
+            if (Transform* transform = FindComponent<Transform>(m_SunEntity))
+            {
+                transform->rotation = m_SavedSunRotation;
+                transform->Compose();
+            }
+        }
+
+        m_SunEntity = Entity::Null;
+        m_RestoreSun = false;
+    }
+
+    float GetSkyAngle() const
+    {
+        const float time = m_RunTime + ( m_State == STATE_VICTORY ? m_PlayerDeathTimer : 0.0f );
+
+        for (size_t index = 1; index < cSkyKeys.size(); index++)
+        {
+            const SkyKey& from = cSkyKeys[index - 1];
+            const SkyKey& to = cSkyKeys[index];
+
+            if (time < to.mTime)
+                return glm::mix(from.mAngle, to.mAngle, glm::clamp(( time - from.mTime ) / ( to.mTime - from.mTime ), 0.0f, 1.0f));
+        }
+
+        return cSkyKeys.back().mAngle;
+    }
+
+    void UpdateSky()
+    {
+        DirectionalLight* light = FindComponent<DirectionalLight>(m_SunEntity);
+
+        if (light == nullptr)
+            return;
+
+        const float angle = GetSkyAngle();
+        const Vec3 sun = Vec3(glm::cos(angle), glm::sin(angle) * glm::cos(cSkyInclination), glm::sin(angle) * glm::sin(cSkyInclination));
+        const bool day = sun.y >= 0.0f;
+        const Vec3 position = day ? sun : -sun;
+        const float height = glm::smoothstep(0.0f, cSkyFadeHeight, position.y);
+        const Vec3 color = day ? glm::mix(cSunsetColor, cSunColor, glm::smoothstep(0.0f, 0.6f, sun.y)) : cMoonColor;
+        const Vec3 direction = -position;
+
+        light->color = Vec4(color * glm::mix(cHorizonSkyBrightness, 1.0f, height), light->color.a);
+        light->illuminance = ( day ? cSunIlluminance : cMoonIlluminance ) * glm::mix(cHorizonIlluminance, 1.0f, height);
+        light->direction = Vec4(direction, 0.0f);
+
+        if (Transform* transform = FindComponent<Transform>(m_SunEntity))
+        {
+            transform->rotation = glm::rotation(glm::normalize(DirectionalLight::cDefaultDirection), direction);
+            transform->Compose();
         }
     }
 
@@ -5425,6 +5542,12 @@ private:
     StaticArray<Node, cMaxBlades> m_Blades;
 
     MeshNodes m_Nodes;
+
+    Entity m_SunEntity = Entity::Null;
+    bool m_RestoreSun = false;
+    Vec4 m_SavedSunColor = Vec4(1.0f);
+    float m_SavedSunIlluminance = 0.0f;
+    Quat m_SavedSunRotation = Quat(1.0f, 0.0f, 0.0f, 0.0f);
 
     Entity m_ListenerEntity = Entity::Null;
     Entity m_MusicEntity = Entity::Null;
