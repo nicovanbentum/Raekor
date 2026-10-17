@@ -235,6 +235,7 @@ private:
     bool m_Boosting = false;
     float m_Throttle = 0.0f;
     float m_FlipTimer = 0.0f;
+    float m_DriftTimer = 0.0f;
     float m_AirTime = 0.0f;
     float m_BestAirTime = 0.0f;
     float m_TopSpeed = 0.0f;

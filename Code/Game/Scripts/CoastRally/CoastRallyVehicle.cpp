@@ -14,7 +14,7 @@ void CoastRallyScript::CreateCar()
     JPH::PhysicsSystem* system = GetPhysicsSystem();
     JPH::BodyInterface& bodies = system->GetBodyInterface();
 
-    const JPH::Vec3 center_of_mass = JPH::Vec3(0.0f, -cCarHalfExtents.y, 0.0f);
+    const JPH::Vec3 center_of_mass = JPH::Vec3(0.0f, cCenterOfMassHeight, 0.0f);
     const JPH::RefConst<JPH::Shape> shape = JPH::OffsetCenterOfMassShapeSettings(center_of_mass, new JPH::BoxShape(ToJolt(cCarHalfExtents))).Create().Get();
 
     JPH::BodyCreationSettings body_settings(shape, ToJolt(m_Spawn.mPosition + Vec3(0.0f, cSpawnHeight, 0.0f)), ToJolt(m_Spawn.mRotation), JPH::EMotionType::Dynamic, EPhysicsObjectLayers::MOVING);
@@ -34,6 +34,7 @@ void CoastRallyScript::CreateCar()
     bodies.AddBody(m_CarBody, JPH::EActivation::Activate);
 
     JPH::VehicleConstraintSettings vehicle;
+    vehicle.mMaxPitchRollAngle = cMaxPitchRollAngle;
 
     const StaticArray<Vec3, WHEEL_COUNT> wheel_positions =
     {
@@ -57,6 +58,16 @@ void CoastRallyScript::CreateCar()
         wheel->mSuspensionMaxLength = cSuspensionMaxLength;
         wheel->mSuspensionSpring.mFrequency = cSuspensionFrequency;
         wheel->mSuspensionSpring.mDamping = cSuspensionDamping;
+
+        const float lateral_grip = front ? cFrontLateralGrip : cRearLateralGrip;
+        wheel->mLateralFriction.Clear();
+        wheel->mLateralFriction.AddPoint(0.0f, 0.0f);
+        wheel->mLateralFriction.AddPoint(3.0f, lateral_grip);
+        wheel->mLateralFriction.AddPoint(20.0f, lateral_grip * 0.82f);
+        wheel->mLongitudinalFriction.Clear();
+        wheel->mLongitudinalFriction.AddPoint(0.0f, 0.0f);
+        wheel->mLongitudinalFriction.AddPoint(0.06f, cLongitudinalGrip);
+        wheel->mLongitudinalFriction.AddPoint(0.2f, cLongitudinalGrip * 0.83f);
 
         vehicle.mWheels.push_back(wheel);
     }
@@ -312,6 +323,27 @@ void CoastRallyScript::UpdateCar(float inDeltaTime)
     if (velocity != m_CarVelocity)
         bodies.SetLinearVelocity(m_CarBody, ToJolt(velocity));
 
+    m_DriftTimer = hand_brake > 0.0f ? cDriftAssistDelay : glm::max(0.0f, m_DriftTimer - inDeltaTime);
+
+    if (grounded >= 3 && glm::abs(speed) > 3.0f && m_DriftTimer <= 0.0f)
+    {
+        const float steer_angle = m_Steer * steer_scale * cMaxSteerAngle;
+        const float grip_limit = cYawAssistGrip / glm::abs(speed);
+        const float target_yaw = glm::clamp(-speed * glm::tan(steer_angle) / cWheelBase, -grip_limit, grip_limit);
+
+        const Vec3 angular = ToVec3(bodies.GetAngularVelocity(m_CarBody));
+        const float yaw = glm::dot(angular, up_axis);
+        const float gain = m_Steer != 0.0f ? cYawAssist : cYawAssistStraight;
+
+        bodies.SetAngularVelocity(m_CarBody, ToJolt(angular + up_axis * ( target_yaw - yaw ) * glm::min(gain * inDeltaTime, 1.0f)));
+    }
+
+    if (grounded > 0 && grounded < 4 && up_axis.y < cSelfRightingTilt)
+    {
+        const Vec3 angular = ToVec3(bodies.GetAngularVelocity(m_CarBody));
+        bodies.SetAngularVelocity(m_CarBody, ToJolt(angular + glm::cross(up_axis, Vec3(0.0f, 1.0f, 0.0f)) * cSelfRighting * inDeltaTime));
+    }
+
     if (grounded == 0)
     {
         const float pitch = ( key_forward ? 1.0f : 0.0f ) - ( key_back ? 1.0f : 0.0f );
@@ -361,7 +393,7 @@ void CoastRallyScript::UpdateCar(float inDeltaTime)
         return;
     }
 
-    if (up_axis.y < 0.35f && glm::length(m_CarVelocity) < 3.0f)
+    if (up_axis.y < cFlippedUp && glm::length(m_CarVelocity) < 3.0f)
         m_FlipTimer += inDeltaTime;
     else
         m_FlipTimer = 0.0f;
