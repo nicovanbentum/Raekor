@@ -87,6 +87,7 @@ void DuskSwarmScript::OnUpdate(float inDeltaTime)
     else if (m_State == STATE_GAME_OVER || m_State == STATE_VICTORY)
     {
         m_PlayerDeathTimer += delta_time;
+        UpdateJump(delta_time);
         BuildGrid();
     }
 
@@ -146,7 +147,9 @@ void DuskSwarmScript::OnEvent(const SDL_Event& inEvent)
 
     if (m_State == STATE_PLAYING)
     {
-        if (key == SDLK_SPACE || key == SDLK_LSHIFT)
+        if (key == SDLK_SPACE)
+            TryJump();
+        else if (key == SDLK_LSHIFT)
             TryDash();
 
         return;
@@ -602,6 +605,8 @@ void DuskSwarmScript::NewGame()
     m_InvulnerableTimer = 0.0f;
     m_DashTimer = -1.0f;
     m_DashCooldownTimer = 0.0f;
+    m_JumpHeight = 0.0f;
+    m_JumpVelocity = 0.0f;
     m_CastTimer = 0.0f;
     m_HitFlash = 0.0f;
     m_ScreenFlash = 0.0f;
@@ -639,7 +644,8 @@ void DuskSwarmScript::NewGame()
     m_ChatMessages.clear();
 
     AddChat("Welcome to Dusk Swarm.", cChatBlack);
-    AddChat("WASD to move, Space to dash. Your weapons fire on their own.", cChatBlue);
+    AddChat("WASD to move, Space to jump, Shift to dash.", cChatBlue);
+    AddChat("Your weapons fire on their own.", cChatBlue);
     AddChat("Press T to toggle first person.", cChatBlue);
     AddChat("Survive until dawn.", cChatRed);
     m_CameraTarget = Vec3(0.0f);

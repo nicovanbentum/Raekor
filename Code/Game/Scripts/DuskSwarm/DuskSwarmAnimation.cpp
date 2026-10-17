@@ -17,8 +17,10 @@ void DuskSwarmScript::AnimatePlayer(float inDeltaTime)
     const float cast = glm::clamp(m_CastTimer / 0.25f, 0.0f, 1.0f);
     const bool dashing = m_DashTimer > 0.0f;
 
-    float pitch = dashing ? -0.35f : -0.08f * move;
-    float height = glm::abs(s) * 0.06f * move;
+    const float air = IsAirborne() ? 1.0f : 0.0f;
+
+    float pitch = dashing ? -0.35f : -0.08f * move * ( 1.0f - air );
+    float height = glm::abs(s) * 0.06f * move * ( 1.0f - air ) + m_JumpHeight;
 
     if (m_State == STATE_GAME_OVER)
     {
@@ -33,9 +35,9 @@ void DuskSwarmScript::AnimatePlayer(float inDeltaTime)
 
     Pose(model, RIG_BODY, Vec3(0.0f, breathe, 0.0f), Vec3(0.0f, 0.0f, s * 0.05f * move));
     Pose(model, RIG_HEAD, Vec3(0.0f, breathe, 0.0f), Vec3(-c * 0.05f * move, 0.0f, 0.0f));
-    Pose(model, RIG_LEG_L, Vec3(0.0f), Vec3(s * 0.6f * move, 0.0f, 0.0f));
-    Pose(model, RIG_LEG_R, Vec3(0.0f), Vec3(-s * 0.6f * move, 0.0f, 0.0f));
-    Pose(model, RIG_ARM_L, Vec3(0.0f), Vec3(-s * 0.5f * move + ( dashing ? 0.8f : 0.0f ), 0.0f, -0.1f));
+    Pose(model, RIG_LEG_L, Vec3(0.0f), Vec3(glm::mix(s * 0.6f * move, -0.7f, air), 0.0f, 0.0f));
+    Pose(model, RIG_LEG_R, Vec3(0.0f), Vec3(glm::mix(-s * 0.6f * move, 0.35f, air), 0.0f, 0.0f));
+    Pose(model, RIG_ARM_L, Vec3(0.0f), Vec3(-s * 0.5f * move + ( dashing ? 0.8f : 0.0f ), 0.0f, -0.1f - 0.6f * air));
     Pose(model, RIG_ARM_R, Vec3(0.0f), Vec3(glm::mix(s * 0.3f * move, -1.3f, cast) + ( dashing ? 0.6f : 0.0f ), 0.0f, 0.05f));
 }
 

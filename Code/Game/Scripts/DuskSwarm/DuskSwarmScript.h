@@ -344,8 +344,8 @@ private:
     float GetCooldownMultiplier() const { return glm::pow(0.92f, float(m_UpgradeLevels[UPGRADE_HASTE])); }
     float GetAreaMultiplier() const { return 1.0f + 0.12f * m_UpgradeLevels[UPGRADE_AREA]; }
     int   GetExperienceToNextLevel() const { return 5 + ( m_Level - 1 ) * 4 + ( m_Level - 1 ) * ( m_Level - 1 ) / 3; }
-    Vec3  GetPlayerCenter() const { return ToWorld(m_PlayerPosition, 0.9f); }
-    Vec3  GetStaffTip() const { return m_FirstPerson ? m_WandTip : ToWorld(m_PlayerPosition, 1.75f) + Vec3(glm::cos(m_PlayerYaw) * 0.38f, 0.0f, -glm::sin(m_PlayerYaw) * 0.38f); }
+    Vec3  GetPlayerCenter() const { return ToWorld(m_PlayerPosition, 0.9f + m_JumpHeight); }
+    Vec3  GetStaffTip() const { return m_FirstPerson ? m_WandTip : ToWorld(m_PlayerPosition, 1.75f + m_JumpHeight) +Vec3(glm::cos(m_PlayerYaw) * 0.38f, 0.0f, -glm::sin(m_PlayerYaw) * 0.38f); }
 
     Vec2 GetInputDirection() const;
 
@@ -354,6 +354,9 @@ private:
 
     void ToggleFirstPerson();
     void TryDash();
+    void TryJump();
+    void UpdateJump(float inDeltaTime);
+    bool IsAirborne() const { return m_JumpHeight > 0.0f || m_JumpVelocity > 0.0f; }
     void UpdatePlayer(float inDeltaTime);
     Vec2 ResolveObstacles(Vec2 inPosition, float inRadius) const;
     void DamagePlayer(float inDamage);
@@ -632,6 +635,8 @@ private:
     float m_InvulnerableTimer = 0.0f;
     float m_DashTimer = -1.0f;
     float m_DashCooldownTimer = 0.0f;
+    float m_JumpHeight = 0.0f;
+    float m_JumpVelocity = 0.0f;
     float m_CastTimer = 0.0f;
 
     int m_Level = 1;

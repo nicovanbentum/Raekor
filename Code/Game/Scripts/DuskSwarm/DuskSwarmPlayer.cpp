@@ -56,6 +56,37 @@ void DuskSwarmScript::TryDash()
 }
 
 
+void DuskSwarmScript::TryJump()
+{
+    if (IsAirborne())
+        return;
+
+    m_JumpVelocity = cJumpSpeed;
+
+    PlaySfx(cDashSound, 0.3f, RandomFloat(1.25f, 1.4f));
+    Emit(ToWorld(m_PlayerPosition, 0.1f), ParticleDesc { .mMesh = PARTICLE_PUFF, .mMaterial = FX_DIRT, .mCount = 6, .mSpeedMin = 1.0f, .mSpeedMax = 2.5f, .mLifeMin = 0.25f, .mLifeMax = 0.4f, .mSizeMin = 0.15f, .mSizeMax = 0.25f, .mDrag = 4.0f, .mFlat = true });
+}
+
+
+void DuskSwarmScript::UpdateJump(float inDeltaTime)
+{
+    if (!IsAirborne())
+        return;
+
+    m_JumpVelocity -= cJumpGravity * inDeltaTime;
+    m_JumpHeight += m_JumpVelocity * inDeltaTime;
+
+    if (m_JumpHeight > 0.0f)
+        return;
+
+    m_JumpHeight = 0.0f;
+    m_JumpVelocity = 0.0f;
+    m_CameraKick = glm::max(m_CameraKick, 0.15f);
+
+    Emit(ToWorld(m_PlayerPosition, 0.1f), ParticleDesc { .mMesh = PARTICLE_PUFF, .mMaterial = FX_DIRT, .mCount = 8, .mSpeedMin = 1.5f, .mSpeedMax = 3.0f, .mLifeMin = 0.3f, .mLifeMax = 0.5f, .mSizeMin = 0.15f, .mSizeMax = 0.3f, .mDrag = 4.0f, .mFlat = true });
+}
+
+
 void DuskSwarmScript::UpdatePlayer(float inDeltaTime)
 {
     PROFILE_FUNCTION_CPU();
@@ -76,6 +107,8 @@ void DuskSwarmScript::UpdatePlayer(float inDeltaTime)
 
     m_DashTimer = glm::max(m_DashTimer - inDeltaTime, -1.0f);
     m_DashCooldownTimer = glm::max(0.0f, m_DashCooldownTimer - inDeltaTime);
+
+    UpdateJump(inDeltaTime);
 
     m_PlayerPosition += m_PlayerVelocity * inDeltaTime;
     m_PlayerPosition = ResolveObstacles(m_PlayerPosition, cPlayerRadius);
@@ -172,7 +205,7 @@ void DuskSwarmScript::UpdateCamera(float inDeltaTime)
         return;
 
     const Vec3 lookahead = ToWorld(m_PlayerVelocity * 0.25f, 0.0f);
-    const Vec3 player = ToWorld(m_PlayerPosition, 0.8f) + lookahead;
+    const Vec3 player = ToWorld(m_PlayerPosition, 0.8f + m_JumpHeight * 0.5f) + lookahead;
     m_CameraTarget = glm::mix(m_CameraTarget, player, 1.0f - glm::exp(-inDeltaTime * 6.0f));
 
     m_Trauma = glm::max(0.0f, m_Trauma - inDeltaTime * 1.4f);
@@ -188,8 +221,8 @@ void DuskSwarmScript::UpdateCamera(float inDeltaTime)
 
     if (m_FirstPerson)
     {
-        const float bob = glm::abs(glm::sin(m_PlayerWalkPhase)) * 0.05f * glm::clamp(glm::length(m_PlayerVelocity) / cPlayerBaseSpeed, 0.0f, 1.0f);
-        const float eye_height = m_State == STATE_GAME_OVER ? glm::mix(cEyeHeight, 0.3f, EaseOutCubic(m_PlayerDeathTimer / 0.5f)) : cEyeHeight + bob;
+        const float bob = IsAirborne() ? 0.0f : glm::abs(glm::sin(m_PlayerWalkPhase)) * 0.05f * glm::clamp(glm::length(m_PlayerVelocity) / cPlayerBaseSpeed, 0.0f, 1.0f);
+        const float eye_height = m_State == STATE_GAME_OVER ? glm::mix(cEyeHeight, 0.3f, EaseOutCubic(m_PlayerDeathTimer / 0.5f)) : cEyeHeight + bob + m_JumpHeight - m_CameraKick * 0.3f;
         const Vec2 look = GetLookForward();
         const Vec3 forward = Vec3(look.x * glm::cos(m_LookPitch), glm::sin(m_LookPitch), look.y * glm::cos(m_LookPitch));
 
@@ -219,7 +252,7 @@ void DuskSwarmScript::UpdateWand()
         return;
     }
 
-    const float move = glm::clamp(glm::length(m_PlayerVelocity) / cPlayerBaseSpeed, 0.0f, 1.0f);
+    const float move = IsAirborne() ? 0.0f : glm::clamp(glm::length(m_PlayerVelocity) / cPlayerBaseSpeed, 0.0f, 1.0f);
     const float cast = glm::clamp(m_CastTimer / 0.25f, 0.0f, 1.0f);
     const float idle = glm::sin(m_Time * 1.6f);
     const Vec3 bob = Vec3(glm::cos(m_PlayerWalkPhase) * 0.012f * move, -glm::abs(glm::sin(m_PlayerWalkPhase)) * 0.014f * move + idle * 0.004f, 0.0f) * cWandScale;
