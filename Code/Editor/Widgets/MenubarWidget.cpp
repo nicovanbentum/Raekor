@@ -25,10 +25,8 @@ MenubarWidget::MenubarWidget(Editor* inEditor) :
 
 void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 {
-	const bool is_title_bar = ( SDL_GetWindowFlags(m_Editor->GetWindow()) & ( SDL_WINDOW_BORDERLESS | SDL_WINDOW_FULLSCREEN ) ) == SDL_WINDOW_BORDERLESS;
-
-	if (is_title_bar)
-		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(ImGui::GetStyle().FramePadding.x, ImFloor(ImGui::GetFontSize() * 0.5f)));
+	if (( SDL_GetWindowFlags(m_Editor->GetWindow()) & ( SDL_WINDOW_BORDERLESS | SDL_WINDOW_FULLSCREEN ) ) == SDL_WINDOW_BORDERLESS)
+		DrawTitleBar();
 
 	if (ImGui::BeginMainMenuBar())
 	{
@@ -40,14 +38,8 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 		DrawToolsMenu();
 		DrawHelpMenu();
 
-		if (is_title_bar)
-			DrawTitleBar();
-
 		ImGui::EndMainMenuBar();
 	}
-
-	if (is_title_bar)
-		ImGui::PopStyleVar();
 
 	DrawShortcutsWindow();
 	DrawAboutWindow();
@@ -430,13 +422,30 @@ void MenubarWidget::DrawTitleBar()
 	const bool is_maximized = window_flags & SDL_WINDOW_MAXIMIZED;
 	const bool is_focused = window_flags & SDL_WINDOW_INPUT_FOCUS;
 
+	const ImGuiWindowFlags bar_flags = ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoNavFocus | ImGuiWindowFlags_NoBringToFrontOnFocus;
+
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+	ImGui::PushStyleColor(ImGuiCol_WindowBg, ImGui::GetStyleColorVec4(ImGuiCol_TitleBg));
+
+	const bool is_open = ImGui::BeginViewportSideBar("##TitleBar", ImGui::GetMainViewport(), ImGuiDir_Up, ImFloor(ImGui::GetFontSize() * 2.0f), bar_flags);
+
+	ImGui::PopStyleColor();
+	ImGui::PopStyleVar(2);
+
+	if (!is_open)
+	{
+		ImGui::End();
+		return;
+	}
+
 	const ImVec2 bar_min = ImGui::GetWindowPos();
 	const ImVec2 bar_size = ImGui::GetWindowSize();
 	const float spacing = ImGui::GetStyle().ItemSpacing.x;
 
 	const ImVec2 button_size = ImVec2(ImFloor(bar_size.y * 1.5f), bar_size.y);
 	const float buttons_min_x = bar_min.x + bar_size.x - button_size.x * float(CAPTION_COUNT);
-	const float drag_min_x = ImGui::GetItemRectMax().x + spacing;
+	const float drag_min_x = bar_min.x;
 
 	m_Editor->SetTitleBarDragArea(ImRect(drag_min_x, bar_min.y, buttons_min_x, bar_min.y + bar_size.y));
 
@@ -530,6 +539,8 @@ void MenubarWidget::DrawTitleBar()
 			} break;
 		}
 	}
+
+	ImGui::End();
 }
 
 
