@@ -38,6 +38,7 @@ void CoastRallyScript::CreateProps()
         settings.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
         settings.mMassPropertiesOverride.mMass = archetype->mMass;
         settings.mFriction = 0.7f;
+        settings.mCollisionGroup = GetCollisionGroup(COLLISION_SUBGROUP_OBSTACLE);
         settings.mRestitution = 0.15f;
         settings.mLinearDamping = 0.1f;
         settings.mAngularDamping = 0.2f;

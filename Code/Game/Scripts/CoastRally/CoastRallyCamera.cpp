@@ -6,12 +6,13 @@ namespace RK {
 class LevelOnlyBodyFilter final : public JPH::BodyFilter
 {
 public:
-    explicit LevelOnlyBodyFilter(JPH::BodyID inLevel) : m_Level(inLevel) {}
+    LevelOnlyBodyFilter(JPH::BodyID inLevel, JPH::BodyID inObstacles) : m_Level(inLevel), m_Obstacles(inObstacles) {}
 
-    bool ShouldCollide(const JPH::BodyID& inBodyID) const override { return inBodyID == m_Level; }
+    bool ShouldCollide(const JPH::BodyID& inBodyID) const override { return inBodyID == m_Level || inBodyID == m_Obstacles; }
 
 private:
     JPH::BodyID m_Level;
+    JPH::BodyID m_Obstacles;
 };
 
 
@@ -34,7 +35,7 @@ float CoastRallyScript::CastCameraRay(const Vec3& inFrom, const Vec3& inTo)
     const JPH::RRayCast ray(ToJolt(inFrom), ToJolt(inTo - inFrom));
     JPH::RayCastResult hit;
 
-    if (GetPhysicsSystem()->GetNarrowPhaseQuery().CastRay(ray, hit, { }, { }, LevelOnlyBodyFilter(m_LevelBody)))
+    if (GetPhysicsSystem()->GetNarrowPhaseQuery().CastRay(ray, hit, { }, { }, LevelOnlyBodyFilter(m_LevelBody, m_ObstacleBody)))
         return hit.mFraction;
 
     return 1.0f;

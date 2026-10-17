@@ -6,6 +6,7 @@
 #include "../MeshNodes.h"
 
 #include "Jolt/Physics/Body/BodyFilter.h"
+#include "Jolt/Physics/Collision/GroupFilterTable.h"
 #include "Jolt/Physics/Collision/Shape/OffsetCenterOfMassShape.h"
 #include "Jolt/Physics/Vehicle/VehicleConstraint.h"
 #include "Jolt/Physics/Vehicle/VehicleCollisionTester.h"
@@ -211,5 +212,32 @@ static const StaticArray<PropArchetype, PROP_TYPE_COUNT> cPropArchetypes =
 
 static constexpr StaticArray<const char*, 3> cDecorationAssets = { "Bush", "Grass", "Flowers" };
 static constexpr StaticArray<const char*, 3> cLevelAssets = { "Terrain", "Road", "Pad" };
+static constexpr StaticArray<const char*, 3> cGroundPlacements = { "Ramp", "Kicker", "Tabletop" };
+
+
+enum ECollisionSubGroup
+{
+    COLLISION_SUBGROUP_CAR,
+    COLLISION_SUBGROUP_OBSTACLE,
+    COLLISION_SUBGROUP_COUNT
+};
+
+
+class RallyWheelFilter final : public JPH::BodyFilter
+{
+public:
+    bool ShouldCollide(const JPH::BodyID& inBodyID) const override
+    {
+        return inBodyID != mCarBody;
+    }
+
+    bool ShouldCollideLocked(const JPH::Body& inBody) const override
+    {
+        return !( mGodMode && *mGodMode && inBody.GetCollisionGroup().GetSubGroupID() == COLLISION_SUBGROUP_OBSTACLE );
+    }
+
+    JPH::BodyID mCarBody;
+    const int* mGodMode = nullptr;
+};
 
 } // RK

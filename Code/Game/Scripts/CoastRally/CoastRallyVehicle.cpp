@@ -21,6 +21,7 @@ void CoastRallyScript::CreateCar()
     body_settings.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
     body_settings.mMassPropertiesOverride.mMass = cCarMass;
     body_settings.mFriction = 0.4f;
+    body_settings.mCollisionGroup = GetCollisionGroup(COLLISION_SUBGROUP_CAR);
 
     JPH::Body* body = bodies.CreateBody(body_settings);
 
@@ -101,7 +102,12 @@ void CoastRallyScript::CreateCar()
     vehicle.mAntiRollBars[1].mStiffness = cAntiRollStiffness;
 
     m_Vehicle = new JPH::VehicleConstraint(*body, vehicle);
-    m_Vehicle->SetVehicleCollisionTester(new JPH::VehicleCollisionTesterCastCylinder(EPhysicsObjectLayers::MOVING, 0.05f));
+    m_WheelFilter.mCarBody = m_CarBody;
+    m_WheelFilter.mGodMode = m_GodMode;
+
+    JPH::VehicleCollisionTester* tester = new JPH::VehicleCollisionTesterCastCylinder(EPhysicsObjectLayers::MOVING, 0.05f);
+    tester->SetBodyFilter(&m_WheelFilter);
+    m_Vehicle->SetVehicleCollisionTester(tester);
 
     system->AddConstraint(m_Vehicle);
     system->AddStepListener(m_Vehicle);
@@ -246,6 +252,8 @@ void CoastRallyScript::UpdateCar(float inDeltaTime)
     if (controller == nullptr)
         return;
 
+    ApplyGodMode();
+
     JPH::BodyInterface& bodies = GetBodyInterface();
 
     JPH::RVec3 position;
@@ -284,7 +292,7 @@ void CoastRallyScript::UpdateCar(float inDeltaTime)
         forward = speed < 18.0f ? 1.0f : 0.0f;
     }
 
-    const float steer_rate = glm::abs(target_steer) > glm::abs(m_Steer) && target_steer * m_Steer >= 0.0f ? cSteerSpeed : cSteerReturnSpeed;
+    const float steer_rate =glm::abs(target_steer) > glm::abs(m_Steer) && target_steer * m_Steer >= 0.0f ? cSteerSpeed : cSteerReturnSpeed;
     m_Steer += glm::clamp(target_steer - m_Steer, -steer_rate * inDeltaTime, steer_rate * inDeltaTime);
 
     const float steer_scale = glm::mix(1.0f, cHighSpeedSteerScale, glm::clamp(glm::abs(speed) / cSteerFalloffSpeed, 0.0f, 1.0f));

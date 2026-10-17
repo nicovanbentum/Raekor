@@ -27,7 +27,8 @@ CoastRallyScript::PauseLayout CoastRallyScript::GetPauseLayout() const
     layout.mSliderPadding = Vec2(16.0f, 20.0f) * scale;
     layout.mSliderStep = 92.0f * scale;
     layout.mToggleSize = Vec2(420.0f, 32.0f) * scale;
-    layout.mAutoDrivePos = Vec2(layout.mSliderPos.x, layout.mPanelPos.y + 380.0f * scale);
+    layout.mGodModePos = Vec2(layout.mSliderPos.x, layout.mPanelPos.y + 372.0f * scale);
+    layout.mAutoDrivePos = layout.mGodModePos + Vec2(0.0f, 44.0f * scale);
     layout.mSettingsPos = Vec2(layout.mSliderPos.x, layout.mPanelPos.y + 176.0f * scale);
     layout.mSettingStep = 50.0f * scale;
     layout.mButtonSize = Vec2(220.0f, 56.0f) * scale;
@@ -192,7 +193,7 @@ void CoastRallyScript::DrawPauseMenu()
     DrawMenuButton(layout.mQuitPos, layout.mButtonSize, offset, "QUIT", false, alpha, scale);
 
     g_UIRenderer.SetFont(m_LabelFont);
-    const char* hint = m_PauseTab == RALLY_TAB_GENERAL ? "A / D or drag to adjust  -  Tab to switch  -  Esc to resume  -  Q to quit" : "Click to toggle  -  Tab to switch  -  Esc to resume  -  Q to quit";
+    const char* hint = m_PauseTab == RALLY_TAB_GENERAL ? "A / D or drag to adjust  -  G for god mode  -  Tab to switch  -  Esc to resume  -  Q to quit" : "Click to toggle  -  Tab to switch  -  Esc to resume  -  Q to quit";
     g_UIRenderer.AddText(Vec2(center, pos.y + size.y + 22.0f * scale), hint, 19.0f * scale, Fade(cCream, 0.8f * alpha), UI_TEXT_ALIGN_CENTER);
 }
 
@@ -271,7 +272,8 @@ void CoastRallyScript::DrawPauseGeneralTab(const PauseLayout& inLayout, const Ve
         DrawText(Vec2(slider_pos.x + slider_size.x + 70.0f * scale, slider_pos.y - 18.0f * scale), GetSliderText(slider), 36.0f * scale, Fade(cSun, inAlpha), UI_TEXT_ALIGN_CENTER);
     }
 
-    DrawToggle(inLayout.mAutoDrivePos, inLayout.mToggleSize, inOffset, "Auto drive", *m_AutoDrive != 0, inAlpha, scale);
+    DrawToggle(inLayout.mGodModePos, inLayout.mToggleSize, inOffset, "God mode", *m_GodMode != 0, inAlpha, scale);
+    DrawToggle(inLayout.mAutoDrivePos,inLayout.mToggleSize, inOffset, "Auto drive", *m_AutoDrive != 0, inAlpha, scale);
 }
 
 } // RK

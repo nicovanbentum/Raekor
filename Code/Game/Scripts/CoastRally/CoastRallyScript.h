@@ -97,9 +97,13 @@ private:
     Model CreateModel(const String& inName, Entity inMaterial = Entity::Null);
     void CreateMaterials();
     void CreateLevel();
-    void AddCollision(const Array<PartTemplate>& inParts, const Mat4x4& inTransform);
-    void CreateLevelBody();
-    void DestroyLevelBody();
+    void AddCollision(JPH::TriangleList& outTriangles, const Array<PartTemplate>& inParts, const Mat4x4& inTransform);
+    JPH::BodyID CreateStaticBody(JPH::TriangleList& ioTriangles, int inSubGroup);
+    void CreateLevelBodies();
+    void DestroyLevelBodies();
+    JPH::CollisionGroup GetCollisionGroup(int inSubGroup) const;
+    void ApplyGodMode();
+    void ToggleGodMode();
     void CreateCamera();
 
     void CreateCar();
@@ -160,6 +164,7 @@ private:
         Vec2 mSliderPadding = Vec2(0.0f);
         float mSliderStep = 0.0f;
         Vec2 mToggleSize = Vec2(0.0f);
+        Vec2 mGodModePos = Vec2(0.0f);
         Vec2 mAutoDrivePos = Vec2(0.0f);
         Vec2 mSettingsPos = Vec2(0.0f);
         float mSettingStep = 0.0f;
@@ -219,7 +224,11 @@ private:
     Entity m_BrakeMaterial = Entity::Null;
 
     JPH::TriangleList m_LevelTriangles;
+    JPH::TriangleList m_ObstacleTriangles;
     JPH::BodyID m_LevelBody;
+    JPH::BodyID m_ObstacleBody;
+    JPH::Ref<JPH::GroupFilterTable> m_CollisionFilter;
+    RallyWheelFilter m_WheelFilter;
 
     Model m_CarModel;
     Node m_BrakeNode = Node::Null;
@@ -269,6 +278,7 @@ private:
     Vec2 m_MousePosition = Vec2(-1.0f);
     int m_DraggingSlider = RALLY_SLIDER_NONE;
 
+    int* m_GodMode = nullptr;
     int* m_AutoDrive = nullptr;
     float* m_SensitivityScale = nullptr;
 

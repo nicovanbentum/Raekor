@@ -163,13 +163,14 @@ void CoastRallyScript::CreateMaterials()
 void CoastRallyScript::CreateLevel()
 {
     m_LevelTriangles.clear();
+    m_ObstacleTriangles.clear();
 
     for (const char* asset : cLevelAssets)
     {
         SetTransform(CreateModel(asset).mRoot, Vec3(0.0f));
 
         if (const auto templates = m_MeshTemplates.find(asset); templates != m_MeshTemplates.end())
-            AddCollision(templates->second, Mat4x4(1.0f));
+            AddCollision(m_LevelTriangles, templates->second, Mat4x4(1.0f));
     }
 
     SetTransform(CreateModel("Water", m_WaterMaterial).mRoot, Vec3(0.0f));
@@ -182,18 +183,20 @@ void CoastRallyScript::CreateLevel()
             continue;
 
         const Mat4x4 transform = glm::scale(glm::translate(Mat4x4(1.0f), placement.mPosition) * glm::toMat4(placement.mRotation), placement.mScale);
+        const bool ground = std::find(cGroundPlacements.begin(), cGroundPlacements.end(), placement.mAsset) != cGroundPlacements.end();
+        JPH::TriangleList& triangles = ground ? m_LevelTriangles : m_ObstacleTriangles;
 
         if (const auto collision = m_CollisionTemplates.find(placement.mAsset); collision != m_CollisionTemplates.end())
-            AddCollision(collision->second, transform);
+            AddCollision(triangles, collision->second, transform);
         else if (const auto templates = m_MeshTemplates.find(placement.mAsset); templates != m_MeshTemplates.end())
-            AddCollision(templates->second, transform);
+            AddCollision(triangles, templates->second, transform);
     }
 
-    CreateLevelBody();
+    CreateLevelBodies();
 }
 
 
-void CoastRallyScript::AddCollision(const Array<PartTemplate>& inParts, const Mat4x4& inTransform)
+void CoastRallyScript::AddCollision(JPH::TriangleList& outTriangles, const Array<PartTemplate>& inParts, const Mat4x4& inTransform)
 {
     for (const PartTemplate& part : inParts)
     {
@@ -214,46 +217,85 @@ void CoastRallyScript::AddCollision(const Array<PartTemplate>& inParts, const Ma
                 vertices[corner] = JPH::Float3(position.x, position.y, position.z);
             }
 
-            m_LevelTriangles.push_back(JPH::Triangle(vertices[0], vertices[1], vertices[2]));
+            outTriangles.push_back(JPH::Triangle(vertices[0], vertices[1], vertices[2]));
         }
     }
 }
 
 
-void CoastRallyScript::CreateLevelBody()
+JPH::BodyID CoastRallyScript::CreateStaticBody(JPH::TriangleList& ioTriangles, int inSubGroup)
 {
-    if (m_LevelTriangles.empty())
-        return;
+    if (ioTriangles.empty())
+        return JPH::BodyID();
 
-    JPH::MeshShapeSettings shape_settings(m_LevelTriangles);
+    JPH::MeshShapeSettings shape_settings(ioTriangles);
     const JPH::ShapeSettings::ShapeResult shape = shape_settings.Create();
 
-    m_LevelTriangles.clear();
-    m_LevelTriangles.shrink_to_fit();
+    ioTriangles.clear();
+    ioTriangles.shrink_to_fit();
 
     if (shape.HasError())
     {
         Log(std::format("Coast Rally: failed to build the level collision ({})", shape.GetError().c_str()));
-        return;
+        return JPH::BodyID();
     }
 
     JPH::BodyCreationSettings settings(shape.Get(), JPH::RVec3::sZero(), JPH::Quat::sIdentity(), JPH::EMotionType::Static, EPhysicsObjectLayers::NON_MOVING);
     settings.mFriction = 1.0f;
 
-    m_LevelBody = GetBodyInterface().CreateAndAddBody(settings, JPH::EActivation::DontActivate);
+    if (inSubGroup >= 0)
+        settings.mCollisionGroup = GetCollisionGroup(inSubGroup);
+
+    return GetBodyInterface().CreateAndAddBody(settings, JPH::EActivation::DontActivate);
 }
 
 
-void CoastRallyScript::DestroyLevelBody()
+void CoastRallyScript::CreateLevelBodies()
 {
-    if (m_LevelBody.IsInvalid())
+    m_LevelBody = CreateStaticBody(m_LevelTriangles, -1);
+    m_ObstacleBody = CreateStaticBody(m_ObstacleTriangles, COLLISION_SUBGROUP_OBSTACLE);
+}
+
+
+void CoastRallyScript::DestroyLevelBodies()
+{
+    JPH::BodyInterface& bodies = GetBodyInterface();
+
+    for (JPH::BodyID* body : { &m_LevelBody, &m_ObstacleBody })
+    {
+        if (body->IsInvalid())
+            continue;
+
+        bodies.RemoveBody(*body);
+        bodies.DestroyBody(*body);
+        *body = JPH::BodyID();
+    }
+}
+
+
+JPH::CollisionGroup CoastRallyScript::GetCollisionGroup(int inSubGroup) const
+{
+    return JPH::CollisionGroup(m_CollisionFilter, 0, JPH::CollisionGroup::SubGroupID(inSubGroup));
+}
+
+
+void CoastRallyScript::ApplyGodMode()
+{
+    if (m_CollisionFilter == nullptr)
         return;
 
-    JPH::BodyInterface& bodies = GetBodyInterface();
-    bodies.RemoveBody(m_LevelBody);
-    bodies.DestroyBody(m_LevelBody);
+    if (*m_GodMode)
+        m_CollisionFilter->DisableCollision(COLLISION_SUBGROUP_CAR, COLLISION_SUBGROUP_OBSTACLE);
+    else
+        m_CollisionFilter->EnableCollision(COLLISION_SUBGROUP_CAR, COLLISION_SUBGROUP_OBSTACLE);
+}
 
-    m_LevelBody = JPH::BodyID();
+
+void CoastRallyScript::ToggleGodMode()
+{
+    *m_GodMode = *m_GodMode ? 0 : 1;
+    ApplyGodMode();
+    PlaySfx(cSelectSound, 0.5f);
 }
 
 

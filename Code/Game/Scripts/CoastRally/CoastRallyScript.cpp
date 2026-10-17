@@ -12,7 +12,11 @@ void CoastRallyScript::OnStart()
     m_RootEntity = m_Scene->CreateSpatialEntity(cRuntimeRootName);
     m_Nodes.Init(m_Scene, m_App->GetRenderInterface(), m_RootEntity);
 
+    m_GodMode = &g_CVariables->Create("cr_god", 0, true);
     m_AutoDrive = &g_CVariables->Create("cr_autodrive", 0, true);
+
+    m_CollisionFilter = new JPH::GroupFilterTable(COLLISION_SUBGROUP_COUNT);
+    ApplyGodMode();
     m_SensitivityScale = &g_CVariables->Create("cr_mouse_sens", 1.0f, true);
 
     LoadTextures();
@@ -83,6 +87,11 @@ void CoastRallyScript::OnEvent(const SDL_Event& inEvent)
         case SDLK_R: ResetCar(); break;
         case SDLK_C: SetCameraMode(( m_CameraMode + 1 ) % CAMERA_MODE_COUNT); break;
         case SDLK_H: m_ShowControls = !m_ShowControls; break;
+        case SDLK_G:
+        {
+            ToggleGodMode();
+            AddPopup(*m_GodMode ? "GOD MODE ON" : "GOD MODE OFF", cSea);
+        } break;
         case SDLK_BACKSPACE: NewGame(); break;
     }
 }
@@ -141,6 +150,9 @@ void CoastRallyScript::OnPausedEvent(const SDL_Event& inEvent)
                     }
                 }
 
+                if (IsInside(m_MousePosition, layout.mGodModePos, layout.mToggleSize))
+                    ToggleGodMode();
+
                 if (IsInside(m_MousePosition, layout.mAutoDrivePos, layout.mToggleSize))
                     ToggleAutoDrive();
             }
@@ -177,6 +189,7 @@ void CoastRallyScript::OnPausedEvent(const SDL_Event& inEvent)
                 case SDLK_SPACE: if (!inEvent.key.repeat) Resume(); break;
                 case SDLK_Q: if (!inEvent.key.repeat) Quit(); break;
                 case SDLK_TAB: if (!inEvent.key.repeat) SetPauseTab(( m_PauseTab + 1 ) % RALLY_TAB_COUNT); break;
+                case SDLK_G: if (!inEvent.key.repeat) ToggleGodMode(); break;
             }
         } break;
     }
@@ -305,7 +318,7 @@ void CoastRallyScript::DestroyRuntimeEntities()
 {
     DestroyCar();
     DestroyProps();
-    DestroyLevelBody();
+    DestroyLevelBodies();
 
     Array<Entity> roots;
 

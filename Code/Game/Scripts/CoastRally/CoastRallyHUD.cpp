@@ -44,6 +44,16 @@ void CoastRallyScript::DrawHUD(float inDeltaTime)
     DrawSpeedometer(display, scale, margin);
     DrawTripInfo(scale, margin);
 
+    if (*m_GodMode)
+    {
+        const Vec2 pos = Vec2(margin, margin + 202.0f * scale);
+        const Vec2 size = Vec2(150.0f, 34.0f) * scale;
+
+        g_UIRenderer.AddRectFilled(pos, size, size.y * 0.5f, Fade(cSea, 0.9f));
+        g_UIRenderer.SetFont(m_HudFont);
+        g_UIRenderer.AddText(pos + Vec2(size.x * 0.5f, 3.0f * scale), "GOD MODE", 26.0f * scale, cInk, UI_TEXT_ALIGN_CENTER);
+    }
+
     if (m_ShowControls)
         DrawControls(display, scale, margin);
 
@@ -149,7 +159,7 @@ void CoastRallyScript::DrawTripInfo(float inScale, float inMargin)
 
 void CoastRallyScript::DrawControls(const Vec2& inDisplay, float inScale, float inMargin)
 {
-    static constexpr StaticArray<std::pair<const char*, const char*>, 9> cControls =
+    static constexpr StaticArray<std::pair<const char*, const char*>, 10> cControls =
     {
         std::pair { "W / S",     "Throttle, brake and reverse" },
         std::pair { "A / D",     "Steer, or spin in the air" },
@@ -159,6 +169,7 @@ void CoastRallyScript::DrawControls(const Vec2& inDisplay, float inScale, float 
         std::pair { "C",         "Switch camera" },
         std::pair { "MOUSE",     "Look around" },
         std::pair { "BACKSPACE", "Restart and reset props" },
+        std::pair { "G",         "God mode, drive through things" },
         std::pair { "H",         "Hide controls" },
     };
 
