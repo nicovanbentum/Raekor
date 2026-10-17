@@ -4831,6 +4831,9 @@ private:
         {
             DrawHitsplats(inDeltaTime, scale);
             DrawHintArrows(display, scale);
+
+            if (m_FirstPerson)
+                DrawCrosshair(display, scale);
         }
 
         Vec2 player_screen;
@@ -4857,6 +4860,29 @@ private:
             DrawLevelUp(display, scale);
         else if (( m_State == STATE_GAME_OVER || m_State == STATE_VICTORY ) && m_PlayerDeathTimer > 0.6f)
             DrawEndScreen(display, scale);
+    }
+
+    void DrawCrosshair(const Vec2& inDisplay, float inScale)
+    {
+        const Vec2 center = glm::floor(inDisplay * 0.5f);
+        const float thickness = glm::max(2.0f, glm::round(2.0f * inScale));
+        const float length = glm::round(7.0f * inScale);
+        const float gap = glm::round(4.0f * inScale);
+        const float outline = glm::max(1.0f, glm::round(inScale));
+
+        const StaticArray<std::pair<Vec2, Vec2>, 4> arms =
+        {
+            std::pair { Vec2(-gap - length, -thickness * 0.5f), Vec2(length, thickness) },
+            std::pair { Vec2(gap, -thickness * 0.5f),           Vec2(length, thickness) },
+            std::pair { Vec2(-thickness * 0.5f, -gap - length), Vec2(thickness, length) },
+            std::pair { Vec2(-thickness * 0.5f, gap),           Vec2(thickness, length) },
+        };
+
+        for (const auto& [offset, size] : arms)
+            g_UIRenderer.AddRectFilled(center + offset - outline, size + outline * 2.0f, 0.0f, Vec4(0.0f, 0.0f, 0.0f, 0.6f));
+
+        for (const auto& [offset, size] : arms)
+            g_UIRenderer.AddRectFilled(center + offset, size, 0.0f, Fade(cRSWhite, 0.9f));
     }
 
     void DrawInfoBox(float inScale, float inMargin)
