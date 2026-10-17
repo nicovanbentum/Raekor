@@ -343,7 +343,7 @@ private:
     float GetAreaMultiplier() const { return 1.0f + 0.12f * m_UpgradeLevels[UPGRADE_AREA]; }
     int   GetExperienceToNextLevel() const { return 5 + ( m_Level - 1 ) * 4 + ( m_Level - 1 ) * ( m_Level - 1 ) / 3; }
     Vec3  GetPlayerCenter() const { return ToWorld(m_PlayerPosition, 0.9f); }
-    Vec3  GetStaffTip() const { return ToWorld(m_PlayerPosition, 1.75f) + Vec3(glm::cos(m_PlayerYaw) * 0.38f, 0.0f, -glm::sin(m_PlayerYaw) * 0.38f); }
+    Vec3  GetStaffTip() const { return m_FirstPerson ? m_WandTip : ToWorld(m_PlayerPosition, 1.75f) + Vec3(glm::cos(m_PlayerYaw) * 0.38f, 0.0f, -glm::sin(m_PlayerYaw) * 0.38f); }
 
     Vec2 GetInputDirection() const;
 
@@ -449,6 +449,7 @@ private:
     void UpdateVisuals(float inDeltaTime);
 
     void UpdateCamera(float inDeltaTime);
+    void UpdateWand();
 
     void AddDamageNumber(const Vec3& inPosition, int inValue, bool inCrit);
     void AddChat(const String& inText, const Vec4& inColor);
@@ -583,6 +584,8 @@ private:
     Entity m_CameraEntity = Entity::Null;
     Entity m_PlayerEntity = Entity::Null;
     Model m_PlayerModel;
+    Model m_WandModel;
+    Vec3 m_WandTip = Vec3(0.0f);
     StaticArray<Node, cMaxBlades> m_Blades;
 
     MeshNodes m_Nodes;

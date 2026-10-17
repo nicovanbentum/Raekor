@@ -787,6 +787,23 @@ def starburst(p, rng):
     slab(p, "GlowWhite", outline, 0.02, var=0)
 
 
+def wand(p, rng):
+    forward = (-math.pi * 0.5, 0, 0)
+    arm = Vector((0.3, -0.55, -1.0)).normalized()
+    wrist = Vector((0, -0.05, -0.012))
+    cyl(p, "Cloak", wrist + arm * 0.27, 0.06, 0.075, 0.5, seg=8, rot=look_rot(arm), var=0)
+    cyl(p, "Gold", wrist + arm * 0.025, 0.066, 0.066, 0.025, seg=8, rot=look_rot(arm), var=0)
+    box(p, "Skin", (0, -0.005, -0.01), (0.085, 0.1, 0.085), var=0)
+    box(p, "Skin", (0, 0.04, -0.025), (0.08, 0.025, 0.05), shade=2, var=0)
+    box(p, "Skin", (-0.04, 0.02, 0.03), (0.028, 0.06, 0.028), shade=4, rot=(0, 0, 0.3), var=0)
+    cyl(p, "Wood", (0, 0.17, 0), 0.016, 0.009, 0.5, seg=6, rot=forward)
+    for y in (0.07, 0.3):
+        cyl(p, "Gold", (0, y, 0), 0.019, 0.019, 0.014, seg=6, rot=forward, var=0)
+    ico(p, "Gold", (0, -0.09, 0), 0.022, var=0)
+    cyl(p, "Gold", (0, 0.41, 0), 0.008, 0.016, 0.03, seg=6, rot=forward, var=0)
+    ico(p, "GlowCyan", (0, 0.44, 0), 0.026, var=0)
+
+
 def beam(p, rng):
     cyl(p, "GlowWhite", (0, 0, 0), 0.045, 0.045, 1.0, seg=5, rot=(-math.pi * 0.5, 0, 0), var=0)
 
@@ -943,6 +960,7 @@ ASSETS = [
     ("Beam", lambda r: single(r, beam)),
     ("Starburst", lambda r: single(r, starburst)),
     ("Ground", ground),
+    ("Wand", lambda r: single(r, wand)),
 ]
 
 

@@ -201,4 +201,28 @@ void DuskSwarmScript::UpdateCamera(float inDeltaTime)
     transform->Compose();
 }
 
+
+void DuskSwarmScript::UpdateWand()
+{
+    const Transform* camera = FindComponent<Transform>(m_CameraEntity);
+
+    if (!m_FirstPerson || camera == nullptr || m_State == STATE_GAME_OVER)
+    {
+        Park(m_WandModel.mRoot);
+        return;
+    }
+
+    const float move = glm::clamp(glm::length(m_PlayerVelocity) / cPlayerBaseSpeed, 0.0f, 1.0f);
+    const float cast = glm::clamp(m_CastTimer / 0.25f, 0.0f, 1.0f);
+    const float idle = glm::sin(m_Time * 1.6f);
+    const Vec3 bob = Vec3(glm::cos(m_PlayerWalkPhase) * 0.012f * move, -glm::abs(glm::sin(m_PlayerWalkPhase)) * 0.014f * move + idle * 0.004f, 0.0f) * cWandScale;
+    const Vec3 kick = Vec3(0.0f, 0.01f, 0.05f) * cast * cWandScale;
+
+    const Quat rotation = camera->rotation * Quat(Vec3(cWandPitch + 0.3f * cast + idle * 0.01f, cWandYaw, 0.0f));
+    const Vec3 position = camera->position + camera->rotation * ( cWandOffset + bob + kick );
+
+    SetTransform(m_WandModel.mRoot, position, Vec3(cWandScale), rotation);
+    m_WandTip = position + rotation * cWandTip;
+}
+
 } // RK

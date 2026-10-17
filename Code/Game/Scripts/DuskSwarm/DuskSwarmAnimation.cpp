@@ -303,10 +303,13 @@ void DuskSwarmScript::UpdateVisuals(float inDeltaTime)
 
     const bool player_flash = m_InvulnerableTimer > 0.0f && glm::fract(m_Time * 12.0f) < 0.5f;
 
-    if (player_flash)
-        SetModelMaterial(m_PlayerModel, m_FlashMaterial);
-    else
-        RestoreModelMaterials(m_PlayerModel);
+    for (const Model* model : { &m_PlayerModel, &m_WandModel })
+    {
+        if (player_flash)
+            SetModelMaterial(*model, m_FlashMaterial);
+        else
+            RestoreModelMaterials(*model);
+    }
 
     for (Enemy& enemy : m_Enemies)
     {

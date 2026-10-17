@@ -102,6 +102,7 @@ void DuskSwarmScript::OnUpdate(float inDeltaTime)
     }
 
     UpdateCamera(inDeltaTime);
+    UpdateWand();
     UpdateSky();
     UpdateSounds();
     m_Nodes.Update();
@@ -456,6 +457,7 @@ void DuskSwarmScript::DestroyRuntimeEntities()
     m_MusicEntity = Entity::Null;
     m_BossMusicEntity = Entity::Null;
     m_PlayerModel = Model();
+    m_WandModel = Model();
     m_Blades.fill(Node::Null);
     m_Nodes.Clear();
     m_Enemies.clear();

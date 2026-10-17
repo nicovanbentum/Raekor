@@ -346,6 +346,8 @@ void DuskSwarmScript::CreatePlayer()
 {
     m_PlayerEntity = CreateEntity("Player");
     m_PlayerModel = CreateModel("Hero");
+    m_WandModel = CreateModel("Wand");
+    Park(m_WandModel.mRoot);
 
     const Entity torch = CreateEntity("Torch", m_PlayerEntity);
     SetTransform(torch, Vec3(0.0f, 3.0f, 0.0f), Vec3(1.0f));
