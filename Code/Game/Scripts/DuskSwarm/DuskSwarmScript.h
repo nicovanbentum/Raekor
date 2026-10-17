@@ -488,6 +488,7 @@ private:
     void DrawOrb(Vec2 inPos, float inScale, float inFill, const Vec3& inColor, uint32_t inIcon, StringView inValue, float inValueFraction);
     void DrawHUD(float inDeltaTime);
     void DrawCrosshair(const Vec2& inDisplay, float inScale);
+    void DrawSkyDial(const Vec2& inPos, const Vec2& inSize, float inScale);
     void DrawInfoBox(float inScale, float inMargin);
     void DrawExperience(const Vec2& inDisplay, float inDeltaTime, float inScale, float inMargin);
     void DrawBossBar(const Vec2& inDisplay, float inScale, float inMargin);

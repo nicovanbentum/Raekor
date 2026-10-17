@@ -219,6 +219,77 @@ void DuskSwarmScript::DrawCrosshair(const Vec2& inDisplay, float inScale)
 }
 
 
+void DuskSwarmScript::DrawSkyDial(const Vec2& inPos, const Vec2& inSize, float inScale)
+{
+    static constexpr StaticArray<Vec2, 10> cStars =
+    {
+        Vec2(0.08f, 0.18f), Vec2(0.17f, 0.52f), Vec2(0.27f, 0.12f), Vec2(0.38f, 0.38f), Vec2(0.47f, 0.08f),
+        Vec2(0.58f, 0.3f), Vec2(0.66f, 0.1f), Vec2(0.76f, 0.46f), Vec2(0.85f, 0.2f), Vec2(0.93f, 0.55f),
+    };
+
+    const float angle = GetSkyAngle();
+    const float sun_height = glm::sin(angle);
+    const float day = glm::smoothstep(-0.1f, 0.35f, sun_height);
+    const float glow = 1.0f - glm::smoothstep(0.0f, 0.3f, glm::abs(sun_height));
+
+    const Vec4 top = glm::mix(Vec4(0.03f, 0.04f, 0.1f, 1.0f), Vec4(0.24f, 0.42f, 0.7f, 1.0f), day);
+    const Vec4 bottom = glm::mix(glm::mix(Vec4(0.08f, 0.1f, 0.2f, 1.0f), Vec4(0.62f, 0.72f, 0.85f, 1.0f), day), Vec4(0.95f, 0.5f, 0.25f, 1.0f), glow * 0.85f);
+
+    DrawSlotBox(inPos - Vec2(4.0f * inScale), inSize + Vec2(8.0f * inScale), inScale);
+
+    const float ground = 12.0f * inScale;
+    const float horizon = inPos.y + inSize.y - ground;
+
+    g_UIRenderer.AddRectGradient(inPos, Vec2(inSize.x, inSize.y - ground), 2.0f * inScale, top, bottom);
+
+    for (size_t index = 0; index < cStars.size(); index++)
+    {
+        const float twinkle = 0.65f + 0.35f * glm::sin(m_Time * 2.3f + float(index) * 1.7f);
+        const Vec2 star = inPos + cStars[index] * Vec2(inSize.x, inSize.y - ground);
+        g_UIRenderer.AddCircleFilled(star, 1.2f * inScale, Vec4(1.0f, 1.0f, 0.9f, ( 1.0f - day ) * twinkle * 0.9f));
+    }
+
+    const Vec2 center = Vec2(inPos.x + inSize.x * 0.5f, horizon);
+    const Vec2 radius = Vec2(inSize.x * 0.5f - 14.0f * inScale, inSize.y - ground - 10.0f * inScale);
+    const float body_radius = 6.0f * inScale;
+
+    for (int dot = 0; dot <= 24; dot++)
+    {
+        const float dot_angle = glm::pi<float>() * float(dot) / 24.0f;
+        g_UIRenderer.AddCircleFilled(center + Vec2(-glm::cos(dot_angle), -glm::sin(dot_angle)) * radius, 0.9f * inScale, Vec4(1.0f, 1.0f, 1.0f, 0.22f));
+    }
+
+    for (const bool sun : { true, false })
+    {
+        const float body_angle = sun ? angle : angle + glm::pi<float>();
+        const float body_height = glm::sin(body_angle);
+
+        if (body_height * radius.y < -( ground - body_radius ))
+            continue;
+
+        const Vec2 body = center + Vec2(-glm::cos(body_angle), -body_height) * radius;
+        const float halo = glm::smoothstep(-0.05f, 0.25f, body_height);
+
+        if (sun)
+        {
+            const Vec4 color = glm::mix(Vec4(1.0f, 0.55f, 0.2f, 1.0f), Vec4(1.0f, 0.9f, 0.5f, 1.0f), glm::smoothstep(0.0f, 0.5f, sun_height));
+            g_UIRenderer.AddCircleFilled(body, body_radius * 2.4f, Fade(color, 0.35f * halo), body_radius * 2.0f);
+            g_UIRenderer.AddCircleFilled(body, body_radius, color);
+        }
+        else
+        {
+            const float t = glm::clamp(( body.y - inPos.y ) / ( horizon - inPos.y ), 0.0f, 1.0f);
+            g_UIRenderer.AddCircleFilled(body, body_radius * 2.2f, Vec4(0.7f, 0.8f, 1.0f, 0.18f * halo), body_radius * 2.0f);
+            g_UIRenderer.AddCircleFilled(body, body_radius, Vec4(0.88f, 0.92f, 1.0f, 1.0f));
+            g_UIRenderer.AddCircleFilled(body + Vec2(body_radius * 0.55f, -body_radius * 0.3f), body_radius * 0.85f, glm::mix(top, bottom, t));
+        }
+    }
+
+    g_UIRenderer.AddRectFilled(Vec2(inPos.x, horizon), Vec2(inSize.x, ground), 2.0f * inScale, Vec4(0.07f, 0.09f, 0.06f, 1.0f));
+    g_UIRenderer.AddRectFilled(Vec2(inPos.x, horizon), Vec2(inSize.x, glm::max(1.0f, inScale)), 0.0f, Fade(bottom, 0.6f));
+}
+
+
 void DuskSwarmScript::DrawInfoBox(float inScale, float inMargin)
 {
     Array<std::pair<String, String>> rows =
@@ -236,16 +307,15 @@ void DuskSwarmScript::DrawInfoBox(float inScale, float inMargin)
 
     const float row_height = 26.0f * inScale;
     const Vec2 pos = Vec2(inMargin);
-    const Vec2 size = Vec2(260.0f * inScale, 92.0f * inScale + float(rows.size()) * row_height);
-    const float night = glm::clamp(m_RunTime / cVictoryTime, 0.0f, 1.0f);
+    const Vec2 size = Vec2(260.0f * inScale, 146.0f * inScale + float(rows.size()) * row_height);
 
     DrawStonePanel(pos, size, inScale, 0.94f);
     DrawLabel(Vec2(pos.x + size.x * 0.5f, pos.y + 18.0f * inScale), "Dusk Swarm", 24.0f * inScale, cRSOrange, UI_TEXT_ALIGN_CENTER);
-    DrawFlatBar(pos + Vec2(24.0f, 52.0f) * inScale, Vec2(size.x - 48.0f * inScale, 10.0f * inScale), night, cRSOrange, Vec4(0.1f, 0.08f, 0.18f, 1.0f), inScale);
+    DrawSkyDial(pos + Vec2(24.0f, 46.0f) * inScale, Vec2(size.x - 48.0f * inScale, 66.0f * inScale), inScale);
 
     for (size_t index = 0; index < rows.size(); index++)
     {
-        const float y = pos.y + 72.0f * inScale + float(index) * row_height;
+        const float y = pos.y + 126.0f * inScale + float(index) * row_height;
         const bool is_streak = streak && index == rows.size() - 1;
         const Vec4 value_color = is_streak ? Fade(cRSOrange, 0.4f + 0.6f * glm::clamp(m_StreakTimer / cStreakWindow, 0.0f, 1.0f)) : cRSYellow;
 
