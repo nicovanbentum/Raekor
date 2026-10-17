@@ -102,6 +102,8 @@ public:
 
 	void ResetLayout() { m_ResetLayout = true; }
 
+	void SetTitleBarDragArea(const ImRect& inArea) { m_TitleBarDragArea = inArea; }
+
 	void BeginImGuiDockSpace();
 	void EndImGuiDockSpace();
 
@@ -114,6 +116,8 @@ protected:
 	void DrawUnsavedChangesPopup();
 
 	SDL_Event ToViewportEvent(const SDL_Event& inEvent);
+
+	static SDL_HitTestResult sWindowHitTest(SDL_Window* inWindow, const SDL_Point* inPoint, void* inData);
 
 	Scene m_Scene;
 	Assets m_Assets;
@@ -133,6 +137,7 @@ protected:
 
 	ImGuiID m_DockSpaceID;
 	bool m_DockSpaceBuilt = false;
+	ImRect m_TitleBarDragArea;
 
 	Atomic<Entity> m_ActiveEntity = Entity::Null;
 	ImGuiSelectionBasicStorage m_Selection;

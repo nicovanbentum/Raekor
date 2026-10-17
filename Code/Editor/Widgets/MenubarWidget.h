@@ -24,6 +24,7 @@ private:
 	void DrawPlayMenu();
 	void DrawToolsMenu();
 	void DrawHelpMenu();
+	void DrawTitleBar();
 
 	void DrawShortcutsWindow();
 	void DrawAboutWindow();

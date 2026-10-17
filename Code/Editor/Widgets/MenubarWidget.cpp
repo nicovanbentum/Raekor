@@ -25,6 +25,11 @@ MenubarWidget::MenubarWidget(Editor* inEditor) :
 
 void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 {
+	const bool is_title_bar = ( SDL_GetWindowFlags(m_Editor->GetWindow()) & ( SDL_WINDOW_BORDERLESS | SDL_WINDOW_FULLSCREEN ) ) == SDL_WINDOW_BORDERLESS;
+
+	if (is_title_bar)
+		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(ImGui::GetStyle().FramePadding.x, ImFloor(ImGui::GetFontSize() * 0.5f)));
+
 	if (ImGui::BeginMainMenuBar())
 	{
 		DrawFileMenu();
@@ -35,8 +40,14 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 		DrawToolsMenu();
 		DrawHelpMenu();
 
+		if (is_title_bar)
+			DrawTitleBar();
+
 		ImGui::EndMainMenuBar();
 	}
+
+	if (is_title_bar)
+		ImGui::PopStyleVar();
 
 	DrawShortcutsWindow();
 	DrawAboutWindow();
@@ -407,6 +418,118 @@ void MenubarWidget::DrawHelpMenu()
 		m_ShowAbout = true;
 
 	ImGui::EndMenu();
+}
+
+
+void MenubarWidget::DrawTitleBar()
+{
+	enum ECaptionButton { CAPTION_MINIMIZE, CAPTION_MAXIMIZE, CAPTION_CLOSE, CAPTION_COUNT };
+
+	SDL_Window* window = m_Editor->GetWindow();
+	const SDL_WindowFlags window_flags = SDL_GetWindowFlags(window);
+	const bool is_maximized = window_flags & SDL_WINDOW_MAXIMIZED;
+	const bool is_focused = window_flags & SDL_WINDOW_INPUT_FOCUS;
+
+	const ImVec2 bar_min = ImGui::GetWindowPos();
+	const ImVec2 bar_size = ImGui::GetWindowSize();
+	const float spacing = ImGui::GetStyle().ItemSpacing.x;
+
+	const ImVec2 button_size = ImVec2(ImFloor(bar_size.y * 1.5f), bar_size.y);
+	const float buttons_min_x = bar_min.x + bar_size.x - button_size.x * float(CAPTION_COUNT);
+	const float drag_min_x = ImGui::GetItemRectMax().x + spacing;
+
+	m_Editor->SetTitleBarDragArea(ImRect(drag_min_x, bar_min.y, buttons_min_x, bar_min.y + bar_size.y));
+
+	ImDrawList* draw_list = ImGui::GetWindowDrawList();
+
+	const char* title = SDL_GetWindowTitle(window);
+	const ImVec2 title_size = ImGui::CalcTextSize(title);
+	const float title_x = ImMax(ImFloor(bar_min.x + ( bar_size.x - title_size.x ) * 0.5f), drag_min_x + spacing);
+
+	if (title_x + title_size.x < buttons_min_x - spacing)
+		draw_list->AddText(ImVec2(title_x, ImFloor(bar_min.y + ( bar_size.y - title_size.y ) * 0.5f)), ImGui::GetColorU32(is_focused ? ImGuiCol_Text : ImGuiCol_TextDisabled), title);
+
+	const float thickness = ImMax(1.0f, ImFloor(SDL_GetWindowDisplayScale(window)));
+	const float glyph_extent = ImFloor(bar_size.y * 0.16f);
+	const float restore_offset = ImFloor(glyph_extent * 0.4f) + 1.0f;
+
+	for (int button = 0; button < CAPTION_COUNT; button++)
+	{
+		const ImRect rect(ImVec2(buttons_min_x + button_size.x * button, bar_min.y), ImVec2(buttons_min_x + button_size.x * ( button + 1 ), bar_min.y + bar_size.y));
+
+		ImGui::SetCursorScreenPos(rect.Min);
+		ImGui::PushID(button);
+		const bool clicked = ImGui::InvisibleButton("##CaptionButton", button_size);
+		const bool hovered = ImGui::IsItemHovered();
+		const bool held = ImGui::IsItemActive();
+		ImGui::PopID();
+
+		ImU32 glyph_color = ImGui::GetColorU32(is_focused ? ImGuiCol_Text : ImGuiCol_TextDisabled);
+
+		if (button == CAPTION_CLOSE && ( hovered || held ))
+		{
+			draw_list->AddRectFilled(rect.Min, rect.Max, held ? IM_COL32(241, 112, 122, 255) : IM_COL32(232, 17, 35, 255));
+			glyph_color = IM_COL32_WHITE;
+		}
+		else if (hovered || held)
+		{
+			draw_list->AddRectFilled(rect.Min, rect.Max, ImGui::GetColorU32(held ? ImGuiCol_ButtonActive : ImGuiCol_ButtonHovered));
+		}
+
+		const ImVec2 center = ImFloor(rect.GetCenter());
+		const float left = center.x - glyph_extent, right = center.x + glyph_extent;
+		const float top = center.y - glyph_extent, bottom = center.y + glyph_extent;
+
+		switch (button)
+		{
+			case CAPTION_MINIMIZE:
+			{
+				draw_list->AddLine(ImVec2(left, center.y + 0.5f), ImVec2(right, center.y + 0.5f), glyph_color, thickness);
+
+				if (clicked)
+					SDL_MinimizeWindow(window);
+			} break;
+
+			case CAPTION_MAXIMIZE:
+			{
+				if (is_maximized)
+				{
+					draw_list->AddRect(ImVec2(left, top + restore_offset), ImVec2(right - restore_offset, bottom), glyph_color, 0.0f, 0, thickness);
+
+					const ImVec2 back_points[] =
+					{
+						ImVec2(left + restore_offset + 0.5f, top + restore_offset),
+						ImVec2(left + restore_offset + 0.5f, top + 0.5f),
+						ImVec2(right - 0.5f, top + 0.5f),
+						ImVec2(right - 0.5f, bottom - restore_offset),
+					};
+
+					draw_list->AddPolyline(back_points, IM_ARRAYSIZE(back_points), glyph_color, ImDrawFlags_None, thickness);
+				}
+				else
+				{
+					draw_list->AddRect(ImVec2(left, top), ImVec2(right, bottom), glyph_color, 0.0f, 0, thickness);
+				}
+
+				if (clicked)
+					is_maximized ? SDL_RestoreWindow(window) : SDL_MaximizeWindow(window);
+			} break;
+
+			case CAPTION_CLOSE:
+			{
+				draw_list->AddLine(ImVec2(left, top), ImVec2(right, bottom), glyph_color, thickness);
+				draw_list->AddLine(ImVec2(left, bottom), ImVec2(right, top), glyph_color, thickness);
+
+				if (clicked)
+				{
+					SDL_Event event = {};
+					event.type = SDL_EVENT_WINDOW_CLOSE_REQUESTED;
+					event.window.windowID = SDL_GetWindowID(window);
+					SDL_PushEvent(&event);
+				}
+			} break;
+		}
+	}
 }
 
 

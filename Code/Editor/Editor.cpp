@@ -33,7 +33,7 @@ static constexpr const char* cImportFileFilter = "Importable Files (*.scene, *.g
 static constexpr const char* cUnsavedChangesPopup = "Unsaved Changes";
 
 Editor::Editor(WindowFlags inWindowFlags, IRenderInterface* inRenderInterface) :
-	Game(inWindowFlags /* | WindowFlag::BORDERLESS */),
+	Game(inWindowFlags | ( OS::sCheckCommandLineOption("-shader_editor") ? WindowFlag::NONE : WindowFlag::BORDERLESS )),
 
 	m_Scene(inRenderInterface),
 	m_Physics(inRenderInterface),
@@ -78,6 +78,9 @@ Editor::Editor(WindowFlags inWindowFlags, IRenderInterface* inRenderInterface) :
 		m_Widgets.Register<InspectorWidget>(this);
 		m_Widgets.Register<HierarchyWidget>(this);
 	}
+
+	if (SDL_GetWindowFlags(m_Window) & SDL_WINDOW_BORDERLESS)
+		SDL_SetWindowHitTest(m_Window, sWindowHitTest, this);
 
 	gLogInfo("Editor", "Initialization done");
 
@@ -261,6 +264,8 @@ void Editor::OnUpdate(float inDeltaTime)
 
 	if (g_Input->IsRelativeMouseMode())
 		ImGui::GetIO().MousePos = ImVec2(-FLT_MAX, -FLT_MAX);
+
+	m_TitleBarDragArea = ImRect();
 
 	if (GetConfigSettings().mShowUI)
 	{
@@ -1013,6 +1018,40 @@ void Editor::DrawUnsavedChangesPopup()
 
 		ImGui::EndPopup();
 	}
+}
+
+
+SDL_HitTestResult Editor::sWindowHitTest(SDL_Window* inWindow, const SDL_Point* inPoint, void* inData)
+{
+	const Editor* editor = (const Editor*)inData;
+	const SDL_WindowFlags window_flags = SDL_GetWindowFlags(inWindow);
+
+	if (( window_flags & ( SDL_WINDOW_MAXIMIZED | SDL_WINDOW_FULLSCREEN ) ) == 0)
+	{
+		int width = 0, height = 0;
+		SDL_GetWindowSize(inWindow, &width, &height);
+
+		const int border = int(std::ceil(6.0f * SDL_GetWindowDisplayScale(inWindow)));
+
+		const bool left = inPoint->x < border;
+		const bool right = inPoint->x >= width - border;
+		const bool top = inPoint->y < border;
+		const bool bottom = inPoint->y >= height - border;
+
+		if (top && left)		return SDL_HITTEST_RESIZE_TOPLEFT;
+		if (top && right)		return SDL_HITTEST_RESIZE_TOPRIGHT;
+		if (bottom && left)		return SDL_HITTEST_RESIZE_BOTTOMLEFT;
+		if (bottom && right)	return SDL_HITTEST_RESIZE_BOTTOMRIGHT;
+		if (top)				return SDL_HITTEST_RESIZE_TOP;
+		if (bottom)				return SDL_HITTEST_RESIZE_BOTTOM;
+		if (left)				return SDL_HITTEST_RESIZE_LEFT;
+		if (right)				return SDL_HITTEST_RESIZE_RIGHT;
+	}
+
+	if (editor->m_TitleBarDragArea.Contains(ImVec2(float(inPoint->x), float(inPoint->y))))
+		return SDL_HITTEST_DRAGGABLE;
+
+	return SDL_HITTEST_NORMAL;
 }
 
 
