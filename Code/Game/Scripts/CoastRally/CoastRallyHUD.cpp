@@ -194,7 +194,7 @@ void CoastRallyScript::DrawTitle(const Vec2& inDisplay, float inScale)
 {
     const float alpha = glm::clamp(( 7.0f - m_DriveTime ) / 1.5f, 0.0f, 1.0f) * glm::clamp(m_DriveTime / 0.4f, 0.0f, 1.0f);
 
-    if (alpha <= 0.0f)
+    if (alpha <= 0.0f || m_PauseTime > 0.0f)
         return;
 
     const float center = inDisplay.x * 0.5f;

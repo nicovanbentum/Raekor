@@ -13,6 +13,7 @@ void CoastRallyScript::OnStart()
     m_Nodes.Init(m_Scene, m_App->GetRenderInterface(), m_RootEntity);
 
     m_AutoDrive = &g_CVariables->Create("cr_autodrive", 0, true);
+    m_SensitivityScale = &g_CVariables->Create("cr_mouse_sens", 1.0f, true);
 
     LoadTextures();
     LoadModels();
@@ -48,6 +49,8 @@ void CoastRallyScript::OnUpdate(float inDeltaTime)
 
     m_Time += delta_time;
     m_DriveTime += delta_time;
+    m_PauseTime = 0.0f;
+    m_DraggingSlider = RALLY_SLIDER_NONE;
 
     UpdateCar(delta_time);
     UpdateProps();
@@ -66,8 +69,9 @@ void CoastRallyScript::OnEvent(const SDL_Event& inEvent)
 
     if (inEvent.type == SDL_EVENT_MOUSE_MOTION && m_CameraMode != CAMERA_HOOD)
     {
-        m_OrbitYaw -= inEvent.motion.xrel * cMouseOrbitSpeed;
-        m_OrbitPitch = glm::clamp(m_OrbitPitch + inEvent.motion.yrel * cMouseOrbitSpeed, -0.25f, 0.9f);
+        const float sensitivity = cMouseOrbitSpeed * GetSensitivityScale();
+        m_OrbitYaw -= inEvent.motion.xrel * sensitivity;
+        m_OrbitPitch = glm::clamp(m_OrbitPitch + inEvent.motion.yrel * sensitivity, -0.25f, 0.9f);
         m_OrbitIdle = 0.0f;
     }
 
@@ -89,17 +93,93 @@ void CoastRallyScript::OnPausedUpdate(float inDeltaTime)
     if (!m_Started)
         return;
 
-    m_Nodes.Update();
+    m_PauseTime += inDeltaTime;
+
     DrawHUD(0.0f);
+    DrawPauseMenu();
+}
 
-    const Vec2 display = Vec2(m_App->GetViewport().GetDisplaySize());
-    const float scale = glm::max(display.y / 1080.0f, 0.5f);
 
-    g_UIRenderer.AddRectFilled(Vec2(0.0f), display, 0.0f, Vec4(0.0f, 0.02f, 0.05f, 0.45f));
-    g_UIRenderer.SetFont(m_HudFont);
-    DrawText(Vec2(display.x * 0.5f, display.y * 0.42f), "PAUSED", 110.0f * scale, cSun, UI_TEXT_ALIGN_CENTER);
-    g_UIRenderer.SetFont(m_LabelFont);
-    g_UIRenderer.AddText(Vec2(display.x * 0.5f, display.y * 0.42f + 130.0f * scale), "Press Esc to keep driving", 26.0f * scale, cCream, UI_TEXT_ALIGN_CENTER);
+void CoastRallyScript::OnPausedEvent(const SDL_Event& inEvent)
+{
+    if (!m_Started)
+        return;
+
+    const PauseLayout layout = GetPauseLayout();
+
+    switch (inEvent.type)
+    {
+        case SDL_EVENT_MOUSE_MOTION:
+        {
+            m_MousePosition = Vec2(inEvent.motion.x, inEvent.motion.y);
+
+            if (m_DraggingSlider != RALLY_SLIDER_NONE)
+                SetSliderFromMouse(layout, m_DraggingSlider);
+        } break;
+
+        case SDL_EVENT_MOUSE_BUTTON_DOWN:
+        {
+            if (inEvent.button.button != SDL_BUTTON_LEFT)
+                break;
+
+            m_MousePosition = Vec2(inEvent.button.x, inEvent.button.y);
+
+            for (int tab = 0; tab < RALLY_TAB_COUNT; tab++)
+            {
+                if (IsInside(m_MousePosition, layout.mTabPos[tab], layout.mTabSize))
+                    SetPauseTab(tab);
+            }
+
+            if (m_PauseTab == RALLY_TAB_GENERAL)
+            {
+                for (int slider = 0; slider < RALLY_SLIDER_COUNT; slider++)
+                {
+                    if (IsInside(m_MousePosition, layout.GetSliderPos(slider) - layout.mSliderPadding, layout.mSliderSize + layout.mSliderPadding * 2.0f))
+                    {
+                        m_DraggingSlider = slider;
+                        SetSliderFromMouse(layout, slider);
+                    }
+                }
+
+                if (IsInside(m_MousePosition, layout.mAutoDrivePos, layout.mToggleSize))
+                    ToggleAutoDrive();
+            }
+            else
+            {
+                for (int setting = 0; setting < int(cRallyGraphicsSettings.size()); setting++)
+                {
+                    if (IsInside(m_MousePosition, layout.GetSettingPos(setting), layout.mToggleSize))
+                        ToggleGraphicsSetting(setting);
+                }
+            }
+
+            if (IsInside(m_MousePosition, layout.mResumePos, layout.mButtonSize))
+                Resume();
+            else if (IsInside(m_MousePosition, layout.mQuitPos, layout.mButtonSize))
+                Quit();
+        } break;
+
+        case SDL_EVENT_MOUSE_BUTTON_UP:
+        {
+            if (inEvent.button.button == SDL_BUTTON_LEFT)
+                m_DraggingSlider = RALLY_SLIDER_NONE;
+        } break;
+
+        case SDL_EVENT_KEY_DOWN:
+        {
+            switch (inEvent.key.key)
+            {
+                case SDLK_LEFT:
+                case SDLK_A: SetMasterVolume(GetMasterVolume() - cVolumeStep); break;
+                case SDLK_RIGHT:
+                case SDLK_D: SetMasterVolume(GetMasterVolume() + cVolumeStep); break;
+                case SDLK_RETURN:
+                case SDLK_SPACE: if (!inEvent.key.repeat) Resume(); break;
+                case SDLK_Q: if (!inEvent.key.repeat) Quit(); break;
+                case SDLK_TAB: if (!inEvent.key.repeat) SetPauseTab(( m_PauseTab + 1 ) % RALLY_TAB_COUNT); break;
+            }
+        } break;
+    }
 }
 
 

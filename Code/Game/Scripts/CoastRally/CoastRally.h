@@ -32,10 +32,11 @@ static constexpr const char* cConeSound = "Assets/CoastRally/Audio/Cone.ogg";
 static constexpr const char* cBarrelSound = "Assets/CoastRally/Audio/Barrel.ogg";
 static constexpr const char* cCrateSound = "Assets/CoastRally/Audio/Crate.ogg";
 static constexpr const char* cHaySound = "Assets/CoastRally/Audio/Hay.ogg";
+static constexpr const char* cSelectSound = "Assets/CoastRally/Audio/Select.ogg";
 
-static constexpr StaticArray<const char*, 8> cSoundEffects =
+static constexpr StaticArray<const char*, 9> cSoundEffects =
 {
-    cImpactSound, cLandSound, cSplashSound, cResetSound, cConeSound, cBarrelSound, cCrateSound, cHaySound
+    cImpactSound, cLandSound, cSplashSound, cResetSound, cConeSound, cBarrelSound, cCrateSound, cHaySound, cSelectSound
 };
 
 static constexpr Vec3  cCarHalfExtents = Vec3(0.86f, 0.3f, 2.0f);
@@ -85,6 +86,47 @@ static constexpr float cEngineSoundRPM = 3000.0f;
 static constexpr Vec3 cParkedPosition = Vec3(0.0f, -200.0f, 0.0f);
 
 static constexpr float cBrakeLightIntensity = 60000.0f;
+
+static constexpr float cVolumeStep = 0.05f;
+static constexpr float cMinSensitivityScale = 0.2f;
+static constexpr float cMaxSensitivityScale = 3.0f;
+
+
+enum ERallyPauseTab
+{
+    RALLY_TAB_GENERAL,
+    RALLY_TAB_GRAPHICS,
+    RALLY_TAB_COUNT
+};
+
+static constexpr StaticArray<const char*, RALLY_TAB_COUNT> cRallyTabNames = { "GENERAL", "GRAPHICS" };
+
+
+enum ERallySlider
+{
+    RALLY_SLIDER_NONE = -1,
+    RALLY_SLIDER_VOLUME,
+    RALLY_SLIDER_SENSITIVITY,
+    RALLY_SLIDER_COUNT
+};
+
+static constexpr StaticArray<const char*, RALLY_SLIDER_COUNT> cRallySliderNames = { "Master volume", "Mouse sensitivity" };
+
+
+struct RallyGraphicsSetting
+{
+    const char* mCVar;
+    const char* mLabel;
+};
+
+static constexpr StaticArray<RallyGraphicsSetting, 5> cRallyGraphicsSettings =
+{
+    RallyGraphicsSetting { "r_enable_taa",     "Temporal anti-aliasing" },
+    RallyGraphicsSetting { "r_enable_ddgi",    "Global illumination" },
+    RallyGraphicsSetting { "r_enable_gtao",    "Ambient occlusion" },
+    RallyGraphicsSetting { "r_gtao_half_res",  "Half resolution AO" },
+    RallyGraphicsSetting { "r_enable_shadows", "Ray traced shadows" },
+};
 
 
 enum ECameraMode

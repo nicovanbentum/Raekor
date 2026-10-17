@@ -290,6 +290,14 @@ def hay():
     return normalize(fade_edges(normalize(thump, 1.0) + normalize(rustle, 0.35)), 0.75)
 
 
+def select():
+    n = samples(0.12)
+    t = time_axis(n)
+    click = (np.sin(2.0 * np.pi * 1320.0 * t) + 0.4 * np.sin(2.0 * np.pi * 2640.0 * t)) * decay(n, 0.025)
+    tick = band_noise(n, 2500.0, 8000.0) * decay(n, 0.004)
+    return normalize(fade_edges(normalize(click, 1.0) + normalize(tick, 0.4)), 0.6)
+
+
 def main():
     sounds = {
         "Impact": impact,
@@ -309,6 +317,7 @@ def main():
     write("Skid", skid(), bitrate=96000)
     write("Wind", wind(), bitrate=96000)
     write("Ambience", ambience(), bitrate=128000)
+    write("Select", select(), bitrate=96000)
 
 
 main()

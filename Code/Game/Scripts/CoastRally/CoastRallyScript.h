@@ -67,6 +67,7 @@ public:
     void OnUpdate(float inDeltaTime) override;
     void OnEvent(const SDL_Event& inEvent) override;
     void OnPausedUpdate(float inDeltaTime) override;
+    void OnPausedEvent(const SDL_Event& inEvent) override;
 
 private:
     Entity CreateEntity(StringView inName, Entity inParent = Entity::Null);
@@ -146,6 +147,51 @@ private:
     void DrawTitle(const Vec2& inDisplay, float inScale);
     void DrawPopups(const Vec2& inDisplay, float inScale, float inDeltaTime);
 
+    struct PauseLayout
+    {
+        float mScale = 1.0f;
+        Vec2 mDisplay = Vec2(0.0f);
+        Vec2 mPanelPos = Vec2(0.0f);
+        Vec2 mPanelSize = Vec2(0.0f);
+        StaticArray<Vec2, RALLY_TAB_COUNT> mTabPos = {};
+        Vec2 mTabSize = Vec2(0.0f);
+        Vec2 mSliderPos = Vec2(0.0f);
+        Vec2 mSliderSize = Vec2(0.0f);
+        Vec2 mSliderPadding = Vec2(0.0f);
+        float mSliderStep = 0.0f;
+        Vec2 mToggleSize = Vec2(0.0f);
+        Vec2 mAutoDrivePos = Vec2(0.0f);
+        Vec2 mSettingsPos = Vec2(0.0f);
+        float mSettingStep = 0.0f;
+        Vec2 mButtonSize = Vec2(0.0f);
+        Vec2 mResumePos = Vec2(0.0f);
+        Vec2 mQuitPos = Vec2(0.0f);
+
+        Vec2 GetSliderPos(int inSlider) const { return mSliderPos + Vec2(0.0f, mSliderStep * float(inSlider)); }
+        Vec2 GetSettingPos(int inSetting) const { return mSettingsPos + Vec2(0.0f, mSettingStep * float(inSetting)); }
+    };
+
+    PauseLayout GetPauseLayout() const;
+    static bool IsInside(const Vec2& inPoint, const Vec2& inPos, const Vec2& inSize);
+    float GetMasterVolume();
+    void SetMasterVolume(float inVolume);
+    float GetSensitivityScale() const;
+    void SetSensitivityScale(float inScale);
+    float GetSliderValue(int inSlider);
+    String GetSliderText(int inSlider);
+    void SetSliderFromMouse(const PauseLayout& inLayout, int inSlider);
+    void ToggleAutoDrive();
+    static int* GetGraphicsSetting(int inSetting);
+    void ToggleGraphicsSetting(int inSetting);
+    void SetPauseTab(int inTab);
+    void Resume();
+    void Quit();
+    void DrawPauseMenu();
+    void DrawToggle(const Vec2& inLayoutPos, const Vec2& inSize, const Vec2& inOffset, StringView inLabel, bool inChecked, float inAlpha, float inScale);
+    void DrawMenuButton(const Vec2& inLayoutPos, const Vec2& inSize, const Vec2& inOffset, StringView inLabel, bool inPrimary, float inAlpha, float inScale);
+    void DrawPauseGeneralTab(const PauseLayout& inLayout, const Vec2& inOffset, float inAlpha);
+    void DrawPauseGraphicsTab(const PauseLayout& inLayout, const Vec2& inOffset, float inAlpha);
+
 private:
     bool m_Started = false;
     float m_Time = 0.0f;
@@ -217,7 +263,13 @@ private:
     bool m_ShowControls = true;
     Array<Popup> m_Popups;
 
+    float m_PauseTime = 0.0f;
+    int m_PauseTab = RALLY_TAB_GENERAL;
+    Vec2 m_MousePosition = Vec2(-1.0f);
+    int m_DraggingSlider = RALLY_SLIDER_NONE;
+
     int* m_AutoDrive = nullptr;
+    float* m_SensitivityScale = nullptr;
 
 public:
     CoastRallyScript()
