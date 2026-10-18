@@ -298,6 +298,203 @@ def select():
     return normalize(fade_edges(normalize(click, 1.0) + normalize(tick, 0.4)), 0.6)
 
 
+def note(name):
+    names = {"C": 0, "C#": 1, "D": 2, "D#": 3, "E": 4, "F": 5, "F#": 6, "G": 7, "G#": 8, "A": 9, "A#": 10, "B": 11}
+    pitch, octave = name[:-1], int(name[-1])
+    midi = names[pitch] + (octave + 1) * 12
+    return 440.0 * 2.0 ** ((midi - 69) / 12.0)
+
+
+def resonant_lowpass(x, cutoff, resonance):
+    cutoff = np.broadcast_to(np.asarray(cutoff, dtype=np.float64), x.shape)
+    g = np.tan(np.pi * np.minimum(cutoff, SR * 0.45) / SR)
+    k = 2.0 - 2.0 * resonance
+    a1 = 1.0 / (1.0 + g * (g + k))
+    y = np.zeros_like(x)
+    ic1, ic2 = 0.0, 0.0
+    for i in range(len(x)):
+        v3 = x[i] - ic2
+        v1 = a1[i] * ic1 + g[i] * a1[i] * v3
+        v2 = ic2 + g[i] * v1
+        ic1 = 2.0 * v1 - ic1
+        ic2 = 2.0 * v2 - ic2
+        y[i] = v2
+    return y
+
+
+def saw(freq, n, max_freq=9000.0):
+    return additive(freq, n, 48, rolloff=1.0, max_freq=max_freq)
+
+
+def supersaw(freq, n, voices=5, spread=0.012, max_freq=8000.0):
+    out = np.zeros(n)
+    for index in range(voices):
+        detune = 1.0 + spread * (index - (voices - 1) * 0.5) / max(voices - 1, 1)
+        out += np.roll(saw(freq * detune, n, max_freq), int(RNG.integers(0, 2000)))
+    return out / voices
+
+
+def music():
+    bpm = 140.0
+    beat = 60.0 / bpm
+    sixteenth = beat / 4.0
+    bars = 32
+    n = samples(bars * 4 * beat)
+    left = np.zeros(n)
+    right = np.zeros(n)
+
+    def at(beats):
+        return int(round(beats * beat * SR))
+
+    def put(sound, beats, pan=0.5, gain=1.0):
+        place(left, sound * gain * math.sqrt(1.0 - pan), at(beats), circular=True)
+        place(right, sound * gain * math.sqrt(pan), at(beats), circular=True)
+
+    def section_of(bar):
+        return ("intro", "build", "drop", "drop", "break", "build", "drop", "outro")[bar // 4]
+
+    kick_n = samples(0.32)
+    kt = time_axis(kick_n)
+    kick = tone(50.0 + 130.0 * np.exp(-kt * 38.0), kick_n) * decay(kick_n, 0.17)
+    kick = np.tanh(kick * 1.6) + band_noise(kick_n, 2000.0, 8000.0) * decay(kick_n, 0.003) * 0.4
+
+    snare_n = samples(0.28)
+    snare = normalize(band_noise(snare_n, 900.0, 9000.0) * decay(snare_n, 0.075), 0.8)
+    snare += tone(185.0 * np.exp(-time_axis(snare_n) * 3.0), snare_n) * decay(snare_n, 0.05) * 0.5
+
+    hat_n = samples(0.06)
+    hat = normalize(band_noise(hat_n, 7500.0, 17000.0) * decay(hat_n, 0.012), 0.22)
+    open_n = samples(0.32)
+    open_hat = normalize(band_noise(open_n, 6500.0, 17000.0) * decay(open_n, 0.09), 0.2)
+    crash_n = samples(1.6)
+    crash = normalize(band_noise(crash_n, 4000.0, 16000.0) * decay(crash_n, 0.55), 0.35)
+
+    break_kicks = (0, 6, 10)
+    break_snares = (4, 12)
+    ghost_snares = (7, 9, 14, 15)
+
+    progression = (
+        ("D2", ("D4", "F4", "A4")),
+        ("A#1", ("A#3", "D4", "F4")),
+        ("C2", ("C4", "E4", "G4")),
+        ("A1", ("A3", "C4", "E4")),
+    )
+    acid_pattern = (
+        (0, 0, True, False), (2, 12, False, False), (3, 0, False, True), (4, 0, False, False),
+        (6, 10, True, False), (7, 12, False, True), (8, 0, False, False), (10, 7, True, False),
+        (11, 0, False, False), (12, 12, False, True), (13, 15, True, False), (14, 0, False, False),
+    )
+
+    bass_freq = np.full(n, note("D2"))
+    bass_gate = np.zeros(n)
+    bass_accent = np.zeros(n)
+
+    pump = np.ones(n)
+    duck_n = samples(beat * 0.8)
+    duck = 1.0 - 0.45 * np.exp(-time_axis(duck_n) / 0.08)
+
+    for bar in range(bars):
+        section = section_of(bar)
+        root, chord = progression[bar % 4]
+        base = bar * 4
+
+        if bar % 8 == 0:
+            put(crash, base, 0.6, 0.9)
+
+        four_floor = section in ("build", "drop", "outro")
+        breakbeat = section in ("build", "drop", "break")
+
+        if four_floor or section == "intro":
+            for b in range(4):
+                put(kick, base + b, 0.5, 0.6)
+                index = (np.arange(duck_n) + at(base + b)) % n
+                pump[index] = np.minimum(pump[index], duck)
+
+        if breakbeat:
+            for step in break_kicks:
+                if not four_floor or step % 4:
+                    put(kick, base + step * 0.25, 0.5, 0.45)
+            for step in break_snares:
+                put(snare, base + step * 0.25, 0.48, 0.85)
+            for step in ghost_snares:
+                put(snare, base + step * 0.25, 0.55, 0.28)
+
+        for step in range(16):
+            if step % 2 == 1 or section in ("drop", "outro"):
+                put(hat, base + step * 0.25, 0.7 if step % 2 else 0.3, 1.4 if step % 2 else 0.7)
+        if section != "intro":
+            for b in range(4):
+                put(open_hat, base + b + 0.5, 0.72, 0.8)
+
+        for step, semis, accent, slide in acid_pattern:
+            start = at(base + step * 0.25)
+            length = samples(sixteenth * (1.0 if slide else 0.55))
+            index = (np.arange(length) + start) % n
+            bass_freq[index] = note(root) * 2.0 * 2.0 ** (semis / 12.0)
+            bass_gate[index] = 1.0
+            bass_accent[index] = np.maximum(bass_accent[index], (1.0 if accent else 0.45) * decay(length, 0.09))
+
+        if section in ("build", "drop", "outro"):
+            for stab in (0.0, 0.75, 1.5, 2.5, 3.25):
+                length = samples(beat * 0.38)
+                body = np.zeros(length)
+                for name in chord:
+                    body += supersaw(note(name) * 2.0, length, voices=3, spread=0.01, max_freq=7000.0)
+                body = spectral_filter(body, 200.0, 4500.0)
+                body *= decay(length, 0.1) * attack_release(length, 0.002, 0.03)
+                gain = 0.34 if section == "drop" else 0.24
+                pan = 0.25 if stab % 1 else 0.75
+                put(normalize(body, 1.0), base + stab, pan, gain)
+                put(normalize(body, 1.0), base + stab + 0.06, 1.0 - pan, gain * 0.55)
+
+        if section in ("intro", "break", "outro") or bar % 2 == 0:
+            length = samples(beat * (4 if section in ("intro", "break", "outro") else 8))
+            pad = np.zeros(length)
+            for name in chord:
+                pad += supersaw(note(name), length, voices=4, spread=0.008, max_freq=3000.0)
+            pad = spectral_filter(pad, 120.0, 1800.0) * attack_release(length, beat * 0.8, beat * 1.2)
+            pad_gain = 0.16 if section != "break" else 0.24
+            put(normalize(pad, 1.0), base, 0.2, pad_gain)
+            put(normalize(pad, 1.0), base + 0.05, 0.8, pad_gain)
+
+        if section == "drop":
+            tones = [note(name) * 2.0 for name in chord] + [note(chord[0]) * 4.0]
+            for step in range(16):
+                freq = tones[(step + (step // 4)) % len(tones)]
+                length = samples(sixteenth * 0.9)
+                body = additive(freq, length, 9, rolloff=1.0, odd_only=True, max_freq=8000.0)
+                body *= decay(length, 0.07) * attack_release(length, 0.002, 0.02)
+                put(body, base + step * 0.25, 0.62, 0.13)
+                put(body * 0.5, base + step * 0.25 + 0.75, 0.2, 0.13)
+
+        if section == "drop" and bar % 4 == 0:
+            length = samples(beat * 3.5)
+            t = time_axis(length)
+            bend = np.where(t < 0.12, 2.0 ** (-7.0 * (1.0 - t / 0.12) / 12.0), 1.0) * (1.0 + 0.004 * np.sin(2.0 * np.pi * 5.5 * t))
+            hoover = supersaw(note(root) * 4.0 * bend, length, voices=7, spread=0.03, max_freq=6000.0)
+            hoover = spectral_filter(hoover, 150.0, 3200.0) * attack_release(length, 0.02, beat)
+            put(normalize(hoover, 1.0), base, 0.4, 0.2)
+            put(normalize(hoover, 1.0), base + 0.04, 0.6, 0.14)
+
+        if bar == bars - 1 or bar == 15:
+            length = samples(beat * 4)
+            sweep = band_noise(length, 800.0, 12000.0) * np.linspace(0.0, 1.0, length) ** 2
+            put(normalize(sweep, 1.0), base, 0.5, 0.18)
+
+    sweep = 0.5 - 0.5 * np.cos(2.0 * np.pi * np.arange(n) / samples(8 * 4 * beat))
+    cutoff = 320.0 + 3600.0 * sweep ** 1.5 + 3000.0 * bass_accent
+    acid = saw(bass_freq, n, max_freq=9000.0) * bass_gate
+    preroll = samples(2.0)
+    acid = resonant_lowpass(np.concatenate([acid[-preroll:], acid]), np.concatenate([cutoff[-preroll:], cutoff]), 0.9)[preroll:]
+    acid = np.tanh(normalize(acid, 1.0) * 2.4)
+    left += acid * 0.34
+    right += acid * 0.3
+
+    mixed = np.stack([left, right], axis=1) * pump[:, None]
+    mixed = np.tanh(normalize(mixed, 1.0) * 1.25)
+    return normalize(mixed, 0.8)
+
+
 def main():
     sounds = {
         "Impact": impact,
@@ -318,6 +515,7 @@ def main():
     write("Wind", wind(), bitrate=96000)
     write("Ambience", ambience(), bitrate=128000)
     write("Select", select(), bitrate=96000)
+    write("Music", music(), bitrate=160000)
 
 
 main()

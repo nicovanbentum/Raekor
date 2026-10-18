@@ -27,11 +27,22 @@ void CoastRallyScript::CreateAudio()
     m_WindEntity = CreateLoop("Wind", cWindSound, SOUND_CATEGORY_EFFECTS, false);
     m_AmbienceEntity = CreateLoop("Coast Ambience", cAmbienceSound, SOUND_CATEGORY_AMBIENCE, true);
 
+    m_MusicEntity = CreateLoop("Music", cMusicSound, SOUND_CATEGORY_MUSIC, true);
+
     if (SoundSource* ambience = FindComponent<SoundSource>(m_AmbienceEntity))
     {
         ambience->volume = 0.55f;
         ambience->fadeInTime = 2.0f;
     }
+
+    if (SoundSource* music = FindComponent<SoundSource>(m_MusicEntity))
+    {
+        music->volume = cMusicVolume;
+        music->fadeInTime = 1.5f;
+        music->fadeOutTime = 1.2f;
+    }
+
+    PlayEntitySound(m_MusicEntity);
 
     if (Audio* audio = GetAudio())
     {

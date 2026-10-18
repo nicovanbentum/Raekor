@@ -283,6 +283,7 @@ private:
     Entity m_SkidEntity = Entity::Null;
     Entity m_WindEntity = Entity::Null;
     Entity m_AmbienceEntity = Entity::Null;
+    Entity m_MusicEntity = Entity::Null;
     float m_LastImpactTime = 0.0f;
 
     bool m_ShowControls = true;

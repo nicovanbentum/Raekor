@@ -343,6 +343,7 @@ void CoastRallyScript::DestroyRuntimeEntities()
     m_SkidEntity = Entity::Null;
     m_WindEntity = Entity::Null;
     m_AmbienceEntity = Entity::Null;
+    m_MusicEntity = Entity::Null;
     m_CarModel = Model();
     m_BrakeNode = Node::Null;
     m_WheelNodes.fill(Node::Null);
