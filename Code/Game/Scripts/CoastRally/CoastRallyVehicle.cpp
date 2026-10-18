@@ -5,12 +5,12 @@ namespace RK {
 
 void CoastRallyScript::CreateCar()
 {
-    m_CarModel = CreateModel("Car");
+    m_CarModel = CreateModel("Car", m_CarMaterial);
     m_BrakeNode = FindPart(m_CarModel, "Brake");
     SetMaterial(FindPart(m_CarModel, "Glass"), m_GlassMaterial);
 
     for (Node& wheel : m_WheelNodes)
-        wheel = CreateModel("Wheel").mRoot;
+        wheel = CreateModel("Wheel", m_CarMaterial).mRoot;
 
     for (Entity& entity : m_HeadlightEntities)
     {
@@ -448,7 +448,7 @@ void CoastRallyScript::UpdateCarVisuals()
         SetTransform(m_HeadlightEntities[index], m_CarPosition + m_CarRotation * offset, headlight_rotation);
     }
 
-    SetMaterial(m_BrakeNode, m_Braking ? m_BrakeMaterial : m_PaletteMaterial);
+    SetMaterial(m_BrakeNode, m_Braking ? m_BrakeMaterial : m_CarMaterial);
 }
 
 } // RK

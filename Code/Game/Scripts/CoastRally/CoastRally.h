@@ -18,6 +18,7 @@ static constexpr const char* cRuntimeRootName = "CoastRally Runtime";
 static constexpr const char* cModelFile = "Assets/CoastRally/CoastRally.glb";
 static constexpr const char* cPaletteFile = "Assets/CoastRally/Palette.png";
 static constexpr const char* cPaletteEmissiveFile = "Assets/CoastRally/PaletteEmissive.png";
+static constexpr const char* cPaletteSurfaceFile = "Assets/CoastRally/PaletteSurface.png";
 static constexpr const char* cHudFontFile = "Assets/Fonts/Bangers-Regular.ttf";
 static constexpr const char* cLabelFontFile = "Assets/Fonts/Inter-Medium.ttf";
 

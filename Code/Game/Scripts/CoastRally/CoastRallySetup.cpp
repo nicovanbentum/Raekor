@@ -3,7 +3,7 @@
 
 namespace RK {
 
-uint32_t CoastRallyScript::LoadTexture(const char* inFile, bool inSRGB)
+uint32_t CoastRallyScript::LoadTexture(const char* inFile, bool inSRGB, uint8_t inSwizzle)
 {
     if (!fs::exists(inFile))
         return 0;
@@ -16,7 +16,7 @@ uint32_t CoastRallyScript::LoadTexture(const char* inFile, bool inSRGB)
     Assets* assets = m_App->GetAssets();
     TextureAsset::Ptr asset = assets ? assets->GetAsset<TextureAsset>(cached) : nullptr;
 
-    return asset ? m_App->GetRenderInterface()->UploadTextureFromAsset(asset, inSRGB) : 0;
+    return asset ? m_App->GetRenderInterface()->UploadTextureFromAsset(asset, inSRGB, inSwizzle) : 0;
 }
 
 
@@ -27,6 +27,12 @@ void CoastRallyScript::LoadTextures()
 
     if (m_PaletteEmissiveTexture == 0)
         m_PaletteEmissiveTexture = LoadTexture(cPaletteEmissiveFile, false);
+
+    if (m_PaletteRoughnessTexture == 0)
+        m_PaletteRoughnessTexture = LoadTexture(cPaletteSurfaceFile, false, TEXTURE_SWIZZLE_GGGG);
+
+    if (m_PaletteMetallicTexture == 0)
+        m_PaletteMetallicTexture = LoadTexture(cPaletteSurfaceFile, false, TEXTURE_SWIZZLE_BBBB);
 
     m_HudFont = g_UIRenderer.AddFont(cHudFontFile);
     m_LabelFont = g_UIRenderer.AddFont(cLabelFontFile);
@@ -153,6 +159,23 @@ void CoastRallyScript::CreateMaterials()
         palette->gpuAlbedoMap = m_PaletteTexture;
         palette->gpuEmissiveMap = m_PaletteEmissiveTexture;
         palette->emissive = m_PaletteEmissiveTexture != 0 ? Vec3(20000.0f) : Vec3(0.0f);
+    }
+
+    m_CarMaterial = CreateMaterial(Vec3(1.0f), Vec3(0.0f), 0.85f);
+
+    if (Material* car = FindComponent<Material>(m_CarMaterial))
+    {
+        car->gpuAlbedoMap = m_PaletteTexture;
+        car->gpuEmissiveMap = m_PaletteEmissiveTexture;
+        car->emissive = m_PaletteEmissiveTexture != 0 ? Vec3(20000.0f) : Vec3(0.0f);
+
+        if (m_PaletteRoughnessTexture != 0 && m_PaletteMetallicTexture != 0)
+        {
+            car->gpuRoughnessMap = m_PaletteRoughnessTexture;
+            car->gpuMetallicMap = m_PaletteMetallicTexture;
+            car->roughness = 1.0f;
+            car->metallic = 1.0f;
+        }
     }
 
     m_WaterMaterial = CreateMaterial(Vec3(0.03f, 0.2f, 0.28f), Vec3(0.0f), 0.08f);

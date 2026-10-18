@@ -51,6 +51,17 @@ FAMILIES = [
 
 FAMILY_INDEX = {name: index for index, (name, _, _) in enumerate(FAMILIES)}
 
+DEFAULT_SURFACE = (0.85, 0.0)
+SURFACES = {
+    "CarWhite": (0.25, 0.0),
+    "Glass":    (0.06, 0.0),
+    "Rubber":   (0.7, 0.0),
+    "Iron":     (0.4, 0.3),
+    "Steel":    (0.2, 1.0),
+    "Yellow":   (0.25, 1.0),
+    "Wood":     (0.5, 0.0),
+}
+
 TO_BLENDER = Matrix.Rotation(math.pi * 0.5, 4, "X")
 SMOOTH_ANGLE = math.radians(50.0)
 
@@ -91,10 +102,12 @@ def to_srgb(value):
 def write_palettes(directory):
     albedo = [0.0] * (SIZE * SIZE * 4)
     emissive = [0.0] * (SIZE * SIZE * 4)
+    surface = [0.0] * (SIZE * SIZE * 4)
 
     for index in range(SIZE * SIZE):
         albedo[index * 4 + 3] = 1.0
         emissive[index * 4 + 3] = 1.0
+        surface[index * 4 + 3] = 1.0
 
     for row, (name, color, glow) in enumerate(FAMILIES):
         for column, shade in enumerate(SHADES):
@@ -102,6 +115,7 @@ def write_palettes(directory):
             linear = [min(channel * factor, 1.0) for channel in color]
             srgb = [to_srgb(channel) for channel in linear]
             emit = [channel * glow for channel in linear]
+            roughness, metallic = SURFACES.get(name, DEFAULT_SURFACE)
 
             for y in range(row * SWATCH, (row + 1) * SWATCH):
                 image_row = SIZE - 1 - y
@@ -109,8 +123,9 @@ def write_palettes(directory):
                     index = (image_row * SIZE + x) * 4
                     albedo[index:index + 3] = srgb
                     emissive[index:index + 3] = emit
+                    surface[index:index + 3] = (1.0, roughness, metallic)
 
-    for name, pixels in (("Palette", albedo), ("PaletteEmissive", emissive)):
+    for name, pixels in (("Palette", albedo), ("PaletteEmissive", emissive), ("PaletteSurface", surface)):
         image = bpy.data.images.new(name, SIZE, SIZE, alpha=True)
         image.colorspace_settings.name = "Non-Color"
         image.pixels.foreach_set(pixels)

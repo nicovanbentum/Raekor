@@ -90,7 +90,7 @@ private:
     void DestroyRuntimeEntities();
     void NewGame();
 
-    uint32_t LoadTexture(const char* inFile, bool inSRGB);
+    uint32_t LoadTexture(const char* inFile, bool inSRGB, uint8_t inSwizzle = TEXTURE_SWIZZLE_RGBA);
     void LoadTextures();
     void ReleaseModels();
     void LoadModels();
@@ -209,6 +209,8 @@ private:
 
     uint32_t m_PaletteTexture = 0;
     uint32_t m_PaletteEmissiveTexture = 0;
+    uint32_t m_PaletteRoughnessTexture = 0;
+    uint32_t m_PaletteMetallicTexture = 0;
     int m_HudFont = 0;
     int m_LabelFont = 0;
 
@@ -224,6 +226,7 @@ private:
     Entity m_CameraEntity = Entity::Null;
 
     Entity m_PaletteMaterial = Entity::Null;
+    Entity m_CarMaterial = Entity::Null;
     Entity m_WaterMaterial = Entity::Null;
     Entity m_BrakeMaterial = Entity::Null;
     Entity m_GlassMaterial = Entity::Null;
