@@ -619,12 +619,25 @@ def surface_strip(p, family, x0, x1, samples, height, shade=3):
 def car(rng):
     body = Part("Body", (0, 0, 0), rng)
     brake = Part("Brake", (0, 0, 0), rng)
+    glass = Part("Glass", (0, 0, 0), rng)
 
     loft(body, "CarWhite", [car_body_ring(station) for station in CAR_BODY_STATIONS], shade=4)
     box(body, "Rubber", (0, -0.43, 0.0), (1.56, 0.04, 3.9), shade=1)
 
     loft(body, "CarWhite", [cabin_ring(z, yt, wt) for z, yt, wt in CAR_REAR_CABIN], shade=4)
-    loft(body, "Glass", [cabin_ring(z, yt, wt) for z, yt, wt in CAR_FRONT_CABIN], shade=2)
+    loft(glass, "Glass", [cabin_ring(z, yt, wt) for z, yt, wt in CAR_FRONT_CABIN], shade=2)
+
+    for side in (-1, 1):
+        x = side * 0.33
+        box(body, "Wood", (x, 0.3, -0.2), (0.4, 0.12, 0.46), shade=3)
+        box(body, "Wood", (x, 0.395, -0.42), (0.38, 0.25, 0.1), rot=(0.22, 0, 0), shade=4)
+        box(body, "Wood", (x, 0.53, -0.45), (0.22, 0.07, 0.08), rot=(0.22, 0, 0), shade=4)
+    box(body, "Iron", (0, 0.3, 0.42), (1.2, 0.1, 0.2), shade=1)
+    box(body, "Iron", (0, 0.3, 0.12), (0.18, 0.12, 0.7), shade=2)
+    steering = Euler((-0.45, 0.0, 0.0)).to_matrix().to_4x4()
+    transform = Matrix.Translation((0.33, 0.44, 0.3)) @ steering
+    result = bmesh.ops.create_cone(body.bm, cap_ends=True, cap_tris=False, segments=12, radius1=0.12, radius2=0.12, depth=0.03, matrix=transform)
+    body.tag(result["verts"], "Rubber", 1, 0)
 
     roof_rings = []
     for z in (-0.52, -0.15, 0.2):
@@ -674,7 +687,7 @@ def car(rng):
         y = 0.32 + (z + 1.5) * (0.36 - 0.32) / (-1.98 + 1.5)
         box(body, "Iron", (0, y + 0.012, z), (1.3, 0.012, 0.03), shade=3)
 
-    return [body, brake]
+    return [body, brake, glass]
 
 
 def wheel(p, rng):

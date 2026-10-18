@@ -7,6 +7,7 @@ void CoastRallyScript::CreateCar()
 {
     m_CarModel = CreateModel("Car");
     m_BrakeNode = FindPart(m_CarModel, "Brake");
+    SetMaterial(FindPart(m_CarModel, "Glass"), m_GlassMaterial);
 
     for (Node& wheel : m_WheelNodes)
         wheel = CreateModel("Wheel").mRoot;

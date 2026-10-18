@@ -226,6 +226,7 @@ private:
     Entity m_PaletteMaterial = Entity::Null;
     Entity m_WaterMaterial = Entity::Null;
     Entity m_BrakeMaterial = Entity::Null;
+    Entity m_GlassMaterial = Entity::Null;
 
     JPH::TriangleList m_LevelTriangles;
     JPH::TriangleList m_ObstacleTriangles;
