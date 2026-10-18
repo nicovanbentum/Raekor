@@ -24,7 +24,7 @@ FAMILIES = [
     ("Paint",      (0.86, 0.86, 0.82), 0.0),
     ("Yellow",     (0.95, 0.72, 0.08), 0.0),
     ("Red",        (0.76, 0.10, 0.08), 0.0),
-    ("CarBlue",    (0.05, 0.20, 0.68), 0.0),
+    ("CarRed",     (0.60, 0.035, 0.03), 0.0),
     ("White",      (0.86, 0.86, 0.86), 0.0),
     ("Rubber",     (0.04, 0.04, 0.045), 0.0),
     ("Steel",      (0.55, 0.56, 0.60), 0.0),
@@ -70,6 +70,11 @@ PAD_HX, PAD_HZ = 40.0, 26.0
 
 TERRAIN_HALF = 260.0
 TERRAIN_CELL = 2.5
+
+WATER_HALF = 1200.0
+WATER_CELL = 50.0
+SHORE_HEIGHT = 0.5
+SEABED_STEEPNESS = 3.0
 
 HILL_RNG = np.random.default_rng(11)
 HILL_WAVES = [(HILL_RNG.uniform(0.8, 2.0), 2.0 * math.pi / HILL_RNG.uniform(70.0, 190.0), HILL_RNG.uniform(0.0, math.pi), HILL_RNG.uniform(0.0, math.tau)) for _ in range(6)]
@@ -196,6 +201,42 @@ def prism(p, family, outline, axis, start, end, shade=3, var=1):
     return p.tag(near + far + [near_center, far_center], family, shade, var)
 
 
+def loft(p, family, rings, shade=3, var=0):
+    verts = [[p.bm.verts.new(Vector(v)) for v in ring] for ring in rings]
+    count = len(rings[0])
+    for a, b in zip(verts, verts[1:]):
+        for i in range(count):
+            j = (i + 1) % count
+            p.recalc_faces.append(p.bm.faces.new((a[i], a[j], b[j], b[i])))
+    for ring in (verts[0], verts[-1]):
+        p.recalc_faces.append(p.bm.faces.new(ring))
+    return p.tag([vert for ring in verts for vert in ring], family, shade, var)
+
+
+def arch(p, family, center_z, center_y, r_in, r_out, x0, x1, seg=10, shade=3, var=0):
+    rings = []
+    for k in range(seg + 1):
+        a = math.pi * k / seg
+        c, s = math.cos(a), math.sin(a)
+        rings.append([p.bm.verts.new((x, center_y + r * s, center_z + r * c)) for x, r in ((x0, r_in), (x1, r_in), (x1, r_out), (x0, r_out))])
+    for a, b in zip(rings, rings[1:]):
+        for i in range(4):
+            j = (i + 1) % 4
+            p.recalc_faces.append(p.bm.faces.new((a[i], a[j], b[j], b[i])))
+    for ring in (rings[0], rings[-1]):
+        p.recalc_faces.append(p.bm.faces.new(ring))
+    return p.tag([vert for ring in rings for vert in ring], family, shade, var)
+
+
+def beam(p, family, start, end, thickness, shade=3, var=0):
+    start, end = Vector(start), Vector(end)
+    direction = end - start
+    rotation = Vector((0, 0, 1)).rotation_difference(direction.normalized()).to_matrix().to_4x4()
+    transform = Matrix.Translation((start + end) * 0.5) @ rotation @ Matrix.Diagonal(Vector((thickness, thickness, direction.length, 1.0)))
+    result = bmesh.ops.create_cube(p.bm, size=1.0, matrix=transform)
+    return p.tag(result["verts"], family, shade, var)
+
+
 def assign_uv(face, uv_layer, family, shade):
     normal = face.normal
     if normal.length < 1e-6:
@@ -287,7 +328,8 @@ def base_height(x, z):
     for mx, mz, height, radius in MOUNTAINS:
         h += height * np.exp(-((x - mx) ** 2 + (z - mz) ** 2) / (radius * radius))
     land = 1.0 - smoothstep(0.78, 1.0, d)
-    return h * land - 10.0 * smoothstep(0.93, 1.15, d) + 0.4, d
+    h = h * land - 10.0 * smoothstep(0.93, 1.15, d) + 0.4
+    return np.where(h < SHORE_HEIGHT, SHORE_HEIGHT - (SHORE_HEIGHT - h) * SEABED_STEEPNESS, h), d
 
 
 def catmull_rom_loop(points, steps=48):
@@ -426,8 +468,12 @@ def terrain(rng):
 
 def water(rng):
     p = Part("Main", (0, 0, 0), rng)
-    half = 1200.0
-    p.face([(-half, 0.0, -half), (-half, 0.0, half), (half, 0.0, half), (half, 0.0, -half)], "Blue", 3, (0, 1, 0))
+    cells = int(WATER_HALF * 2.0 / WATER_CELL)
+    for i in range(cells):
+        for j in range(cells):
+            x0, z0 = -WATER_HALF + i * WATER_CELL, -WATER_HALF + j * WATER_CELL
+            x1, z1 = x0 + WATER_CELL, z0 + WATER_CELL
+            p.face([(x0, 0.0, z0), (x0, 0.0, z1), (x1, 0.0, z1), (x1, 0.0, z0)], "Blue", 3, (0, 1, 0))
     return [p]
 
 
@@ -512,57 +558,124 @@ def pad(rng):
     return [p]
 
 
+CAR_WHEEL_Y = -0.38
+CAR_WHEEL_Z = (1.3, -1.28)
+
+CAR_BODY_STATIONS = [
+    (-2.06, -0.36, -0.10, 0.14, 0.25, 0.78, 0.84, 0.82, 0.76, 0.02),
+    (-1.96, -0.44, -0.10, 0.14, 0.23, 0.82, 0.88, 0.86, 0.80, 0.03),
+    (-1.28, -0.48, -0.10, 0.13, 0.21, 0.84, 0.92, 0.90, 0.81, 0.03),
+    (-0.60, -0.48, -0.10, 0.13, 0.20, 0.82, 0.88, 0.86, 0.79, 0.03),
+    (0.40, -0.48, -0.10, 0.14, 0.22, 0.82, 0.88, 0.86, 0.79, 0.04),
+    (1.30, -0.48, -0.11, 0.12, 0.20, 0.83, 0.90, 0.88, 0.80, 0.04),
+    (1.92, -0.42, -0.12, 0.09, 0.16, 0.80, 0.86, 0.84, 0.77, 0.03),
+    (2.08, -0.32, -0.14, 0.05, 0.12, 0.74, 0.80, 0.78, 0.72, 0.02),
+]
+
+CAR_REAR_CABIN = [(-1.46, 0.235, 0.66), (-0.95, 0.52, 0.62), (-0.45, 0.72, 0.60)]
+CAR_FRONT_CABIN = [(-0.45, 0.72, 0.60), (0.12, 0.73, 0.60), (0.66, 0.235, 0.68)]
+
+
+def car_station(z):
+    for a, b in zip(CAR_BODY_STATIONS, CAR_BODY_STATIONS[1:]):
+        if a[0] <= z <= b[0]:
+            t = (z - a[0]) / (b[0] - a[0])
+            return tuple(va + (vb - va) * t for va, vb in zip(a, b))
+    return CAR_BODY_STATIONS[0] if z < CAR_BODY_STATIONS[0][0] else CAR_BODY_STATIONS[-1]
+
+
+def car_body_ring(station):
+    z, yb, ym, ysh, yt, wb, wm, wsh, wt, crown = station
+    return [(-wb, yb, z), (wb, yb, z), (wm, ym, z), (wsh, ysh, z), (wt, yt, z), (0.0, yt + crown, z), (-wt, yt, z), (-wsh, ysh, z), (-wm, ym, z)]
+
+
+def car_top_y(x, z):
+    _, _, _, _, yt, _, _, _, wt, crown = car_station(z)
+    return yt + crown * (1.0 - min(abs(x) / wt, 1.0))
+
+
+def cabin_ring(z, yt, wt, wb=0.77, yb=0.17, drop=0.035):
+    return [(-wb, yb, z), (wb, yb, z), (wt, yt - drop, z), (0.0, yt, z), (-wt, yt - drop, z)]
+
+
+def cabin_top_y(x, yt, wt, drop=0.035):
+    return yt - drop * min(abs(x) / wt, 1.0)
+
+
+def surface_strip(p, family, x0, x1, samples, height, shade=3):
+    rings = []
+    for z, y_at in samples:
+        y0, y1 = y_at(x0), y_at(x1)
+        rings.append([(x0, y0 - 0.02, z), (x1, y1 - 0.02, z), (x1, y1 + height, z), (x0, y0 + height, z)])
+    return loft(p, family, rings, shade=shade)
+
+
 def car(rng):
     body = Part("Body", (0, 0, 0), rng)
     brake = Part("Brake", (0, 0, 0), rng)
 
-    box(body, "Rubber", (0, -0.30, 0.0), (1.74, 0.16, 3.7), shade=2, var=0)
-    box(body, "CarBlue", (0, -0.03, 0.0), (1.82, 0.44, 4.0), var=0)
-    box(body, "CarBlue", (0, 0.22, 1.32), (1.72, 0.1, 1.3), rot=(0.07, 0, 0), shade=4, var=0)
-    box(body, "CarBlue", (0, 0.2, -1.72), (1.72, 0.08, 0.56), shade=4, var=0)
+    loft(body, "CarRed", [car_body_ring(station) for station in CAR_BODY_STATIONS], shade=3)
+    box(body, "Rubber", (0, -0.47, 0.0), (1.6, 0.04, 3.7), shade=1)
 
-    prism(body, "Glass", [(-1.42, 0.2), (0.98, 0.2), (0.32, 0.8), (-1.2, 0.82)], "x", -0.76, 0.76, var=0)
-    box(body, "CarBlue", (0, 0.83, -0.44), (1.46, 0.05, 1.5), shade=4, var=0)
-    for side in (-1, 1):
-        box(body, "CarBlue", (side * 0.755, 0.5, -0.32), (0.04, 0.58, 0.14), var=0)
-        box(body, "CarBlue", (side * 0.75, 0.5, 0.66), (0.05, 0.6, 0.08), rot=(-0.72, 0, 0), var=0)
-        box(body, "CarBlue", (side * 0.74, 0.5, -1.33), (0.05, 0.62, 0.1), rot=(0.17, 0, 0), var=0)
+    loft(body, "CarRed", [cabin_ring(z, yt, wt) for z, yt, wt in CAR_REAR_CABIN], shade=3)
+    loft(body, "Glass", [cabin_ring(z, yt, wt) for z, yt, wt in CAR_FRONT_CABIN], shade=2)
 
-    for x in (-0.24, 0.24):
-        box(body, "White", (x, 0.28, 1.32), (0.16, 0.11, 1.3), rot=(0.07, 0, 0), shade=5, var=0)
-        box(body, "White", (x, 0.86, -0.44), (0.16, 0.02, 1.5), shade=5, var=0)
-        box(body, "White", (x, 0.24, -1.72), (0.16, 0.02, 0.56), shade=5, var=0)
+    roof_rings = []
+    for z in (-0.47, -0.2, 0.14):
+        yt = 0.72 + 0.01 * (z + 0.45) / 0.57
+        w = 0.612
+        roof_rings.append([(-w, yt - 0.07, z), (w, yt - 0.07, z), (w, yt - 0.025, z), (0.0, yt + 0.012, z), (-w, yt - 0.025, z)])
+    loft(body, "CarRed", roof_rings, shade=4)
 
-    for side in (-1, 1):
-        for z in (1.3, -1.28):
-            box(body, "CarBlue", (side * 0.99, 0.0, z), (0.2, 0.2, 1.0), shade=2, var=0)
-            box(body, "Rubber", (side * 1.0, 0.11, z), (0.22, 0.06, 1.04), var=0)
-        cyl(body, "White", (side * 0.915, -0.02, -0.06), 0.22, 0.22, 0.02, seg=14, axis="x", shade=5, var=0)
-        box(body, "Rubber", (side * 0.93, -0.02, -0.06), (0.02, 0.24, 0.07), var=0)
-        box(body, "Rubber", (side * 0.93, 0.08, -0.03), (0.02, 0.06, 0.07), rot=(0.6, 0, 0), var=0)
-        box(body, "Yellow", (side * 0.92, -0.2, 0.0), (0.02, 0.05, 1.6), var=0)
-        box(body, "CarBlue", (side * 0.95, 0.4, 0.72), (0.14, 0.09, 0.16), shade=2, var=0)
-        box(body, "Red", (side * 0.86, -0.38, -1.8), (0.24, 0.28, 0.03), var=0)
-
-    box(body, "Rubber", (0, -0.24, 2.03), (1.84, 0.22, 0.16), var=0)
-    box(body, "Iron", (0, 0.03, 2.01), (0.8, 0.16, 0.04), var=0)
-    box(body, "Rubber", (0, -0.24, -2.03), (1.84, 0.22, 0.16), var=0)
-    box(body, "Iron", (0, 0.08, -2.01), (0.7, 0.14, 0.03), var=0)
-    cyl(body, "Steel", (0.55, -0.3, -2.06), 0.05, 0.05, 0.2, seg=8, axis="z", shade=5, var=0)
+    rear_window = []
+    for z, yt, wt in ((-1.3, 0.3245, 0.647), (-0.95, 0.52, 0.62), (-0.55, 0.68, 0.604)):
+        rear_window.append((z, lambda x, yt=yt, wt=wt: cabin_top_y(x, yt, wt)))
+    surface_strip(body, "Glass", -0.46, 0.46, rear_window, 0.008, shade=2)
 
     for side in (-1, 1):
-        box(body, "GlowWhite", (side * 0.6, 0.06, 2.0), (0.38, 0.13, 0.06), var=0)
-        box(brake, "GlowRed", (side * 0.66, 0.08, -2.0), (0.34, 0.12, 0.06), var=0)
+        beam(body, "CarRed", (side * 0.69, 0.2, 0.66), (side * 0.6, 0.71, 0.12), 0.07, shade=4)
+        beam(body, "CarRed", (side * 0.775, 0.17, -0.45), (side * 0.605, 0.72, -0.45), 0.08, shade=3)
+        box(body, "CarRed", (side * 0.83, 0.29, 0.48), (0.12, 0.1, 0.15), shade=4)
+        box(body, "Steel", (side * 0.875, 0.06, -0.62), (0.015, 0.025, 0.12), shade=6)
 
-    box(body, "Iron", (0, 0.34, 1.98), (1.1, 0.06, 0.08), var=0)
-    for x in (-0.42, -0.14, 0.14, 0.42):
-        cyl(body, "Iron", (x, 0.44, 2.0), 0.1, 0.1, 0.08, seg=10, axis="z", var=0)
-        cyl(body, "GlowWhite", (x, 0.44, 2.045), 0.08, 0.08, 0.02, seg=10, axis="z", var=0)
+    for x0, x1 in ((-0.3, -0.12), (0.12, 0.3)):
+        hood = [(z, lambda x, z=z: car_top_y(x, z)) for z in (0.62, 1.3, 1.92, 2.08)]
+        surface_strip(body, "Rubber", x0, x1, hood, 0.006, shade=2)
+        deck = [(z, lambda x, z=z: car_top_y(x, z)) for z in (-2.06, -1.96, -1.42)]
+        surface_strip(body, "Rubber", x0, x1, deck, 0.006, shade=2)
+        fastback = [(z, lambda x, yt=yt, wt=wt: cabin_top_y(x, yt, wt)) for z, yt, wt in ((-1.44, 0.246, 0.658), (-1.3, 0.3245, 0.647))]
+        surface_strip(body, "Rubber", x0, x1, fastback, 0.006, shade=2)
+        roof = [(z, lambda x, z=z: cabin_top_y(x, 0.72 + 0.01 * (z + 0.45) / 0.57, 0.612, 0.037) + 0.012) for z in (-0.47, -0.2, 0.14)]
+        surface_strip(body, "Rubber", x0, x1, roof, 0.006, shade=2)
 
-    box(body, "CarBlue", (0, 0.98, -1.62), (1.62, 0.04, 0.34), shade=2, var=0)
+    hood_y = car_top_y(0.0, 1.05)
+    box(body, "Iron", (0, hood_y + 0.05, 1.05), (0.42, 0.14, 0.42), shade=2)
+    box(body, "Rubber", (0, hood_y + 0.07, 1.265), (0.34, 0.07, 0.02), shade=0)
+    box(body, "Iron", (0, hood_y + 0.125, 1.05), (0.44, 0.015, 0.44), shade=4)
+
     for side in (-1, 1):
-        box(body, "CarBlue", (side * 0.78, 0.92, -1.62), (0.04, 0.14, 0.4), shade=2, var=0)
-        box(body, "Iron", (side * 0.4, 0.9, -1.56), (0.05, 0.14, 0.08), var=0)
+        for z in CAR_WHEEL_Z:
+            arch(body, "Rubber", z, CAR_WHEEL_Y, 0.02, 0.45, side * 0.86, side * 0.935, seg=12, shade=0)
+            arch(body, "CarRed", z, CAR_WHEEL_Y, 0.45, 0.52, side * 0.84, side * 1.06, seg=12, shade=2)
+
+    box(body, "Iron", (0, -0.03, 2.07), (1.46, 0.22, 0.04), shade=1)
+    box(body, "Steel", (0, -0.03, 2.075), (0.9, 0.014, 0.03), shade=5)
+    for side in (-1, 1):
+        cyl(body, "Steel", (side * 0.6, -0.03, 2.085), 0.085, 0.085, 0.03, seg=14, axis="z", shade=6)
+        cyl(body, "GlowWhite", (side * 0.6, -0.03, 2.1), 0.068, 0.068, 0.012, seg=14, axis="z")
+    box(body, "Steel", (0, -0.2, 2.1), (1.64, 0.07, 0.07), shade=6)
+    box(body, "Iron", (0, -0.34, 2.03), (1.5, 0.08, 0.1), shade=1)
+
+    box(body, "Iron", (0, 0.04, -2.07), (1.5, 0.15, 0.03), shade=1)
+    for side in (-1, 1):
+        box(brake, "GlowRed", (side * 0.38, 0.04, -2.085), (0.62, 0.09, 0.02))
+    box(body, "Steel", (0, -0.17, -2.1), (1.62, 0.07, 0.07), shade=6)
+    box(body, "Iron", (0, -0.33, -2.03), (1.4, 0.1, 0.1), shade=1)
+    for side in (-1, 1):
+        cyl(body, "Steel", (side * 0.48, -0.4, -2.04), 0.055, 0.055, 0.22, seg=10, axis="z", shade=5)
+        cyl(body, "Rubber", (side * 0.48, -0.4, -2.152), 0.04, 0.04, 0.01, seg=10, axis="z", shade=0)
+
+    loft(body, "CarRed", [[(x, 0.25, -2.06), (x, 0.31, -2.1), (x, 0.25, -1.86)] for x in (-0.74, 0.74)], shade=4)
 
     return [body, brake]
 
@@ -570,11 +683,13 @@ def car(rng):
 def wheel(p, rng):
     cyl(p, "Rubber", (0, 0, 0), 0.36, 0.36, 0.26, seg=16, axis="x", var=0)
     cyl(p, "Rubber", (0, 0, 0), 0.33, 0.33, 0.28, seg=16, axis="x", shade=1, var=0)
-    cyl(p, "White", (0.02, 0, 0), 0.23, 0.23, 0.25, seg=14, axis="x", shade=4, var=0)
-    cyl(p, "Steel", (0.13, 0, 0), 0.07, 0.07, 0.04, seg=8, axis="x", shade=5, var=0)
+    cyl(p, "Iron", (0.02, 0, 0), 0.24, 0.24, 0.25, seg=16, axis="x", shade=2, var=0)
+    cyl(p, "Steel", (0.135, 0, 0), 0.24, 0.24, 0.012, seg=16, axis="x", shade=6, var=0)
+    cyl(p, "Iron", (0.14, 0, 0), 0.215, 0.215, 0.012, seg=16, axis="x", shade=1, var=0)
+    cyl(p, "Steel", (0.15, 0, 0), 0.07, 0.07, 0.04, seg=10, axis="x", shade=6, var=0)
     for index in range(5):
         a = index / 5 * math.tau
-        box(p, "Steel", (0.15, math.sin(a) * 0.12, math.cos(a) * 0.12), (0.02, 0.05, 0.2), rot=(-a, 0, 0), shade=3, var=0)
+        box(p, "Steel", (0.15, math.sin(a) * 0.12, math.cos(a) * 0.12), (0.025, 0.06, 0.2), rot=(-a, 0, 0), shade=5, var=0)
 
 
 def cone(p, rng):
