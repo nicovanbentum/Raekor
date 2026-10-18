@@ -417,10 +417,10 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     m_FrameConstants.mSunDirection = Vec4(m_RenderWorld.GetSun().mDirection, 0.0f);
     m_FrameConstants.mCameraPosition = Vec4(vp.GetPosition(), 1.0f);
     m_FrameConstants.mFogParams = m_RenderWorld.GetSun().mFog;
-    m_FrameConstants.mGroundBounce = m_RenderWorld.GetSun().mGroundBounce;
+    m_FrameConstants.mGroundBounce = m_Settings.mEnableSkyVisibility ? m_RenderWorld.GetSun().mGroundBounce : Vec4(0.0f);
     m_FrameConstants.mSkyVisibilityBounds = m_RenderWorld.GetSun().mSkyVisibilityBounds;
     m_FrameConstants.mSkyVisibilityParams = m_RenderWorld.GetSun().mSkyVisibilityParams;
-    m_FrameConstants.mSkyVisibilityTexture = m_RenderWorld.GetSun().mSkyVisibilityMap.IsValid() ? inDevice.GetBindlessHeapIndex(m_RenderWorld.GetSun().mSkyVisibilityMap) : 0;
+    m_FrameConstants.mSkyVisibilityTexture = inDevice.GetBindlessHeapIndex(m_Settings.mEnableSkyVisibility && m_RenderWorld.GetSun().mSkyVisibilityMap.IsValid() ? m_RenderWorld.GetSun().mSkyVisibilityMap : m_WhiteTexture);
     m_FrameConstants.mViewportSize = inViewport.GetRenderSize();
     m_FrameConstants.mNrOfLights = uint32_t(m_RenderWorld.GetLights().size());
     m_FrameConstants.mViewMatrix = vp.GetView();
@@ -791,6 +791,7 @@ void Renderer::Recompile(Device& inDevice)
         case DEBUG_TEXTURE_GBUFFER_VELOCITY:
         case DEBUG_TEXTURE_GBUFFER_METALLIC:
         case DEBUG_TEXTURE_GBUFFER_ROUGHNESS:
+        case DEBUG_TEXTURE_SKY_VISIBILITY:
             final_output = AddGBufferDebugPass(m_RenderGraph, inDevice, gbuffer_output, debug_texture).mOutputTexture;
             break;
     }

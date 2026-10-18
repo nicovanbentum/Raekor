@@ -6,9 +6,6 @@
 
 float SampleSkyVisibility(uint inTexture, float4 inBounds, float4 inParams, float3 inPosWS)
 {
-    if (inParams.w <= 0.0)
-        return 1.0;
-
     Texture2D<float4> sky_visibility_texture = ResourceDescriptorHeap[NonUniformResourceIndex(inTexture)];
 
     const float2 uv = (inPosWS.xz - inBounds.xy) * inBounds.zw;

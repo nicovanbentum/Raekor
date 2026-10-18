@@ -186,6 +186,7 @@ struct SystemShadersDX12 : public IResource
     GraphicsProgram mGBufferDebugVelocityShader;
     GraphicsProgram mGBufferDebugMetallicShader;
     GraphicsProgram mGBufferDebugRoughnessShader;
+    GraphicsProgram mSkyVisibilityDebugShader;
 
     ComputeProgram mDoFSetupShader;
     ComputeProgram mDoFTileMaxShader;

@@ -496,6 +496,21 @@
             }
         },
 
+        "Sky Visibility Debug Shader": 
+        { 
+            "Defines": "#define DEBUG_TEXTURE_SKY_VISIBILITY",
+
+            "Vertex Shader": 
+            {
+                "File Path": "Assets/Shaders/Backend/FullScreenTriangleVS.hlsl"
+            },
+
+            "Pixel Shader": 
+            {
+                "File Path": "Assets/Shaders/Backend/GBufferDebugPS.hlsl"
+            }
+        },
+
         "GBuffer Debug Velocity Shader": 
         { 
             "Defines": "#define DEBUG_TEXTURE_GBUFFER_VELOCITY",

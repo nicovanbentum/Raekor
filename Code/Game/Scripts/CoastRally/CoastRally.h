@@ -172,11 +172,12 @@ struct RallyGraphicsSetting
     const char* mLabel;
 };
 
-static constexpr StaticArray<RallyGraphicsSetting, 5> cRallyGraphicsSettings =
+static constexpr StaticArray<RallyGraphicsSetting, 6> cRallyGraphicsSettings =
 {
     RallyGraphicsSetting { "r_enable_taa",     "Temporal anti-aliasing" },
     RallyGraphicsSetting { "r_enable_ddgi",    "Global illumination" },
     RallyGraphicsSetting { "r_enable_gtao",    "Ambient occlusion" },
+    RallyGraphicsSetting { "r_enable_sky_visibility", "Sky occlusion" },
     RallyGraphicsSetting { "r_gtao_half_res",  "Half resolution AO" },
     RallyGraphicsSetting { "r_enable_shadows", "Ray traced shadows" },
 };

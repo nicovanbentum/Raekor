@@ -2,7 +2,10 @@
 #include "Include/Common.hlsli"
 #include "Include/Packing.hlsli"
 #include "Include/Material.hlsli"
+#include "Include/Sky.hlsli"
+#include "Include/SkyVisibility.hlsli"
 
+FRAME_CONSTANTS(fc)
 ROOT_CONSTANTS(GbufferDebugRootConstants, rc)
 
 float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
@@ -15,6 +18,15 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
     output_color = float4(1.0f / linear_depth.x, 0.0, 0.0, 1.0);
 #endif
     
+#ifdef DEBUG_TEXTURE_SKY_VISIBILITY
+    const float sky_depth = gbuffer_texture.Sample(SamplerPointClamp, inParams.mScreenUV).r;
+    if (sky_depth >= 1.0)
+        return float4(1.0, 1.0, 1.0, 1.0);
+
+    const float3 ws_pos = ReconstructWorldPosition(inParams.mScreenUV, sky_depth, fc.mInvViewProjectionMatrix);
+    return float4(SampleSkyVisibility(fc.mSkyVisibilityTexture, fc.mSkyVisibilityBounds, fc.mSkyVisibilityParams, ws_pos).xxx, 1.0);
+#endif
+
 #ifdef DEBUG_TEXTURE_GBUFFER_VELOCITY
     output_color = float4(output_color.rg * 100.0f, 0.0, 1.0);
 #endif

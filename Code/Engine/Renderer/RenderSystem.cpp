@@ -259,6 +259,7 @@ const char* RenderSystem::GetDebugTextureName(uint32_t inIndex) const
         "RT Reflections",
         "RT Indirect Diffuse",
         "RT Ambient Occlusion",
+        "Sky Visibility",
     };
 
     static_assert( names.size() == DEBUG_TEXTURE_COUNT );
@@ -889,6 +890,11 @@ void RenderSystem::DrawDebugSettings(Application* inApp)
         ImGui::SameLine();
 
         ImGui::Text("SSR");
+
+        ImGui::Checkbox("##SkyVisibilityToggle", (bool*)&m_Renderer.GetSettings().mEnableSkyVisibility);
+        ImGui::SameLine();
+
+        ImGui::Text("Sky Visibility");
 
         if (ImGui::Checkbox("##GTAOtoggle", (bool*)&m_Renderer.GetSettings().mEnableGTAO))
         {

@@ -549,6 +549,7 @@ const GBufferDebugData& AddGBufferDebugPass(RenderGraph& inRenderGraph, Device& 
             case DEBUG_TEXTURE_GBUFFER_VELOCITY:  inData.mInputTextureSRV = ioRGBuilder.Read(inGBuffer.mVelocityTexture); break;
             case DEBUG_TEXTURE_GBUFFER_METALLIC:  inData.mInputTextureSRV = ioRGBuilder.Read(inGBuffer.mRenderTexture);   break;
             case DEBUG_TEXTURE_GBUFFER_ROUGHNESS: inData.mInputTextureSRV = ioRGBuilder.Read(inGBuffer.mRenderTexture);   break;
+            case DEBUG_TEXTURE_SKY_VISIBILITY:    inData.mInputTextureSRV = ioRGBuilder.Read(inGBuffer.mDepthTexture);    break;
             default: assert(false);
         }
 
@@ -564,6 +565,7 @@ const GBufferDebugData& AddGBufferDebugPass(RenderGraph& inRenderGraph, Device& 
             case DEBUG_TEXTURE_GBUFFER_VELOCITY:  graphics_program = &g_SystemShaders.mGBufferDebugVelocityShader;  break;
             case DEBUG_TEXTURE_GBUFFER_METALLIC:  graphics_program = &g_SystemShaders.mGBufferDebugMetallicShader;  break;
             case DEBUG_TEXTURE_GBUFFER_ROUGHNESS: graphics_program = &g_SystemShaders.mGBufferDebugRoughnessShader; break;
+            case DEBUG_TEXTURE_SKY_VISIBILITY:    graphics_program = &g_SystemShaders.mSkyVisibilityDebugShader;    break;
             default: assert(false);
         }
 

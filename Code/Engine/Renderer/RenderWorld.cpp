@@ -289,7 +289,7 @@ void RenderWorld::Extract(const Scene& inScene, const Device& inDevice, float in
                 const Vec4& bounds = sun_light->skyVisibilityBounds;
                 m_Sun.mSkyVisibilityMap = gToTextureID(sun_light->skyVisibilityMap);
                 m_Sun.mSkyVisibilityBounds = Vec4(bounds.x, bounds.y, 1.0f / bounds.z, 1.0f / bounds.w);
-                m_Sun.mSkyVisibilityParams = Vec4(sun_light->skyVisibilityHeights, glm::clamp(sun_light->skyVisibilityStrength, 0.0f, 1.0f), 1.0f);
+                m_Sun.mSkyVisibilityParams = Vec4(sun_light->skyVisibilityHeights, glm::clamp(sun_light->skyVisibilityStrength, 0.0f, 1.0f), 0.0f);
             }
         }
     }
