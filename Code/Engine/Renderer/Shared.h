@@ -158,7 +158,8 @@ struct FrameConstants
     float4    mSunColor;
     float4    mSunDirection;
     float4    mCameraPosition;
-    
+    float4    mFogParams;
+
     float4x4  mViewMatrix;
     float4x4  mInvViewMatrix;
     float4x4  mProjectionMatrix;

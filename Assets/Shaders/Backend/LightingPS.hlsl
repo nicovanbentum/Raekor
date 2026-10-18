@@ -3,6 +3,7 @@
 #include "Include/Material.hlsli"
 #include "Include/DDGI.hlsli"
 #include "Include/Sky.hlsli"
+#include "Include/Fog.hlsli"
 
 FRAME_CONSTANTS(fc)
 ROOT_CONSTANTS(LightingRootConstants, rc)
@@ -52,8 +53,8 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0
     
     if (depth == 1.0) 
     {    
-        float3 sky_color = skycube_texture.SampleLevel(SamplerLinearClamp, ws_pos, 0) * fc.mSunColor.a;
-        return float4(max(sky_color, 0.0.xxx), 1.0);
+        float3 sky_color = max(skycube_texture.SampleLevel(SamplerLinearClamp, ws_pos, 0) * fc.mSunColor.a, 0.0.xxx);
+        return float4(ApplyFog(sky_color, skycube_texture, fc.mFogParams, ws_pos, fc.mFogParams.y, fc.mSunColor.a), 1.0);
     }
 
     // indirect diffuse and specular are attenuated by ambient occlusion
@@ -123,5 +124,7 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0
     
     total_radiance += indirect_diffuse * surface.mAlbedo.rgb * (1.0 - surface.mMetallic) * (1.0 - specular_albedo) * ao;
     
+    total_radiance = ApplyFog(total_radiance, skycube_texture, fc.mFogParams, -Wo, length(fc.mCameraPosition.xyz - ws_pos), fc.mSunColor.a);
+
     return float4(total_radiance, 1.0);
 }

@@ -32,6 +32,9 @@ RTTI_DEFINE_TYPE(DirectionalLight)
 	RTTI_DEFINE_MEMBER(DirectionalLight, SERIALIZE_ALL, "Color", color);
 	RTTI_DEFINE_MEMBER(DirectionalLight, SERIALIZE_ALL, "Skybox", cubeMapFile);
 	RTTI_DEFINE_MEMBER(DirectionalLight, ESerializeType(SERIALIZE_ALL | SERIALIZE_NO_LEGACY_BINARY), "Illuminance", illuminance);
+	RTTI_DEFINE_MEMBER(DirectionalLight, ESerializeType(SERIALIZE_ALL | SERIALIZE_NO_LEGACY_BINARY), "Fog Start", fogStart);
+	RTTI_DEFINE_MEMBER(DirectionalLight, ESerializeType(SERIALIZE_ALL | SERIALIZE_NO_LEGACY_BINARY), "Fog End", fogEnd);
+	RTTI_DEFINE_MEMBER(DirectionalLight, ESerializeType(SERIALIZE_ALL | SERIALIZE_NO_LEGACY_BINARY), "Fog Opacity", fogOpacity);
 }
 
 

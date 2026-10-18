@@ -81,6 +81,9 @@ struct DirectionalLight
 	Vec4 direction = { 0.25f, -0.9f, 0.0f, 0.0f };
 	float illuminance = 110000.0f;
 
+	float fogStart = 100.0f;
+	float fogEnd = 400.0f;
+	float fogOpacity = 0.0f;
 };
 
 

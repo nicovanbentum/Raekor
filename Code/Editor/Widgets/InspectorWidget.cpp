@@ -1733,6 +1733,15 @@ bool InspectorWidget::DrawComponent(Entity inEntity, DirectionalLight& inDirecti
 	ImGui::SetNextItemRightAlign("Illuminance");
 	scene_changed |= ImGui::DragFloat("##Illuminance", &inDirectionalLight.illuminance, 100.0f, 0.0f, FLT_MAX, "%.0f lux");
 
+	ImGui::SetNextItemRightAlign("Fog Start  ");
+	scene_changed |= ImGui::DragFloat("##FogStart", &inDirectionalLight.fogStart, 1.0f, 0.0f, FLT_MAX, "%.0f m");
+
+	ImGui::SetNextItemRightAlign("Fog End    ");
+	scene_changed |= ImGui::DragFloat("##FogEnd", &inDirectionalLight.fogEnd, 1.0f, 0.0f, FLT_MAX, "%.0f m");
+
+	ImGui::SetNextItemRightAlign("Fog Opacity");
+	scene_changed |= ImGui::SliderFloat("##FogOpacity", &inDirectionalLight.fogOpacity, 0.0f, 1.0f);
+
 	if (!inDirectionalLight.cubeMapFile.empty())
 	{
 		if (ImGui::Button("x"))

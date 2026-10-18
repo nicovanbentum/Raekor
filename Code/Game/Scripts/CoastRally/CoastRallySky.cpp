@@ -14,6 +14,7 @@ void CoastRallyScript::CreateSky()
         m_RestoreSun = true;
         m_SavedSunColor = light.color;
         m_SavedSunIlluminance = light.illuminance;
+        m_SavedSunFog = Vec3(light.fogStart, light.fogEnd, light.fogOpacity);
         break;
     }
 
@@ -21,6 +22,13 @@ void CoastRallyScript::CreateSky()
     {
         m_SunEntity = CreateEntity("Sun");
         m_Scene->Add<DirectionalLight>(m_SunEntity);
+    }
+
+    if (DirectionalLight* light = FindComponent<DirectionalLight>(m_SunEntity))
+    {
+        light->fogStart = cFogStart;
+        light->fogEnd = cFogEnd;
+        light->fogOpacity = cFogOpacity;
     }
 
     if (const Transform* transform = FindComponent<Transform>(m_SunEntity))
@@ -41,6 +49,9 @@ void CoastRallyScript::RestoreSky()
         {
             light->color = m_SavedSunColor;
             light->illuminance = m_SavedSunIlluminance;
+            light->fogStart = m_SavedSunFog.x;
+            light->fogEnd = m_SavedSunFog.y;
+            light->fogOpacity = m_SavedSunFog.z;
         }
 
         if (Transform* transform = FindComponent<Transform>(m_SunEntity))

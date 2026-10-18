@@ -272,6 +272,7 @@ private:
     bool m_RestoreSun = false;
     Vec4 m_SavedSunColor = Vec4(1.0f);
     float m_SavedSunIlluminance = 0.0f;
+    Vec3 m_SavedSunFog = Vec3(0.0f);
     Quat m_SavedSunRotation = Quat(1.0f, 0.0f, 0.0f, 0.0f);
     float m_TimeOfDay = cStartTimeOfDay;
     float* m_DayLength = nullptr;

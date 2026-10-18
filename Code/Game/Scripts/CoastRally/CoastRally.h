@@ -115,6 +115,10 @@ static constexpr Vec3  cMoonColor = Vec3(0.08f, 0.11f, 0.22f);
 static constexpr float cSunIlluminance = 110000.0f;
 static constexpr float cMoonIlluminance = 12000.0f;
 
+static constexpr float cFogStart = 200.0f;
+static constexpr float cFogEnd = 950.0f;
+static constexpr float cFogOpacity = 1.0f;
+
 static constexpr Vec3  cHeadlightOffset = Vec3(0.6f, 0.06f, 2.08f);
 static constexpr Vec3  cHeadlightColor = Vec3(1.0f, 0.9f, 0.72f);
 static constexpr float cHeadlightIntensity = 6000000.0f;

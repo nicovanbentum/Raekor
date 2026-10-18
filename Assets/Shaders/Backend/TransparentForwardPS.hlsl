@@ -4,6 +4,7 @@
 #include "Include/DDGI.hlsli"
 #include "Include/Sky.hlsli"
 #include "Include/RayTracing.hlsli"
+#include "Include/Fog.hlsli"
 
 struct VS_OUTPUT
 {
@@ -135,6 +136,12 @@ PS_OUTPUT main(in VS_OUTPUT inParams, bool inIsFrontFace : SV_IsFrontFace)
         diffuse_cube_texture.SampleLevel(SamplerLinearClamp, surface.mNormal, 0) * fc.mSunColor.a;
 
     total_radiance += indirect_diffuse * diffuse_albedo * (1.0 - surface.mMetallic) * (1.0 - specular_albedo);
+
+    if (fc.mFogParams.z > 0.0)
+    {
+        const float fog = GetFogAmount(fc.mFogParams, length(fc.mCameraPosition.xyz - ws_pos));
+        total_radiance = lerp(total_radiance, GetFogColor(skycube_texture, -Wo, fc.mSunColor.a) * opacity, fog);
+    }
 
     PS_OUTPUT output;
     output.color = float4(max(total_radiance, 0.0.xxx), opacity);
