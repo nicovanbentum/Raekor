@@ -1155,32 +1155,51 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Material& inMaterial)
 
         ImGui::PopID();
 
-		if (!inFile.empty() && inGpuMap && inGpuMap != inDefaultMap && ImGui::BeginPopupContextItem())
+		const bool has_texture = !inFile.empty() || ( inGpuMap && inGpuMap != inDefaultMap );
+
+		auto RemoveTexture = [&]()
 		{
-			if (ImGui::MenuItem("Open"))
+			m_MaterialUndo.previous = inMaterial;
+
+			inFile = "";
+			inGpuMap = inDefaultMap;
+			scene_changed = true;
+
+			m_MaterialUndo.current = inMaterial;
+			m_Editor->GetUndo()->PushUndo(m_MaterialUndo);
+		};
+
+		if (has_texture && ImGui::BeginPopupContextItem())
+		{
+			if (!inFile.empty() && ImGui::MenuItem("Open"))
 			{
 				ShellExecute(NULL, "open", inFile.c_str(), NULL, NULL, SW_RESTORE);
 			}
 
 			if (ImGui::MenuItem("Remove"))
-			{
-				m_MaterialUndo.previous = inMaterial;
+				RemoveTexture();
 
-				inFile = "";
-				inGpuMap = inDefaultMap;
-				scene_changed = true;
-
-				m_MaterialUndo.current = inMaterial;
-				m_Editor->GetUndo()->PushUndo(m_MaterialUndo);
-			}
-
-			if (ImGui::MenuItem("Show In Explorer"))
+			if (!inFile.empty() && ImGui::MenuItem("Show In Explorer"))
 			{
 				String shell_command = std::format("/select,{}", inFile);
 				ShellExecute(0, NULL, "explorer.exe", shell_command.c_str(), NULL, SW_SHOWNORMAL);
 			}
 
 			ImGui::EndPopup();
+		}
+
+		if (has_texture)
+		{
+			ImGui::SameLine();
+			ImGui::PushID(imguiID);
+
+			if (ImGui::Button((const char*)ICON_FA_TRASH))
+				RemoveTexture();
+
+			if (ImGui::IsItemHovered())
+				ImGui::SetTooltip("Remove texture");
+
+			ImGui::PopID();
 		}
 
 		ImGui::SameLine();
