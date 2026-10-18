@@ -24,7 +24,7 @@ FAMILIES = [
     ("Paint",      (0.86, 0.86, 0.82), 0.0),
     ("Yellow",     (0.95, 0.72, 0.08), 0.0),
     ("Red",        (0.76, 0.10, 0.08), 0.0),
-    ("CarRed",     (0.60, 0.035, 0.03), 0.0),
+    ("CarWhite",   (0.86, 0.85, 0.80), 0.0),
     ("White",      (0.86, 0.86, 0.86), 0.0),
     ("Rubber",     (0.04, 0.04, 0.045), 0.0),
     ("Steel",      (0.55, 0.56, 0.60), 0.0),
@@ -559,21 +559,24 @@ def pad(rng):
 
 
 CAR_WHEEL_Y = -0.38
-CAR_WHEEL_Z = (1.3, -1.28)
+CAR_FRONT_WHEEL_Z = 1.3
+CAR_REAR_WHEEL_Z = -1.28
 
 CAR_BODY_STATIONS = [
-    (-2.06, -0.36, -0.10, 0.14, 0.25, 0.78, 0.84, 0.82, 0.76, 0.02),
-    (-1.96, -0.44, -0.10, 0.14, 0.23, 0.82, 0.88, 0.86, 0.80, 0.03),
-    (-1.28, -0.48, -0.10, 0.13, 0.21, 0.84, 0.92, 0.90, 0.81, 0.03),
-    (-0.60, -0.48, -0.10, 0.13, 0.20, 0.82, 0.88, 0.86, 0.79, 0.03),
-    (0.40, -0.48, -0.10, 0.14, 0.22, 0.82, 0.88, 0.86, 0.79, 0.04),
-    (1.30, -0.48, -0.11, 0.12, 0.20, 0.83, 0.90, 0.88, 0.80, 0.04),
-    (1.92, -0.42, -0.12, 0.09, 0.16, 0.80, 0.86, 0.84, 0.77, 0.03),
-    (2.08, -0.32, -0.14, 0.05, 0.12, 0.74, 0.80, 0.78, 0.72, 0.02),
+    (-2.08, -0.30, -0.08, 0.10, 0.12, 0.70, 0.82, 0.76, 0.50, 0.02),
+    (-1.90, -0.38, -0.07, 0.22, 0.17, 0.80, 0.92, 0.86, 0.52, 0.03),
+    (-1.28, -0.44, -0.06, 0.29, 0.21, 0.84, 0.99, 0.93, 0.54, 0.03),
+    (-0.70, -0.44, -0.06, 0.27, 0.24, 0.84, 0.93, 0.88, 0.62, 0.02),
+    (0.00, -0.44, -0.06, 0.25, 0.23, 0.83, 0.88, 0.84, 0.70, 0.02),
+    (0.75, -0.44, -0.07, 0.23, 0.19, 0.83, 0.90, 0.85, 0.56, 0.02),
+    (1.30, -0.44, -0.08, 0.22, 0.11, 0.83, 0.95, 0.90, 0.50, 0.03),
+    (1.62, -0.42, -0.09, 0.19, 0.06, 0.82, 0.92, 0.86, 0.48, 0.03),
+    (1.95, -0.36, -0.10, 0.07, 0.00, 0.78, 0.86, 0.79, 0.48, 0.03),
+    (2.10, -0.28, -0.12, -0.02, -0.04, 0.70, 0.78, 0.70, 0.46, 0.02),
 ]
 
-CAR_REAR_CABIN = [(-1.46, 0.235, 0.66), (-0.95, 0.52, 0.62), (-0.45, 0.72, 0.60)]
-CAR_FRONT_CABIN = [(-0.45, 0.72, 0.60), (0.12, 0.73, 0.60), (0.66, 0.235, 0.68)]
+CAR_REAR_CABIN = [(-1.62, 0.17, 0.60), (-1.10, 0.43, 0.60), (-0.50, 0.67, 0.60)]
+CAR_FRONT_CABIN = [(-0.50, 0.67, 0.60), (0.18, 0.69, 0.60), (0.78, 0.17, 0.66)]
 
 
 def car_station(z):
@@ -585,21 +588,24 @@ def car_station(z):
 
 
 def car_body_ring(station):
-    z, yb, ym, ysh, yt, wb, wm, wsh, wt, crown = station
-    return [(-wb, yb, z), (wb, yb, z), (wm, ym, z), (wsh, ysh, z), (wt, yt, z), (0.0, yt + crown, z), (-wt, yt, z), (-wsh, ysh, z), (-wm, ym, z)]
+    z, yb, ym, yf, yh, wb, wm, wf, wi, crown = station
+    return [(-wb, yb, z), (wb, yb, z), (wm, ym, z), (wf, yf, z), (wi, yh, z), (0.0, yh + crown, z), (-wi, yh, z), (-wf, yf, z), (-wm, ym, z)]
 
 
-def car_top_y(x, z):
-    _, _, _, _, yt, _, _, _, wt, crown = car_station(z)
-    return yt + crown * (1.0 - min(abs(x) / wt, 1.0))
-
-
-def cabin_ring(z, yt, wt, wb=0.77, yb=0.17, drop=0.035):
+def cabin_ring(z, yt, wt, wb=0.78, yb=0.12, drop=0.05):
     return [(-wb, yb, z), (wb, yb, z), (wt, yt - drop, z), (0.0, yt, z), (-wt, yt - drop, z)]
 
 
-def cabin_top_y(x, yt, wt, drop=0.035):
+def cabin_top_y(x, yt, wt, drop=0.05):
     return yt - drop * min(abs(x) / wt, 1.0)
+
+
+def cabin_at(stations, z):
+    for a, b in zip(stations, stations[1:]):
+        if a[0] <= z <= b[0]:
+            t = (z - a[0]) / (b[0] - a[0])
+            return a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t
+    raise ValueError(z)
 
 
 def surface_strip(p, family, x0, x1, samples, height, shade=3):
@@ -614,68 +620,59 @@ def car(rng):
     body = Part("Body", (0, 0, 0), rng)
     brake = Part("Brake", (0, 0, 0), rng)
 
-    loft(body, "CarRed", [car_body_ring(station) for station in CAR_BODY_STATIONS], shade=3)
-    box(body, "Rubber", (0, -0.47, 0.0), (1.6, 0.04, 3.7), shade=1)
+    loft(body, "CarWhite", [car_body_ring(station) for station in CAR_BODY_STATIONS], shade=4)
+    box(body, "Rubber", (0, -0.43, 0.0), (1.56, 0.04, 3.9), shade=1)
 
-    loft(body, "CarRed", [cabin_ring(z, yt, wt) for z, yt, wt in CAR_REAR_CABIN], shade=3)
+    loft(body, "CarWhite", [cabin_ring(z, yt, wt) for z, yt, wt in CAR_REAR_CABIN], shade=4)
     loft(body, "Glass", [cabin_ring(z, yt, wt) for z, yt, wt in CAR_FRONT_CABIN], shade=2)
 
     roof_rings = []
-    for z in (-0.47, -0.2, 0.14):
-        yt = 0.72 + 0.01 * (z + 0.45) / 0.57
-        w = 0.612
-        roof_rings.append([(-w, yt - 0.07, z), (w, yt - 0.07, z), (w, yt - 0.025, z), (0.0, yt + 0.012, z), (-w, yt - 0.025, z)])
-    loft(body, "CarRed", roof_rings, shade=4)
+    for z in (-0.52, -0.15, 0.2):
+        yt, wt = cabin_at(CAR_FRONT_CABIN, max(z, -0.5))
+        w = wt + 0.012
+        roof_rings.append([(-w, yt - 0.09, z), (w, yt - 0.09, z), (w, yt - 0.04, z), (0.0, yt + 0.012, z), (-w, yt - 0.04, z)])
+    loft(body, "CarWhite", roof_rings, shade=5)
 
     rear_window = []
-    for z, yt, wt in ((-1.3, 0.3245, 0.647), (-0.95, 0.52, 0.62), (-0.55, 0.68, 0.604)):
+    for z in (-1.45, -1.1, -0.6):
+        yt, wt = cabin_at(CAR_REAR_CABIN, z)
         rear_window.append((z, lambda x, yt=yt, wt=wt: cabin_top_y(x, yt, wt)))
-    surface_strip(body, "Glass", -0.46, 0.46, rear_window, 0.008, shade=2)
+    surface_strip(body, "Glass", -0.44, 0.44, rear_window, 0.008, shade=2)
 
     for side in (-1, 1):
-        beam(body, "CarRed", (side * 0.69, 0.2, 0.66), (side * 0.6, 0.71, 0.12), 0.07, shade=4)
-        beam(body, "CarRed", (side * 0.775, 0.17, -0.45), (side * 0.605, 0.72, -0.45), 0.08, shade=3)
-        box(body, "CarRed", (side * 0.83, 0.29, 0.48), (0.12, 0.1, 0.15), shade=4)
-        box(body, "Steel", (side * 0.875, 0.06, -0.62), (0.015, 0.025, 0.12), shade=6)
+        beam(body, "CarWhite", (side * 0.71, 0.14, 0.78), (side * 0.6, 0.66, 0.2), 0.07, shade=5)
+        beam(body, "CarWhite", (side * 0.785, 0.12, -0.5), (side * 0.605, 0.66, -0.5), 0.07, shade=4)
+        box(body, "CarWhite", (side * 0.86, 0.22, 0.62), (0.13, 0.08, 0.14), shade=4)
+        box(body, "Rubber", (side * 0.87, 0.1, -0.38), (0.015, 0.025, 0.14), shade=1)
+        box(body, "Rubber", (side * 0.862, -0.33, -0.02), (0.02, 0.04, 1.55), shade=1)
 
-    for x0, x1 in ((-0.3, -0.12), (0.12, 0.3)):
-        hood = [(z, lambda x, z=z: car_top_y(x, z)) for z in (0.62, 1.3, 1.92, 2.08)]
-        surface_strip(body, "Rubber", x0, x1, hood, 0.006, shade=2)
-        deck = [(z, lambda x, z=z: car_top_y(x, z)) for z in (-2.06, -1.96, -1.42)]
-        surface_strip(body, "Rubber", x0, x1, deck, 0.006, shade=2)
-        fastback = [(z, lambda x, yt=yt, wt=wt: cabin_top_y(x, yt, wt)) for z, yt, wt in ((-1.44, 0.246, 0.658), (-1.3, 0.3245, 0.647))]
-        surface_strip(body, "Rubber", x0, x1, fastback, 0.006, shade=2)
-        roof = [(z, lambda x, z=z: cabin_top_y(x, 0.72 + 0.01 * (z + 0.45) / 0.57, 0.612, 0.037) + 0.012) for z in (-0.47, -0.2, 0.14)]
-        surface_strip(body, "Rubber", x0, x1, roof, 0.006, shade=2)
+        for z, r_out, x_out, x_liner in ((CAR_FRONT_WHEEL_Z, 0.5, 1.07, 0.965), (CAR_REAR_WHEEL_Z, 0.52, 1.09, 1.005)):
+            arch(body, "Rubber", z, CAR_WHEEL_Y, 0.02, 0.45, side * 0.82, side * x_liner, seg=12, shade=0)
+            arch(body, "CarWhite", z, CAR_WHEEL_Y, 0.45, r_out, side * 0.82, side * x_out, seg=12, shade=4)
 
-    hood_y = car_top_y(0.0, 1.05)
-    box(body, "Iron", (0, hood_y + 0.05, 1.05), (0.42, 0.14, 0.42), shade=2)
-    box(body, "Rubber", (0, hood_y + 0.07, 1.265), (0.34, 0.07, 0.02), shade=0)
-    box(body, "Iron", (0, hood_y + 0.125, 1.05), (0.44, 0.015, 0.44), shade=4)
+        frog = Euler((-0.3, 0.0, 0.0)).to_matrix().to_4x4()
+        for family, radius, depth, offset, shade in (("CarWhite", 0.12, 0.1, 0.0, 4), ("Steel", 0.1, 0.02, 0.055, 6), ("GlowWhite", 0.085, 0.02, 0.065, 3)):
+            transform = Matrix.Translation((side * 0.62, 0.1, 1.86)) @ frog @ Matrix.Translation((0, 0, offset))
+            result = bmesh.ops.create_cone(body.bm, cap_ends=True, cap_tris=False, segments=14, radius1=radius, radius2=radius, depth=depth, matrix=transform)
+            body.tag(result["verts"], family, shade, 0)
 
-    for side in (-1, 1):
-        for z in CAR_WHEEL_Z:
-            arch(body, "Rubber", z, CAR_WHEEL_Y, 0.02, 0.45, side * 0.86, side * 0.935, seg=12, shade=0)
-            arch(body, "CarRed", z, CAR_WHEEL_Y, 0.45, 0.52, side * 0.84, side * 1.06, seg=12, shade=2)
+        box(body, "GlowAmber", (side * 0.5, -0.27, 2.07), (0.22, 0.05, 0.03), shade=4)
+        box(body, "GlowAmber", (side * 0.66, 0.0, -2.1), (0.12, 0.07, 0.02), shade=4)
 
-    box(body, "Iron", (0, -0.03, 2.07), (1.46, 0.22, 0.04), shade=1)
-    box(body, "Steel", (0, -0.03, 2.075), (0.9, 0.014, 0.03), shade=5)
-    for side in (-1, 1):
-        cyl(body, "Steel", (side * 0.6, -0.03, 2.085), 0.085, 0.085, 0.03, seg=14, axis="z", shade=6)
-        cyl(body, "GlowWhite", (side * 0.6, -0.03, 2.1), 0.068, 0.068, 0.012, seg=14, axis="z")
-    box(body, "Steel", (0, -0.2, 2.1), (1.64, 0.07, 0.07), shade=6)
-    box(body, "Iron", (0, -0.34, 2.03), (1.5, 0.08, 0.1), shade=1)
+    box(body, "Rubber", (0, -0.19, 2.1), (1.58, 0.09, 0.08), shade=1)
+    box(body, "Yellow", (0, 0.0, 2.02), (0.06, 0.06, 0.02), rot=(-0.6, 0, 0), shade=5)
 
-    box(body, "Iron", (0, 0.04, -2.07), (1.5, 0.15, 0.03), shade=1)
-    for side in (-1, 1):
-        box(brake, "GlowRed", (side * 0.38, 0.04, -2.085), (0.62, 0.09, 0.02))
-    box(body, "Steel", (0, -0.17, -2.1), (1.62, 0.07, 0.07), shade=6)
-    box(body, "Iron", (0, -0.33, -2.03), (1.4, 0.1, 0.1), shade=1)
-    for side in (-1, 1):
-        cyl(body, "Steel", (side * 0.48, -0.4, -2.04), 0.055, 0.055, 0.22, seg=10, axis="z", shade=5)
-        cyl(body, "Rubber", (side * 0.48, -0.4, -2.152), 0.04, 0.04, 0.01, seg=10, axis="z", shade=0)
+    box(body, "Rubber", (0, 0.0, -2.08), (1.5, 0.12, 0.03), shade=1)
+    box(brake, "GlowRed", (0, 0.0, -2.095), (1.18, 0.07, 0.02))
+    box(body, "Rubber", (0, -0.18, -2.1), (1.6, 0.1, 0.08), shade=1)
+    cyl(body, "Steel", (-0.42, -0.34, -2.04), 0.05, 0.05, 0.2, seg=10, axis="z", shade=5)
 
-    loft(body, "CarRed", [[(x, 0.25, -2.06), (x, 0.31, -2.1), (x, 0.25, -1.86)] for x in (-0.74, 0.74)], shade=4)
+    wing = [(-1.42, 0.2), (-1.5, 0.32), (-1.98, 0.36), (-2.06, 0.43), (-2.12, 0.38), (-2.0, 0.2)]
+    loft(body, "Rubber", [[(x, y, z) for z, y in wing] for x in (-0.82, 0.82)], shade=1)
+    for index in range(6):
+        z = -1.56 - index * 0.075
+        y = 0.32 + (z + 1.5) * (0.36 - 0.32) / (-1.98 + 1.5)
+        box(body, "Iron", (0, y + 0.012, z), (1.3, 0.012, 0.03), shade=3)
 
     return [body, brake]
 
@@ -683,13 +680,12 @@ def car(rng):
 def wheel(p, rng):
     cyl(p, "Rubber", (0, 0, 0), 0.36, 0.36, 0.26, seg=16, axis="x", var=0)
     cyl(p, "Rubber", (0, 0, 0), 0.33, 0.33, 0.28, seg=16, axis="x", shade=1, var=0)
-    cyl(p, "Iron", (0.02, 0, 0), 0.24, 0.24, 0.25, seg=16, axis="x", shade=2, var=0)
-    cyl(p, "Steel", (0.135, 0, 0), 0.24, 0.24, 0.012, seg=16, axis="x", shade=6, var=0)
-    cyl(p, "Iron", (0.14, 0, 0), 0.215, 0.215, 0.012, seg=16, axis="x", shade=1, var=0)
-    cyl(p, "Steel", (0.15, 0, 0), 0.07, 0.07, 0.04, seg=10, axis="x", shade=6, var=0)
+    cyl(p, "Iron", (0.02, 0, 0), 0.24, 0.24, 0.25, seg=16, axis="x", shade=1, var=0)
+    cyl(p, "Iron", (0.135, 0, 0), 0.215, 0.215, 0.012, seg=16, axis="x", shade=0, var=0)
     for index in range(5):
         a = index / 5 * math.tau
-        box(p, "Steel", (0.15, math.sin(a) * 0.12, math.cos(a) * 0.12), (0.025, 0.06, 0.2), rot=(-a, 0, 0), shade=5, var=0)
+        box(p, "Iron", (0.145, math.sin(a) * 0.12, math.cos(a) * 0.12), (0.02, 0.08, 0.2), rot=(-a, 0, 0), shade=3, var=0)
+    cyl(p, "Steel", (0.15, 0, 0), 0.07, 0.07, 0.04, seg=10, axis="x", shade=6, var=0)
 
 
 def cone(p, rng):
