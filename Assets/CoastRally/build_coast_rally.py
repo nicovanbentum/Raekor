@@ -562,57 +562,102 @@ CAR_WHEEL_Y = -0.38
 CAR_FRONT_WHEEL_Z = 1.3
 CAR_REAR_WHEEL_Z = -1.28
 
-CAR_BODY_STATIONS = [
-    (-2.08, -0.30, -0.08, 0.10, 0.12, 0.70, 0.82, 0.76, 0.50, 0.02),
-    (-1.90, -0.38, -0.07, 0.22, 0.17, 0.80, 0.92, 0.86, 0.52, 0.03),
-    (-1.28, -0.44, -0.06, 0.29, 0.21, 0.84, 0.99, 0.93, 0.54, 0.03),
-    (-0.70, -0.44, -0.06, 0.27, 0.24, 0.84, 0.93, 0.88, 0.62, 0.02),
-    (0.00, -0.44, -0.06, 0.25, 0.23, 0.83, 0.88, 0.84, 0.70, 0.02),
-    (0.75, -0.44, -0.07, 0.23, 0.19, 0.83, 0.90, 0.85, 0.56, 0.02),
-    (1.30, -0.44, -0.08, 0.22, 0.11, 0.83, 0.95, 0.90, 0.50, 0.03),
-    (1.62, -0.42, -0.09, 0.19, 0.06, 0.82, 0.92, 0.86, 0.48, 0.03),
-    (1.95, -0.36, -0.10, 0.07, 0.00, 0.78, 0.86, 0.79, 0.48, 0.03),
-    (2.10, -0.28, -0.12, -0.02, -0.04, 0.70, 0.78, 0.70, 0.46, 0.02),
+CAR_BODY_KEYS = [
+    (-2.16, -0.22, -0.05, 0.74, 0.02, 0.50, 0.00, 0.58),
+    (-2.04, -0.31, -0.04, 0.88, 0.11, 0.68, 0.08, 0.70),
+    (-1.75, -0.38, -0.04, 0.99, 0.21, 0.80, 0.15, 0.78),
+    (-1.28, -0.42, -0.04, 1.03, 0.25, 0.85, 0.16, 0.80),
+    (-0.75, -0.42, -0.05, 0.95, 0.22, 0.81, 0.17, 0.80),
+    (0.00, -0.42, -0.05, 0.87, 0.19, 0.78, 0.17, 0.80),
+    (0.80, -0.42, -0.06, 0.90, 0.20, 0.77, 0.15, 0.80),
+    (1.30, -0.42, -0.08, 0.97, 0.22, 0.79, 0.09, 0.80),
+    (1.75, -0.38, -0.10, 0.90, 0.16, 0.73, 0.04, 0.76),
+    (2.00, -0.32, -0.12, 0.81, 0.05, 0.64, -0.02, 0.70),
+    (2.13, -0.24, -0.14, 0.70, -0.05, 0.52, -0.07, 0.60),
 ]
 
-CAR_REAR_CABIN = [(-1.62, 0.17, 0.60), (-1.10, 0.43, 0.60), (-0.50, 0.67, 0.60)]
-CAR_FRONT_CABIN = [(-0.50, 0.67, 0.60), (0.18, 0.69, 0.60), (0.78, 0.17, 0.66)]
+CAR_ROOF_KEYS = [
+    (-1.85, 0.15, 0.62),
+    (-1.45, 0.28, 0.62),
+    (-1.00, 0.45, 0.60),
+    (-0.55, 0.59, 0.58),
+    (-0.20, 0.63, 0.57),
+    (0.15, 0.60, 0.58),
+    (0.50, 0.42, 0.62),
+    (0.90, 0.12, 0.66),
+]
+
+CAR_CABIN_BASE_Y = 0.1
+CAR_CABIN_BASE_W = 0.8
+CAR_ROOF_CROWN = 0.06
+CAR_ROOF_ARC = (1.0, 0.66, 0.33, 0.0, -0.33, -0.66, -1.0)
 
 
-def car_station(z):
-    for a, b in zip(CAR_BODY_STATIONS, CAR_BODY_STATIONS[1:]):
-        if a[0] <= z <= b[0]:
-            t = (z - a[0]) / (b[0] - a[0])
-            return tuple(va + (vb - va) * t for va, vb in zip(a, b))
-    return CAR_BODY_STATIONS[0] if z < CAR_BODY_STATIONS[0][0] else CAR_BODY_STATIONS[-1]
+def smooth_keys(keys, z):
+    zs = [key[0] for key in keys]
+    if z <= zs[0]:
+        return keys[0][1:]
+    if z >= zs[-1]:
+        return keys[-1][1:]
+    i = max(index for index in range(len(zs) - 1) if zs[index] <= z)
+    prev, after = max(i - 1, 0), min(i + 2, len(keys) - 1)
+    z0, z1 = zs[i], zs[i + 1]
+    t = (z - z0) / (z1 - z0)
+    t2, t3 = t * t, t * t * t
+    result = []
+    for c in range(1, len(keys[0])):
+        m0 = (keys[i + 1][c] - keys[prev][c]) / (zs[i + 1] - zs[prev]) * (z1 - z0)
+        m1 = (keys[after][c] - keys[i][c]) / (zs[after] - zs[i]) * (z1 - z0)
+        result.append((2 * t3 - 3 * t2 + 1) * keys[i][c] + (t3 - 2 * t2 + t) * m0 + (-2 * t3 + 3 * t2) * keys[i + 1][c] + (t3 - t2) * m1)
+    return tuple(result)
 
 
-def car_body_ring(station):
-    z, yb, ym, yf, yh, wb, wm, wf, wi, crown = station
-    return [(-wb, yb, z), (wb, yb, z), (wm, ym, z), (wf, yf, z), (wi, yh, z), (0.0, yh + crown, z), (-wi, yh, z), (-wf, yf, z), (-wm, ym, z)]
+def body_ring(z):
+    yb, yw, w, yf, wf, yh, wb = smooth_keys(CAR_BODY_KEYS, z)
+    right = []
+    for t in (1 / 3, 2 / 3, 1.0):
+        a = t * math.pi * 0.5
+        right.append((wb + (w - wb) * math.sin(a) ** 0.6, yw - (yw - yb) * math.cos(a) ** 0.6))
+    for t in (0.25, 0.5, 0.75, 1.0):
+        a = t * math.pi * 0.5
+        right.append((wf + (w - wf) * math.cos(a) ** 0.6, yw + (yf - yw) * math.sin(a) ** 0.6))
+    for t in (0.25, 0.5, 0.75):
+        right.append((wf * (1.0 - t), yh + (yf - yh) * (0.5 + 0.5 * math.cos(math.pi * t))))
+    left = [(-x, y) for x, y in reversed(right)]
+    points = [(-wb, yb), (wb, yb)] + right + [(0.0, yh)] + left
+    return [(x, y, z) for x, y in points]
 
 
-def cabin_ring(z, yt, wt, wb=0.78, yb=0.12, drop=0.05):
-    return [(-wb, yb, z), (wb, yb, z), (wt, yt - drop, z), (0.0, yt, z), (-wt, yt - drop, z)]
+def roof_top_y(x, z):
+    yt, wt = smooth_keys(CAR_ROOF_KEYS, z)
+    return yt - CAR_ROOF_CROWN * min(abs(x) / wt, 1.0) ** 2
 
 
-def cabin_top_y(x, yt, wt, drop=0.05):
-    return yt - drop * min(abs(x) / wt, 1.0)
+def cabin_ring(z):
+    yt, wt = smooth_keys(CAR_ROOF_KEYS, z)
+    yb, wb = CAR_CABIN_BASE_Y, CAR_CABIN_BASE_W
+    shoulder_y = yb + (yt - CAR_ROOF_CROWN - yb) * 0.55
+    shoulder_w = wt + (wb - wt) * 0.42
+    top = [(wt * t, yt - CAR_ROOF_CROWN * t * t) for t in CAR_ROOF_ARC]
+    points = [(-wb, yb), (wb, yb), (shoulder_w, shoulder_y)] + top + [(-shoulder_w, shoulder_y)]
+    return [(x, y, z) for x, y in points]
 
 
-def cabin_at(stations, z):
-    for a, b in zip(stations, stations[1:]):
-        if a[0] <= z <= b[0]:
-            t = (z - a[0]) / (b[0] - a[0])
-            return a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t
-    raise ValueError(z)
+def roof_shell_ring(z, thickness=0.06, inflate=0.012):
+    yt, wt = smooth_keys(CAR_ROOF_KEYS, z)
+    w = wt + inflate
+    top = [(w * t, yt + inflate - CAR_ROOF_CROWN * t * t) for t in CAR_ROOF_ARC]
+    bottom = [(x, y - thickness) for x, y in reversed(top)]
+    return [(x, y, z) for x, y in top + bottom]
 
 
-def surface_strip(p, family, x0, x1, samples, height, shade=3):
+def surface_strip(p, family, x0, x1, zs, top_y, height, shade=3, columns=7):
+    xs = np.linspace(x1, x0, columns)
     rings = []
-    for z, y_at in samples:
-        y0, y1 = y_at(x0), y_at(x1)
-        rings.append([(x0, y0 - 0.02, z), (x1, y1 - 0.02, z), (x1, y1 + height, z), (x0, y0 + height, z)])
+    for z in zs:
+        bottom = [(x0, top_y(x0, z) - 0.02, z), (x1, top_y(x1, z) - 0.02, z)]
+        top = [(x, top_y(x, z) + height, z) for x in xs]
+        rings.append(bottom + top)
     return loft(p, family, rings, shade=shade)
 
 
@@ -621,71 +666,73 @@ def car(rng):
     brake = Part("Brake", (0, 0, 0), rng)
     glass = Part("Glass", (0, 0, 0), rng)
 
-    loft(body, "CarWhite", [car_body_ring(station) for station in CAR_BODY_STATIONS], shade=4)
-    box(body, "Rubber", (0, -0.43, 0.0), (1.56, 0.04, 3.9), shade=1)
+    body_zs = list(np.linspace(-2.16, -1.75, 5)) + list(np.linspace(-1.65, 1.65, 18)) + list(np.linspace(1.75, 2.13, 5))
+    loft(body, "CarWhite", [body_ring(z) for z in body_zs], shade=4)
+    box(body, "Rubber", (0, -0.41, 0.0), (1.5, 0.03, 3.9), shade=1)
 
-    loft(body, "CarWhite", [cabin_ring(z, yt, wt) for z, yt, wt in CAR_REAR_CABIN], shade=4)
-    loft(glass, "Glass", [cabin_ring(z, yt, wt) for z, yt, wt in CAR_FRONT_CABIN], shade=2)
-
-    for side in (-1, 1):
-        x = side * 0.33
-        box(body, "Wood", (x, 0.3, -0.2), (0.4, 0.12, 0.46), shade=3)
-        box(body, "Wood", (x, 0.395, -0.42), (0.38, 0.25, 0.1), rot=(0.22, 0, 0), shade=4)
-        box(body, "Wood", (x, 0.53, -0.45), (0.22, 0.07, 0.08), rot=(0.22, 0, 0), shade=4)
-    box(body, "Iron", (0, 0.3, 0.42), (1.2, 0.1, 0.2), shade=1)
-    box(body, "Iron", (0, 0.3, 0.12), (0.18, 0.12, 0.7), shade=2)
-    steering = Euler((-0.45, 0.0, 0.0)).to_matrix().to_4x4()
-    transform = Matrix.Translation((0.33, 0.44, 0.3)) @ steering
-    result = bmesh.ops.create_cone(body.bm, cap_ends=True, cap_tris=False, segments=12, radius1=0.12, radius2=0.12, depth=0.03, matrix=transform)
-    body.tag(result["verts"], "Rubber", 1, 0)
-
-    roof_rings = []
-    for z in (-0.52, -0.15, 0.2):
-        yt, wt = cabin_at(CAR_FRONT_CABIN, max(z, -0.5))
-        w = wt + 0.012
-        roof_rings.append([(-w, yt - 0.09, z), (w, yt - 0.09, z), (w, yt - 0.04, z), (0.0, yt + 0.012, z), (-w, yt - 0.04, z)])
-    loft(body, "CarWhite", roof_rings, shade=5)
-
-    rear_window = []
-    for z in (-1.45, -1.1, -0.6):
-        yt, wt = cabin_at(CAR_REAR_CABIN, z)
-        rear_window.append((z, lambda x, yt=yt, wt=wt: cabin_top_y(x, yt, wt)))
-    surface_strip(body, "Glass", -0.44, 0.44, rear_window, 0.008, shade=2)
+    loft(body, "CarWhite", [cabin_ring(z) for z in np.linspace(-1.85, -0.55, 8)], shade=4)
+    loft(glass, "Glass", [cabin_ring(z) for z in np.linspace(-0.55, 0.9, 9)], shade=2)
+    loft(body, "CarWhite", [roof_shell_ring(z) for z in np.linspace(-0.6, 0.18, 6)], shade=5)
+    surface_strip(body, "Glass", -0.42, 0.42, np.linspace(-1.38, -0.68, 6), roof_top_y, 0.008, shade=2)
 
     for side in (-1, 1):
-        beam(body, "CarWhite", (side * 0.71, 0.14, 0.78), (side * 0.6, 0.66, 0.2), 0.07, shade=5)
-        beam(body, "CarWhite", (side * 0.785, 0.12, -0.5), (side * 0.605, 0.66, -0.5), 0.07, shade=4)
-        box(body, "CarWhite", (side * 0.86, 0.22, 0.62), (0.13, 0.08, 0.14), shade=4)
-        box(body, "Rubber", (side * 0.87, 0.1, -0.38), (0.015, 0.025, 0.14), shade=1)
-        box(body, "Rubber", (side * 0.862, -0.33, -0.02), (0.02, 0.04, 1.55), shade=1)
+        quarter = []
+        for z in np.linspace(-1.08, -0.62, 5):
+            ring = cabin_ring(z)
+            (xs, ys, _), (xt, yt, _) = ring[2], ring[3]
+            ys, yt = ys + 0.03, yt - 0.025
+            quarter.append([(side * (xs - 0.01), ys, z), (side * (xs + 0.006), ys, z), (side * (xt + 0.006), yt, z), (side * (xt - 0.01), yt, z)])
+        loft(body, "Glass", quarter, shade=2)
 
-        for z, r_out, x_out, x_liner in ((CAR_FRONT_WHEEL_Z, 0.5, 1.07, 0.965), (CAR_REAR_WHEEL_Z, 0.52, 1.09, 1.005)):
-            arch(body, "Rubber", z, CAR_WHEEL_Y, 0.02, 0.45, side * 0.82, side * x_liner, seg=12, shade=0)
-            arch(body, "CarWhite", z, CAR_WHEEL_Y, 0.45, r_out, side * 0.82, side * x_out, seg=12, shade=4)
+    a_top_y, a_top_w = smooth_keys(CAR_ROOF_KEYS, 0.16)
+    b_top_y, b_top_w = smooth_keys(CAR_ROOF_KEYS, -0.55)
+
+    for side in (-1, 1):
+        beam(body, "CarWhite", (side * 0.7, 0.14, 0.84), (side * (a_top_w - 0.01), a_top_y - CAR_ROOF_CROWN, 0.16), 0.06, shade=5)
+        beam(body, "CarWhite", (side * 0.79, 0.12, -0.55), (side * (b_top_w + 0.005), b_top_y - CAR_ROOF_CROWN, -0.55), 0.07, shade=4)
+        box(body, "CarWhite", (side * 0.81, 0.2, 0.62), (0.12, 0.08, 0.13), shade=4)
+        box(body, "Rubber", (side * 0.865, 0.03, -0.35), (0.015, 0.022, 0.13), shade=1)
+        box(body, "Rubber", (side * 0.845, -0.3, -0.02), (0.02, 0.035, 1.5), shade=1)
+
+        for z, x_liner, x_out, r_out in ((CAR_FRONT_WHEEL_Z, 0.98, 1.06, 0.49), (CAR_REAR_WHEEL_Z, 1.04, 1.085, 0.5)):
+            arch(body, "Rubber", z, CAR_WHEEL_Y, 0.02, 0.45, side * 0.8, side * x_liner, seg=14, shade=0)
+            arch(body, "CarWhite", z, CAR_WHEEL_Y, 0.45, r_out, side * 0.8, side * x_out, seg=14, shade=4)
 
         frog = Euler((-0.3, 0.0, 0.0)).to_matrix().to_4x4()
         for family, radius, depth, offset, shade in (("CarWhite", 0.12, 0.1, 0.0, 4), ("Steel", 0.1, 0.02, 0.055, 6), ("GlowWhite", 0.085, 0.02, 0.065, 3)):
-            transform = Matrix.Translation((side * 0.62, 0.1, 1.86)) @ frog @ Matrix.Translation((0, 0, offset))
-            result = bmesh.ops.create_cone(body.bm, cap_ends=True, cap_tris=False, segments=14, radius1=radius, radius2=radius, depth=depth, matrix=transform)
+            transform = Matrix.Translation((side * 0.66, 0.09, 1.86)) @ frog @ Matrix.Translation((0, 0, offset))
+            result = bmesh.ops.create_cone(body.bm, cap_ends=True, cap_tris=False, segments=16, radius1=radius, radius2=radius, depth=depth, matrix=transform)
             body.tag(result["verts"], family, shade, 0)
 
-        box(body, "GlowAmber", (side * 0.5, -0.27, 2.07), (0.22, 0.05, 0.03), shade=4)
-        box(body, "GlowAmber", (side * 0.66, 0.0, -2.1), (0.12, 0.07, 0.02), shade=4)
+        box(body, "GlowAmber", (side * 0.5, -0.17, 2.175), (0.2, 0.045, 0.02), shade=4)
+        box(body, "GlowAmber", (side * 0.6, -0.06, -2.19), (0.12, 0.06, 0.02), shade=4)
 
-    box(body, "Rubber", (0, -0.19, 2.1), (1.58, 0.09, 0.08), shade=1)
-    box(body, "Yellow", (0, 0.0, 2.02), (0.06, 0.06, 0.02), rot=(-0.6, 0, 0), shade=5)
+    box(body, "Rubber", (0, -0.17, 2.14), (1.36, 0.09, 0.07), shade=1)
+    box(body, "Yellow", (0, -0.01, 2.0), (0.06, 0.06, 0.02), rot=(-0.6, 0, 0), shade=5)
 
-    box(body, "Rubber", (0, 0.0, -2.08), (1.5, 0.12, 0.03), shade=1)
-    box(brake, "GlowRed", (0, 0.0, -2.095), (1.18, 0.07, 0.02))
-    box(body, "Rubber", (0, -0.18, -2.1), (1.6, 0.1, 0.08), shade=1)
-    cyl(body, "Steel", (-0.42, -0.34, -2.04), 0.05, 0.05, 0.2, seg=10, axis="z", shade=5)
+    box(body, "Rubber", (0, -0.06, -2.17), (1.36, 0.1, 0.03), shade=1)
+    box(brake, "GlowRed", (0, -0.06, -2.185), (1.08, 0.06, 0.02))
+    box(body, "Rubber", (0, -0.17, -2.18), (1.42, 0.08, 0.07), shade=1)
+    cyl(body, "Steel", (-0.42, -0.27, -2.13), 0.045, 0.045, 0.2, seg=10, axis="z", shade=5)
 
-    wing = [(-1.42, 0.2), (-1.5, 0.32), (-1.98, 0.36), (-2.06, 0.43), (-2.12, 0.38), (-2.0, 0.2)]
-    loft(body, "Rubber", [[(x, y, z) for z, y in wing] for x in (-0.82, 0.82)], shade=1)
+    for side in (-1, 1):
+        x = side * 0.33
+        box(body, "Wood", (x, 0.22, -0.15), (0.38, 0.1, 0.44), shade=3)
+        box(body, "Wood", (x, 0.36, -0.38), (0.36, 0.22, 0.1), rot=(0.22, 0, 0), shade=4)
+        box(body, "Wood", (x, 0.5, -0.42), (0.2, 0.06, 0.07), rot=(0.22, 0, 0), shade=4)
+    box(body, "Iron", (0, 0.24, 0.45), (1.1, 0.1, 0.2), shade=1)
+    box(body, "Iron", (0, 0.22, 0.1), (0.16, 0.1, 0.6), shade=2)
+    steering = Euler((-0.45, 0.0, 0.0)).to_matrix().to_4x4()
+    transform = Matrix.Translation((0.33, 0.36, 0.32)) @ steering
+    result = bmesh.ops.create_cone(body.bm, cap_ends=True, cap_tris=False, segments=12, radius1=0.11, radius2=0.11, depth=0.03, matrix=transform)
+    body.tag(result["verts"], "Rubber", 1, 0)
+
+    wing = [(-1.5, 0.17), (-1.58, 0.3), (-2.02, 0.34), (-2.1, 0.41), (-2.16, 0.36), (-2.03, 0.12)]
+    loft(body, "Rubber", [[(x, y, z) for z, y in wing] for x in (-0.8, 0.8)], shade=1)
     for index in range(6):
-        z = -1.56 - index * 0.075
-        y = 0.32 + (z + 1.5) * (0.36 - 0.32) / (-1.98 + 1.5)
-        box(body, "Iron", (0, y + 0.012, z), (1.3, 0.012, 0.03), shade=3)
+        z = -1.62 - index * 0.07
+        y = 0.3 + (z + 1.58) * (0.34 - 0.3) / (-2.02 + 1.58)
+        box(body, "Iron", (0, y + 0.012, z), (1.26, 0.012, 0.03), shade=3)
 
     return [body, brake, glass]
 

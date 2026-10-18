@@ -94,7 +94,7 @@ static constexpr float cMaxFovBoost = 14.0f;
 static constexpr float cCameraClearance = 0.4f;
 static constexpr float cMouseOrbitSpeed = 0.004f;
 static constexpr float cOrbitReturnDelay = 1.2f;
-static constexpr Vec3  cHoodCameraOffset = Vec3(0.0f, 0.62f, 0.15f);
+static constexpr Vec3  cHoodCameraOffset = Vec3(0.0f, 0.47f, -0.1f);
 
 static constexpr float cEngineIdleRPM = 1000.0f;
 static constexpr float cEngineSoundRPM = 3000.0f;
@@ -123,7 +123,7 @@ static constexpr float cFogStart = 200.0f;
 static constexpr float cFogEnd = 950.0f;
 static constexpr float cFogOpacity = 1.0f;
 
-static constexpr Vec3  cHeadlightOffset = Vec3(0.62f, 0.1f, 1.95f);
+static constexpr Vec3  cHeadlightOffset = Vec3(0.66f, 0.09f, 1.95f);
 static constexpr Vec3  cHeadlightColor = Vec3(1.0f, 0.9f, 0.72f);
 static constexpr float cHeadlightIntensity = 6000000.0f;
 static constexpr float cHeadlightRange = 80.0f;
