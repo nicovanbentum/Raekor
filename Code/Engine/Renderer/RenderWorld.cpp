@@ -282,6 +282,15 @@ void RenderWorld::Extract(const Scene& inScene, const Device& inDevice, float in
             m_Sun.mColor = sun_light->GetColor();
             m_Sun.mFog = Vec4(sun_light->fogStart, glm::max(sun_light->fogEnd, sun_light->fogStart + 0.01f), glm::clamp(sun_light->fogOpacity, 0.0f, 1.0f), 0.0f);
             m_Sun.mCubeMap = gToTextureID(sun_light->cubeMap);
+            m_Sun.mGroundBounce = Vec4(sun_light->groundAlbedo, glm::max(sun_light->groundBounce, 0.0f));
+
+            if (sun_light->skyVisibilityMap != 0 && sun_light->skyVisibilityBounds.z > 0.0f && sun_light->skyVisibilityBounds.w > 0.0f)
+            {
+                const Vec4& bounds = sun_light->skyVisibilityBounds;
+                m_Sun.mSkyVisibilityMap = gToTextureID(sun_light->skyVisibilityMap);
+                m_Sun.mSkyVisibilityBounds = Vec4(bounds.x, bounds.y, 1.0f / bounds.z, 1.0f / bounds.w);
+                m_Sun.mSkyVisibilityParams = Vec4(sun_light->skyVisibilityHeights, glm::clamp(sun_light->skyVisibilityStrength, 0.0f, 1.0f), 1.0f);
+            }
         }
     }
 

@@ -84,6 +84,14 @@ struct DirectionalLight
 	float fogStart = 100.0f;
 	float fogEnd = 400.0f;
 	float fogOpacity = 0.0f;
+
+	Vec3 groundAlbedo = Vec3(0.25f, 0.3f, 0.15f);
+	float groundBounce = 0.0f;
+
+	uint32_t skyVisibilityMap = 0;
+	Vec4 skyVisibilityBounds = Vec4(0.0f);
+	Vec2 skyVisibilityHeights = Vec2(0.0f, 1.0f);
+	float skyVisibilityStrength = 1.0f;
 };
 
 

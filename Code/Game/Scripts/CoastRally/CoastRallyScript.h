@@ -211,6 +211,7 @@ private:
     uint32_t m_PaletteEmissiveTexture = 0;
     uint32_t m_PaletteRoughnessTexture = 0;
     uint32_t m_PaletteMetallicTexture = 0;
+    uint32_t m_SkyVisibilityTexture = 0;
     int m_HudFont = 0;
     int m_LabelFont = 0;
 
@@ -274,9 +275,7 @@ private:
 
     Entity m_SunEntity = Entity::Null;
     bool m_RestoreSun = false;
-    Vec4 m_SavedSunColor = Vec4(1.0f);
-    float m_SavedSunIlluminance = 0.0f;
-    Vec3 m_SavedSunFog = Vec3(0.0f);
+    DirectionalLight m_SavedSun;
     Quat m_SavedSunRotation = Quat(1.0f, 0.0f, 0.0f, 0.0f);
     float m_TimeOfDay = cStartTimeOfDay;
     float* m_DayLength = nullptr;

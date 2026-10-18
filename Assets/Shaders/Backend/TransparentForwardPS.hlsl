@@ -5,6 +5,7 @@
 #include "Include/Sky.hlsli"
 #include "Include/RayTracing.hlsli"
 #include "Include/Fog.hlsli"
+#include "Include/SkyVisibility.hlsli"
 
 struct VS_OUTPUT
 {
@@ -128,12 +129,14 @@ PS_OUTPUT main(in VS_OUTPUT inParams, bool inIsFrontFace : SV_IsFrontFace)
         }
     }
 
-    float3 indirect_specular = SampleEnvironmentSpecular(reflect(-Wo, surface.mNormal), surface.mRoughness);
+    const float sky_visibility = SampleSkyVisibility(fc.mSkyVisibilityTexture, fc.mSkyVisibilityBounds, fc.mSkyVisibilityParams, ws_pos);
+
+    float3 indirect_specular = SampleEnvironmentSpecular(reflect(-Wo, surface.mNormal), surface.mRoughness) * sky_visibility;
     total_radiance += indirect_specular * specular_albedo * surface.mEnergyCompensation;
 
     float3 indirect_diffuse = rc.mUseIndirectDiffuse ?
         DDGISampleIrradiance(ws_pos, surface.mNormal, Wo, rc.mDDGIData) :
-        diffuse_cube_texture.SampleLevel(SamplerLinearClamp, surface.mNormal, 0) * fc.mSunColor.a;
+        ( diffuse_cube_texture.SampleLevel(SamplerLinearClamp, surface.mNormal, 0) * fc.mSunColor.a + EvaluateGroundBounce(surface.mNormal, fc.mSunColor, fc.mSunDirection.xyz, fc.mGroundBounce) ) * sky_visibility;
 
     total_radiance += indirect_diffuse * diffuse_albedo * (1.0 - surface.mMetallic) * (1.0 - specular_albedo);
 

@@ -153,7 +153,7 @@ struct FrameConstants
     float     mExposure;
     uint      mNrOfLights;
     uint      mShadowTLAS;
-    uint      mPad0;
+    uint      mSkyVisibilityTexture;
 
     float2    mJitter;
     float2    mPrevJitter;
@@ -162,6 +162,9 @@ struct FrameConstants
     float4    mSunDirection;
     float4    mCameraPosition;
     float4    mFogParams;
+    float4    mGroundBounce;
+    float4    mSkyVisibilityBounds;
+    float4    mSkyVisibilityParams;
 
     float4x4  mViewMatrix;
     float4x4  mInvViewMatrix;

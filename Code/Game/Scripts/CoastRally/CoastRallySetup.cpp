@@ -34,6 +34,9 @@ void CoastRallyScript::LoadTextures()
     if (m_PaletteMetallicTexture == 0)
         m_PaletteMetallicTexture = LoadTexture(cPaletteSurfaceFile, false, TEXTURE_SWIZZLE_BBBB);
 
+    if (m_SkyVisibilityTexture == 0)
+        m_SkyVisibilityTexture = LoadTexture(cSkyVisibilityFile, false);
+
     m_HudFont = g_UIRenderer.AddFont(cHudFontFile);
     m_LabelFont = g_UIRenderer.AddFont(cLabelFontFile);
 }

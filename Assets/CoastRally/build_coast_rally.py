@@ -1268,6 +1268,103 @@ for index in range(3):
     ASSETS.append((f"Rock{index}", lambda r, index=index: single(r, rock, 100 + index)))
 
 
+SKY_MAP_SIZE = 256
+SKY_MAP_HALF = 262.0
+SKY_MAP_RAYS = 32
+SKY_MAP_PROBE_HEIGHT = 0.6
+SKY_MAP_RAY_LENGTH = 90.0
+SKY_MAP_HEIGHT_MIN = -5.0
+SKY_MAP_HEIGHT_RANGE = 80.0
+SKY_MAP_GROUND = ("Terrain", "Road", "Pad", "Water")
+SKY_MAP_IGNORED = ("Grass", "Flowers")
+
+
+def world_triangles(objects, transform):
+    verts, polys = [], []
+    for obj, to_world in objects:
+        mesh = obj.data
+        mesh.calc_loop_triangles()
+        matrix = transform @ to_world
+        base = len(verts)
+        verts.extend(matrix @ vert.co for vert in mesh.vertices)
+        polys.extend(tuple(base + index for index in tri.vertices) for tri in mesh.loop_triangles)
+    return verts, polys
+
+
+def bake_sky_visibility(directory):
+    from mathutils.bvhtree import BVHTree
+
+    bpy.context.view_layer.update()
+    to_game = TO_BLENDER.inverted()
+
+    def parts_of(root):
+        return [child for child in root.children_recursive if child.type == "MESH" and not child.name.endswith("_Collision")]
+
+    ground = [(part, part.matrix_world) for name in SKY_MAP_GROUND for part in parts_of(bpy.data.objects[name])]
+    occluders = list(ground)
+
+    for placement in bpy.data.objects["Layout"].children:
+        kind, _, rest = placement.name.partition("_")
+        asset = rest.rpartition("_")[0]
+        if kind != "Place" or asset in SKY_MAP_IGNORED or asset not in bpy.data.objects:
+            continue
+        root = bpy.data.objects[asset]
+        to_placement = placement.matrix_world @ root.matrix_world.inverted()
+        occluders.extend((part, to_placement @ part.matrix_world) for part in parts_of(root))
+
+    ground_bvh = BVHTree.FromPolygons(*world_triangles(ground, to_game))
+    scene_bvh = BVHTree.FromPolygons(*world_triangles(occluders, to_game))
+
+    golden = math.pi * (3.0 - math.sqrt(5.0))
+    pattern = []
+    for i in range(SKY_MAP_RAYS):
+        u = (i + 0.5) / SKY_MAP_RAYS
+        pattern.append((math.sqrt(u), math.sqrt(1.0 - u), i * golden))
+
+    rng = random.Random(7)
+    cell = SKY_MAP_HALF * 2.0 / SKY_MAP_SIZE
+    down = Vector((0.0, -1.0, 0.0))
+    data = np.ones((SKY_MAP_SIZE, SKY_MAP_SIZE, 4))
+
+    def encode(height):
+        return min(max((height - SKY_MAP_HEIGHT_MIN) / SKY_MAP_HEIGHT_RANGE, 0.0), 1.0)
+
+    for row in range(SKY_MAP_SIZE):
+        z = -SKY_MAP_HALF + (row + 0.5) * cell
+        for column in range(SKY_MAP_SIZE):
+            x = -SKY_MAP_HALF + (column + 0.5) * cell
+            top = Vector((x, 300.0, z))
+            ground_hit = ground_bvh.ray_cast(top, down, 400.0)[0]
+            if ground_hit is None:
+                data[row, column, :3] = (1.0, encode(0.0), encode(0.0))
+                continue
+
+            origin = ground_hit + Vector((0.0, SKY_MAP_PROBE_HEIGHT, 0.0))
+            rotation = rng.uniform(0.0, math.tau)
+            visible = 0
+            for r, y, phi in pattern:
+                direction = Vector((r * math.cos(phi + rotation), y, r * math.sin(phi + rotation)))
+                if scene_bvh.ray_cast(origin, direction, SKY_MAP_RAY_LENGTH)[0] is None:
+                    visible += 1
+
+            top_hit = scene_bvh.ray_cast(top, down, 400.0)[0]
+            top_height = top_hit.y if top_hit is not None else ground_hit.y
+            data[row, column, :3] = (visible / SKY_MAP_RAYS, encode(ground_hit.y), encode(top_height))
+
+    visibility = data[:, :, 0]
+    padded = np.pad(visibility, 1, mode="edge")
+    kernel = ((0, 0, 4), (-1, 0, 2), (1, 0, 2), (0, -1, 2), (0, 1, 2), (-1, -1, 1), (-1, 1, 1), (1, -1, 1), (1, 1, 1))
+    data[:, :, 0] = sum(padded[1 + dy:1 + dy + SKY_MAP_SIZE, 1 + dx:1 + dx + SKY_MAP_SIZE] * w for dy, dx, w in kernel) / 16.0
+
+    image = bpy.data.images.new("SkyVisibility", SKY_MAP_SIZE, SKY_MAP_SIZE, alpha=True)
+    image.colorspace_settings.name = "Non-Color"
+    image.pixels.foreach_set(data[::-1].astype(np.float32).ravel())
+    image.filepath_raw = str(directory / "SkyVisibility.png")
+    image.file_format = "PNG"
+    image.save()
+    print(f"sky visibility: {len(occluders)} occluders, mean {float(np.mean(data[:, :, 0])):.3f}, min {float(np.min(data[:, :, 0])):.3f}")
+
+
 def main():
     global ROAD, PAD_HEIGHT
 
@@ -1292,6 +1389,7 @@ def main():
         build_asset(name, function(rng), offset, material)
 
     build_layout(random.Random(42))
+    bake_sky_visibility(output.parent)
 
     bpy.ops.wm.save_as_mainfile(filepath=str(output.with_suffix(".blend")))
     bpy.ops.export_scene.gltf(filepath=str(output), export_format="GLB", export_yup=True, export_apply=True, export_normals=True, export_texcoords=True, export_materials="EXPORT", export_cameras=False, export_lights=False)

@@ -1761,6 +1761,12 @@ bool InspectorWidget::DrawComponent(Entity inEntity, DirectionalLight& inDirecti
 	ImGui::SetNextItemRightAlign("Fog Opacity");
 	scene_changed |= ImGui::SliderFloat("##FogOpacity", &inDirectionalLight.fogOpacity, 0.0f, 1.0f);
 
+	ImGui::SetNextItemRightAlign("Ground     ");
+	scene_changed |= ImGui::ColorEdit3("##GroundAlbedo", glm::value_ptr(inDirectionalLight.groundAlbedo));
+
+	ImGui::SetNextItemRightAlign("Bounce     ");
+	scene_changed |= ImGui::SliderFloat("##GroundBounce", &inDirectionalLight.groundBounce, 0.0f, 2.0f);
+
 	if (!inDirectionalLight.cubeMapFile.empty())
 	{
 		if (ImGui::Button("x"))
