@@ -26,6 +26,7 @@ void CoastRallyScript::OnStart()
     CreateCar();
     CreateProps();
     CreateCamera();
+    CreateSky();
     CreateAudio();
 
     NewGame();
@@ -59,6 +60,7 @@ void CoastRallyScript::OnUpdate(float inDeltaTime)
     UpdateCar(delta_time);
     UpdateProps();
     UpdateCarVisuals();
+    UpdateSky(delta_time);
     UpdateCamera(delta_time);
     UpdateSounds(delta_time);
     m_Nodes.Update();
@@ -316,6 +318,7 @@ JPH::BodyInterface& CoastRallyScript::GetBodyInterface()
 
 void CoastRallyScript::DestroyRuntimeEntities()
 {
+    RestoreSky();
     DestroyCar();
     DestroyProps();
     DestroyLevelBodies();
@@ -343,6 +346,7 @@ void CoastRallyScript::DestroyRuntimeEntities()
     m_CarModel = Model();
     m_BrakeNode = Node::Null;
     m_WheelNodes.fill(Node::Null);
+    m_HeadlightEntities.fill(Entity::Null);
     m_Placements.clear();
     m_PropPlacements.clear();
     m_Waypoints.clear();

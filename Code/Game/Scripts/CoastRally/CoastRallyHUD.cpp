@@ -46,7 +46,7 @@ void CoastRallyScript::DrawHUD(float inDeltaTime)
 
     if (*m_GodMode)
     {
-        const Vec2 pos = Vec2(margin, margin + 202.0f * scale);
+        const Vec2 pos = Vec2(margin, margin + 232.0f * scale);
         const Vec2 size = Vec2(150.0f, 34.0f) * scale;
 
         g_UIRenderer.AddRectFilled(pos, size, size.y * 0.5f, Fade(cSea, 0.9f));
@@ -128,9 +128,12 @@ void CoastRallyScript::DrawSpeedometer(const Vec2& inDisplay, float inScale, flo
 
 void CoastRallyScript::DrawTripInfo(float inScale, float inMargin)
 {
-    const StaticArray<std::pair<const char*, String>, 4> rows =
+    const int minutes = int(m_TimeOfDay * 24.0f * 60.0f) % ( 24 * 60 );
+
+    const StaticArray<std::pair<const char*, String>, 5> rows =
     {
-        std::pair { "DISTANCE",      std::format("{:.2f} KM", m_Odometer / 1000.0f) },
+        std::pair { "TIME",          std::format("{:02}:{:02}", minutes / 60, minutes % 60) },
+        std::pair { "DISTANCE",     std::format("{:.2f} KM", m_Odometer / 1000.0f) },
         std::pair { "TOP SPEED",     std::format("{} KM/H", int(m_TopSpeed * 3.6f)) },
         std::pair { "BEST AIR",      std::format("{:.1f} S", m_BestAirTime) },
         std::pair { "PROPS SMASHED", std::format("{} / {}", m_PropsKnocked, m_Props.size()) },

@@ -101,6 +101,28 @@ static constexpr Vec3 cParkedPosition = Vec3(0.0f, -200.0f, 0.0f);
 
 static constexpr float cBrakeLightIntensity = 60000.0f;
 
+static constexpr float cDayLength = 360.0f;
+static constexpr float cStartTimeOfDay = 0.35f;
+static constexpr float cSkyInclination = 0.5f;
+static constexpr float cSkyFadeHeight = 0.12f;
+static constexpr float cMinSkyHeight = 0.04f;
+static constexpr float cMoonLift = 0.4f;
+static constexpr float cHorizonSkyBrightness = 0.35f;
+static constexpr float cHorizonIlluminance = 0.3f;
+static constexpr Vec3  cSunsetColor = Vec3(1.0f, 0.4f, 0.16f);
+static constexpr Vec3  cDaySunColor = Vec3(1.0f, 0.95f, 0.88f);
+static constexpr Vec3  cMoonColor = Vec3(0.08f, 0.11f, 0.22f);
+static constexpr float cSunIlluminance = 110000.0f;
+static constexpr float cMoonIlluminance = 12000.0f;
+
+static constexpr Vec3  cHeadlightOffset = Vec3(0.6f, 0.06f, 2.08f);
+static constexpr Vec3  cHeadlightColor = Vec3(1.0f, 0.9f, 0.72f);
+static constexpr float cHeadlightIntensity = 6000000.0f;
+static constexpr float cHeadlightRange = 80.0f;
+static constexpr float cHeadlightInnerAngle = glm::radians(10.0f);
+static constexpr float cHeadlightOuterAngle = glm::radians(28.0f);
+static constexpr float cHeadlightPitch = glm::radians(2.5f);
+
 static constexpr float cVolumeStep = 0.05f;
 static constexpr float cMinSensitivityScale = 0.2f;
 static constexpr float cMaxSensitivityScale = 3.0f;

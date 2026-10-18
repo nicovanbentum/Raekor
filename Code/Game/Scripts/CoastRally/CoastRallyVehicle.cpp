@@ -11,6 +11,16 @@ void CoastRallyScript::CreateCar()
     for (Node& wheel : m_WheelNodes)
         wheel = CreateModel("Wheel").mRoot;
 
+    for (Entity& entity : m_HeadlightEntities)
+    {
+        entity = CreateEntity("Headlight");
+
+        Light& light = m_Scene->Add<Light>(entity);
+        light.type = LIGHT_TYPE_SPOT;
+        light.color = Vec4(cHeadlightColor, 0.0f);
+        light.attributes = Vec4(cHeadlightRange, cHeadlightInnerAngle, cHeadlightOuterAngle, 0.0f);
+    }
+
     JPH::PhysicsSystem* system = GetPhysicsSystem();
     JPH::BodyInterface& bodies = system->GetBodyInterface();
 
@@ -427,6 +437,14 @@ void CoastRallyScript::UpdateCarVisuals()
         const JPH::RMat44 transform = m_Vehicle->GetWheelWorldTransform(index, left ? -JPH::Vec3::sAxisX() : JPH::Vec3::sAxisX(), JPH::Vec3::sAxisY());
 
         SetTransform(m_WheelNodes[index], ToVec3(transform.GetTranslation()), ToQuat(transform.GetQuaternion()));
+    }
+
+    const Quat headlight_rotation = m_CarRotation * YawRotation(glm::pi<float>()) * glm::angleAxis(-cHeadlightPitch, Vec3(1.0f, 0.0f, 0.0f));
+
+    for (size_t index = 0; index < m_HeadlightEntities.size(); index++)
+    {
+        const Vec3 offset = cHeadlightOffset * Vec3(index == 0 ? 1.0f : -1.0f, 1.0f, 1.0f);
+        SetTransform(m_HeadlightEntities[index], m_CarPosition + m_CarRotation * offset, headlight_rotation);
     }
 
     SetMaterial(m_BrakeNode, m_Braking ? m_BrakeMaterial : m_PaletteMaterial);

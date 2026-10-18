@@ -127,6 +127,10 @@ private:
     void SetCameraMode(int inMode);
     float CastCameraRay(const Vec3& inFrom, const Vec3& inTo);
 
+    void CreateSky();
+    void RestoreSky();
+    void UpdateSky(float inDeltaTime);
+
     void CreateAudio();
     void PlaySfx(const char* inFile, float inVolume = 1.0f, float inPitch = 1.0f);
     void PlaySfxAt(const char* inFile, const Vec3& inPosition, float inVolume = 1.0f, float inPitch = 1.0f);
@@ -263,6 +267,15 @@ private:
     float m_OrbitIdle = 0.0f;
     float m_Shake = 0.0f;
     float m_Fov = cChaseFov;
+
+    Entity m_SunEntity = Entity::Null;
+    bool m_RestoreSun = false;
+    Vec4 m_SavedSunColor = Vec4(1.0f);
+    float m_SavedSunIlluminance = 0.0f;
+    Quat m_SavedSunRotation = Quat(1.0f, 0.0f, 0.0f, 0.0f);
+    float m_TimeOfDay = cStartTimeOfDay;
+    float* m_DayLength = nullptr;
+    StaticArray<Entity, 2> m_HeadlightEntities = { Entity::Null, Entity::Null };
 
     Entity m_EngineEntity = Entity::Null;
     Entity m_SkidEntity = Entity::Null;
