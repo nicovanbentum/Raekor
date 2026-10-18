@@ -724,6 +724,11 @@ void Renderer::Recompile(Device& inDevice)
         bloom_output = compose_input;
     }
 
+    const LuminanceAverageData* auto_exposure_data = nullptr;
+
+    if (m_Settings.mEnableAutoExposure && debug_texture == DEBUG_TEXTURE_NONE)
+        auto_exposure_data = &AddAutoExposurePass(m_RenderGraph, inDevice, compose_input);
+
     // pick an upscaler if TAA is disabled
     if (!m_Settings.mEnableTAA)
     {
@@ -742,7 +747,7 @@ void Renderer::Recompile(Device& inDevice)
     }
 
     // apply post processing, tonemapping etc.
-    const ComposeData& compose_data = AddComposePass(m_RenderGraph, inDevice, bloom_output, compose_input);
+    const ComposeData& compose_data = AddComposePass(m_RenderGraph, inDevice, bloom_output, compose_input, auto_exposure_data);
 
     RenderGraphResourceID final_output = compose_data.mOutputTexture;
 
@@ -867,6 +872,7 @@ uint64_t Renderer::GetRenderGraphKey() const
         uint64_t(m_Settings.mEnableTAA),
         uint64_t(m_Settings.mEnableDoF),
         uint64_t(m_Settings.mEnableBloom),
+        uint64_t(m_Settings.mEnableAutoExposure),
         uint64_t(m_Settings.mDoPathTrace),
         uint64_t(m_Upscaler.GetActiveUpscaler()),
         uint64_t(m_Settings.mDebugTexture),

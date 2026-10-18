@@ -236,6 +236,22 @@
             }
         },
 
+        "Luminance Histogram Shader":
+        {
+            "Compute Shader":
+            {
+                "File Path": "Assets/Shaders/Backend/LuminanceHistogramCS.hlsl"
+            }
+        },
+
+        "Luminance Average Shader":
+        {
+            "Compute Shader":
+            {
+                "File Path": "Assets/Shaders/Backend/LuminanceAverageCS.hlsl"
+            }
+        },
+
         "Debug Primitives Shader":
         {
             "Vertex Shader": 

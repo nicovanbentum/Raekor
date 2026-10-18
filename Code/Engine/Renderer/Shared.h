@@ -49,6 +49,9 @@
 #define DDGI_MAX_CASCADES 4
 #define DOF_TILE_SIZE 8
 
+#define LUMINANCE_HISTOGRAM_BIN_COUNT 256
+#define LUMINANCE_HISTOGRAM_GROUP_SIZE 16
+
 #define DENOISE_SPATIAL_ITERATIONS 3
 
 #define LIGHT_CULL_TILE_SIZE 16 // Light culling uses 16x16 pixel screen tiles
@@ -548,6 +551,28 @@ struct BloomRootConstants
 };
 
 
+struct LuminanceHistogramRootConstants
+{
+    uint   mInputTexture;
+    uint   mHistogramBuffer;
+    uint2  mInputSize;
+    float  mMinLogLuminance;
+    float  mOneOverLogLuminanceRange;
+};
+
+
+struct LuminanceAverageRootConstants
+{
+    uint  mHistogramBuffer;
+    uint  mExposureBuffer;
+    uint  mPixelCount;
+    float mMinLogLuminance;
+    float mLogLuminanceRange;
+    float mAdaptationSpeed;
+    float mExposureCompensation;
+};
+
+
 struct ComposeSettings
 {
     float mExposure;
@@ -563,8 +588,8 @@ struct ComposeRootConstants
 {
     uint mBloomTexture;
     uint mInputTexture;
-    uint mPad0;
-    uint mPad1;
+    uint mExposureBuffer;
+    uint mUseAutoExposure;
     ComposeSettings mSettings;
 };
 

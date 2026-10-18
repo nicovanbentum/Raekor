@@ -148,6 +148,8 @@ struct SystemShadersDX12 : public IResource
     ComputeProgram  mDownsampleShader;
     GraphicsProgram mTAAResolveShader;
     GraphicsProgram mFinalComposeShader;
+    ComputeProgram  mLuminanceHistogramShader;
+    ComputeProgram  mLuminanceAverageShader;
     GraphicsProgram mDebugPrimitivesShader;
     GraphicsProgram mWireframeShader;
     GraphicsProgram mTransparentForwardShader;

@@ -957,11 +957,16 @@ void RenderSystem::DrawDebugSettings(Application* inApp)
         }
 
         ImGui::Checkbox("Auto Exposure", (bool*)&m_Renderer.GetSettings().mEnableAutoExposure);
-        if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("Currently not implemented.");
 
         if (ImGui::DragFloat("Exposure", &RenderSettings::mEV100, 0.05f, -6.0f, 20.0f, "EV100 %.2f"))
             RenderSettings::mPathTraceReset = true;
+
+        if (m_Renderer.GetSettings().mEnableAutoExposure)
+        {
+            ImGui::DragFloat("Exposure Compensation", &RenderSettings::mExposureCompensation, 0.05f, -8.0f, 8.0f, "%.2f EV");
+            ImGui::DragFloat("Adaptation Speed", &RenderSettings::mAutoExposureSpeed, 0.05f, 0.05f, 20.0f, "%.2f");
+            ImGui::DragFloatRange2("Luminance Range", &RenderSettings::mAutoExposureMinLogLuminance, &RenderSettings::mAutoExposureMaxLogLuminance, 0.1f, -20.0f, 20.0f, "%.1f EV", "%.1f EV");
+        }
         ImGui::DragFloat("Chromatic Aberration", &RenderSettings::mChromaticAberrationStrength, 0.01f, 0.0f, 10.0f, "%.2f");
 
         ImGui::EndMenu();

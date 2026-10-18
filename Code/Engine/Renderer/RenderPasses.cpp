@@ -47,6 +47,10 @@ float RenderSettings::mGrassTilt = 0.0f;
 Vec2 RenderSettings::mWindDirection = Vec2(0.0f, -1.0f);
 
 float RenderSettings::mEV100 = 15.0f;
+float RenderSettings::mExposureCompensation = 0.0f;
+float RenderSettings::mAutoExposureSpeed = 1.1f;
+float RenderSettings::mAutoExposureMinLogLuminance = -12.0f;
+float RenderSettings::mAutoExposureMaxLogLuminance = 4.0f;
 float RenderSettings::mVignetteScale = 0.8f;
 float RenderSettings::mVignetteBias = 0.2f;
 float RenderSettings::mVignetteInner = 0.0f;
@@ -1363,17 +1367,60 @@ const DepthOfFieldData& AddDepthOfFieldPass(RenderGraph& inRenderGraph, Device& 
 
 
 
-const LuminanceHistogramData& AddLuminanceHistogramPass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inInputTexture) 
+const LuminanceAverageData& AddAutoExposurePass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inInputTexture)
 {
-    return inRenderGraph.AddComputePass<LuminanceHistogramData>("LuminanceHistogram",
+    const LuminanceHistogramData& histogram_data = inRenderGraph.AddComputePass<LuminanceHistogramData>("LuminanceHistogram",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, LuminanceHistogramData& inData)
     {
-        inData.mHistogramBuffer = ioRGBuilder.Create(Buffer::RWTypedBuffer(DXGI_FORMAT_R32_UINT, 128, "LumHistogramBuffer"));
-        inData.mInputTextureSRV = ioRGBuilder.Write(inInputTexture);
+        inData.mHistogramBuffer = ioRGBuilder.Create(Buffer::RWByteAddressBuffer(LUMINANCE_HISTOGRAM_BIN_COUNT * sizeof(uint32_t), "LuminanceHistogramBuffer"));
+        inData.mHistogramBufferUAV = ioRGBuilder.Write(inData.mHistogramBuffer);
+        inData.mInputTextureSRV = ioRGBuilder.Read(inInputTexture);
     },
 
-    [](LuminanceHistogramData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+    [&inDevice](LuminanceHistogramData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
+        const Texture& input_texture = inDevice.GetTexture(inResources.GetTextureView(inData.mInputTextureSRV));
+        const UVec2 input_size = UVec2(input_texture.GetWidth(), input_texture.GetHeight());
+        const float log_luminance_range = RenderSettings::mAutoExposureMaxLogLuminance - RenderSettings::mAutoExposureMinLogLuminance;
+
+        inCmdList.PushComputeConstants(LuminanceHistogramRootConstants
+        {
+            .mInputTexture              = inResources.GetBindlessHeapIndex(inData.mInputTextureSRV),
+            .mHistogramBuffer           = inResources.GetBindlessHeapIndex(inData.mHistogramBufferUAV),
+            .mInputSize                 = input_size,
+            .mMinLogLuminance           = RenderSettings::mAutoExposureMinLogLuminance,
+            .mOneOverLogLuminanceRange  = 1.0f / glm::max(log_luminance_range, 0.01f)
+        });
+
+        inCmdList->SetPipelineState(g_SystemShaders.mLuminanceHistogramShader.GetComputePSO());
+        inCmdList->Dispatch(( input_size.x + LUMINANCE_HISTOGRAM_GROUP_SIZE - 1 ) / LUMINANCE_HISTOGRAM_GROUP_SIZE, ( input_size.y + LUMINANCE_HISTOGRAM_GROUP_SIZE - 1 ) / LUMINANCE_HISTOGRAM_GROUP_SIZE, 1);
+    });
+
+    return inRenderGraph.AddComputePass<LuminanceAverageData>("LuminanceAverage",
+    [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, LuminanceAverageData& inData)
+    {
+        inData.mExposureBuffer = ioRGBuilder.Create(Buffer::RWByteAddressBuffer(4 * sizeof(float), "AutoExposureBuffer"));
+        inData.mExposureBufferUAV = ioRGBuilder.Write(inData.mExposureBuffer);
+        inData.mHistogramBufferUAV = ioRGBuilder.Write(histogram_data.mHistogramBuffer);
+    },
+
+    [&inDevice, &histogram_data](LuminanceAverageData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+    {
+        const Texture& input_texture = inDevice.GetTexture(inResources.GetTextureView(histogram_data.mInputTextureSRV));
+
+        inCmdList.PushComputeConstants(LuminanceAverageRootConstants
+        {
+            .mHistogramBuffer       = inResources.GetBindlessHeapIndex(inData.mHistogramBufferUAV),
+            .mExposureBuffer        = inResources.GetBindlessHeapIndex(inData.mExposureBufferUAV),
+            .mPixelCount            = input_texture.GetWidth() * input_texture.GetHeight(),
+            .mMinLogLuminance       = RenderSettings::mAutoExposureMinLogLuminance,
+            .mLogLuminanceRange     = glm::max(RenderSettings::mAutoExposureMaxLogLuminance - RenderSettings::mAutoExposureMinLogLuminance, 0.01f),
+            .mAdaptationSpeed       = RenderSettings::mAutoExposureSpeed,
+            .mExposureCompensation  = RenderSettings::mExposureCompensation
+        });
+
+        inCmdList->SetPipelineState(g_SystemShaders.mLuminanceAverageShader.GetComputePSO());
+        inCmdList->Dispatch(1, 1, 1);
     });
 }
 
@@ -1591,7 +1638,7 @@ const WireframeData& AddWireframePass(RenderGraph& inRenderGraph, Device& inDevi
 
 
 
-const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inBloomTexture, RenderGraphResourceID inInputTexture)
+const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inBloomTexture, RenderGraphResourceID inInputTexture, const LuminanceAverageData* inAutoExposure)
 {
     return inRenderGraph.AddGraphicsPass<ComposeData>("Compose",
     [&](RenderGraphBuilder& inBuilder, IRenderPass* inRenderPass, ComposeData& inData)
@@ -1609,6 +1656,12 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, 
 
         inData.mInputTextureSRV = inBuilder.Read(inInputTexture);
         inData.mBloomTextureSRV = inBuilder.Read(inBloomTexture);
+
+        if (inAutoExposure)
+        {
+            inData.mExposureBufferSRV = inBuilder.Read(inAutoExposure->mExposureBuffer);
+            inData.mUseAutoExposure = true;
+        }
 
         D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_state = inRenderPass->CreatePipelineStateDesc(inDevice, g_SystemShaders.mFinalComposeShader);
 
@@ -1640,7 +1693,9 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, 
         {
             .mBloomTexture = inResources.GetBindlessHeapIndex(inData.mBloomTextureSRV),
             .mInputTexture = inResources.GetBindlessHeapIndex(inData.mInputTextureSRV),
-            .mSettings = 
+            .mExposureBuffer = inData.mUseAutoExposure ? inResources.GetBindlessHeapIndex(inData.mExposureBufferSRV) : 0u,
+            .mUseAutoExposure = inData.mUseAutoExposure,
+            .mSettings =
             {
                 .mExposure                    = RenderSettings::GetExposure(),
                 .mVignetteScale               = RenderSettings::mVignetteScale,

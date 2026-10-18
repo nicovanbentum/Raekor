@@ -122,6 +122,12 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
     
     color = ApplyBloom(color, inParams.mScreenUV);
 
+    if (rc.mUseAutoExposure)
+    {
+        ByteAddressBuffer exposure_buffer = ResourceDescriptorHeap[rc.mExposureBuffer];
+        color *= asfloat(exposure_buffer.Load(4));
+    }
+
     color = ApplyTonemapUchimura(color);
 
     color = ApplyGammaCurve(color);

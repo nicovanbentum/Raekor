@@ -26,6 +26,10 @@ struct RenderSettings
     static RK_API Vec2 mWindDirection;
 
     static RK_API float mEV100;
+    static RK_API float mExposureCompensation;
+    static RK_API float mAutoExposureSpeed;
+    static RK_API float mAutoExposureMinLogLuminance;
+    static RK_API float mAutoExposureMaxLogLuminance;
     static RK_API float mVignetteScale;
     static RK_API float mVignetteBias;
     static RK_API float mVignetteInner;
@@ -466,15 +470,23 @@ const DepthOfFieldData& AddDepthOfFieldPass(RenderGraph& inRenderGraph, Device& 
 
 
 ////////////////////////////////////////
-/// Build Luminance Histogram Pass
+/// Auto Exposure Passes
 ////////////////////////////////////////
-struct LuminanceHistogramData 
+struct LuminanceHistogramData
 {
     RenderGraphResourceID mHistogramBuffer;
+    RenderGraphResourceViewID mHistogramBufferUAV;
     RenderGraphResourceViewID mInputTextureSRV;
 };
 
-const LuminanceHistogramData& AddLuminanceHistogramPass(RenderGraph& inRenderGraph, Device& inDevice,
+struct LuminanceAverageData
+{
+    RenderGraphResourceID mExposureBuffer;
+    RenderGraphResourceViewID mExposureBufferUAV;
+    RenderGraphResourceViewID mHistogramBufferUAV;
+};
+
+const LuminanceAverageData& AddAutoExposurePass(RenderGraph& inRenderGraph, Device& inDevice,
     RenderGraphResourceID inInputTexture
 );
 
@@ -488,12 +500,15 @@ struct ComposeData
     RenderGraphResourceID mOutputTexture;
     RenderGraphResourceViewID mInputTextureSRV;
     RenderGraphResourceViewID mBloomTextureSRV;;
+    RenderGraphResourceViewID mExposureBufferSRV;
+    bool mUseAutoExposure = false;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
 
 const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice,
     RenderGraphResourceID inBloomTexture,
-    RenderGraphResourceID inInputTexture
+    RenderGraphResourceID inInputTexture,
+    const LuminanceAverageData* inAutoExposure
 );
 
 
