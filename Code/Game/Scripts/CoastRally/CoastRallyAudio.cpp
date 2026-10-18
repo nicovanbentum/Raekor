@@ -88,7 +88,7 @@ void CoastRallyScript::UpdateSounds(float inDeltaTime)
     if (SoundSource* engine = FindComponent<SoundSource>(m_EngineEntity); engine && controller)
     {
         const float rpm = controller->GetEngine().GetCurrentRPM();
-        const float target_volume = 0.32f + 0.3f * m_Throttle + ( m_Boosting ? 0.08f : 0.0f );
+        const float target_volume = 0.15f + 0.15f * m_Throttle + ( m_Boosting ? 0.04f : 0.0f );
 
         engine->pitch = glm::mix(engine->pitch, glm::clamp(rpm / cEngineSoundRPM, 0.35f, 2.4f), smoothing);
         engine->volume = glm::mix(engine->volume, target_volume, smoothing);
@@ -98,7 +98,7 @@ void CoastRallyScript::UpdateSounds(float inDeltaTime)
     {
         const float amount = GetSkidAmount();
 
-        skid->volume = glm::mix(skid->volume, 0.55f * amount, smoothing);
+        skid->volume = glm::mix(skid->volume, 0.38f * amount, smoothing);
         skid->pitch = 0.9f + 0.2f * amount;
     }
 
@@ -106,7 +106,7 @@ void CoastRallyScript::UpdateSounds(float inDeltaTime)
     {
         const float amount = glm::clamp(( glm::length(m_CarVelocity) - 8.0f ) / 40.0f, 0.0f, 1.0f);
 
-        wind->volume = glm::mix(wind->volume, 0.45f * amount, smoothing);
+        wind->volume = glm::mix(wind->volume, 0.3f * amount, smoothing);
         wind->pitch = 0.8f + 0.4f * amount;
     }
 }
