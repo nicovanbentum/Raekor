@@ -106,6 +106,8 @@ TERRAIN_CELL = 2.5
 
 WATER_HALF = 1200.0
 WATER_CELL = 50.0
+WATER_DETAIL_HALF = 400.0
+WATER_DETAIL_CELL = 4.0
 SHORE_HEIGHT = 0.5
 SEABED_STEEPNESS = 3.0
 
@@ -733,12 +735,24 @@ def terrain_detail_maps(directory):
 
 def water(rng):
     p = Part("Main", (0, 0, 0), rng)
+    p.uv_function = lambda x, y, z: (x, z)
     cells = int(WATER_HALF * 2.0 / WATER_CELL)
     for i in range(cells):
         for j in range(cells):
             x0, z0 = -WATER_HALF + i * WATER_CELL, -WATER_HALF + j * WATER_CELL
             x1, z1 = x0 + WATER_CELL, z0 + WATER_CELL
+            if x0 >= -WATER_DETAIL_HALF and x1 <= WATER_DETAIL_HALF and z0 >= -WATER_DETAIL_HALF and z1 <= WATER_DETAIL_HALF:
+                continue
             p.face([(x0, 0.0, z0), (x0, 0.0, z1), (x1, 0.0, z1), (x1, 0.0, z0)], "Blue", 3, (0, 1, 0))
+
+    detail = int(WATER_DETAIL_HALF * 2.0 / WATER_DETAIL_CELL)
+    axis = [-WATER_DETAIL_HALF + index * WATER_DETAIL_CELL for index in range(detail + 1)]
+    verts = [[p.bm.verts.new((x, 0.0, z)) for x in axis] for z in axis]
+    for j in range(detail):
+        for i in range(detail):
+            face = p.bm.faces.new((verts[j][i], verts[j + 1][i], verts[j + 1][i + 1], verts[j][i + 1]))
+            face[p.family] = FAMILY_INDEX["Blue"]
+            face[p.shade] = 3
     return [p]
 
 

@@ -212,6 +212,13 @@ void CoastRallyScript::CreateMaterials()
     }
 
     m_WaterMaterial = CreateMaterial(Vec3(0.03f, 0.2f, 0.28f), Vec3(0.0f), 0.08f);
+
+    if (Material* water = FindComponent<Material>(m_WaterMaterial))
+    {
+        water->vertexShaderFile = cWaterVertexShaderFile;
+        water->pixelShaderFile = cWaterPixelShaderFile;
+        m_App->GetRenderInterface()->CompileMaterialShaders(m_WaterMaterial, *water);
+    }
     m_BrakeMaterial = CreateMaterial(Vec3(1.0f, 0.1f, 0.06f), Vec3(1.0f, 0.1f, 0.06f) * cBrakeLightIntensity, 0.3f);
     m_GlassMaterial = CreateMaterial(cGlassColor, Vec3(0.0f), 0.02f);
 

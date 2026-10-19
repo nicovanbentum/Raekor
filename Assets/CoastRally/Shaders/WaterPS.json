@@ -1,0 +1,141 @@
+{
+    "ShaderGraphBuilder":
+    {
+        "Layout": "[editor]
+panning=700,300
+
+[node.0]
+origin=460,0
+
+[node.1]
+origin=-700,60
+
+[node.2]
+origin=-700,180
+
+[node.3]
+origin=-700,280
+
+[node.4]
+origin=-200,200
+
+[node.5]
+origin=-200,-260
+
+[node.6]
+origin=-700,-120
+
+[node.7]
+origin=-460,-60
+
+[node.8]
+origin=-200,-80
+
+[node.9]
+origin=40,-60
+
+[node.10]
+origin=220,-160
+
+[node.11]
+origin=220,280
+",
+        "Links": [
+            { "From Node": 1, "From Pin": 0, "To Node": 4, "To Pin": 0 },
+            { "From Node": 2, "From Pin": 0, "To Node": 4, "To Pin": 1 },
+            { "From Node": 3, "From Pin": 0, "To Node": 4, "To Pin": 2 },
+            { "From Node": 4, "From Pin": 0, "To Node": 0, "To Pin": 2 },
+            { "From Node": 1, "From Pin": 0, "To Node": 7, "To Pin": 0 },
+            { "From Node": 6, "From Pin": 0, "To Node": 7, "To Pin": 1 },
+            { "From Node": 7, "From Pin": 0, "To Node": 8, "To Pin": 0 },
+            { "From Node": 8, "From Pin": 0, "To Node": 9, "To Pin": 0 },
+            { "From Node": 5, "From Pin": 0, "To Node": 10, "To Pin": 0 },
+            { "From Node": 9, "From Pin": 0, "To Node": 10, "To Pin": 1 },
+            { "From Node": 10, "From Pin": 0, "To Node": 0, "To Pin": 0 },
+            { "From Node": 11, "From Pin": 0, "To Node": 0, "To Pin": 5 }
+        ],
+        "Template File": "Assets/Shaders/Backend/Materials/DeferredPS.hlsl",
+        "Output File": "Assets/CoastRally/Shaders/WaterPS.hlsl"
+    },
+    "PixelShaderOutputShaderNode":
+    {
+    },
+    "GetTexCoordinateShaderNode":
+    {
+    },
+    "GetTimeShaderNode":
+    {
+    },
+    "GetPixelNormalShaderNode":
+    {
+    },
+    "ProcedureShaderNode":
+    {
+        "Title": "Ripple Normal",
+        "Procedure": "const float4 ripples[6] =
+{
+    float4(0.94, 0.34, 3.6, 0.050),
+    float4(-0.52, 0.85, 2.7, 0.040),
+    float4(0.17, -0.98, 2.1, 0.030),
+    float4(-0.88, -0.47, 1.6, 0.022),
+    float4(0.70, -0.71, 1.25, 0.016),
+    float4(-0.29, 0.96, 0.95, 0.012)
+};
+
+float2 slope = float2(0.0, 0.0);
+
+[unroll]
+for (int index = 0; index < 6; index++)
+{
+    const float2 direction = normalize(ripples[index].xy);
+    const float k = 6.2831853 / ripples[index].z;
+    const float speed = sqrt(9.81 / k);
+    const float phase = k * (dot(direction, inUV.xy) - speed * inTime) + index * 1.7;
+    slope += direction * (k * ripples[index].w * cos(phase));
+}
+
+outNormal = normalize(inNormal - float3(slope.x, 0.0, slope.y));",
+        "Show Input Box": true,
+        "Input Names": ["inUV", "inTime", "inNormal"],
+        "Output Names": ["outNormal"],
+        "Input Pins": [
+            { "Kind": 3, "Variable Name": "" },
+            { "Kind": 2, "Variable Name": "" },
+            { "Kind": 3, "Variable Name": "" }
+        ],
+        "Output Pins": [
+            { "Kind": 3, "Variable Name": "" }
+        ]
+    },
+    "VectorValueShaderNode":
+    {
+        "Vector": "(0.018 0.115 0.15)"
+    },
+    "VectorValueShaderNode":
+    {
+        "Vector": "(0.04 0.04 0)"
+    },
+    "VectorOpShaderNode":
+    {
+        "Op": 2,
+        "Vectors": ["(0 0 0 0)", "(0 0 0 0)"]
+    },
+    "GradientNoiseShaderNode":
+    {
+    },
+    "FloatOpShaderNode":
+    {
+        "Op": 3,
+        "FloatA": 0.0,
+        "FloatB": 0.025
+    },
+    "VectorOpShaderNode":
+    {
+        "Op": 0,
+        "Vectors": ["(0 0 0 0)", "(0 0 0 0)"]
+    },
+    "FloatValueShaderNode":
+    {
+        "Float": 0.05
+    }
+}
