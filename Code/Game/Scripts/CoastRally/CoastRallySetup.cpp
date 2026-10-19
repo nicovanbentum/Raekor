@@ -52,6 +52,9 @@ void CoastRallyScript::LoadTextures()
     if (m_TerrainDetailNormalTexture == 0)
         m_TerrainDetailNormalTexture = LoadTexture(cTerrainDetailNormalFile, false, cTerrainNormalSwizzle);
 
+    if (m_BeamGradientTexture == 0)
+        m_BeamGradientTexture = LoadTexture(cBeamGradientFile, false);
+
     m_HudFont = g_UIRenderer.AddFont(cHudFontFile);
     m_LabelFont = g_UIRenderer.AddFont(cLabelFontFile);
 }
@@ -217,6 +220,15 @@ void CoastRallyScript::CreateMaterials()
         glass->albedo.a = cGlassOpacity;
         glass->blendMode = MATERIAL_BLEND_MODE_BLENDED;
     }
+
+    m_BeamMaterial = CreateMaterial(Vec3(0.0f), Vec3(0.0f), 1.0f, 1.0f);
+
+    if (Material* beam = FindComponent<Material>(m_BeamMaterial))
+    {
+        beam->albedo.a = 0.0f;
+        beam->blendMode = MATERIAL_BLEND_MODE_BLENDED;
+        beam->gpuEmissiveMap = m_BeamGradientTexture;
+    }
 }
 
 
@@ -252,6 +264,7 @@ void CoastRallyScript::CreateLevel()
             AddCollision(triangles, templates->second, transform);
     }
 
+    CreateNightLights();
     CreateLevelBodies();
 }
 

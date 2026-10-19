@@ -46,7 +46,7 @@ FAMILIES = [
     ("GlowWhite",  (1.00, 0.95, 0.85), 1.0),
     ("GlowRed",    (1.00, 0.12, 0.08), 0.3),
     ("GlowAmber",  (1.00, 0.62, 0.18), 0.6),
-    ("GlowWindow", (1.00, 0.85, 0.55), 0.1),
+    ("GlowWindow", (1.00, 0.62, 0.26), 0.22),
     ("Chrome",     (0.95, 0.94, 0.91), 0.0),
     ("Alloy",      (0.84, 0.84, 0.86), 0.0),
     ("Satin",      (0.035, 0.035, 0.04), 0.0),
@@ -57,6 +57,10 @@ FAMILIES = [
 ]
 
 FAMILY_INDEX = {name: index for index, (name, _, _) in enumerate(FAMILIES)}
+
+GLOW_ALBEDO = {
+    "GlowWindow": (0.05, 0.07, 0.09),
+}
 
 DEFAULT_SURFACE = (0.85, 0.0)
 SURFACES = {
@@ -130,7 +134,7 @@ def write_palettes(directory):
         for column, shade in enumerate(SHADES):
             factor = 0.75 + 0.25 * shade if glow else shade
             linear = [min(channel * factor, 1.0) for channel in color]
-            srgb = [to_srgb(channel) for channel in linear]
+            srgb = [to_srgb(min(channel * factor, 1.0)) for channel in GLOW_ALBEDO.get(name, color)]
             emit = [channel * glow for channel in linear]
             roughness, metallic = SURFACES.get(name, DEFAULT_SURFACE)
 
@@ -160,7 +164,7 @@ class Part:
         self.family = self.bm.faces.layers.int.new("family")
         self.shade = self.bm.faces.layers.int.new("shade")
         self.recalc_faces = []
-        self.planar_uv = None
+        self.uv_function = None
 
     def tag(self, verts, family, shade, variation):
         faces = dict.fromkeys(face for vert in verts for face in vert.link_faces)
@@ -307,10 +311,10 @@ def build_asset(name, parts, offset, material):
 
         uv_layer = bm.loops.layers.uv.new("UVMap")
         for face in bm.faces:
-            if part.planar_uv is not None:
+            if part.uv_function is not None:
                 for loop in face.loops:
                     world = loop.vert.co + joint
-                    loop[uv_layer].uv = ((world.x + part.planar_uv) / (2.0 * part.planar_uv), (part.planar_uv - world.y) / (2.0 * part.planar_uv))
+                    loop[uv_layer].uv = part.uv_function(world.x, world.z, -world.y)
             else:
                 assign_uv(face, uv_layer, face[part.family], face[part.shade])
 
@@ -466,7 +470,7 @@ def final_height(x, z):
 
 def terrain(rng):
     p = Part("Main", (0, 0, 0), rng)
-    p.planar_uv = TERRAIN_HALF
+    p.uv_function = lambda x, y, z: ((x + TERRAIN_HALF) / (2.0 * TERRAIN_HALF), (z + TERRAIN_HALF) / (2.0 * TERRAIN_HALF))
     cells = int(TERRAIN_HALF * 2.0 / TERRAIN_CELL)
     axis = np.linspace(-TERRAIN_HALF, TERRAIN_HALF, cells + 1)
     gx, gz = np.meshgrid(axis, axis)
@@ -1204,11 +1208,11 @@ def house(p, rng, wall, roof):
     box(p, "Concrete", (0.0, 0.08, depth * 0.5 + 0.5), (1.6, 0.16, 1.0), var=0)
     for x in (-2.3, 2.3):
         box(p, "White", (x, 1.7, depth * 0.5 + 0.02), (1.25, 1.15, 0.06), shade=5, var=0)
-        box(p, "GlowWindow" if rng.random() < 0.3 else "Glass", (x, 1.7, depth * 0.5 + 0.05), (1.0, 0.9, 0.04), var=0)
+        box(p, "GlowWindow" if rng.random() < 0.8 else "Glass", (x, 1.7, depth * 0.5 + 0.05), (1.0, 0.9, 0.04), shade=rng.randint(2, 5), var=0)
     for z in (-1.4, 1.4):
         for side in (-1, 1):
             box(p, "White", (side * (width * 0.5 + 0.02), 1.7, z), (0.06, 1.15, 1.25), shade=5, var=0)
-            box(p, "Glass", (side * (width * 0.5 + 0.05), 1.7, z), (0.04, 0.9, 1.0), var=0)
+            box(p, "GlowWindow" if rng.random() < 0.6 else "Glass", (side * (width * 0.5 + 0.05), 1.7, z), (0.04, 0.9, 1.0), shade=rng.randint(2, 5), var=0)
     box(p, "Rock", (2.2, height + 1.4, -1.0), (0.6, 1.6, 0.6), shade=2, var=0)
     box(p, "Wood", (-2.8, 0.45, depth * 0.5 + 1.6), (0.08, 0.9, 0.08), var=0)
     box(p, "Red", (-2.8, 1.0, depth * 0.5 + 1.6), (0.35, 0.25, 0.25), var=0)
@@ -1227,7 +1231,7 @@ def barn(p, rng):
     for side in (-1, 1):
         box(p, "White", (side * 1.55, 1.4, depth * 0.5 + 0.07), (0.12, 2.9, 0.04), shade=5, var=0)
     box(p, "White", (0, height + 1.2, depth * 0.5 + 0.04), (1.2, 0.9, 0.04), shade=5, var=0)
-    box(p, "Glass", (0, height + 1.2, depth * 0.5 + 0.07), (0.9, 0.65, 0.04), var=0)
+    box(p, "GlowWindow", (0, height + 1.2, depth * 0.5 + 0.07), (0.9, 0.65, 0.04), shade=2, var=0)
 
 
 def lighthouse(p, rng):
@@ -1248,6 +1252,38 @@ def lighthouse(p, rng):
     cyl(p, "Red", (0, top + 2.4, 0), 1.2, 0.15, 0.9, seg=10, var=0)
     ico(p, "Iron", (0, top + 2.95, 0), 0.18, var=0)
     box(p, "Wood", (0, 1.0, 2.2), (1.0, 2.0, 0.2), shade=2, var=0)
+
+
+LIGHTHOUSE_LAMP_HEIGHT = 1.5 + 6 * 2.4 + 1.1
+BEAM_LENGTH = 60.0
+BEAM_RADIUS = (0.45, 5.0)
+BEAM_LAYERS = (1.0, 0.84, 0.69, 0.55, 0.42, 0.3, 0.19)
+BEAM_SEGMENTS = 16
+
+
+def lighthouse_beam(rng):
+    p = Part("Main", (0, 0, 0), rng)
+    p.uv_function = lambda x, y, z: (min(abs(z) / BEAM_LENGTH, 1.0), 0.5)
+    for direction in (-1.0, 1.0):
+        for layer in BEAM_LAYERS:
+            rings = []
+            for z, radius in ((0.0, BEAM_RADIUS[0] * layer), (direction * BEAM_LENGTH, BEAM_RADIUS[1] * layer)):
+                rings.append([p.bm.verts.new((math.cos(a) * radius, math.sin(a) * radius, z)) for a in (math.tau * k / BEAM_SEGMENTS for k in range(BEAM_SEGMENTS))])
+            for k in range(BEAM_SEGMENTS):
+                j = (k + 1) % BEAM_SEGMENTS
+                face = p.bm.faces.new((rings[0][k], rings[0][j], rings[1][j], rings[1][k]))
+                face[p.family] = FAMILY_INDEX["GlowWhite"]
+                face[p.shade] = 3
+    return [p]
+
+
+def write_beam_gradient(directory):
+    width = 256
+    u = (np.arange(width) + 0.5) / width
+    value = np.exp(-3.5 * u) * smoothstep(0.0, 0.04, u) * smoothstep(1.0, 0.85, u)
+    pixels = np.ones((width, width, 4))
+    pixels[:, :, :3] = value[None, :, None]
+    write_map(directory, "BeamGradient", pixels)
 
 
 def start_arch(p, rng):
@@ -1676,10 +1712,11 @@ def main():
     write_palettes(output.parent)
     terrain_albedo = terrain_maps(output.parent)
     terrain_detail_maps(output.parent)
+    write_beam_gradient(output.parent)
 
     material = bpy.data.materials.new("Palette")
 
-    for name, function in (("Terrain", terrain), ("Road", road), ("Pad", pad), ("Water", water)):
+    for name, function in (("Terrain", terrain), ("Road", road), ("Pad", pad), ("Water", water), ("LighthouseBeam", lighthouse_beam)):
         build_asset(name, function(random.Random(name)), (0.0, 0.0, 0.0), material)
 
     for index, (name, function) in enumerate(ASSETS):

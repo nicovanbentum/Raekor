@@ -130,6 +130,8 @@ private:
     void CreateSky();
     void RestoreSky();
     void UpdateSky(float inDeltaTime);
+    void CreateNightLights();
+    void UpdateNightLights(float inDeltaTime, float inNight);
 
     void CreateAudio();
     void PlaySfx(const char* inFile, float inVolume = 1.0f, float inPitch = 1.0f);
@@ -217,6 +219,7 @@ private:
     uint32_t m_TerrainNormalTexture = 0;
     uint32_t m_TerrainDetailTexture = 0;
     uint32_t m_TerrainDetailNormalTexture = 0;
+    uint32_t m_BeamGradientTexture = 0;
     int m_HudFont = 0;
     int m_LabelFont = 0;
 
@@ -237,6 +240,7 @@ private:
     Entity m_WaterMaterial = Entity::Null;
     Entity m_BrakeMaterial = Entity::Null;
     Entity m_GlassMaterial = Entity::Null;
+    Entity m_BeamMaterial = Entity::Null;
 
     JPH::TriangleList m_LevelTriangles;
     JPH::TriangleList m_ObstacleTriangles;
@@ -280,6 +284,11 @@ private:
     float m_Fov = cChaseFov;
 
     Entity m_SunEntity = Entity::Null;
+    Array<Entity> m_StreetLampEntities;
+    StaticArray<Entity, 2> m_LighthouseLightEntities = { Entity::Null, Entity::Null };
+    Node m_LighthouseBeamNode = Node::Null;
+    Vec3 m_LighthouseLampPosition = Vec3(0.0f);
+    float m_LighthouseYaw = 0.0f;
     bool m_RestoreSun = false;
     DirectionalLight m_SavedSun;
     Quat m_SavedSunRotation = Quat(1.0f, 0.0f, 0.0f, 0.0f);

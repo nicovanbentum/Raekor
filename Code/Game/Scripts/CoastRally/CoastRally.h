@@ -148,6 +148,30 @@ static constexpr float cHeadlightInnerAngle = glm::radians(10.0f);
 static constexpr float cHeadlightOuterAngle = glm::radians(28.0f);
 static constexpr float cHeadlightPitch = glm::radians(2.5f);
 
+static constexpr float cPaletteNightEmissive = 90000.0f;
+
+static constexpr const char* cStreetLampAsset = "LampPost";
+static constexpr Vec3  cStreetLampOffset = Vec3(0.0f, 5.6f, 1.7f);
+static constexpr Vec3  cStreetLampColor = Vec3(1.0f, 0.72f, 0.42f);
+static constexpr float cStreetLampIntensity = 3000000.0f;
+static constexpr float cStreetLampRange = 26.0f;
+static constexpr float cStreetLampInnerAngle = glm::radians(35.0f);
+static constexpr float cStreetLampOuterAngle = glm::radians(70.0f);
+
+static constexpr const char* cLighthouseAsset = "Lighthouse";
+static constexpr const char* cLighthouseBeamAsset = "LighthouseBeam";
+static constexpr const char* cBeamGradientFile = "Assets/CoastRally/BeamGradient.png";
+static constexpr float cLighthouseLampHeight = 17.0f;
+static constexpr float cLighthouseSpinSpeed = glm::radians(40.0f);
+static constexpr float cLighthouseBeamPitch = glm::radians(4.0f);
+static constexpr Vec3  cLighthouseColor = Vec3(1.0f, 0.93f, 0.78f);
+static constexpr float cLighthouseIntensity = 200000000.0f;
+static constexpr float cLighthouseRange = 300.0f;
+static constexpr float cLighthouseInnerAngle = glm::radians(3.0f);
+static constexpr float cLighthouseOuterAngle = glm::radians(7.0f);
+static constexpr float cLighthouseBeamEmissive = 220000.0f;
+static constexpr float cLighthouseBeamOpacity = 0.02f;
+
 static constexpr float cVolumeStep = 0.05f;
 static constexpr float cMinSensitivityScale = 0.2f;
 static constexpr float cMaxSensitivityScale = 3.0f;

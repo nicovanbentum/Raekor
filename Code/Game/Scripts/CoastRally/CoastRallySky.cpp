@@ -100,6 +100,87 @@ void CoastRallyScript::UpdateSky(float inDeltaTime)
         if (Light* light = FindComponent<Light>(entity))
             light->color.a = cHeadlightIntensity * night;
     }
+
+    UpdateNightLights(inDeltaTime, night);
+}
+
+
+void CoastRallyScript::CreateNightLights()
+{
+    auto CreateSpotLight = [this](StringView inName, const Vec3& inColor, float inRange, float inInnerAngle, float inOuterAngle)
+    {
+        const Entity entity = CreateEntity(inName);
+
+        Light& light = m_Scene->Add<Light>(entity);
+        light.type = LIGHT_TYPE_SPOT;
+        light.color = Vec4(inColor, 0.0f);
+        light.attributes = Vec4(inRange, inInnerAngle, inOuterAngle, 0.0f);
+
+        return entity;
+    };
+
+    m_StreetLampEntities.clear();
+
+    for (const Placement& placement : m_Placements)
+    {
+        if (placement.mAsset == cStreetLampAsset)
+        {
+            const Entity entity = CreateSpotLight("Street Lamp", cStreetLampColor, cStreetLampRange, cStreetLampInnerAngle, cStreetLampOuterAngle);
+            SetTransform(entity, placement.mPosition + placement.mRotation * ( cStreetLampOffset * placement.mScale ), glm::quatLookAtRH(Vec3(0.0f, -1.0f, 0.0f), Vec3(0.0f, 0.0f, 1.0f)));
+            m_StreetLampEntities.push_back(entity);
+        }
+        else if (placement.mAsset == cLighthouseAsset && m_LighthouseBeamNode == Node::Null)
+        {
+            m_LighthouseLampPosition = placement.mPosition + placement.mRotation * ( Vec3(0.0f, cLighthouseLampHeight, 0.0f) * placement.mScale );
+            m_LighthouseBeamNode = CreateModel(cLighthouseBeamAsset, m_BeamMaterial).mRoot;
+
+            for (Entity& entity : m_LighthouseLightEntities)
+                entity = CreateSpotLight("Lighthouse Beam", cLighthouseColor, cLighthouseRange, cLighthouseInnerAngle, cLighthouseOuterAngle);
+        }
+    }
+
+    UpdateNightLights(0.0f, 0.0f);
+}
+
+
+void CoastRallyScript::UpdateNightLights(float inDeltaTime, float inNight)
+{
+    if (Material* palette = FindComponent<Material>(m_PaletteMaterial))
+        palette->emissive = m_PaletteEmissiveTexture != 0 ? Vec3(cPaletteNightEmissive * inNight) : Vec3(0.0f);
+
+    for (Entity entity : m_StreetLampEntities)
+    {
+        if (Light* light = FindComponent<Light>(entity))
+            light->color.a = cStreetLampIntensity * inNight;
+    }
+
+    if (m_LighthouseBeamNode == Node::Null)
+        return;
+
+    m_LighthouseYaw = glm::mod(m_LighthouseYaw + inDeltaTime * cLighthouseSpinSpeed, glm::two_pi<float>());
+    const Quat spin = YawRotation(m_LighthouseYaw);
+
+    if (inNight > 0.0f)
+        SetTransform(m_LighthouseBeamNode, m_LighthouseLampPosition, spin);
+    else
+        Park(m_LighthouseBeamNode);
+
+    for (size_t index = 0; index < m_LighthouseLightEntities.size(); index++)
+    {
+        const float side = index == 0 ? 1.0f : -1.0f;
+        const Vec3 direction = spin * Vec3(0.0f, -glm::sin(cLighthouseBeamPitch), side * glm::cos(cLighthouseBeamPitch));
+
+        SetTransform(m_LighthouseLightEntities[index], m_LighthouseLampPosition, glm::quatLookAtRH(direction, Vec3(0.0f, 1.0f, 0.0f)));
+
+        if (Light* light = FindComponent<Light>(m_LighthouseLightEntities[index]))
+            light->color.a = cLighthouseIntensity * inNight;
+    }
+
+    if (Material* beam = FindComponent<Material>(m_BeamMaterial))
+    {
+        beam->emissive = cLighthouseColor * cLighthouseBeamEmissive * inNight;
+        beam->albedo.a = cLighthouseBeamOpacity * inNight;
+    }
 }
 
 } // RK
