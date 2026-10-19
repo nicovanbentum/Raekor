@@ -148,7 +148,7 @@ void ApplyDetailMaps(RTMaterial inMaterial, SamplerState inSampler, float2 inTex
     Texture2D detail_normal_texture = ResourceDescriptorHeap[NonUniformResourceIndex(inMaterial.mDetailNormalTexture)];
 
     const float2 detail_uv = inTexCoord * inMaterial.mDetailTiling;
-    ioAlbedo.rgb *= detail_texture.Sample(inSampler, detail_uv).rgb * 2.0;
+    ioAlbedo.rgb = saturate(ioAlbedo.rgb * detail_texture.Sample(inSampler, detail_uv).rgb * 2.0);
 
     const float3 detail_normal = ReconstructNormalBC5(detail_normal_texture.Sample(inSampler, detail_uv).xy);
     ioNormal = normalize(float3(ioNormal.xy + detail_normal.xy, ioNormal.z * detail_normal.z));
