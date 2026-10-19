@@ -21,12 +21,20 @@ static TextureCube<float3> diffuse_cube_texture     = ResourceDescriptorHeap[rc.
 static StructuredBuffer<RTLight> lights             = ResourceDescriptorHeap[fc.mLightsBuffer];
 static Texture2D<float2> brdf_lut_texture           = ResourceDescriptorHeap[rc.mBrdfLutTexture];
 
-float3 SampleEnvironmentSpecular(float3 inDirection, float inRoughness)
+float3 SampleEnvironmentSpecular(float3 inPosWS, float3 inDirection, float inRoughness)
 {
     uint width, height, levels;
     skycube_texture.GetDimensions(0, width, height, levels);
     
-    return skycube_texture.SampleLevel(SamplerLinearClamp, inDirection, inRoughness * (levels - 1)) * fc.mSunColor.a;
+    const float3 sky = skycube_texture.SampleLevel(SamplerLinearClamp, inDirection, inRoughness * (levels - 1)) * fc.mSunColor.a;
+
+    if (fc.mGroundBounce.a <= 0.0)
+        return sky;
+
+    const float3 ground_albedo = SampleGroundAlbedo(fc.mGroundAlbedoTexture, fc.mSkyVisibilityBounds, inPosWS, float3(0.0, 1.0, 0.0));
+    const float3 sky_light = diffuse_cube_texture.SampleLevel(SamplerLinearClamp, float3(0.0, 1.0, 0.0), 0) * fc.mSunColor.a;
+
+    return BlendGroundReflection(sky, EvaluateGroundRadiance(ground_albedo, sky_light, fc.mSunColor, fc.mSunDirection.xyz), inDirection, inRoughness);
 }
 
 
@@ -119,7 +127,7 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0
     // evaluate indirect specular
     float3 indirect_specular = rc.mUseReflectionsTexture ? 
         SampleReflections(inParams.mScreenUV, uint2(inParams.mPixelCoords.xy), surface.mRoughness, length(fc.mCameraPosition.xyz - ws_pos)) : 
-        SampleEnvironmentSpecular(reflect(-Wo, surface.mNormal), surface.mRoughness) * sky_visibility;
+        SampleEnvironmentSpecular(ws_pos, reflect(-Wo, surface.mNormal), surface.mRoughness) * sky_visibility;
     
     total_radiance += indirect_specular * specular_albedo * surface.mEnergyCompensation * ao;
     

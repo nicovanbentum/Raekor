@@ -44,4 +44,20 @@ float3 EvaluateGroundBounce(float3 inNormal, float3 inGroundAlbedo, float4 inSun
     return inGroundBounce.rgb * inGroundAlbedo * inGroundBounce.a * sun_irradiance * ground_view / M_PI;
 }
 
+
+float3 EvaluateGroundRadiance(float3 inGroundAlbedo, float3 inSkyLight, float4 inSunColor, float3 inSunDirection)
+{
+    const float3 Wi = normalize(-inSunDirection);
+    const float3 sun_irradiance = Absorb(IntegrateOpticalDepth(0.xxx, -Wi)) * inSunColor.a * saturate(Wi.y);
+
+    return inGroundAlbedo * (sun_irradiance / M_PI + inSkyLight);
+}
+
+
+float3 BlendGroundReflection(float3 inSky, float3 inGround, float3 inDirection, float inRoughness)
+{
+    const float width = 0.03 + inRoughness * 0.6;
+    return lerp(inGround, inSky, smoothstep(-width, width * 0.25, inDirection.y));
+}
+
 #endif // SKY_VISIBILITY_HLSLI

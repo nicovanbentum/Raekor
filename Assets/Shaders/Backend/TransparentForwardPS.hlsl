@@ -34,12 +34,20 @@ static StructuredBuffer<RTLight> lights = ResourceDescriptorHeap[fc.mLightsBuffe
 static Texture2D<float2> brdf_lut_texture = ResourceDescriptorHeap[rc.mBrdfLutTexture];
 
 
-float3 SampleEnvironmentSpecular(float3 inDirection, float inRoughness)
+float3 SampleEnvironmentSpecular(float3 inPosWS, float3 inDirection, float inRoughness)
 {
     uint width, height, levels;
     skycube_texture.GetDimensions(0, width, height, levels);
+    
+    const float3 sky = skycube_texture.SampleLevel(SamplerLinearClamp, inDirection, inRoughness * (levels - 1)) * fc.mSunColor.a;
 
-    return skycube_texture.SampleLevel(SamplerLinearClamp, inDirection, inRoughness * (levels - 1)) * fc.mSunColor.a;
+    if (fc.mGroundBounce.a <= 0.0)
+        return sky;
+
+    const float3 ground_albedo = SampleGroundAlbedo(fc.mGroundAlbedoTexture, fc.mSkyVisibilityBounds, inPosWS, float3(0.0, 1.0, 0.0));
+    const float3 sky_light = diffuse_cube_texture.SampleLevel(SamplerLinearClamp, float3(0.0, 1.0, 0.0), 0) * fc.mSunColor.a;
+
+    return BlendGroundReflection(sky, EvaluateGroundRadiance(ground_albedo, sky_light, fc.mSunColor, fc.mSunDirection.xyz), inDirection, inRoughness);
 }
 
 
@@ -132,7 +140,7 @@ PS_OUTPUT main(in VS_OUTPUT inParams, bool inIsFrontFace : SV_IsFrontFace)
 
     const float sky_visibility = SampleSkyVisibility(fc.mSkyVisibilityTexture, fc.mSkyVisibilityBounds, fc.mSkyVisibilityParams, ws_pos, surface.mNormal);
 
-    float3 indirect_specular = SampleEnvironmentSpecular(reflect(-Wo, surface.mNormal), surface.mRoughness) * sky_visibility;
+    float3 indirect_specular = SampleEnvironmentSpecular(ws_pos, reflect(-Wo, surface.mNormal), surface.mRoughness) * sky_visibility;
     total_radiance += indirect_specular * specular_albedo * surface.mEnergyCompensation;
 
     float3 indirect_diffuse = rc.mUseIndirectDiffuse ?
