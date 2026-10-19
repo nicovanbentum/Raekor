@@ -65,6 +65,7 @@ PS_OUTPUT main(in VS_OUTPUT inParams, bool inIsFrontFace : SV_IsFrontFace)
     float sampled_roughness = roughness_texture.Sample(material_sampler, inParams.texcoord).r;
 
     sampled_normal = ReconstructNormalBC5(sampled_normal.xy);
+    ApplyDetailMaps(material, material_sampler, inParams.texcoord, sampled_albedo, sampled_normal);
 
     const float face_sign = inIsFrontFace ? 1.0 : -1.0;
 

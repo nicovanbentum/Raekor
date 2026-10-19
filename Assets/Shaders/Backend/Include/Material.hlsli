@@ -139,6 +139,22 @@ SamplerState GetMaterialSampler(RTMaterial inMaterial)
 }
 
 
+void ApplyDetailMaps(RTMaterial inMaterial, SamplerState inSampler, float2 inTexCoord, inout float4 ioAlbedo, inout float3 ioNormal)
+{
+    if (inMaterial.mDetailTiling <= 0.0)
+        return;
+
+    Texture2D detail_texture = ResourceDescriptorHeap[NonUniformResourceIndex(inMaterial.mDetailTexture)];
+    Texture2D detail_normal_texture = ResourceDescriptorHeap[NonUniformResourceIndex(inMaterial.mDetailNormalTexture)];
+
+    const float2 detail_uv = inTexCoord * inMaterial.mDetailTiling;
+    ioAlbedo.rgb *= detail_texture.Sample(inSampler, detail_uv).rgb * 2.0;
+
+    const float3 detail_normal = ReconstructNormalBC5(detail_normal_texture.Sample(inSampler, detail_uv).xy);
+    ioNormal = normalize(float3(ioNormal.xy + detail_normal.xy, ioNormal.z * detail_normal.z));
+}
+
+
 struct Surface
 {
     float4 mAlbedo;

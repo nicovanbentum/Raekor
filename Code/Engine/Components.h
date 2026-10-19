@@ -412,6 +412,7 @@ struct Material
 	float metallic = 0.0f;
 	float roughness = 1.0f;
 	float alphaCutoff = 0.5f;
+	float detailTiling = 0.0f;
 	EMaterialBlendMode blendMode = MATERIAL_BLEND_MODE_OPAQUE;
 	EMaterialSamplerFilter samplerFilter = MATERIAL_SAMPLER_FILTER_ANISOTROPIC;
 	EMaterialSamplerAddressMode samplerAddressMode = MATERIAL_SAMPLER_ADDRESS_MODE_WRAP;
@@ -422,6 +423,8 @@ struct Material
 	String emissiveFile; // ptr
 	String metallicFile; // ptr
 	String roughnessFile;  // ptr
+	String detailFile;
+	String detailNormalFile;
 
 	String vertexShaderFile; // ptr
 	String pixelShaderFile; // ptr
@@ -436,6 +439,8 @@ struct Material
 	uint32_t gpuMetallicMap = 0;
 	uint32_t gpuEmissiveMap = 0;
 	uint32_t gpuRoughnessMap = 0;
+	uint32_t gpuDetailMap = 0;
+	uint32_t gpuDetailNormalMap = 0;
 	uint8_t gpuAlbedoMapSwizzle = TEXTURE_SWIZZLE_RGBA;
 	uint8_t gpuNormalMapSwizzle = TEXTURE_SWIZZLE_RGBA;
 	uint8_t gpuEmissiveMapSwizzle = TEXTURE_SWIZZLE_RGBA;

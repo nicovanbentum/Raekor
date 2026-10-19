@@ -21,6 +21,8 @@ void IRenderInterface::UploadMaterialTextures(Entity inEntity, Material& inMater
 	UploadTexture(inMaterial.emissiveFile, false, inMaterial.gpuEmissiveMapSwizzle, Material::Default.gpuEmissiveMap, inMaterial.gpuEmissiveMap);
 	UploadTexture(inMaterial.metallicFile, false, inMaterial.gpuMetallicMapSwizzle, Material::Default.gpuMetallicMap, inMaterial.gpuMetallicMap);
 	UploadTexture(inMaterial.roughnessFile, false, inMaterial.gpuRoughnessMapSwizzle, Material::Default.gpuRoughnessMap, inMaterial.gpuRoughnessMap);
+	UploadTexture(inMaterial.detailFile, true, TEXTURE_SWIZZLE_RGBA, 0, inMaterial.gpuDetailMap);
+	UploadTexture(inMaterial.detailNormalFile, false, inMaterial.gpuNormalMapSwizzle, 0, inMaterial.gpuDetailNormalMap);
 
 	UploadMaterialSampler(inMaterial);
 }

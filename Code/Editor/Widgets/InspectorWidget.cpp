@@ -1127,7 +1127,7 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Material& inMaterial)
 		DrawSwizzleChannel("A", inSwizzle, TEXTURE_SWIZZLE_AAAA);
 		ImGui::PopID();*/
 
-		const uint32_t imgui_map = inGpuMap ? inGpuMap : inDefaultMap;
+		const uint32_t imgui_map = inGpuMap ? inGpuMap : ( inDefaultMap ? inDefaultMap : Material::Default.gpuAlbedoMap );
 		const uint64_t imgui_id = m_Editor->GetRenderInterface()->GetImGuiTextureID(imgui_map);
 
         ImGui::PushID(imguiID);
@@ -1143,7 +1143,7 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Material& inMaterial)
 				if (!asset_path.empty())
 				{
 					inFile = asset_path;
-					const bool is_srgb = inGpuMap == inMaterial.gpuAlbedoMap;
+					const bool is_srgb = &inGpuMap == &inMaterial.gpuAlbedoMap || &inGpuMap == &inMaterial.gpuDetailMap;
 
 					TextureAsset::Ptr asset = GetAssets().GetAsset<TextureAsset>(asset_path);
 					inGpuMap = m_Editor->GetRenderInterface()->UploadTextureFromAsset(asset, is_srgb);
@@ -1225,6 +1225,16 @@ bool InspectorWidget::DrawComponent(Entity inEntity, Material& inMaterial)
 	DrawTextureInteraction(inMaterial.gpuMetallicMap, inMaterial.gpuMetallicMapSwizzle, Material::Default.gpuMetallicMap, inMaterial.metallicFile, ++imgui_id);
 	ImGui::AlignTextToFramePadding(); ImGui::Text("Roughness Map"); ImGui::SameLine();
 	DrawTextureInteraction(inMaterial.gpuRoughnessMap, inMaterial.gpuRoughnessMapSwizzle, Material::Default.gpuRoughnessMap, inMaterial.roughnessFile, ++imgui_id);
+	ImGui::AlignTextToFramePadding(); ImGui::Text("Detail Map         "); ImGui::SameLine();
+	DrawTextureInteraction(inMaterial.gpuDetailMap, inMaterial.gpuAlbedoMapSwizzle, 0, inMaterial.detailFile, ++imgui_id);
+	ImGui::AlignTextToFramePadding(); ImGui::Text("Detail Normal   "); ImGui::SameLine();
+	DrawTextureInteraction(inMaterial.gpuDetailNormalMap, inMaterial.gpuNormalMapSwizzle, 0, inMaterial.detailNormalFile, ++imgui_id);
+
+	CheckForUndo(inEntity, inMaterial, m_MaterialUndo);
+
+	scene_changed |= ImGui::DragFloat("Detail Tiling", &inMaterial.detailTiling, 0.1f, 0.0f, 4096.0f);
+
+	CheckForUndo(inEntity, inMaterial, m_MaterialUndo);
 
 	/* for (const auto& [index, texture] : gEnumerate(inMaterial.textures))
 	{

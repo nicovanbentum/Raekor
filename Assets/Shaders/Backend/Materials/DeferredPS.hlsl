@@ -44,6 +44,7 @@ PS_OUTPUT main(in VS_OUTPUT input) {
         
     //sampled_normal = sampled_normal * 2.0 - 1.0;
     sampled_normal = ReconstructNormalBC5(sampled_normal.xy);
+    ApplyDetailMaps(material, material_sampler, input.texcoord, sampled_albedo, sampled_normal);
     
     float3x3 TBN = float3x3(input.tangent, input.bitangent, input.normal);
     float3 normal = normalize(mul(sampled_normal.xyz, TBN));

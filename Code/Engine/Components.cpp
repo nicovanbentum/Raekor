@@ -163,6 +163,9 @@ RTTI_DEFINE_TYPE(Material)
 	RTTI_DEFINE_MEMBER(Material, SERIALIZE_ALL, "Emissive Map", emissiveFile);
 	RTTI_DEFINE_MEMBER(Material, SERIALIZE_ALL, "Metallic Map", metallicFile);
 	RTTI_DEFINE_MEMBER(Material, SERIALIZE_ALL, "Roughness Map", roughnessFile);
+	RTTI_DEFINE_MEMBER(Material, ESerializeType(SERIALIZE_ALL | SERIALIZE_NO_LEGACY_BINARY), "Detail Map", detailFile);
+	RTTI_DEFINE_MEMBER(Material, ESerializeType(SERIALIZE_ALL | SERIALIZE_NO_LEGACY_BINARY), "Detail Normal Map", detailNormalFile);
+	RTTI_DEFINE_MEMBER(Material, ESerializeType(SERIALIZE_ALL | SERIALIZE_NO_LEGACY_BINARY), "Detail Tiling", detailTiling);
 	RTTI_DEFINE_MEMBER(Material, SERIALIZE_ALL, "Albedo Map Swizzle", gpuAlbedoMapSwizzle);
 	RTTI_DEFINE_MEMBER(Material, SERIALIZE_ALL, "Normal Map Swizzle", gpuNormalMapSwizzle);
 	RTTI_DEFINE_MEMBER(Material, SERIALIZE_ALL, "Emissive Map Swizzle", gpuEmissiveMapSwizzle);

@@ -88,9 +88,9 @@ struct RTMaterial
     uint   mRoughnessTexture;
     float  mAlphaCutoff;
     uint   mSamplerIndex;
-    uint   mPad0;
-    uint   mPad1;
-    uint   mPad2;
+    uint   mDetailTexture;
+    uint   mDetailNormalTexture;
+    float  mDetailTiling;
     float4 mAlbedo;
     float4 mEmissive;
 };

@@ -41,6 +41,9 @@ static RTMaterial sGetRenderMaterial(const Material& inMaterial, const Device& i
         .mRoughnessTexture  = GetTexture(inMaterial.gpuRoughnessMap, Material::Default.gpuRoughnessMap),
         .mAlphaCutoff       = inMaterial.alphaCutoff,
         .mSamplerIndex      = inMaterial.gpuSampler,
+        .mDetailTexture     = GetTexture(inMaterial.gpuDetailMap, Material::Default.gpuAlbedoMap),
+        .mDetailNormalTexture = GetTexture(inMaterial.gpuDetailNormalMap, Material::Default.gpuNormalMap),
+        .mDetailTiling      = inMaterial.gpuDetailMap ? inMaterial.detailTiling : 0.0f,
         .mAlbedo          = inMaterial.albedo,
         .mEmissive          = Vec4(inMaterial.emissive * inExposure, 1.0f)
     };
