@@ -38,7 +38,7 @@ float3 EvaluateGroundBounce(float3 inNormal, float3 inGroundAlbedo, float4 inSun
         return 0.0.xxx;
 
     const float3 Wi = normalize(-inSunDirection);
-    const float3 sun_irradiance = Absorb(IntegrateOpticalDepth(0.xxx, Wi)) * inSunColor.a * saturate(Wi.y);
+    const float3 sun_irradiance = Absorb(IntegrateOpticalDepth(0.xxx, -Wi)) * inSunColor.a * saturate(Wi.y);
     const float ground_view = saturate(0.5 - 0.5 * inNormal.y);
 
     return inGroundBounce.rgb * inGroundAlbedo * inGroundBounce.a * sun_irradiance * ground_view / M_PI;

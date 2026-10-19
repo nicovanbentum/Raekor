@@ -22,7 +22,7 @@ float3 EvaluateSunDisc(float3 inViewDirection, float4 inSunColor, float3 inSunDi
     const float limb = 1.0 - SUN_DISC_LIMB_DARKENING * ( 1.0 - sqrt(saturate(1.0 - theta * theta)) );
     const float horizon = smoothstep(-0.002, 0.002, inViewDirection.y);
 
-    const float3 sun_radiance = Absorb(IntegrateOpticalDepth(0.xxx, Wi)) * inSunColor.a / inSunDisc.y;
+    const float3 sun_radiance = Absorb(IntegrateOpticalDepth(0.xxx, -Wi)) * inSunColor.a / inSunDisc.y;
 
     return min(sun_radiance * edge * limb * horizon, SUN_DISC_MAX_RADIANCE.xxx);
 }
