@@ -143,7 +143,6 @@ class Part:
         self.family = self.bm.faces.layers.int.new("family")
         self.shade = self.bm.faces.layers.int.new("shade")
         self.recalc_faces = []
-        self.smooth = False
 
     def tag(self, verts, family, shade, variation):
         faces = dict.fromkeys(face for vert in verts for face in vert.link_faces)
@@ -297,10 +296,9 @@ def build_asset(name, parts, offset, material):
         bm.free()
 
         for polygon in mesh.polygons:
-            polygon.use_smooth = part.smooth
+            polygon.use_smooth = True
 
-        if part.smooth:
-            mesh.set_sharp_from_angle(angle=SMOOTH_ANGLE)
+        mesh.set_sharp_from_angle(angle=SMOOTH_ANGLE)
 
         mesh.materials.append(material)
 
@@ -308,12 +306,6 @@ def build_asset(name, parts, offset, material):
         obj.location = joint
         obj.parent = empty
         bpy.context.scene.collection.objects.link(obj)
-
-
-def smoothed(parts):
-    for part in parts:
-        part.smooth = True
-    return parts
 
 
 def single(rng, function, *args):
@@ -1239,8 +1231,8 @@ def build_layout(rng):
 
 
 ASSETS = [
-    ("Car", lambda r: smoothed(car(r))),
-    ("Wheel", lambda r: smoothed(single(r, wheel))),
+    ("Car", car),
+    ("Wheel", lambda r: single(r, wheel)),
     ("Cone", lambda r: single(r, cone)),
     ("Barrel", lambda r: single(r, barrel)),
     ("Crate", lambda r: single(r, crate)),
