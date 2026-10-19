@@ -3,7 +3,7 @@
 
 #define SUN_DISC_EDGE_SOFTNESS 0.15
 #define SUN_DISC_LIMB_DARKENING 0.6
-#define SUN_DISC_MAX_RADIANCE 30000.0
+#define SUN_DISC_MAX_RADIANCE 64.0
 
 float3 EvaluateSunDisc(float3 inViewDirection, float4 inSunColor, float3 inSunDirection, float4 inSunDisc)
 {
@@ -23,8 +23,10 @@ float3 EvaluateSunDisc(float3 inViewDirection, float4 inSunColor, float3 inSunDi
     const float horizon = smoothstep(-0.002, 0.002, inViewDirection.y);
 
     const float3 sun_radiance = Absorb(IntegrateOpticalDepth(0.xxx, -Wi)) * inSunColor.a / inSunDisc.y;
+    const float peak = max(sun_radiance.r, max(sun_radiance.g, sun_radiance.b));
+    const float3 capped_radiance = sun_radiance * min(1.0, SUN_DISC_MAX_RADIANCE / max(peak, 1e-6));
 
-    return min(sun_radiance * edge * limb * horizon, SUN_DISC_MAX_RADIANCE.xxx);
+    return capped_radiance * edge * limb * horizon;
 }
 
 #endif // SUN_DISC_HLSLI
