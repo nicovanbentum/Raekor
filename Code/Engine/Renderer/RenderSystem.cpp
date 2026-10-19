@@ -259,7 +259,7 @@ const char* RenderSystem::GetDebugTextureName(uint32_t inIndex) const
         "RT Reflections",
         "RT Indirect Diffuse",
         "RT Ambient Occlusion",
-        "Sky Visibility",
+        "Sky Visibility & Bounce",
     };
 
     static_assert( names.size() == DEBUG_TEXTURE_COUNT );

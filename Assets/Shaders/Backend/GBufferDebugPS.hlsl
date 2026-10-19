@@ -24,7 +24,18 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
         return float4(1.0, 1.0, 1.0, 1.0);
 
     const float3 ws_pos = ReconstructWorldPosition(inParams.mScreenUV, sky_depth, fc.mInvViewProjectionMatrix);
-    return float4(SampleSkyVisibility(fc.mSkyVisibilityTexture, fc.mSkyVisibilityBounds, fc.mSkyVisibilityParams, ws_pos, float3(0.0, 1.0, 0.0)).xxx, 1.0);
+
+    float3 normal = normalize(cross(ddx(ws_pos), ddy(ws_pos)));
+    if (dot(normal, fc.mCameraPosition.xyz - ws_pos) < 0.0)
+        normal = -normal;
+
+    const float visibility = SampleSkyVisibility(fc.mSkyVisibilityTexture, fc.mSkyVisibilityBounds, fc.mSkyVisibilityParams, ws_pos, normal);
+    const float3 ground_albedo = SampleGroundAlbedo(fc.mGroundAlbedoTexture, fc.mSkyVisibilityBounds, ws_pos, normal);
+    const float sun_height = saturate(-normalize(fc.mSunDirection.xyz).y);
+    const float3 bounce = fc.mGroundBounce.rgb * ground_albedo * fc.mGroundBounce.a * sun_height * visibility;
+
+    const float ground_view = saturate(0.5 - 0.5 * normal.y);
+    return float4(lerp(visibility.xxx, bounce, ground_view), 1.0);
 #endif
 
 #ifdef DEBUG_TEXTURE_GBUFFER_VELOCITY
