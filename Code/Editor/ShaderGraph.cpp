@@ -429,56 +429,6 @@ bool ShaderGraphBuilder::GenerateCodeFromFiles(const Path& inTemplateFile, const
 }
 
 
-void ShaderGraphBuilder::StoreSnapshot()
-{
-	m_Undo.push_back(*this);
-	m_Redo.clear();
-}
-
-
-void ShaderGraphBuilder::ResetSnapshots()
-{
-	m_SnapshotIndex = -1;
-}
-
-
-ShaderGraphBuilder ShaderGraphBuilder::Undo()
-{
-	if (m_Undo.empty())
-		return *this;
-
-	if (m_Redo.empty())
-		m_Redo.push_back(*this);
-	else
-		m_Redo.push_back(m_Undo.back());
-
-	ShaderGraphBuilder back = m_Undo.back();
-
-	if (m_Undo.size() > 0)
-		m_Undo.pop_back();
-
-	back.UpdatePinLinks();
-	return back;
-}
-
-
-ShaderGraphBuilder ShaderGraphBuilder::Redo()
-{
-	if (m_Redo.empty())
-		return *this;
-
-	m_Undo.push_back(m_Redo.back());
-
-	ShaderGraphBuilder back = m_Redo.back();
-
-	if (!m_Redo.empty())
-		m_Redo.pop_back();
-
-	back.UpdatePinLinks();
-	return back;
-}
-
-
 void ShaderGraphBuilder::SaveToFileJSON(JSON::WriteArchive& ioArchive)
 {
 	ioArchive << *this;

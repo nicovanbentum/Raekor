@@ -347,6 +347,8 @@ void Editor::OnEvent(const SDL_Event& event)
 		const bool ctrl = ( modifiers & SDL_KMOD_CTRL ) != 0;
 		const bool shift = ( modifiers & SDL_KMOD_SHIFT ) != 0;
 		const bool editing = GetGameState() != GAME_RUNNING;
+		const ShaderGraphWidget* shader_graph_widget = m_Widgets.GetWidget<ShaderGraphWidget>();
+		const bool editing_scene = editing && !( shader_graph_widget && shader_graph_widget->IsFocused() );
 
 		switch (event.key.key)
 		{
@@ -388,13 +390,13 @@ void Editor::OnEvent(const SDL_Event& event)
 
 			case SDLK_DELETE:
 			{
-				if (editing && !g_Input->IsRelativeMouseMode())
+				if (editing_scene && !g_Input->IsRelativeMouseMode())
 					DeleteSelection();
 			} break;
 
 			case SDLK_Z:
 			{
-				if (ctrl && editing && m_UndoSystem.HasUndo())
+				if (ctrl && editing_scene && m_UndoSystem.HasUndo())
 				{
 					m_UndoSystem.Undo();
 					m_ViewportChanged = true;
@@ -404,7 +406,7 @@ void Editor::OnEvent(const SDL_Event& event)
 
 			case SDLK_Y:
 			{
-				if (ctrl && editing && m_UndoSystem.HasRedo())
+				if (ctrl && editing_scene && m_UndoSystem.HasRedo())
 				{
 					m_UndoSystem.Redo();
 					m_ViewportChanged = true;

@@ -215,22 +215,12 @@ public:
 	Slice<const String> GetFunctions() const { return m_Functions; }
 	void AddFunction(const String& inFunction) { m_Functions.push_back(inFunction); }
 
-	void StoreSnapshot();
-	void ResetSnapshots();
-	ShaderGraphBuilder Undo();
-	ShaderGraphBuilder Redo();
-
 	//////////////////////
 	// SAVE/RESTORE FUNCTIONS
 	void SaveToFileJSON(JSON::WriteArchive& ioArchive);
 	void OpenFromFileJSON(JSON::ReadArchive& ioArchive);
 
 	static bool sGenerateFromGraphFile(const Path& inGraphFile);
-
-private:
-	static inline int m_SnapshotIndex = -1;
-	static inline Array<ShaderGraphBuilder> m_Undo;
-	static inline Array<ShaderGraphBuilder> m_Redo;
 
 private:
 	bool m_ShowNodeIndices = false;
