@@ -9,8 +9,8 @@ from mathutils import Matrix, Euler, Vector
 import numpy as np
 
 
-GRID = 32
-SWATCH = 32
+GRID = 64
+SWATCH = 16
 SIZE = GRID * SWATCH
 SHADES = [0.62, 0.74, 0.86, 1.0, 1.1, 1.2, 1.32, 1.46]
 
@@ -24,7 +24,7 @@ FAMILIES = [
     ("Paint",      (0.86, 0.86, 0.82), 0.0),
     ("Yellow",     (0.95, 0.72, 0.08), 0.0),
     ("Red",        (0.76, 0.10, 0.08), 0.0),
-    ("CarWhite",   (0.86, 0.85, 0.80), 0.0),
+    ("CarWhite",   (0.71, 0.70, 0.67), 0.0),
     ("White",      (0.86, 0.86, 0.86), 0.0),
     ("Rubber",     (0.04, 0.04, 0.045), 0.0),
     ("Steel",      (0.55, 0.56, 0.60), 0.0),
@@ -47,15 +47,32 @@ FAMILIES = [
     ("GlowRed",    (1.00, 0.12, 0.08), 0.3),
     ("GlowAmber",  (1.00, 0.62, 0.18), 0.6),
     ("GlowWindow", (1.00, 0.85, 0.55), 0.1),
+    ("Chrome",     (0.95, 0.94, 0.91), 0.0),
+    ("Alloy",      (0.84, 0.84, 0.86), 0.0),
+    ("Satin",      (0.035, 0.035, 0.04), 0.0),
+    ("Tyre",       (0.04, 0.04, 0.042), 0.0),
+    ("Trim",       (0.03, 0.03, 0.032), 0.0),
+    ("Leather",    (0.26, 0.13, 0.07), 0.0),
+    ("Carpet",     (0.06, 0.055, 0.05), 0.0),
 ]
 
 FAMILY_INDEX = {name: index for index, (name, _, _) in enumerate(FAMILIES)}
 
 DEFAULT_SURFACE = (0.85, 0.0)
 SURFACES = {
-    "CarWhite": (0.25, 0.0),
-    "Glass":    (0.06, 0.0),
+    "CarWhite": (0.08, 0.0),
+    "Glass":    (0.04, 0.0),
     "Rubber":   (0.7, 0.0),
+    "Chrome":   (0.05, 1.0),
+    "Alloy":    (0.16, 1.0),
+    "Satin":    (0.4, 0.0),
+    "Tyre":     (0.9, 0.0),
+    "Trim":     (0.45, 0.0),
+    "Leather":  (0.5, 0.0),
+    "Carpet":   (1.0, 0.0),
+    "GlowWhite": (0.05, 0.0),
+    "GlowRed":  (0.05, 0.0),
+    "GlowAmber": (0.05, 0.0),
     "Iron":     (0.4, 0.3),
     "Steel":    (0.2, 1.0),
     "Yellow":   (0.25, 1.0),
@@ -912,7 +929,7 @@ def car(rng):
 
     body_zs = list(np.linspace(-2.16, -1.75, 5)) + list(np.linspace(-1.65, 1.65, 18)) + list(np.linspace(1.75, 2.13, 5))
     loft(body, "CarWhite", [body_ring(z) for z in body_zs], shade=4)
-    box(body, "Rubber", (0, -0.41, 0.0), (1.5, 0.03, 3.9), shade=1)
+    box(body, "Trim", (0, -0.41, 0.0), (1.5, 0.03, 3.9), shade=1)
 
     loft(body, "CarWhite", [cabin_ring(z) for z in np.linspace(-1.85, -0.55, 8)], shade=4)
     loft(glass, "Glass", [cabin_ring(z) for z in np.linspace(-0.55, 0.9, 9)], shade=2)
@@ -935,15 +952,15 @@ def car(rng):
         beam(body, "CarWhite", (side * 0.7, 0.14, 0.84), (side * (a_top_w - 0.01), a_top_y - CAR_ROOF_CROWN, 0.16), 0.06, shade=5)
         beam(body, "CarWhite", (side * 0.79, 0.12, -0.55), (side * (b_top_w + 0.005), b_top_y - CAR_ROOF_CROWN, -0.55), 0.07, shade=4)
         box(body, "CarWhite", (side * 0.81, 0.2, 0.62), (0.12, 0.08, 0.13), shade=4)
-        box(body, "Rubber", (side * 0.865, 0.03, -0.35), (0.015, 0.022, 0.13), shade=1)
-        box(body, "Rubber", (side * 0.845, -0.3, -0.02), (0.02, 0.035, 1.5), shade=1)
+        box(body, "Chrome", (side * 0.865, 0.03, -0.35), (0.015, 0.022, 0.13), shade=3)
+        box(body, "Trim", (side * 0.845, -0.3, -0.02), (0.02, 0.035, 1.5), shade=1)
 
         for z, x_liner, x_out, r_out in ((CAR_FRONT_WHEEL_Z, 0.98, 1.06, 0.49), (CAR_REAR_WHEEL_Z, 1.04, 1.085, 0.5)):
-            arch(body, "Rubber", z, CAR_WHEEL_Y, 0.02, 0.45, side * 0.8, side * x_liner, seg=14, shade=0)
+            arch(body, "Trim", z, CAR_WHEEL_Y, 0.02, 0.45, side * 0.8, side * x_liner, seg=14, shade=0)
             arch(body, "CarWhite", z, CAR_WHEEL_Y, 0.45, r_out, side * 0.8, side * x_out, seg=14, shade=4)
 
         frog = Euler((-0.3, 0.0, 0.0)).to_matrix().to_4x4()
-        for family, radius, depth, offset, shade in (("CarWhite", 0.12, 0.1, 0.0, 4), ("Steel", 0.1, 0.02, 0.055, 6), ("GlowWhite", 0.085, 0.02, 0.065, 3)):
+        for family, radius, depth, offset, shade in (("CarWhite", 0.12, 0.1, 0.0, 4), ("Chrome", 0.1, 0.02, 0.055, 3), ("GlowWhite", 0.085, 0.02, 0.065, 3)):
             transform = Matrix.Translation((side * 0.66, 0.09, 1.86)) @ frog @ Matrix.Translation((0, 0, offset))
             result = bmesh.ops.create_cone(body.bm, cap_ends=True, cap_tris=False, segments=16, radius1=radius, radius2=radius, depth=depth, matrix=transform)
             body.tag(result["verts"], family, shade, 0)
@@ -951,45 +968,65 @@ def car(rng):
         box(body, "GlowAmber", (side * 0.5, -0.17, 2.175), (0.2, 0.045, 0.02), shade=4)
         box(body, "GlowAmber", (side * 0.6, -0.06, -2.19), (0.12, 0.06, 0.02), shade=4)
 
-    box(body, "Rubber", (0, -0.17, 2.14), (1.36, 0.09, 0.07), shade=1)
+    box(body, "Trim", (0, -0.17, 2.14), (1.36, 0.09, 0.07), shade=1)
     box(body, "Yellow", (0, -0.01, 2.0), (0.06, 0.06, 0.02), rot=(-0.6, 0, 0), shade=5)
 
-    box(body, "Rubber", (0, -0.06, -2.17), (1.36, 0.1, 0.03), shade=1)
+    box(body, "Trim", (0, -0.06, -2.17), (1.36, 0.1, 0.03), shade=1)
     box(brake, "GlowRed", (0, -0.06, -2.185), (1.08, 0.06, 0.02))
-    box(body, "Rubber", (0, -0.17, -2.18), (1.42, 0.08, 0.07), shade=1)
-    cyl(body, "Steel", (-0.42, -0.27, -2.13), 0.045, 0.045, 0.2, seg=10, axis="z", shade=5)
+    box(body, "Trim", (0, -0.17, -2.18), (1.42, 0.08, 0.07), shade=1)
+    cyl(body, "Chrome", (-0.42, -0.27, -2.13), 0.045, 0.045, 0.2, seg=12, axis="z", shade=3)
 
     for side in (-1, 1):
         x = side * 0.33
-        box(body, "Wood", (x, 0.22, -0.15), (0.38, 0.1, 0.44), shade=3)
-        box(body, "Wood", (x, 0.36, -0.38), (0.36, 0.22, 0.1), rot=(0.22, 0, 0), shade=4)
-        box(body, "Wood", (x, 0.5, -0.42), (0.2, 0.06, 0.07), rot=(0.22, 0, 0), shade=4)
-    box(body, "Iron", (0, 0.24, 0.45), (1.1, 0.1, 0.2), shade=1)
-    box(body, "Iron", (0, 0.22, 0.1), (0.16, 0.1, 0.6), shade=2)
+        box(body, "Leather", (x, 0.22, -0.15), (0.38, 0.1, 0.44), shade=3)
+        box(body, "Leather", (x, 0.36, -0.38), (0.36, 0.22, 0.1), rot=(0.22, 0, 0), shade=4)
+        box(body, "Leather", (x, 0.5, -0.42), (0.2, 0.06, 0.07), rot=(0.22, 0, 0), shade=4)
+    box(body, "Trim", (0, 0.24, 0.45), (1.1, 0.1, 0.2), shade=1)
+    box(body, "Carpet", (0, 0.22, 0.1), (0.16, 0.1, 0.6), shade=3)
     steering = Euler((-0.45, 0.0, 0.0)).to_matrix().to_4x4()
     transform = Matrix.Translation((0.33, 0.36, 0.32)) @ steering
     result = bmesh.ops.create_cone(body.bm, cap_ends=True, cap_tris=False, segments=12, radius1=0.11, radius2=0.11, depth=0.03, matrix=transform)
-    body.tag(result["verts"], "Rubber", 1, 0)
+    body.tag(result["verts"], "Trim", 1, 0)
 
     wing = [(-1.5, 0.17), (-1.58, 0.3), (-2.02, 0.34), (-2.1, 0.41), (-2.16, 0.36), (-2.03, 0.12)]
-    loft(body, "Rubber", [[(x, y, z) for z, y in wing] for x in (-0.8, 0.8)], shade=1)
+    loft(body, "Trim", [[(x, y, z) for z, y in wing] for x in (-0.8, 0.8)], shade=1)
     for index in range(6):
         z = -1.62 - index * 0.07
         y = 0.3 + (z + 1.58) * (0.34 - 0.3) / (-2.02 + 1.58)
-        box(body, "Iron", (0, y + 0.012, z), (1.26, 0.012, 0.03), shade=3)
+        box(body, "Satin", (0, y + 0.012, z), (1.26, 0.012, 0.03), shade=3)
 
     return [body, brake, glass]
 
 
+def annulus(p, family, r_in, r_out, x0, x1, seg=28, shade=3):
+    rings = []
+    for k in range(seg):
+        a = math.tau * k / seg
+        c, s = math.cos(a), math.sin(a)
+        rings.append([p.bm.verts.new((x, r * s, r * c)) for x, r in ((x0, r_in), (x1, r_in), (x1, r_out), (x0, r_out))])
+    for k in range(seg):
+        a, b = rings[k], rings[(k + 1) % seg]
+        for i in range(4):
+            j = (i + 1) % 4
+            p.recalc_faces.append(p.bm.faces.new((a[i], a[j], b[j], b[i])))
+    return p.tag([vert for ring in rings for vert in ring], family, shade, 0)
+
+
 def wheel(p, rng):
-    cyl(p, "Rubber", (0, 0, 0), 0.36, 0.36, 0.26, seg=16, axis="x", var=0)
-    cyl(p, "Rubber", (0, 0, 0), 0.33, 0.33, 0.28, seg=16, axis="x", shade=1, var=0)
-    cyl(p, "Iron", (0.02, 0, 0), 0.24, 0.24, 0.25, seg=16, axis="x", shade=1, var=0)
-    cyl(p, "Iron", (0.135, 0, 0), 0.215, 0.215, 0.012, seg=16, axis="x", shade=0, var=0)
+    cyl(p, "Tyre", (0, 0, 0), 0.36, 0.36, 0.24, seg=28, axis="x", shade=2, var=0)
+    cyl(p, "Tyre", (0, 0, 0), 0.345, 0.345, 0.27, seg=28, axis="x", shade=3, var=0)
+    cyl(p, "Tyre", (0, 0, 0), 0.3, 0.3, 0.285, seg=28, axis="x", shade=3, var=0)
+    cyl(p, "Alloy", (0.02, 0, 0), 0.24, 0.24, 0.25, seg=28, axis="x", shade=1, var=0)
+    annulus(p, "Alloy", 0.205, 0.25, 0.128, 0.15, shade=3)
+    cyl(p, "Satin", (0.13, 0, 0), 0.208, 0.208, 0.012, seg=28, axis="x", shade=3, var=0)
     for index in range(5):
         a = index / 5 * math.tau
-        box(p, "Iron", (0.145, math.sin(a) * 0.12, math.cos(a) * 0.12), (0.02, 0.08, 0.2), rot=(-a, 0, 0), shade=3, var=0)
-    cyl(p, "Steel", (0.15, 0, 0), 0.07, 0.07, 0.04, seg=10, axis="x", shade=6, var=0)
+        box(p, "Alloy", (0.142, math.sin(a) * 0.115, math.cos(a) * 0.115), (0.022, 0.052, 0.2), rot=(-a, 0, 0), shade=3, var=0)
+    cyl(p, "Alloy", (0.145, 0, 0), 0.085, 0.085, 0.03, seg=20, axis="x", shade=3, var=0)
+    cyl(p, "Chrome", (0.16, 0, 0), 0.055, 0.05, 0.03, seg=20, axis="x", shade=3, var=0)
+    for index in range(5):
+        a = (index + 0.5) / 5 * math.tau
+        cyl(p, "Chrome", (0.163, math.sin(a) * 0.07, math.cos(a) * 0.07), 0.011, 0.011, 0.014, seg=8, axis="x", shade=3, var=0)
 
 
 def cone(p, rng):

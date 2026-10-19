@@ -210,7 +210,7 @@ void CoastRallyScript::CreateMaterials()
 
     m_WaterMaterial = CreateMaterial(Vec3(0.03f, 0.2f, 0.28f), Vec3(0.0f), 0.08f);
     m_BrakeMaterial = CreateMaterial(Vec3(1.0f, 0.1f, 0.06f), Vec3(1.0f, 0.1f, 0.06f) * cBrakeLightIntensity, 0.3f);
-    m_GlassMaterial = CreateMaterial(cGlassColor, Vec3(0.0f), 0.05f);
+    m_GlassMaterial = CreateMaterial(cGlassColor, Vec3(0.0f), 0.02f);
 
     if (Material* glass = FindComponent<Material>(m_GlassMaterial))
     {

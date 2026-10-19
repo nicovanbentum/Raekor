@@ -112,8 +112,8 @@ static constexpr float cEngineSoundRPM = 3000.0f;
 static constexpr Vec3 cParkedPosition = Vec3(0.0f, -200.0f, 0.0f);
 
 static constexpr float cBrakeLightIntensity = 60000.0f;
-static constexpr Vec3  cGlassColor = Vec3(0.06f, 0.09f, 0.11f);
-static constexpr float cGlassOpacity = 0.3f;
+static constexpr Vec3  cGlassColor = Vec3(0.015f, 0.02f, 0.025f);
+static constexpr float cGlassOpacity = 0.6f;
 
 static constexpr float cDayLength = 360.0f;
 static constexpr float cStartTimeOfDay = 0.35f;
