@@ -213,6 +213,10 @@ private:
     uint32_t m_PaletteMetallicTexture = 0;
     uint32_t m_SkyVisibilityTexture = 0;
     uint32_t m_GroundAlbedoTexture = 0;
+    uint32_t m_TerrainAlbedoTexture = 0;
+    uint32_t m_TerrainNormalTexture = 0;
+    uint32_t m_TerrainDetailTexture = 0;
+    uint32_t m_TerrainDetailNormalTexture = 0;
     int m_HudFont = 0;
     int m_LabelFont = 0;
 
@@ -228,6 +232,7 @@ private:
     Entity m_CameraEntity = Entity::Null;
 
     Entity m_PaletteMaterial = Entity::Null;
+    Entity m_TerrainMaterial = Entity::Null;
     Entity m_CarMaterial = Entity::Null;
     Entity m_WaterMaterial = Entity::Null;
     Entity m_BrakeMaterial = Entity::Null;

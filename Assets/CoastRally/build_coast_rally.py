@@ -143,6 +143,7 @@ class Part:
         self.family = self.bm.faces.layers.int.new("family")
         self.shade = self.bm.faces.layers.int.new("shade")
         self.recalc_faces = []
+        self.planar_uv = None
 
     def tag(self, verts, family, shade, variation):
         faces = dict.fromkeys(face for vert in verts for face in vert.link_faces)
@@ -289,7 +290,12 @@ def build_asset(name, parts, offset, material):
 
         uv_layer = bm.loops.layers.uv.new("UVMap")
         for face in bm.faces:
-            assign_uv(face, uv_layer, face[part.family], face[part.shade])
+            if part.planar_uv is not None:
+                for loop in face.loops:
+                    world = loop.vert.co + joint
+                    loop[uv_layer].uv = ((world.x + part.planar_uv) / (2.0 * part.planar_uv), (part.planar_uv - world.y) / (2.0 * part.planar_uv))
+            else:
+                assign_uv(face, uv_layer, face[part.family], face[part.shade])
 
         mesh = bpy.data.meshes.new(f"{name}_{part.name}")
         bm.to_mesh(mesh)
@@ -443,45 +449,265 @@ def final_height(x, z):
 
 def terrain(rng):
     p = Part("Main", (0, 0, 0), rng)
+    p.planar_uv = TERRAIN_HALF
     cells = int(TERRAIN_HALF * 2.0 / TERRAIN_CELL)
     axis = np.linspace(-TERRAIN_HALF, TERRAIN_HALF, cells + 1)
     gx, gz = np.meshgrid(axis, axis)
     heights, _, _ = final_height(gx, gz)
-    patches = waves(gx, gz, PATCH_WAVES)
 
     verts = [[p.bm.verts.new((float(gx[j, i]), float(heights[j, i]), float(gz[j, i]))) for i in range(cells + 1)] for j in range(cells + 1)]
 
-    cx = (gx[:-1, :-1] + gx[1:, 1:]) * 0.5
-    cz = (gz[:-1, :-1] + gz[1:, 1:]) * 0.5
-    ch, cd, croad = final_height(cx, cz)
-    cpad = pad_distance(cx, cz)
-    cpatch = (patches[:-1, :-1] + patches[1:, 1:]) * 0.5
-    slope_x = (heights[:-1, 1:] - heights[:-1, :-1] + heights[1:, 1:] - heights[1:, :-1]) * 0.5 / TERRAIN_CELL
-    slope_z = (heights[1:, :-1] - heights[:-1, :-1] + heights[1:, 1:] - heights[:-1, 1:]) * 0.5 / TERRAIN_CELL
-    slope = np.hypot(slope_x, slope_z)
-
     for j in range(cells):
         for i in range(cells):
-            h = ch[j, i]
-            if h < -0.4:
-                family, shade = "Sand", rng.randint(0, 2)
-            elif h < 2.3 and cd[j, i] > 0.72:
-                family, shade = "Sand", rng.randint(2, 5)
-            elif slope[j, i] > 0.55 or h > 24.0:
-                family, shade = "Rock", rng.randint(1, 5)
-            elif croad[j, i] < ROAD_HALF + 2.5 or cpad[j, i] < 2.0:
-                family, shade = "Dirt", rng.randint(2, 4)
-            elif cpatch[j, i] > 1.2:
-                family, shade = "GrassDry", rng.randint(2, 5)
-            else:
-                family, shade = "Grass", rng.randint(1, 5)
-
             a, b, c, d = verts[j][i], verts[j + 1][i], verts[j + 1][i + 1], verts[j][i + 1]
             for tri in (((a, b, c), (a, c, d)) if (i + j) % 2 == 0 else ((a, b, d), (b, c, d))):
                 face = p.bm.faces.new(tri)
-                face[p.family] = FAMILY_INDEX[family]
-                face[p.shade] = shade
+                face[p.family] = FAMILY_INDEX["Grass"]
+                face[p.shade] = 3
     return [p]
+
+
+TERRAIN_MAP_SIZE = 2048
+TERRAIN_FIELD_SIZE = 1024
+TERRAIN_NORMAL_STRENGTH = 1.0
+TERRAIN_DETAIL_SIZE = 1024
+TERRAIN_DETAIL_TILING = 100
+
+
+def hash_grid(ix, iz, seed):
+    h = ix.astype(np.uint32) * np.uint32(374761393) + iz.astype(np.uint32) * np.uint32(668265263) + np.uint32((seed * 2654435761) & 0xFFFFFFFF)
+    h = (h ^ (h >> np.uint32(13))) * np.uint32(1274126177)
+    h = h ^ (h >> np.uint32(16))
+    return h.astype(np.float64) / 4294967295.0
+
+
+def wrap(index, period):
+    return index % period if period else index
+
+
+def value_noise(x, z, seed, period=None):
+    fx, fz = np.floor(x), np.floor(z)
+    ix, iz = fx.astype(np.int64), fz.astype(np.int64)
+    tx, tz = x - fx, z - fz
+    ux, uz = tx * tx * (3.0 - 2.0 * tx), tz * tz * (3.0 - 2.0 * tz)
+    x0, x1, z0, z1 = wrap(ix, period), wrap(ix + 1, period), wrap(iz, period), wrap(iz + 1, period)
+    a = hash_grid(x0, z0, seed)
+    b = hash_grid(x1, z0, seed)
+    c = hash_grid(x0, z1, seed)
+    d = hash_grid(x1, z1, seed)
+    return (a + (b - a) * ux + (c - a) * uz + (a - b - c + d) * ux * uz) * 2.0 - 1.0
+
+
+def fbm(x, z, scale, octaves, seed, gain=0.5):
+    total = np.zeros_like(x)
+    amplitude, norm, frequency = 1.0, 0.0, 1.0 / scale
+    for octave in range(octaves):
+        angle = 0.7 * octave + 0.3 * seed
+        c, s = math.cos(angle), math.sin(angle)
+        total += amplitude * value_noise((x * c - z * s) * frequency + 17.3 * octave, (x * s + z * c) * frequency - 9.1 * octave, seed + octave)
+        norm += amplitude
+        amplitude *= gain
+        frequency *= 2.0
+    return total / norm
+
+
+def cellular(x, z, scale, seed, period=None):
+    gx, gz = x / scale, z / scale
+    ix, iz = np.floor(gx).astype(np.int64), np.floor(gz).astype(np.int64)
+    best = np.full(x.shape, np.inf)
+    ident = np.zeros(x.shape)
+    for dz in (-1, 0, 1):
+        for dx in (-1, 0, 1):
+            cx, cz = ix + dx, iz + dz
+            hx, hz = wrap(cx, period), wrap(cz, period)
+            px = cx + hash_grid(hx, hz, seed)
+            pz = cz + hash_grid(hx, hz, seed + 1)
+            distance = (gx - px) ** 2 + (gz - pz) ** 2
+            closer = distance < best
+            best = np.where(closer, distance, best)
+            ident = np.where(closer, hash_grid(hx, hz, seed + 2), ident)
+    return np.sqrt(best), ident
+
+
+def upsample(field, size):
+    count = field.shape[0]
+    t = np.clip((np.arange(size) + 0.5) * count / size - 0.5, 0.0, count - 1.0)
+    i0 = np.floor(t).astype(np.int64)
+    i1 = np.minimum(i0 + 1, count - 1)
+    f = t - i0
+    rows = field[i0] * (1.0 - f)[:, None] + field[i1] * f[:, None]
+    return rows[:, i0] * (1.0 - f)[None, :] + rows[:, i1] * f[None, :]
+
+
+def mix(a, b, t):
+    return a + (b - a) * t[..., None]
+
+
+def color(rgb):
+    return np.array(rgb, dtype=np.float64)
+
+
+def terrain_fields():
+    count = TERRAIN_FIELD_SIZE
+    axis = -TERRAIN_HALF + (np.arange(count) + 0.5) * (2.0 * TERRAIN_HALF / count)
+    fx, fz = np.meshgrid(axis, axis)
+    height, coast, road = final_height(fx, fz)
+    pad = pad_distance(fx, fz)
+    slope_z, slope_x = np.gradient(height, 2.0 * TERRAIN_HALF / count)
+    slope = np.hypot(slope_x, slope_z)
+    return [upsample(field, TERRAIN_MAP_SIZE) for field in (height, coast, road, pad, slope)]
+
+
+def terrain_maps(directory):
+    size = TERRAIN_MAP_SIZE
+    cell = 2.0 * TERRAIN_HALF / size
+    axis = -TERRAIN_HALF + (np.arange(size) + 0.5) * cell
+    x, z = np.meshgrid(axis, axis)
+    height, coast, road, pad, slope = terrain_fields()
+
+    large = fbm(x, z, 70.0, 4, 1)
+    mid = fbm(x, z, 9.0, 4, 2)
+    fine = fbm(x, z, 1.4, 3, 3)
+    blotch = fbm(x, z, 22.0, 3, 4)
+
+    clump, clump_id = cellular(x, z, 0.9, 10)
+    clump_height = np.clip(1.0 - clump * 1.25, 0.0, 1.0) ** 1.5
+    tuft, _ = cellular(x, z, 0.45, 11)
+    tuft_height = np.clip(1.0 - tuft * 1.4, 0.0, 1.0)
+    grass_height = 0.05 * clump_height + 0.02 * tuft_height + 0.012 * fine
+
+    dry = smoothstep(0.4, 1.9, waves(x, z, PATCH_WAVES) + 1.4 * large + 0.7 * mid)
+    grass = mix(color((0.22, 0.44, 0.12)), color((0.52, 0.52, 0.21)), dry)
+    grass = mix(grass, color((0.30, 0.50, 0.10)), smoothstep(0.1, 0.6, blotch) * (1.0 - dry) * 0.6)
+    grass = mix(grass, color((0.16, 0.36, 0.13)), smoothstep(0.0, -0.5, blotch) * 0.5)
+    grass *= (0.72 + 0.42 * clump_height + 0.10 * tuft_height + 0.12 * fine)[..., None]
+    grass *= (0.92 + 0.16 * clump_id + 0.10 * mid)[..., None]
+
+    rut_distance = road + 0.35 * mid
+    ruts = np.exp(-((rut_distance - (ROAD_HALF + 1.2)) / 0.32) ** 2) + np.exp(-((rut_distance - (ROAD_HALF + 2.9)) / 0.32) ** 2) * 0.6
+    pebble, pebble_id = cellular(x, z, 0.32, 20)
+    pebbles = smoothstep(0.42, 0.18, pebble) * (pebble_id > 0.55)
+    dirt_height = 0.02 * fine + 0.012 * mid + 0.025 * pebbles - 0.06 * ruts
+    dirt = mix(color((0.42, 0.31, 0.19)), color((0.34, 0.24, 0.15)), smoothstep(-0.3, 0.5, mid))
+    dirt *= (0.88 + 0.16 * fine)[..., None]
+    dirt = mix(dirt, color((0.27, 0.19, 0.12)), np.clip(ruts, 0.0, 1.0) * 0.7)
+    dirt = mix(dirt, color((0.56, 0.50, 0.42)) * (0.85 + 0.3 * pebble_id)[..., None], pebbles * 0.8)
+
+    ripple_angle = 0.6
+    ripple_phase = (x * math.cos(ripple_angle) + z * math.sin(ripple_angle)) + 1.6 * fbm(x, z, 5.0, 3, 30)
+    ripple = 0.5 + 0.5 * np.sin(ripple_phase * math.tau / 1.5)
+    ripple = ripple ** 1.6
+    wet = smoothstep(1.4, 0.6, height)
+    sand_height = (0.03 * ripple + 0.01 * fine) * (1.0 - 0.7 * wet)
+    sand = mix(color((0.86, 0.76, 0.52)), color((0.80, 0.68, 0.46)), smoothstep(-0.3, 0.6, mid))
+    sand *= (0.93 + 0.09 * ripple + 0.05 * fine)[..., None]
+    sand = mix(sand, sand * color((0.62, 0.62, 0.64)), wet)
+
+    strata_phase = height * 1.1 + 2.5 * fbm(x, z, 12.0, 3, 40)
+    strata = strata_phase - np.floor(strata_phase)
+    crack_noise = fbm(x, z, 3.5, 3, 41)
+    cracks = smoothstep(0.06, 0.0, np.abs(crack_noise))
+    lichen = smoothstep(0.35, 0.65, fbm(x, z, 2.5, 3, 42)) * smoothstep(0.9, 0.5, slope)
+    rock_height = 0.12 * smoothstep(0.0, 0.25, strata) * (1.0 - strata) + 0.04 * fine - 0.05 * cracks
+    rock = mix(color((0.43, 0.40, 0.37)), color((0.36, 0.33, 0.30)), smoothstep(-0.3, 0.4, mid))
+    rock *= (0.80 + 0.32 * strata + 0.10 * fine)[..., None]
+    rock = mix(rock, color((0.22, 0.21, 0.20)), cracks * 0.7)
+    rock = mix(rock, color((0.40, 0.42, 0.22)), lichen * 0.45)
+
+    edge = 0.25 * fine + 0.15 * mid
+    dirt_weight = np.maximum(smoothstep(ROAD_HALF + 3.6, ROAD_HALF + 2.2, road + 1.2 * mid + 0.5 * fine), smoothstep(2.6, 0.8, pad + 1.2 * mid))
+    dirt_weight = np.maximum(dirt_weight, smoothstep(0.62, 0.72, blotch + 0.35 * mid) * (1.0 - dry * 0.5) * 0.85)
+    sand_weight = smoothstep(2.9, 2.0, height + 0.6 * mid + edge) * smoothstep(0.68, 0.75, coast + 0.03 * large)
+    sand_weight = np.maximum(sand_weight, smoothstep(0.4, -0.3, height + edge))
+    rock_weight = np.maximum(smoothstep(0.48, 0.62, slope + 0.14 * mid + 0.08 * fine), smoothstep(21.0, 26.0, height + 3.0 * large + edge * 4.0))
+    rock_weight *= smoothstep(-0.6, 0.4, height)
+
+    albedo = grass
+    surface = grass_height
+    for weight, layer, layer_height in ((dirt_weight, dirt, dirt_height), (sand_weight, sand, sand_height), (rock_weight, rock, rock_height)):
+        albedo = mix(albedo, layer, weight)
+        surface = surface + (layer_height - surface) * weight
+
+    albedo = np.clip(albedo, 0.0, 1.0)
+
+    gradient_z, gradient_x = np.gradient(surface, cell)
+    nx, ny = gradient_x * TERRAIN_NORMAL_STRENGTH, -gradient_z * TERRAIN_NORMAL_STRENGTH
+    length = np.sqrt(nx * nx + ny * ny + 1.0)
+    nx, ny = nx / length, ny / length
+
+    srgb = np.where(albedo <= 0.0031308, albedo * 12.92, 1.055 * np.power(albedo, 1.0 / 2.4) - 0.055)
+    pixels = np.ones((size, size, 4))
+    pixels[:, :, :3] = srgb
+    write_map(directory, "TerrainAlbedo", pixels)
+
+    pixels = np.ones((size, size, 4))
+    pixels[:, :, 0] = nx * 0.5 + 0.5
+    pixels[:, :, 1] = ny * 0.5 + 0.5
+    pixels[:, :, 3] = nx * 0.5 + 0.5
+    write_map(directory, "TerrainNormal", pixels)
+
+    blocks = size // SKY_MAP_SIZE
+    print(f"terrain maps: {size}x{size}, {cell * 100.0:.1f} cm per texel")
+    return albedo.reshape(SKY_MAP_SIZE, blocks, SKY_MAP_SIZE, blocks, 3).mean(axis=(1, 3))
+
+
+def tiled_fbm(u, v, period, octaves, seed, gain=0.5):
+    total = np.zeros_like(u)
+    amplitude, norm = 1.0, 0.0
+    for octave in range(octaves):
+        cells = period << octave
+        total += amplitude * value_noise(u * cells, v * cells, seed + octave, cells)
+        norm += amplitude
+        amplitude *= gain
+    return total / norm
+
+
+def tiled_cellular(u, v, period, seed):
+    return cellular(u * period, v * period, 1.0, seed, period)
+
+
+def terrain_detail_maps(directory):
+    size = TERRAIN_DETAIL_SIZE
+    tile = 2.0 * TERRAIN_HALF / TERRAIN_DETAIL_TILING
+    axis = (np.arange(size) + 0.5) / size
+    u, v = np.meshgrid(axis, axis)
+
+    grain = tiled_fbm(u, v, 96, 4, 50)
+    patch = tiled_fbm(u, v, 6, 3, 51)
+
+    clump, clump_id = tiled_cellular(u, v, 84, 52)
+    clump_height = np.clip(1.0 - clump * 1.3, 0.0, 1.0) ** 1.4
+    blade, _ = tiled_cellular(u, v, 220, 53)
+    blade_height = np.clip(1.0 - blade * 1.5, 0.0, 1.0)
+
+    pebble, pebble_id = tiled_cellular(u, v, 34, 54)
+    pebbles = smoothstep(0.32, 0.16, pebble) * (pebble_id > 0.72)
+
+    height = 0.014 * clump_height + 0.006 * blade_height + 0.004 * grain + 0.014 * pebbles
+    shade = 1.0 + 0.42 * (clump_height - 0.3) + 0.18 * blade_height + 0.20 * grain + 0.10 * patch + 0.16 * (clump_id - 0.5)
+    shade += 0.25 * pebbles
+    shade = np.clip(0.5 * shade / shade.mean(), 0.0, 1.0)
+
+    cell = tile / size
+    gradient_v, gradient_u = np.gradient(np.pad(height, 1, mode="wrap"), cell)
+    gradient_u, gradient_v = gradient_u[1:-1, 1:-1], gradient_v[1:-1, 1:-1]
+    nx, ny = gradient_u, -gradient_v
+    length = np.sqrt(nx * nx + ny * ny + 1.0)
+    nx, ny = nx / length, ny / length
+
+    srgb = np.where(shade <= 0.0031308, shade * 12.92, 1.055 * np.power(shade, 1.0 / 2.4) - 0.055)
+    pixels = np.ones((size, size, 4))
+    pixels[:, :, 0] = srgb
+    pixels[:, :, 1] = srgb
+    pixels[:, :, 2] = srgb
+    write_map(directory, "TerrainDetail", pixels)
+
+    pixels = np.ones((size, size, 4))
+    pixels[:, :, 0] = nx * 0.5 + 0.5
+    pixels[:, :, 1] = ny * 0.5 + 0.5
+    pixels[:, :, 3] = nx * 0.5 + 0.5
+    write_map(directory, "TerrainDetailNormal", pixels)
+    print(f"terrain detail: {size}x{size}, {tile:.2f} m tile, {cell * 1000.0:.1f} mm per texel, mean {float(shade.mean()):.3f}")
 
 
 def water(rng):
@@ -509,7 +735,7 @@ def road(rng):
 
     for i in range(ROAD.count):
         j = (i + 1) % ROAD.count
-        road_strip(p, i, j, -ROAD_HALF, ROAD_HALF, 0.0, "Asphalt", rng.randint(2, 4))
+        road_strip(p, i, j, -ROAD_HALF, ROAD_HALF, 0.0, "Asphalt", 3)
 
         for side in (-1.0, 1.0):
             road_strip(p, i, j, side * (ROAD_HALF - 0.55), side * (ROAD_HALF - 0.35), 0.012, "Paint", 4)
@@ -1293,6 +1519,9 @@ def triangle_albedos(objects):
         if obj.name.startswith("Water"):
             albedos.append(np.tile(SKY_MAP_WATER_ALBEDO, (len(mesh.loop_triangles), 1)))
             continue
+        if obj.name.startswith("Terrain"):
+            albedos.append(np.full((len(mesh.loop_triangles), 3), np.nan))
+            continue
         families = np.zeros(len(mesh.polygons), dtype=np.int32)
         shades = np.zeros(len(mesh.polygons), dtype=np.int32)
         mesh.attributes["family"].data.foreach_get("value", families)
@@ -1310,7 +1539,7 @@ def blur(channel):
 
 
 def write_map(directory, name, data):
-    image = bpy.data.images.new(name, SKY_MAP_SIZE, SKY_MAP_SIZE, alpha=True)
+    image = bpy.data.images.new(name, data.shape[1], data.shape[0], alpha=True)
     image.colorspace_settings.name = "Non-Color"
     image.pixels.foreach_set(data[::-1].astype(np.float32).ravel())
     image.filepath_raw = str(directory / f"{name}.png")
@@ -1318,7 +1547,7 @@ def write_map(directory, name, data):
     image.save()
 
 
-def bake_sky_visibility(directory):
+def bake_sky_visibility(directory, terrain_albedo):
     from mathutils.bvhtree import BVHTree
 
     bpy.context.view_layer.update()
@@ -1369,7 +1598,12 @@ def bake_sky_visibility(directory):
                 data[row, column, :3] = (1.0, encode(0.0), encode(0.0))
                 continue
 
-            albedo[row, column, :3] = ground_albedos[ground_index]
+            ground_albedo = ground_albedos[ground_index]
+            if np.isnan(ground_albedo[0]):
+                row_index = min(max(int((z + TERRAIN_HALF) / (2.0 * TERRAIN_HALF) * SKY_MAP_SIZE), 0), SKY_MAP_SIZE - 1)
+                column_index = min(max(int((x + TERRAIN_HALF) / (2.0 * TERRAIN_HALF) * SKY_MAP_SIZE), 0), SKY_MAP_SIZE - 1)
+                ground_albedo = terrain_albedo[row_index, column_index]
+            albedo[row, column, :3] = ground_albedo
             origin = ground_hit + Vector((0.0, SKY_MAP_PROBE_HEIGHT, 0.0))
             rotation = rng.uniform(0.0, math.tau)
             visible = 0
@@ -1403,6 +1637,8 @@ def main():
     PAD_HEIGHT = max(float(np.mean(base_height(pad_x, pad_z)[0])), 2.0)
 
     write_palettes(output.parent)
+    terrain_albedo = terrain_maps(output.parent)
+    terrain_detail_maps(output.parent)
 
     material = bpy.data.materials.new("Palette")
 
@@ -1415,7 +1651,7 @@ def main():
         build_asset(name, function(rng), offset, material)
 
     build_layout(random.Random(42))
-    bake_sky_visibility(output.parent)
+    bake_sky_visibility(output.parent, terrain_albedo)
 
     bpy.ops.wm.save_as_mainfile(filepath=str(output.with_suffix(".blend")))
     bpy.ops.export_scene.gltf(filepath=str(output), export_format="GLB", export_yup=True, export_apply=True, export_normals=True, export_texcoords=True, export_materials="EXPORT", export_cameras=False, export_lights=False)

@@ -40,6 +40,18 @@ void CoastRallyScript::LoadTextures()
     if (m_GroundAlbedoTexture == 0)
         m_GroundAlbedoTexture = LoadTexture(cGroundAlbedoFile, true);
 
+    if (m_TerrainAlbedoTexture == 0)
+        m_TerrainAlbedoTexture = LoadTexture(cTerrainAlbedoFile, true);
+
+    if (m_TerrainNormalTexture == 0)
+        m_TerrainNormalTexture = LoadTexture(cTerrainNormalFile, false, cTerrainNormalSwizzle);
+
+    if (m_TerrainDetailTexture == 0)
+        m_TerrainDetailTexture = LoadTexture(cTerrainDetailFile, true);
+
+    if (m_TerrainDetailNormalTexture == 0)
+        m_TerrainDetailNormalTexture = LoadTexture(cTerrainDetailNormalFile, false, cTerrainNormalSwizzle);
+
     m_HudFont = g_UIRenderer.AddFont(cHudFontFile);
     m_LabelFont = g_UIRenderer.AddFont(cLabelFontFile);
 }
@@ -167,6 +179,18 @@ void CoastRallyScript::CreateMaterials()
         palette->emissive = m_PaletteEmissiveTexture != 0 ? Vec3(20000.0f) : Vec3(0.0f);
     }
 
+    m_TerrainMaterial = CreateMaterial(Vec3(1.0f), Vec3(0.0f), 0.9f);
+
+    if (Material* terrain = FindComponent<Material>(m_TerrainMaterial))
+    {
+        terrain->gpuAlbedoMap = m_TerrainAlbedoTexture != 0 ? m_TerrainAlbedoTexture : m_PaletteTexture;
+        terrain->gpuNormalMap = m_TerrainNormalTexture;
+        terrain->gpuDetailMap = m_TerrainDetailTexture;
+        terrain->gpuDetailNormalMap = m_TerrainDetailNormalTexture;
+        terrain->detailTiling = cTerrainDetailTiling;
+        m_App->GetRenderInterface()->UploadMaterialSampler(*terrain);
+    }
+
     m_CarMaterial = CreateMaterial(Vec3(1.0f), Vec3(0.0f), 0.85f);
 
     if (Material* car = FindComponent<Material>(m_CarMaterial))
@@ -203,7 +227,7 @@ void CoastRallyScript::CreateLevel()
 
     for (const char* asset : cLevelAssets)
     {
-        SetTransform(CreateModel(asset).mRoot, Vec3(0.0f));
+        SetTransform(CreateModel(asset, StringView(asset) == cTerrainAsset ? m_TerrainMaterial : Entity::Null).mRoot, Vec3(0.0f));
 
         if (const auto templates = m_MeshTemplates.find(asset); templates != m_MeshTemplates.end())
             AddCollision(m_LevelTriangles, templates->second, Mat4x4(1.0f));

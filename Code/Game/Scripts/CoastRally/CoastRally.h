@@ -21,6 +21,13 @@ static constexpr const char* cPaletteEmissiveFile = "Assets/CoastRally/PaletteEm
 static constexpr const char* cPaletteSurfaceFile = "Assets/CoastRally/PaletteSurface.png";
 static constexpr const char* cSkyVisibilityFile = "Assets/CoastRally/SkyVisibility.png";
 static constexpr const char* cGroundAlbedoFile = "Assets/CoastRally/GroundAlbedo.png";
+static constexpr const char* cTerrainAlbedoFile = "Assets/CoastRally/TerrainAlbedo.png";
+static constexpr const char* cTerrainNormalFile = "Assets/CoastRally/TerrainNormal.png";
+static constexpr const char* cTerrainDetailFile = "Assets/CoastRally/TerrainDetail.png";
+static constexpr const char* cTerrainDetailNormalFile = "Assets/CoastRally/TerrainDetailNormal.png";
+static constexpr uint8_t cTerrainNormalSwizzle = 0b11'10'01'11;
+static constexpr float cTerrainDetailTiling = 100.0f;
+static constexpr const char* cTerrainAsset = "Terrain";
 static constexpr const char* cHudFontFile = "Assets/Fonts/Bangers-Regular.ttf";
 static constexpr const char* cLabelFontFile = "Assets/Fonts/Inter-Medium.ttf";
 
