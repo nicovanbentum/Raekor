@@ -24,7 +24,7 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
         return float4(1.0, 1.0, 1.0, 1.0);
 
     const float3 ws_pos = ReconstructWorldPosition(inParams.mScreenUV, sky_depth, fc.mInvViewProjectionMatrix);
-    return float4(SampleSkyVisibility(fc.mSkyVisibilityTexture, fc.mSkyVisibilityBounds, fc.mSkyVisibilityParams, ws_pos).xxx, 1.0);
+    return float4(SampleSkyVisibility(fc.mSkyVisibilityTexture, fc.mSkyVisibilityBounds, fc.mSkyVisibilityParams, ws_pos, float3(0.0, 1.0, 0.0)).xxx, 1.0);
 #endif
 
 #ifdef DEBUG_TEXTURE_GBUFFER_VELOCITY

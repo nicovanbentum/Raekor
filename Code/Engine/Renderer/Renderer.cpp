@@ -422,6 +422,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     m_FrameConstants.mSkyVisibilityBounds = m_RenderWorld.GetSun().mSkyVisibilityBounds;
     m_FrameConstants.mSkyVisibilityParams = m_RenderWorld.GetSun().mSkyVisibilityParams;
     m_FrameConstants.mSkyVisibilityTexture = inDevice.GetBindlessHeapIndex(m_Settings.mEnableSkyVisibility && m_RenderWorld.GetSun().mSkyVisibilityMap.IsValid() ? m_RenderWorld.GetSun().mSkyVisibilityMap : m_WhiteTexture);
+    m_FrameConstants.mGroundAlbedoTexture = inDevice.GetBindlessHeapIndex(m_Settings.mEnableSkyVisibility && m_RenderWorld.GetSun().mGroundAlbedoMap.IsValid() ? m_RenderWorld.GetSun().mGroundAlbedoMap : m_WhiteTexture);
     m_FrameConstants.mViewportSize = inViewport.GetRenderSize();
     m_FrameConstants.mNrOfLights = uint32_t(m_RenderWorld.GetLights().size());
     m_FrameConstants.mViewMatrix = vp.GetView();

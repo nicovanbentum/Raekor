@@ -3,13 +3,19 @@
 
 #define SKY_VISIBILITY_PROBE_HEIGHT 0.6
 #define SKY_VISIBILITY_MIN_SPAN 4.0
+#define SKY_VISIBILITY_NORMAL_OFFSET 1.0
 
-float SampleSkyVisibility(uint inTexture, float4 inBounds, float4 inParams, float3 inPosWS)
+float2 GetSkyMapUV(float4 inBounds, float3 inPosWS, float3 inNormal)
+{
+    return (inPosWS.xz + inNormal.xz * SKY_VISIBILITY_NORMAL_OFFSET - inBounds.xy) * inBounds.zw;
+}
+
+
+float SampleSkyVisibility(uint inTexture, float4 inBounds, float4 inParams, float3 inPosWS, float3 inNormal)
 {
     Texture2D<float4> sky_visibility_texture = ResourceDescriptorHeap[NonUniformResourceIndex(inTexture)];
 
-    const float2 uv = (inPosWS.xz - inBounds.xy) * inBounds.zw;
-    const float4 texel = sky_visibility_texture.SampleLevel(SamplerLinearClamp, uv, 0);
+    const float4 texel = sky_visibility_texture.SampleLevel(SamplerLinearClamp, GetSkyMapUV(inBounds, inPosWS, inNormal), 0);
 
     const float ground = inParams.x + texel.g * inParams.y;
     const float top = inParams.x + texel.b * inParams.y;
@@ -19,7 +25,14 @@ float SampleSkyVisibility(uint inTexture, float4 inBounds, float4 inParams, floa
 }
 
 
-float3 EvaluateGroundBounce(float3 inNormal, float4 inSunColor, float3 inSunDirection, float4 inGroundBounce)
+float3 SampleGroundAlbedo(uint inTexture, float4 inBounds, float3 inPosWS, float3 inNormal)
+{
+    Texture2D<float4> ground_albedo_texture = ResourceDescriptorHeap[NonUniformResourceIndex(inTexture)];
+    return ground_albedo_texture.SampleLevel(SamplerLinearClamp, GetSkyMapUV(inBounds, inPosWS, inNormal), 0).rgb;
+}
+
+
+float3 EvaluateGroundBounce(float3 inNormal, float3 inGroundAlbedo, float4 inSunColor, float3 inSunDirection, float4 inGroundBounce)
 {
     if (inGroundBounce.a <= 0.0)
         return 0.0.xxx;
@@ -28,7 +41,7 @@ float3 EvaluateGroundBounce(float3 inNormal, float4 inSunColor, float3 inSunDire
     const float3 sun_irradiance = Absorb(IntegrateOpticalDepth(0.xxx, Wi)) * inSunColor.a * saturate(Wi.y);
     const float ground_view = saturate(0.5 - 0.5 * inNormal.y);
 
-    return inGroundBounce.rgb * inGroundBounce.a * sun_irradiance * ground_view / M_PI;
+    return inGroundBounce.rgb * inGroundAlbedo * inGroundBounce.a * sun_irradiance * ground_view / M_PI;
 }
 
 #endif // SKY_VISIBILITY_HLSLI

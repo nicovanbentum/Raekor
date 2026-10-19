@@ -155,6 +155,11 @@ struct FrameConstants
     uint      mShadowTLAS;
     uint      mSkyVisibilityTexture;
 
+    uint      mGroundAlbedoTexture;
+    uint      mPad0;
+    uint      mPad1;
+    uint      mPad2;
+
     float2    mJitter;
     float2    mPrevJitter;
     

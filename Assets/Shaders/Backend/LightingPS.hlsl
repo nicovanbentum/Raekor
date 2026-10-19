@@ -114,7 +114,7 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0
         }
     }
 
-    const float sky_visibility = SampleSkyVisibility(fc.mSkyVisibilityTexture, fc.mSkyVisibilityBounds, fc.mSkyVisibilityParams, ws_pos);
+    const float sky_visibility = SampleSkyVisibility(fc.mSkyVisibilityTexture, fc.mSkyVisibilityBounds, fc.mSkyVisibilityParams, ws_pos, surface.mNormal);
 
     // evaluate indirect specular
     float3 indirect_specular = rc.mUseReflectionsTexture ? 
@@ -126,7 +126,7 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0
     // evaluate indirect diffuse
     float3 indirect_diffuse = rc.mUseIndirectDiffuseTexture ? 
         indirect_diffuse_texture.SampleLevel(SamplerLinearClamp, inParams.mScreenUV, 0).rgb :
-        ( diffuse_cube_texture.SampleLevel(SamplerLinearClamp, surface.mNormal, 0) * fc.mSunColor.a + EvaluateGroundBounce(surface.mNormal, fc.mSunColor, fc.mSunDirection.xyz, fc.mGroundBounce) ) * sky_visibility;
+        ( diffuse_cube_texture.SampleLevel(SamplerLinearClamp, surface.mNormal, 0) * fc.mSunColor.a + EvaluateGroundBounce(surface.mNormal, SampleGroundAlbedo(fc.mGroundAlbedoTexture, fc.mSkyVisibilityBounds, ws_pos, surface.mNormal), fc.mSunColor, fc.mSunDirection.xyz, fc.mGroundBounce) ) * sky_visibility;
     
     total_radiance += indirect_diffuse * surface.mAlbedo.rgb * (1.0 - surface.mMetallic) * (1.0 - specular_albedo) * ao;
     

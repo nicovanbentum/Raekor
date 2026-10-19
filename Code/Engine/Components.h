@@ -91,6 +91,7 @@ struct DirectionalLight
 	float groundBounce = 0.0f;
 
 	uint32_t skyVisibilityMap = 0;
+	uint32_t groundAlbedoMap = 0;
 	Vec4 skyVisibilityBounds = Vec4(0.0f);
 	Vec2 skyVisibilityHeights = Vec2(0.0f, 1.0f);
 	float skyVisibilityStrength = 1.0f;

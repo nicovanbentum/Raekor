@@ -30,6 +30,7 @@ void CoastRallyScript::CreateSky()
         light->groundAlbedo = cGroundAlbedo;
         light->groundBounce = cGroundBounce;
         light->skyVisibilityMap = m_SkyVisibilityTexture;
+        light->groundAlbedoMap = m_GroundAlbedoTexture;
         light->skyVisibilityBounds = Vec4(-cSkyVisibilityHalfSize, -cSkyVisibilityHalfSize, cSkyVisibilityHalfSize * 2.0f, cSkyVisibilityHalfSize * 2.0f);
         light->skyVisibilityHeights = Vec2(cSkyVisibilityHeightMin, cSkyVisibilityHeightRange);
         light->skyVisibilityStrength = cSkyVisibilityStrength;

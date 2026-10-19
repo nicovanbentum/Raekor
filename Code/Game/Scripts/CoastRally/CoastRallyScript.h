@@ -212,6 +212,7 @@ private:
     uint32_t m_PaletteRoughnessTexture = 0;
     uint32_t m_PaletteMetallicTexture = 0;
     uint32_t m_SkyVisibilityTexture = 0;
+    uint32_t m_GroundAlbedoTexture = 0;
     int m_HudFont = 0;
     int m_LabelFont = 0;
 

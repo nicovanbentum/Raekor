@@ -20,6 +20,7 @@ static constexpr const char* cPaletteFile = "Assets/CoastRally/Palette.png";
 static constexpr const char* cPaletteEmissiveFile = "Assets/CoastRally/PaletteEmissive.png";
 static constexpr const char* cPaletteSurfaceFile = "Assets/CoastRally/PaletteSurface.png";
 static constexpr const char* cSkyVisibilityFile = "Assets/CoastRally/SkyVisibility.png";
+static constexpr const char* cGroundAlbedoFile = "Assets/CoastRally/GroundAlbedo.png";
 static constexpr const char* cHudFontFile = "Assets/Fonts/Bangers-Regular.ttf";
 static constexpr const char* cLabelFontFile = "Assets/Fonts/Inter-Medium.ttf";
 
@@ -129,7 +130,7 @@ static constexpr float cSkyVisibilityHalfSize = 262.0f;
 static constexpr float cSkyVisibilityHeightMin = -5.0f;
 static constexpr float cSkyVisibilityHeightRange = 80.0f;
 static constexpr float cSkyVisibilityStrength = 0.85f;
-static constexpr Vec3  cGroundAlbedo = Vec3(0.22f, 0.27f, 0.13f);
+static constexpr Vec3  cGroundAlbedo = Vec3(1.0f);
 static constexpr float cGroundBounce = 1.0f;
 
 static constexpr Vec3  cHeadlightOffset = Vec3(0.66f, 0.09f, 1.95f);

@@ -37,6 +37,9 @@ void CoastRallyScript::LoadTextures()
     if (m_SkyVisibilityTexture == 0)
         m_SkyVisibilityTexture = LoadTexture(cSkyVisibilityFile, false);
 
+    if (m_GroundAlbedoTexture == 0)
+        m_GroundAlbedoTexture = LoadTexture(cGroundAlbedoFile, true);
+
     m_HudFont = g_UIRenderer.AddFont(cHudFontFile);
     m_LabelFont = g_UIRenderer.AddFont(cLabelFontFile);
 }

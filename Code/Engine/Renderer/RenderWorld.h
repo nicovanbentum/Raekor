@@ -81,6 +81,7 @@ struct RenderSun
     Vec4      mSkyVisibilityBounds = Vec4(0.0f);
     Vec4      mSkyVisibilityParams = Vec4(0.0f);
     TextureID mSkyVisibilityMap;
+    TextureID mGroundAlbedoMap;
     TextureID mCubeMap;
 };
 
