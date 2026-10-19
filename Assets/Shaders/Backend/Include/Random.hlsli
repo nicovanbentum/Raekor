@@ -110,6 +110,31 @@ float InterleavedGradientNoise(float2 pixel)
 }
 
 
+float2 GradientNoiseDirection(float2 inCell)
+{
+    inCell = fmod(inCell, 289.0);
+    float x = fmod((34.0 * inCell.x + 1.0) * inCell.x, 289.0) + inCell.y;
+    x = fmod((34.0 * x + 1.0) * x, 289.0);
+    x = frac(x / 41.0) * 2.0 - 1.0;
+    return normalize(float2(x - floor(x + 0.5), abs(x) - 0.5));
+}
+
+
+float GradientNoise(float2 inUV)
+{
+    const float2 cell = floor(inUV);
+    const float2 f = frac(inUV);
+
+    const float a = dot(GradientNoiseDirection(cell), f);
+    const float b = dot(GradientNoiseDirection(cell + float2(1.0, 0.0)), f - float2(1.0, 0.0));
+    const float c = dot(GradientNoiseDirection(cell + float2(0.0, 1.0)), f - float2(0.0, 1.0));
+    const float d = dot(GradientNoiseDirection(cell + float2(1.0, 1.0)), f - float2(1.0, 1.0));
+
+    const float2 t = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
+    return lerp(lerp(a, b, t.x), lerp(c, d, t.x), t.y) + 0.5;
+}
+
+
 uint TeaHash(uint val0, uint val1) 
 {
     uint v0 = val0;

@@ -32,11 +32,12 @@ public:
 	virtual Slice<ShaderNodePin> GetInputPins() { return Slice<ShaderNodePin>(); }
 	virtual Slice<ShaderNodePin> GetOutputPins() { return Slice<ShaderNodePin>(); }
 
-	virtual Slice<const ShaderNodePin> GetInputPins() const { return Slice<ShaderNodePin>(); }
-	virtual Slice<const ShaderNodePin> GetOutputPins() const { return Slice<ShaderNodePin>(); }
+	Slice<const ShaderNodePin> GetInputPins() const { return const_cast<ShaderNode*>(this)->GetInputPins(); }
+	Slice<const ShaderNodePin> GetOutputPins() const { return const_cast<ShaderNode*>(this)->GetOutputPins(); }
 
 	virtual void DrawImNode(ShaderGraphBuilder& inBuilder) {}
 	virtual String GenerateCode(ShaderGraphBuilder& inBuilder) { return ""; }
+	virtual bool IsOutputNode() const { return false; }
 
 	bool GetIsCollapsed() const { return m_IsCollapsed; }
 	void SetIsCollapsed(bool inValue) { m_IsCollapsed = inValue; }
@@ -82,6 +83,7 @@ public:
 	ShaderNodePin(EKind inKind) : m_Kind(inKind) {}
 
 	static bool sIsCompatible(EKind inFrom, EKind inTo);
+	static StringView sGetDefaultValue(EKind inKind);
 
 	int GetGlobalIndex() const { return m_Index; }
 	void SetGlobalIndex(int inIndex) { m_Index = inIndex; }
@@ -91,6 +93,7 @@ public:
 
 	bool HasLink() const { return m_LinkIndex > -1; }
 	int GetLinkIndex() const { return m_LinkIndex; }
+	void SetLinkIndex(int inIndex) { m_LinkIndex = inIndex; }
 
 	ImU32 GetColor() const { return m_KindColors[m_Kind]; }
 	StringView GetKindName() const { return sKindNames[m_Kind]; }
@@ -146,11 +149,18 @@ public:
 	ShaderNode* CreateShaderNode() { return m_ShaderNodes.emplace_back(std::make_shared<T>()).get(); }
 
 	void DestroyShaderNode(int inIndex);
+	void Clear();
 
 	ShaderNode* GetShaderNode(int inIndex) { return m_ShaderNodes[inIndex].get(); }
 	const ShaderNode* GetShaderNode(int inIndex) const { return m_ShaderNodes[inIndex].get(); }
 
-	const ShaderNodePin* GetIncomingPin(const ShaderNodePin& inPin);
+	const ShaderNodePin* GetIncomingPin(const ShaderNodePin& inPin) const;
+	String GetIncomingValue(const ShaderNodePin& inPin, StringView inDefault) const;
+
+	bool AddLink(int inFromNode, int inFromPin, int inToNode, int inToPin);
+	void RemoveLink(int inIndex);
+	void UpdatePinLinks();
+	bool FindPin(int inNode, int inGlobalPinIndex, bool& outIsOutput, int& outPinIndex);
 
 	Slice<const SharedPtr<ShaderNode>> GetShaderNodes() const { return m_ShaderNodes; }
 
@@ -179,12 +189,22 @@ public:
 
 	const Array<ShaderGraphLink>& GetLinks() const { return m_Links; }
 
+	StringView GetLayout() const { return m_Layout; }
+	void SetLayout(StringView inLayout) { m_Layout = inLayout; }
+
+	const String& GetTemplateFile() const { return m_TemplateFile; }
+	void SetTemplateFile(const String& inFile) { m_TemplateFile = inFile; }
+
+	const String& GetOutputFile() const { return m_OutputFile; }
+	void SetOutputFile(const String& inFile) { m_OutputFile = inFile; }
+
 	bool GetShowNodeIndices() const { return m_ShowNodeIndices; }
 	void SetShowNodeIndices(bool inValue) { m_ShowNodeIndices = inValue; }
 
 	//////////////////////
 	// CODEGEN FUNCTIONS
 	bool GenerateCodeFromTemplate(String& ioCode);
+	bool GenerateCodeFromFiles(const Path& inTemplateFile, const Path& inOutputFile);
 
 	uint32_t GetLineNumber() const { return m_LineNr; }
 	uint32_t IncrLineNumber() { return m_LineNr++; }
@@ -205,6 +225,8 @@ public:
 	void SaveToFileJSON(JSON::WriteArchive& ioArchive);
 	void OpenFromFileJSON(JSON::ReadArchive& ioArchive);
 
+	static bool sGenerateFromGraphFile(const Path& inGraphFile);
+
 private:
 	static inline int m_SnapshotIndex = -1;
 	static inline Array<ShaderGraphBuilder> m_Undo;
@@ -223,6 +245,8 @@ private:
 	int m_OutputPinIndex = -1;
 
 	String m_Layout;
+	String m_TemplateFile;
+	String m_OutputFile;
 	String m_ErrorMessage;
 	
 	Array<String> m_Functions;

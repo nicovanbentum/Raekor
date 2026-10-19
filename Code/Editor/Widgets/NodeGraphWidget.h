@@ -28,7 +28,19 @@ public:
 	void SetActiveShaderGraph(EShaderGraph inShaderGraph);
 
 private:
+	EditingContext& GetContext() { return m_Contexts[m_ActiveGraph]; }
+	ShaderGraphBuilder& GetBuilder() { return m_Builders[m_ActiveGraph]; }
+	ImNodesEditorContext& GetImNodesContext() { return m_ImNodesContexts[m_ActiveGraph]; }
+
+	void OpenGraph(const Path& inFile);
+	void SaveGraph(const Path& inFile);
+	void GenerateCode();
+	void AutoLayout();
+	void DeleteSelection();
+
+private:
 	String m_GeneratedCode;
+	String m_ErrorMessage;
 	bool m_ShowGeneratedCode = false;
 
 	int m_DroppedLinkID = -1;
@@ -44,10 +56,6 @@ private:
 	StaticArray<EditingContext, SHADER_GRAPH_COUNT> m_Contexts;
 	StaticArray<ShaderGraphBuilder, SHADER_GRAPH_COUNT> m_Builders;
 	StaticArray<ImNodesEditorContext, SHADER_GRAPH_COUNT> m_ImNodesContexts;
-	
-	EditingContext& m_Context = m_Contexts[m_ActiveGraph];
-	ShaderGraphBuilder& m_Builder = m_Builders[m_ActiveGraph];
-	ImNodesEditorContext& m_ImNodesContext = m_ImNodesContexts[m_ActiveGraph];
 };
 
 }

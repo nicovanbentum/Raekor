@@ -47,7 +47,7 @@ RTTI_DEFINE_TYPE(SingleOutputShaderNode)
 {
 	RTTI_DEFINE_TYPE_INHERITANCE(SingleOutputShaderNode, ShaderNode);
 
-	RTTI_DEFINE_MEMBER(GetTimeShaderNode, SERIALIZE_ALL, "Output Pin", m_OutputPin);
+	RTTI_DEFINE_MEMBER(SingleOutputShaderNode, SERIALIZE_ALL, "Output Pin", m_OutputPin);
 }
 
 RTTI_DEFINE_TYPE(GetTimeShaderNode) 
@@ -123,6 +123,7 @@ RTTI_DEFINE_TYPE(ProcedureShaderNode)
 {
 	RTTI_DEFINE_TYPE_INHERITANCE(ProcedureShaderNode, ShaderNode);
 
+	RTTI_DEFINE_MEMBER(ProcedureShaderNode, SERIALIZE_ALL, "Title", m_Title);
 	RTTI_DEFINE_MEMBER(ProcedureShaderNode, SERIALIZE_ALL, "Procedure", m_Procedure);
 	RTTI_DEFINE_MEMBER(ProcedureShaderNode, SERIALIZE_ALL, "Show Input Box", m_ShowInputBox);
 	RTTI_DEFINE_MEMBER(ProcedureShaderNode, SERIALIZE_ALL, "Input Names", m_InputNames);
@@ -313,14 +314,8 @@ String FloatOpShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
 {
 	m_OutputPins[0].SetOutVariableName(std::format("FloatOp_Out{}", inBuilder.IncrLineNumber()));
 
-	String lhs = std::format("{:.3f}", m_FloatA);
-	String rhs = std::format("{:.3f}", m_FloatB);
-
-	if (const ShaderNodePin* pin = inBuilder.GetIncomingPin(m_InputPins[0]))
-		lhs = pin->GetOutVariableName();
-
-	if (const ShaderNodePin* pin = inBuilder.GetIncomingPin(m_InputPins[1]))
-		rhs = pin->GetOutVariableName();
+	const String lhs = inBuilder.GetIncomingValue(m_InputPins[0], std::format("{:.3f}", m_FloatA));
+	const String rhs = inBuilder.GetIncomingValue(m_InputPins[1], std::format("{:.3f}", m_FloatB));
 
 	return std::format("float {} = float({} {} {});\n", m_OutputPins[0].GetOutVariableName(), lhs, m_OpSymbols[m_Op], rhs);
 }
@@ -368,9 +363,7 @@ void FloatFunctionShaderNode::DrawImNode(ShaderGraphBuilder& ioBuilder)
 
 String FloatFunctionShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
 {
-	const ShaderNodePin* prev_out_pin = inBuilder.GetIncomingPin(m_InputPin);
-
-	String out_var = prev_out_pin ? String(prev_out_pin->GetOutVariableName()) : "1.0";
+	const String out_var = inBuilder.GetIncomingValue(m_InputPin, "1.0");
 
 	m_OutputPin.SetOutVariableName(std::format("FloatFunction_Out{}", inBuilder.IncrLineNumber()));
 	return std::format("float {} = {}({});\n", m_OutputPin.GetOutVariableName(), m_FunctionCode[m_Function], out_var);
@@ -418,14 +411,7 @@ String VectorValueShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
 
 	for (int i = 0; i < 3; i++)
 	{
-		if (const ShaderNodePin* start_pin = inBuilder.GetIncomingPin(m_InputPins[i]))
-		{
-			code += start_pin->GetOutVariableName();
-		}
-		else
-		{
-			code += std::format("{:.3f}", m_Vector[i]);
-		}
+		code += inBuilder.GetIncomingValue(m_InputPins[i], std::format("{:.3f}", m_Vector[i]));
 
 		if (i < 2)
 			code += ", ";
@@ -497,21 +483,8 @@ String VectorOpShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
 
 	for (int index = 0; index < variables_code.size(); index++)
 	{
-		Vec4& var_vec = m_Vectors[index];
-		String& var_code = variables_code[index];
-		ShaderNodePin& var_pin = m_InputPins[index];
-
-		if (var_pin.HasLink())
-		{
-			ShaderGraphLink& link = inBuilder.GetLink(var_pin.GetLinkIndex());
-			ShaderNode* node = inBuilder.GetShaderNode(link.fromNodeIndex);
-			ShaderNodePin& pin = node->GetOutputPin(link.fromPinIndex);
-			var_code = pin.GetOutVariableName();
-		}
-		else
-		{
-			var_code = std::format("{}({:.3f}, {:.3f}, {:.3f})", m_InputPins[0].GetKindTypeName(), var_vec[0], var_vec[1], var_vec[2]); 
-		}
+		const Vec4& var_vec = m_Vectors[index];
+		variables_code[index] = inBuilder.GetIncomingValue(m_InputPins[index], std::format("float3({:.3f}, {:.3f}, {:.3f})", var_vec[0], var_vec[1], var_vec[2]));
 	}
 
 	code += std::format("float3 {} = {} {} {};\n", m_OutputPins[0].GetOutVariableName(), variables_code[0], m_OpSymbols[m_Op], variables_code[1]);
@@ -564,10 +537,10 @@ String VectorFunctionShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
 {
 	String code = ShaderNode::GenerateCode(inBuilder);
 
-	const ShaderNodePin* prev_out_pin = inBuilder.GetIncomingPin(m_InputPin);
+	const String in_var = inBuilder.GetIncomingValue(m_InputPin, "float3(0.0, 0.0, 0.0)");
 
 	m_OutputPin.SetOutVariableName(std::format("VectorFunction_Out{}", inBuilder.IncrLineNumber()));
-	code += std::format("{} {} = {}({});\n", prev_out_pin->GetKindTypeName(), m_OutputPin.GetOutVariableName(), m_FunctionCode[m_Function], prev_out_pin->GetOutVariableName());
+	code += std::format("float3 {} = {}({});\n", m_OutputPin.GetOutVariableName(), m_FunctionCode[m_Function], in_var);
 
 	return code;
 }
@@ -601,15 +574,11 @@ void VectorSplitShaderNode::DrawImNode(ShaderGraphBuilder& ioBuilder)
 
 String VectorSplitShaderNode::GenerateCode(ShaderGraphBuilder& ioBuilder)
 {
-	if (m_InputPin.HasLink())
-	{
-		const ShaderGraphLink& link = ioBuilder.GetLink(m_InputPin.GetLinkIndex());
-		const ShaderNodePin& pin = ioBuilder.GetShaderNode(link.fromNodeIndex)->GetOutputPin(link.fromPinIndex);
+	const String in_var = ioBuilder.GetIncomingValue(m_InputPin, "float3(0.0, 0.0, 0.0)");
 
-		m_OutputPins[0].SetOutVariableName(std::format("{}.x", pin.GetOutVariableName()));
-		m_OutputPins[1].SetOutVariableName(std::format("{}.y", pin.GetOutVariableName()));
-		m_OutputPins[2].SetOutVariableName(std::format("{}.z", pin.GetOutVariableName()));
-	}
+	m_OutputPins[0].SetOutVariableName(std::format("({}).x", in_var));
+	m_OutputPins[1].SetOutVariableName(std::format("({}).y", in_var));
+	m_OutputPins[2].SetOutVariableName(std::format("({}).z", in_var));
 
 	return ""; // does not emit any new code directly
 }
@@ -661,16 +630,12 @@ String PixelShaderOutputShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
 		{
 			if (strcmp(m_InputNames[index], "Discard") == 0)
 			{
-				code += std::format("Discard({});\n", incoming_pin->GetOutVariableName());
+				code += std::format("if ({}) discard;\n", incoming_pin->GetOutVariableName());
 			}
 			else
 			{
 				code += std::format("Pack{}({}, packed);\n", m_InputNames[index], incoming_pin->GetOutVariableName());
 			}
-		}
-		else
-		{
-			// TODO
 		}
 	}
 
@@ -705,11 +670,10 @@ String VertexShaderOutputShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
 	{
 		if (const ShaderNodePin* incoming_pin = inBuilder.GetIncomingPin(input_pin))
 		{
-			code += std::format("vertex.{} = {};\n", m_MemberNames[index], incoming_pin->GetOutVariableName());
-		}
-		else
-		{
-			// TODO
+			if (strcmp(m_MemberNames[index], "mTexCoord") == 0)
+				code += std::format("vertex.{} = ({}).xy;\n", m_MemberNames[index], incoming_pin->GetOutVariableName());
+			else
+				code += std::format("vertex.{} = {};\n", m_MemberNames[index], incoming_pin->GetOutVariableName());
 		}
 	}
 
@@ -877,10 +841,7 @@ String ProcedureShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
 	// add 'in' call args
 	for (const ShaderNodePin& node_pin : m_InputPins)
 	{
-		if (const ShaderNodePin* output_pin = inBuilder.GetIncomingPin(node_pin))
-		{
-			function_call_args += std::format("{}, ", output_pin->GetOutVariableName());
-		}
+		function_call_args += std::format("{}, ", inBuilder.GetIncomingValue(node_pin, ShaderNodePin::sGetDefaultValue(node_pin.GetKind())));
 	}
 
 	// add 'out' call args
@@ -954,8 +915,8 @@ String CompareShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
 {
 	m_OutputPin.SetOutVariableName(std::format("Compare_Out{}", inBuilder.IncrLineNumber()));
 
-	StringView name_a = inBuilder.GetIncomingPin(m_InputPins[0])->GetOutVariableName();
-	StringView name_b = inBuilder.GetIncomingPin(m_InputPins[1])->GetOutVariableName();
+	const String name_a = inBuilder.GetIncomingValue(m_InputPins[0], "0.0");
+	const String name_b = inBuilder.GetIncomingValue(m_InputPins[1], "0.0");
 
 	return std::format("bool {} = {} {} {};\n", m_OutputPin.GetOutVariableName(), name_a, m_OpSymbols[m_Op], name_b);
 }

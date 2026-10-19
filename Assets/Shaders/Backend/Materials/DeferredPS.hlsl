@@ -1,4 +1,6 @@
+#include "Include/Bindless.hlsli"
 #include "Include/Material.hlsli"
+#include "Include/Packing.hlsli"
 
 struct VS_OUTPUT {
     float4 sv_position : SV_Position;
@@ -8,6 +10,7 @@ struct VS_OUTPUT {
     float3 normal : NORMAL;
     float3 tangent : TANGENT;
     float3 bitangent : BINORMAL;
+    nointerpolation uint instance_index : INSTANCE_INDEX;
 };
 
 struct PS_OUTPUT {
@@ -16,6 +19,7 @@ struct PS_OUTPUT {
     uint selection : SV_Target2;
 };
 
+FRAME_CONSTANTS(fc)
 ROOT_CONSTANTS(GbufferRootConstants, rc)
 
 @Global
@@ -23,12 +27,12 @@ ROOT_CONSTANTS(GbufferRootConstants, rc)
 PS_OUTPUT main(in VS_OUTPUT input) {
     PS_OUTPUT output;
 
-    StructuredBuffer<RTGeometry> geometries = ResourceDescriptorHeap[rc.mInstancesBuffer];
-    StructuredBuffer<RTMaterial> materials = ResourceDescriptorHeap[rc.mMaterialsBuffer];
-    
-    RTGeometry geometry = geometries[rc.mInstanceIndex];
+    StructuredBuffer<RTGeometry> geometries = ResourceDescriptorHeap[fc.mInstancesBuffer];
+    StructuredBuffer<RTMaterial> materials = ResourceDescriptorHeap[fc.mMaterialsBuffer];
+
+    RTGeometry geometry = geometries[input.instance_index];
     RTMaterial material = materials[geometry.mMaterialIndex];
-    
+
     Texture2D albedo_texture = ResourceDescriptorHeap[NonUniformResourceIndex(material.mAlbedoTexture)];
     Texture2D normals_texture = ResourceDescriptorHeap[NonUniformResourceIndex(material.mNormalsTexture)];
     Texture2D emissive_texture = ResourceDescriptorHeap[NonUniformResourceIndex(material.mEmissiveTexture)];
@@ -37,24 +41,22 @@ PS_OUTPUT main(in VS_OUTPUT input) {
     SamplerState material_sampler = GetMaterialSampler(material);
 
     float4 sampled_albedo = albedo_texture.Sample(material_sampler, input.texcoord);
-    float3 sampled_normal = normals_texture.Sample(material_sampler, input.texcoord).rgb; // alpha channel unused
-    float3 sampled_emissive = emissive_texture.Sample(material_sampler, input.texcoord).rgb; // alpha channel unused
-    float sampled_metallic = metallic_texture.Sample(material_sampler, input.texcoord).r; // value swizzled across all channels, just get Red
-    float sampled_roughness = roughness_texture.Sample(material_sampler, input.texcoord).r; // value swizzled across all channels, just get Red
-        
-    //sampled_normal = sampled_normal * 2.0 - 1.0;
+    float3 sampled_normal = normals_texture.Sample(material_sampler, input.texcoord).rgb;
+    float3 sampled_emissive = emissive_texture.Sample(material_sampler, input.texcoord).rgb;
+    float sampled_metallic = metallic_texture.Sample(material_sampler, input.texcoord).r;
+    float sampled_roughness = roughness_texture.Sample(material_sampler, input.texcoord).r;
+
     sampled_normal = ReconstructNormalBC5(sampled_normal.xy);
     ApplyDetailMaps(material, material_sampler, input.texcoord, sampled_albedo, sampled_normal);
-    
+
     float3x3 TBN = float3x3(input.tangent, input.bitangent, input.normal);
     float3 normal = normalize(mul(sampled_normal.xyz, TBN));
-    // normal = normalize(input.normal);
 
     float4 albedo = material.mAlbedo * sampled_albedo;
     float metallic = material.mMetallic * sampled_metallic;
     float roughness = material.mRoughness * sampled_roughness;
     float3 emissive = material.mEmissive.rgb * sampled_emissive;
-    
+
     uint4 packed = uint4(0, 0, 0, 0);
     PackAlbedo(albedo.rgb, packed);
     PackAlpha(albedo.a, packed);
@@ -63,15 +65,16 @@ PS_OUTPUT main(in VS_OUTPUT input) {
     PackMetallicRoughness(metallic, roughness, packed);
 
 @Main
-    
+
     output.gbuffer = asfloat(packed);
-    float2 curr_pos = (input.curr_position.xyz / input.prev_position.w).xy - fc.mJitter;
+
+    float2 curr_pos = (input.curr_position.xyz / input.curr_position.w).xy - fc.mJitter;
     float2 prev_pos = (input.prev_position.xyz / input.prev_position.w).xy - fc.mPrevJitter;
-    
+
     output.motionvectors = (curr_pos - prev_pos);
     output.motionvectors.xy *= float2(0.5, -0.5);
-    
-    output.selection = rc.mEntity;
-    
+
+    output.selection = geometry.mEntity;
+
     return output;
 }

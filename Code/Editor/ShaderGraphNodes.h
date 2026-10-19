@@ -83,9 +83,9 @@ private:
 	StaticArray<ShaderNodePin, 1> m_OutputPins = { ShaderNodePin::FLOAT };
 
 private:
-	Op m_Op;
-	float m_FloatA;
-	float m_FloatB;
+	Op m_Op = MATH_OP_ADD;
+	float m_FloatA = 0.0f;
+	float m_FloatB = 0.0f;
 };
 
 
@@ -387,7 +387,7 @@ public:
 
 class GetTexCoordinateShaderNode : public SingleOutputShaderNode
 {
-	RTTI_DECLARE_VIRTUAL_TYPE(GetPixelCoordShaderNode);
+	RTTI_DECLARE_VIRTUAL_TYPE(GetTexCoordinateShaderNode);
 
 public:
 	GetTexCoordinateShaderNode() : SingleOutputShaderNode("Get Texture Coord", "float3(input.texcoord.xy, 0.0)", ShaderNodePin::VECTOR) {}
@@ -493,6 +493,7 @@ public:
 
 	void DrawImNode(ShaderGraphBuilder& inBuilder) override;
 	String GenerateCode(ShaderGraphBuilder& inBuilder) override;
+	bool IsOutputNode() const override { return true; }
 
 	Slice<ShaderNodePin> GetInputPins() override { return Slice(m_InputPins); }
 
@@ -541,11 +542,12 @@ public:
 
 	void DrawImNode(ShaderGraphBuilder& inBuilder) override;
 	String GenerateCode(ShaderGraphBuilder& inBuilder) override;
+	bool IsOutputNode() const override { return true; }
 
 	Slice<ShaderNodePin> GetInputPins() override { return Slice(m_InputPins); }
 
 private:
-	StaticArray<ShaderNodePin, 7> m_InputPins
+	StaticArray<ShaderNodePin, 4> m_InputPins
 	{
 		ShaderNodePin::VECTOR,
 		ShaderNodePin::VECTOR,
