@@ -1761,6 +1761,9 @@ bool InspectorWidget::DrawComponent(Entity inEntity, DirectionalLight& inDirecti
 	ImGui::SetNextItemRightAlign("Fog Opacity");
 	scene_changed |= ImGui::SliderFloat("##FogOpacity", &inDirectionalLight.fogOpacity, 0.0f, 1.0f);
 
+	ImGui::SetNextItemRightAlign("Sun Disc   ");
+	scene_changed |= ImGui::SliderFloat("##SunDiscSize", &inDirectionalLight.sunDiscSize, 0.0f, 5.0f, "%.2f deg");
+
 	ImGui::SetNextItemRightAlign("Ground     ");
 	scene_changed |= ImGui::ColorEdit3("##GroundAlbedo", glm::value_ptr(inDirectionalLight.groundAlbedo));
 

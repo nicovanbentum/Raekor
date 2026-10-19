@@ -417,6 +417,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     m_FrameConstants.mSunDirection = Vec4(m_RenderWorld.GetSun().mDirection, 0.0f);
     m_FrameConstants.mCameraPosition = Vec4(vp.GetPosition(), 1.0f);
     m_FrameConstants.mFogParams = m_RenderWorld.GetSun().mFog;
+    m_FrameConstants.mSunDisc = m_RenderWorld.GetSun().mSunDisc;
     m_FrameConstants.mGroundBounce = m_Settings.mEnableSkyVisibility ? m_RenderWorld.GetSun().mGroundBounce : Vec4(0.0f);
     m_FrameConstants.mSkyVisibilityBounds = m_RenderWorld.GetSun().mSkyVisibilityBounds;
     m_FrameConstants.mSkyVisibilityParams = m_RenderWorld.GetSun().mSkyVisibilityParams;

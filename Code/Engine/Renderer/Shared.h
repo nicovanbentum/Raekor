@@ -165,6 +165,7 @@ struct FrameConstants
     float4    mGroundBounce;
     float4    mSkyVisibilityBounds;
     float4    mSkyVisibilityParams;
+    float4    mSunDisc;
 
     float4x4  mViewMatrix;
     float4x4  mInvViewMatrix;

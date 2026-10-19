@@ -85,6 +85,8 @@ struct DirectionalLight
 	float fogEnd = 400.0f;
 	float fogOpacity = 0.0f;
 
+	float sunDiscSize = 0.75f;
+
 	Vec3 groundAlbedo = Vec3(0.25f, 0.3f, 0.15f);
 	float groundBounce = 0.0f;
 

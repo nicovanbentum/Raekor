@@ -5,6 +5,7 @@
 #include "Include/Sky.hlsli"
 #include "Include/Fog.hlsli"
 #include "Include/SkyVisibility.hlsli"
+#include "Include/SunDisc.hlsli"
 
 FRAME_CONSTANTS(fc)
 ROOT_CONSTANTS(LightingRootConstants, rc)
@@ -55,7 +56,9 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0
     if (depth == 1.0) 
     {    
         float3 sky_color = max(skycube_texture.SampleLevel(SamplerLinearClamp, ws_pos, 0) * fc.mSunColor.a, 0.0.xxx);
-        return float4(ApplyFog(sky_color, skycube_texture, fc.mFogParams, ws_pos, fc.mFogParams.y, fc.mSunColor.a), 1.0);
+        sky_color = ApplyFog(sky_color, skycube_texture, fc.mFogParams, ws_pos, fc.mFogParams.y, fc.mSunColor.a);
+        sky_color += EvaluateSunDisc(normalize(ws_pos - fc.mCameraPosition.xyz), fc.mSunColor, fc.mSunDirection.xyz, fc.mSunDisc);
+        return float4(sky_color, 1.0);
     }
 
     // indirect diffuse and specular are attenuated by ambient occlusion

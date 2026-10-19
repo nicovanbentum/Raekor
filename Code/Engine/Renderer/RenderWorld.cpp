@@ -281,6 +281,12 @@ void RenderWorld::Extract(const Scene& inScene, const Device& inDevice, float in
             m_Sun.mEnabled = true;
             m_Sun.mColor = sun_light->GetColor();
             m_Sun.mFog = Vec4(sun_light->fogStart, glm::max(sun_light->fogEnd, sun_light->fogStart + 0.01f), glm::clamp(sun_light->fogOpacity, 0.0f, 1.0f), 0.0f);
+
+            if (sun_light->sunDiscSize > 0.0f)
+            {
+                const float radius = glm::radians(glm::min(sun_light->sunDiscSize, 45.0f));
+                m_Sun.mSunDisc = Vec4(glm::cos(radius), glm::two_pi<float>() * ( 1.0f - glm::cos(radius) ), radius, 0.0f);
+            }
             m_Sun.mCubeMap = gToTextureID(sun_light->cubeMap);
             m_Sun.mGroundBounce = Vec4(sun_light->groundAlbedo, glm::max(sun_light->groundBounce, 0.0f));
 
