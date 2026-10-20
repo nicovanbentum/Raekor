@@ -32,6 +32,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 	if (ImGui::BeginMainMenuBar())
 	{
+		DrawLogo();
 		DrawFileMenu();
 		DrawEditMenu();
 		DrawViewMenu(inWidgets);
@@ -51,6 +52,33 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 	DrawShortcutsWindow();
 	DrawAboutWindow();
+}
+
+
+void MenubarWidget::DrawLogo()
+{
+	if (!m_LogoLoaded)
+	{
+		m_LogoLoaded = true;
+
+		const String logo_file = TextureAsset::Convert("Assets/Logo.png");
+
+		if (TextureAsset::Ptr logo_asset = GetAssets().GetAsset<TextureAsset>(logo_file))
+			m_LogoTexture = GetRenderInterface().UploadTextureFromAsset(logo_asset);
+	}
+
+	if (m_LogoTexture == 0)
+		return;
+
+	const ImVec2 bar_min = ImGui::GetWindowPos();
+	const float bar_height = ImGui::GetWindowSize().y;
+	const float logo_size = ImFloor(bar_height * 0.62f);
+
+	const ImVec2 logo_min = ImVec2(ImGui::GetCursorScreenPos().x, bar_min.y + ImFloor(( bar_height - logo_size ) * 0.5f));
+	const ImTextureID logo_id = ImTextureID(GetRenderInterface().GetImGuiTextureID(m_LogoTexture));
+
+	ImGui::GetWindowDrawList()->AddImage(logo_id, logo_min, ImVec2(logo_min.x + logo_size, logo_min.y + logo_size));
+	ImGui::Dummy(ImVec2(logo_size, 0.0f));
 }
 
 

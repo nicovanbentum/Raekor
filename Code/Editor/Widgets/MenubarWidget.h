@@ -25,6 +25,7 @@ private:
 	void DrawToolsMenu();
 	void DrawHelpMenu();
 	void DrawTitleBar();
+	void DrawLogo();
 
 	void DrawShortcutsWindow();
 	void DrawAboutWindow();
@@ -34,6 +35,8 @@ private:
 
 	bool m_ShowShortcuts = false;
 	bool m_ShowAbout = false;
+	bool m_LogoLoaded = false;
+	uint32_t m_LogoTexture = 0;
 };
 
 }
