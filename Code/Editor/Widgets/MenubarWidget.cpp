@@ -625,7 +625,7 @@ void MenubarWidget::DrawAboutWindow()
 
 void MenubarWidget::SaveScreenshot()
 {
-	const String save_path = OS::sSaveFileDialog("Uncompressed PNG (*.png) ", "png");
+	const String save_path = OS::sSaveFileDialog("Uncompressed PNG (*.png)\0*.png\0", "png");
 
 	if (!save_path.empty())
 		GetRenderInterface().RequestScreenshot(save_path);
