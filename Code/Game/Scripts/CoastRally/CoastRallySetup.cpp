@@ -3,20 +3,48 @@
 
 namespace RK {
 
-uint32_t CoastRallyScript::LoadTexture(const char* inFile, bool inSRGB, uint8_t inSwizzle)
+String CoastRallyScript::ConvertTexture(const String& inFile)
 {
-    if (!fs::exists(inFile))
-        return 0;
-
     const String cached = TextureAsset::GetCachedPath(inFile);
 
     if (!fs::exists(cached) || fs::last_write_time(cached) < fs::last_write_time(inFile))
         TextureAsset::Convert(inFile);
 
+    return cached;
+}
+
+
+uint32_t CoastRallyScript::LoadTexture(const char* inFile, bool inSRGB, uint8_t inSwizzle)
+{
+    if (!fs::exists(inFile))
+        return 0;
+
+    const String cached = ConvertTexture(inFile);
+
     Assets* assets = m_App->GetAssets();
     TextureAsset::Ptr asset = assets ? assets->GetAsset<TextureAsset>(cached) : nullptr;
 
     return asset ? m_App->GetRenderInterface()->UploadTextureFromAsset(asset, inSRGB, inSwizzle) : 0;
+}
+
+
+uint32_t CoastRallyScript::LoadCarTexture(const String& inCachedFile, bool inSRGB, uint8_t inSwizzle, uint32_t inDefault)
+{
+    if (inCachedFile.empty())
+        return inDefault;
+
+    const String key = std::format("{}:{}", inCachedFile, inSwizzle);
+
+    if (const auto texture = m_CarTextures.find(key); texture != m_CarTextures.end())
+        return texture->second;
+
+    Assets* assets = m_App->GetAssets();
+    TextureAsset::Ptr asset = assets ? assets->GetAsset<TextureAsset>(inCachedFile) : nullptr;
+
+    const uint32_t texture = asset ? m_App->GetRenderInterface()->UploadTextureFromAsset(asset, inSRGB, inSwizzle) : inDefault;
+    m_CarTextures[key] = texture;
+
+    return texture;
 }
 
 
@@ -194,23 +222,6 @@ void CoastRallyScript::CreateMaterials()
         m_App->GetRenderInterface()->UploadMaterialSampler(*terrain);
     }
 
-    m_CarMaterial = CreateMaterial(Vec3(1.0f), Vec3(0.0f), 0.85f);
-
-    if (Material* car = FindComponent<Material>(m_CarMaterial))
-    {
-        car->gpuAlbedoMap = m_PaletteTexture;
-        car->gpuEmissiveMap = m_PaletteEmissiveTexture;
-        car->emissive = m_PaletteEmissiveTexture != 0 ? Vec3(20000.0f) : Vec3(0.0f);
-
-        if (m_PaletteRoughnessTexture != 0 && m_PaletteMetallicTexture != 0)
-        {
-            car->gpuRoughnessMap = m_PaletteRoughnessTexture;
-            car->gpuMetallicMap = m_PaletteMetallicTexture;
-            car->roughness = 1.0f;
-            car->metallic = 1.0f;
-        }
-    }
-
     m_WaterMaterial = CreateMaterial(Vec3(0.03f, 0.2f, 0.28f), Vec3(0.0f), 0.08f);
 
     if (Material* water = FindComponent<Material>(m_WaterMaterial))
@@ -220,13 +231,6 @@ void CoastRallyScript::CreateMaterials()
         m_App->GetRenderInterface()->CompileMaterialShaders(m_WaterMaterial, *water);
     }
     m_BrakeMaterial = CreateMaterial(Vec3(1.0f, 0.1f, 0.06f), Vec3(1.0f, 0.1f, 0.06f) * cBrakeLightIntensity, 0.3f);
-    m_GlassMaterial = CreateMaterial(cGlassColor, Vec3(0.0f), 0.02f);
-
-    if (Material* glass = FindComponent<Material>(m_GlassMaterial))
-    {
-        glass->albedo.a = cGlassOpacity;
-        glass->blendMode = MATERIAL_BLEND_MODE_BLENDED;
-    }
 
     m_BeamMaterial = CreateMaterial(Vec3(0.0f), Vec3(0.0f), 1.0f, 1.0f);
 

@@ -90,6 +90,16 @@ public:
         node.mHidden = false;
     }
 
+    void SetTransform(Node inNode, const Mat4x4& inLocal)
+    {
+        if (inNode == Node::Null)
+            return;
+
+        NodeData& node = m_Nodes[uint32_t(inNode)];
+        node.mLocal = inLocal;
+        node.mHidden = false;
+    }
+
     void Park(Node inNode)
     {
         if (inNode != Node::Null)

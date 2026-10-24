@@ -3,14 +3,112 @@
 
 namespace RK {
 
-void CoastRallyScript::CreateCar()
+void CoastRallyScript::CreateCarModel()
 {
-    m_CarModel = CreateModel("Car", m_CarMaterial);
-    m_BrakeNode = FindPart(m_CarModel, "Brake");
-    SetMaterial(FindPart(m_CarModel, "Glass"), m_GlassMaterial);
+    m_CarModel.mRoot = m_Nodes.Create();
 
     for (Node& wheel : m_WheelNodes)
-        wheel = CreateModel("Wheel", m_CarMaterial).mRoot;
+        wheel = m_Nodes.Create();
+
+    for (const fs::directory_entry& file : fs::recursive_directory_iterator(Path(cCarModelFile).parent_path()))
+    {
+        const Path extension = file.path().extension();
+
+        if (extension == ".png" || extension == ".jpg")
+            ConvertTexture(file.path().string());
+    }
+
+    Scene scene(nullptr);
+    GltfImporter importer(scene, nullptr);
+
+    if (!importer.LoadFromFile(cCarModelFile, nullptr))
+    {
+        Log(std::format("Failed to load {}", cCarModelFile));
+        return;
+    }
+
+    scene.UpdateTransforms();
+
+    HashMap<Entity, Entity> materials;
+
+    for (const auto& [entity, source] : scene.Each<Material>())
+    {
+        const Entity material_entity = CreateEntity(scene.Get<Name>(entity).name);
+        Material& material = m_Scene->Add<Material>(material_entity, source);
+
+        material.gpuAlbedoMap = LoadCarTexture(material.albedoFile, true, material.gpuAlbedoMapSwizzle, Material::Default.gpuAlbedoMap);
+        material.gpuNormalMap = LoadCarTexture(material.normalFile, false, material.gpuNormalMapSwizzle, Material::Default.gpuNormalMap);
+        material.gpuEmissiveMap = LoadCarTexture(material.emissiveFile, false, material.gpuEmissiveMapSwizzle, Material::Default.gpuEmissiveMap);
+        material.gpuMetallicMap = LoadCarTexture(material.metallicFile, false, material.gpuMetallicMapSwizzle, Material::Default.gpuMetallicMap);
+        material.gpuRoughnessMap = LoadCarTexture(material.roughnessFile, false, material.gpuRoughnessMapSwizzle, Material::Default.gpuRoughnessMap);
+        m_App->GetRenderInterface()->UploadMaterialSampler(material);
+
+        materials[entity] = material_entity;
+    }
+
+    for (const auto& [entity, mesh] : scene.Each<Mesh>())
+    {
+        Entity pivot = Entity::Null;
+        int wheel = -1;
+        bool shadow = false;
+
+        for (Entity node = entity; node != Entity::Null && wheel < 0 && !shadow; node = scene.GetParent(node))
+        {
+            const Name* name = scene.GetPtr<Name>(node);
+
+            if (name == nullptr)
+                continue;
+
+            shadow = name->name == cCarShadowNode;
+
+            for (const auto& [wheel_node, wheel_index] : cCarWheelNodes)
+            {
+                if (name->name == wheel_node)
+                {
+                    pivot = node;
+                    wheel = wheel_index;
+                }
+            }
+        }
+
+        if (shadow)
+            continue;
+
+        const Mat4x4& world = scene.Get<Transform>(entity).worldTransform;
+        Mat4x4 local = glm::translate(Mat4x4(1.0f), cCarModelOffset) * world;
+
+        if (wheel >= 0)
+        {
+            const Mat4x4& pivot_world = scene.Get<Transform>(pivot).worldTransform;
+
+            Mat4x4 pivot_frame = Mat4x4(1.0f);
+            pivot_frame[0] = Vec4(glm::normalize(Vec3(pivot_world[0])), 0.0f);
+            pivot_frame[1] = Vec4(glm::normalize(Vec3(pivot_world[1])), 0.0f);
+            pivot_frame[2] = Vec4(glm::normalize(Vec3(pivot_world[2])), 0.0f);
+            pivot_frame[3] = pivot_world[3];
+
+            local = glm::inverse(pivot_frame) * world;
+        }
+
+        const auto material = materials.find(mesh.material);
+        const Node node = m_Nodes.CreateMesh(mesh, material != materials.end() ? material->second : Entity::Null, wheel >= 0 ? m_WheelNodes[wheel] : m_CarModel.mRoot);
+        m_Nodes.SetTransform(node, local);
+
+        const String& name = scene.Get<Name>(entity).name;
+        m_CarModel.mParts.push_back(ModelPart { .mName = name, .mNode = node });
+
+        if (name == cCarTailLightNode)
+        {
+            m_BrakeNode = node;
+            m_TailLightMaterial = material != materials.end() ? material->second : Entity::Null;
+        }
+    }
+}
+
+
+void CoastRallyScript::CreateCar()
+{
+    CreateCarModel();
 
     for (Entity& entity : m_HeadlightEntities)
     {
@@ -50,10 +148,10 @@ void CoastRallyScript::CreateCar()
 
     const StaticArray<Vec3, WHEEL_COUNT> wheel_positions =
     {
-        Vec3(cWheelOffset.x, cWheelOffset.y, cFrontWheelZ),
-        Vec3(-cWheelOffset.x, cWheelOffset.y, cFrontWheelZ),
-        Vec3(cWheelOffset.x, cWheelOffset.y, cRearWheelZ),
-        Vec3(-cWheelOffset.x, cWheelOffset.y, cRearWheelZ),
+        cFrontWheelOffset,
+        cFrontWheelOffset * Vec3(-1.0f, 1.0f, 1.0f),
+        cRearWheelOffset,
+        cRearWheelOffset * Vec3(-1.0f, 1.0f, 1.0f),
     };
 
     for (int index = 0; index < WHEEL_COUNT; index++)
@@ -434,8 +532,7 @@ void CoastRallyScript::UpdateCarVisuals()
 
     for (int index = 0; index < WHEEL_COUNT; index++)
     {
-        const bool left = index == WHEEL_FRONT_LEFT || index == WHEEL_REAR_LEFT;
-        const JPH::RMat44 transform = m_Vehicle->GetWheelWorldTransform(index, left ? -JPH::Vec3::sAxisX() : JPH::Vec3::sAxisX(), JPH::Vec3::sAxisY());
+        const JPH::RMat44 transform = m_Vehicle->GetWheelWorldTransform(index, -JPH::Vec3::sAxisX(), JPH::Vec3::sAxisY());
 
         SetTransform(m_WheelNodes[index], ToVec3(transform.GetTranslation()), ToQuat(transform.GetQuaternion()));
     }
@@ -448,7 +545,7 @@ void CoastRallyScript::UpdateCarVisuals()
         SetTransform(m_HeadlightEntities[index], m_CarPosition + m_CarRotation * offset, headlight_rotation);
     }
 
-    SetMaterial(m_BrakeNode, m_Braking ? m_BrakeMaterial : m_CarMaterial);
+    SetMaterial(m_BrakeNode, m_Braking ? m_BrakeMaterial : m_TailLightMaterial);
 }
 
 } // RK

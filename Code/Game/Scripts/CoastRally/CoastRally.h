@@ -52,13 +52,17 @@ static constexpr StaticArray<const char*, 9> cSoundEffects =
     cImpactSound, cLandSound, cSplashSound, cResetSound, cConeSound, cBarrelSound, cCrateSound, cHaySound, cSelectSound
 };
 
+static constexpr const char* cCarModelFile = "Assets/Models/free_porsche_911/scene.gltf";
+static constexpr Vec3  cCarModelOffset = Vec3(0.0f, -0.84f, -0.3f);
+static constexpr const char* cCarShadowNode = "Plane.015_62";
+static constexpr const char* cCarTailLightNode = "Circle.008_58";
+
 static constexpr Vec3  cCarHalfExtents = Vec3(0.86f, 0.3f, 2.0f);
 static constexpr float cCarMass = 1250.0f;
 static constexpr float cWheelRadius = 0.36f;
 static constexpr float cWheelWidth = 0.26f;
-static constexpr Vec3  cWheelOffset = Vec3(0.94f, -0.05f, 0.0f);
-static constexpr float cFrontWheelZ = 1.3f;
-static constexpr float cRearWheelZ = -1.28f;
+static constexpr Vec3  cFrontWheelOffset = Vec3(0.83f, -0.05f, 1.3f);
+static constexpr Vec3  cRearWheelOffset = Vec3(0.94f, -0.05f, -1.28f);
 static constexpr float cSuspensionMinLength = 0.12f;
 static constexpr float cSuspensionMaxLength = 0.42f;
 static constexpr float cSuspensionFrequency = 1.7f;
@@ -67,7 +71,7 @@ static constexpr float cCenterOfMassHeight = -0.55f;
 static constexpr float cMaxPitchRollAngle = glm::radians(60.0f);
 static constexpr float cAntiRollStiffness = 9000.0f;
 static constexpr float cMaxSteerAngle = glm::radians(36.0f);
-static constexpr float cWheelBase = cFrontWheelZ - cRearWheelZ;
+static constexpr float cWheelBase = cFrontWheelOffset.z - cRearWheelOffset.z;
 static constexpr float cFrontLateralGrip = 1.7f;
 static constexpr float cRearLateralGrip = 1.55f;
 static constexpr float cLongitudinalGrip = 1.5f;
@@ -112,8 +116,6 @@ static constexpr float cEngineSoundRPM = 3000.0f;
 static constexpr Vec3 cParkedPosition = Vec3(0.0f, -200.0f, 0.0f);
 
 static constexpr float cBrakeLightIntensity = 60000.0f;
-static constexpr Vec3  cGlassColor = Vec3(0.015f, 0.02f, 0.025f);
-static constexpr float cGlassOpacity = 0.6f;
 
 static constexpr float cDayLength = 360.0f;
 static constexpr float cStartTimeOfDay = 0.35f;
@@ -140,7 +142,7 @@ static constexpr float cSkyVisibilityStrength = 0.85f;
 static constexpr Vec3  cGroundAlbedo = Vec3(1.0f);
 static constexpr float cGroundBounce = 1.0f;
 
-static constexpr Vec3  cHeadlightOffset = Vec3(0.66f, 0.09f, 1.95f);
+static constexpr Vec3  cHeadlightOffset = Vec3(0.66f, -0.14f, 2.3f);
 static constexpr Vec3  cHeadlightColor = Vec3(1.0f, 0.9f, 0.72f);
 static constexpr float cHeadlightIntensity = 6000000.0f;
 static constexpr float cHeadlightRange = 80.0f;
@@ -247,6 +249,15 @@ enum EWheel
     WHEEL_REAR_LEFT,
     WHEEL_REAR_RIGHT,
     WHEEL_COUNT
+};
+
+static constexpr StaticArray<std::pair<const char*, int>, 5> cCarWheelNodes =
+{
+    std::pair("Circle.051_37", WHEEL_FRONT_LEFT),
+    std::pair("Circle.048_52", WHEEL_FRONT_LEFT),
+    std::pair("Circle.037_2", WHEEL_FRONT_RIGHT),
+    std::pair("Circle.050_51", WHEEL_REAR_LEFT),
+    std::pair("Circle.038_1", WHEEL_REAR_RIGHT)
 };
 
 

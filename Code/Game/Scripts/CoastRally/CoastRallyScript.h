@@ -90,7 +90,9 @@ private:
     void DestroyRuntimeEntities();
     void NewGame();
 
+    static String ConvertTexture(const String& inFile);
     uint32_t LoadTexture(const char* inFile, bool inSRGB, uint8_t inSwizzle = TEXTURE_SWIZZLE_RGBA);
+    uint32_t LoadCarTexture(const String& inCachedFile, bool inSRGB, uint8_t inSwizzle, uint32_t inDefault);
     void LoadTextures();
     void ReleaseModels();
     void LoadModels();
@@ -106,6 +108,7 @@ private:
     void ToggleGodMode();
     void CreateCamera();
 
+    void CreateCarModel();
     void CreateCar();
     void DestroyCar();
     void PlaceCar(const Vec3& inPosition, const Vec3& inForward);
@@ -220,6 +223,7 @@ private:
     uint32_t m_TerrainDetailTexture = 0;
     uint32_t m_TerrainDetailNormalTexture = 0;
     uint32_t m_BeamGradientTexture = 0;
+    HashMap<String, uint32_t> m_CarTextures;
     int m_HudFont = 0;
     int m_LabelFont = 0;
 
@@ -236,10 +240,9 @@ private:
 
     Entity m_PaletteMaterial = Entity::Null;
     Entity m_TerrainMaterial = Entity::Null;
-    Entity m_CarMaterial = Entity::Null;
     Entity m_WaterMaterial = Entity::Null;
     Entity m_BrakeMaterial = Entity::Null;
-    Entity m_GlassMaterial = Entity::Null;
+    Entity m_TailLightMaterial = Entity::Null;
     Entity m_BeamMaterial = Entity::Null;
 
     JPH::TriangleList m_LevelTriangles;

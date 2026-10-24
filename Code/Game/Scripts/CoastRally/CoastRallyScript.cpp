@@ -351,6 +351,7 @@ void CoastRallyScript::DestroyRuntimeEntities()
     m_StreetLampEntities.clear();
     m_LighthouseLightEntities.fill(Entity::Null);
     m_LighthouseBeamNode = Node::Null;
+    m_TailLightMaterial = Entity::Null;
     m_Placements.clear();
     m_PropPlacements.clear();
     m_Waypoints.clear();
